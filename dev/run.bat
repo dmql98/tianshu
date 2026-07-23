@@ -29,13 +29,13 @@ timeout /t 1 /nobreak >nul
 
 :: Start server
 echo Starting TianShu Server on :3210 ...
-start "TianShu Server" cmd /k "cd /d %~dp0web\server && npx tsx src\index.ts"
-timeout /t 2 /nobreak >nul
+start "TianShu Server" cmd /k "cd /d %~dp0web\server && node_modules\.bin\tsx.cmd src\index.ts"
+timeout /t 3 /nobreak >nul
 
 :: Start client
 echo Starting TianShu Client on :5173 ...
-start "TianShu Client" cmd /k "cd /d %~dp0web\client && npx vite"
-timeout /t 3 /nobreak >nul
+start "TianShu Client" cmd /k "cd /d %~dp0web\client && node_modules\.bin\vite.cmd --port 5173 --host"
+timeout /t 4 /nobreak >nul
 
 :: Open browser
 start "" "http://localhost:5173"
