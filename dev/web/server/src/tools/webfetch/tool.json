@@ -1,0 +1,32 @@
+﻿{
+    "parameters": {
+        "properties": {
+            "url": {
+                "type": "string",
+                "description": "The HTTP or HTTPS URL to fetch content from"
+            },
+            "format": {
+                "type": "string",
+                "enum": ["text", "markdown", "html"],
+                "description": "The format to return the content in (text, markdown, or html). Defaults to markdown."
+            },
+            "readable": {
+                "type": "boolean",
+                "description": "When true, extract the main article content (Reader Mode) before converting. Only applies to HTML pages. Defaults to false."
+            },
+            "timeout": {
+                "type": "number",
+                "description": "Optional timeout in seconds (max 120)"
+            }
+        },
+        "type": "object",
+        "required": ["url"]
+    },
+    "source": "builtin",
+    "description": "Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML",
+    "dangerous": false,
+    "version": "1.1.0",
+    "tags": ["web"],
+    "author": "Yi-Lin",
+    "name": "webfetch"
+}

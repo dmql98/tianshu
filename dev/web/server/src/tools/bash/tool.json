@@ -1,0 +1,27 @@
+﻿{
+    "parameters":  {
+                       "properties":  {
+                                          "command":  {
+                                                          "type":  "string",
+                                                          "description":  "Shell command to execute"
+                                                      }
+                                      },
+                       "type":  "object",
+                       "required":  [
+                                        "command"
+                                    ]
+                   },
+    "source":  "builtin",
+    "description":  "Execute a shell command in the workspace directory",
+    "dangerous":  true,
+    "version":  "1.0.0",
+    "tags":  [
+                 "system"
+             ],
+    "author":  "Yi-Lin",
+    "name":  "bash",
+    "constraintFields":  [
+        {"key": "allowed_commands", "label": "允许的命令", "type": "string-list", "placeholder": "例: npm, node, git, npx", "validateArg": "command", "validateRule": "exact-allow"},
+        {"key": "denied_patterns", "label": "禁止的模式", "type": "string-list", "placeholder": "例: rm -rf, sudo, del", "validateArg": "command", "validateRule": "substring-deny"}
+    ]
+}

@@ -1,0 +1,33 @@
+﻿{
+    "parameters":  {
+                       "properties":  {
+                                          "content":  {
+                                                          "type":  "string",
+                                                          "description":  "File content"
+                                                      },
+                                          "path":  {
+                                                       "type":  "string",
+                                                       "description":  "Path relative to workspace"
+                                                   }
+                                      },
+                       "type":  "object",
+                       "required":  [
+                                        "path",
+                                        "content"
+                                    ]
+                   },
+    "source":  "builtin",
+    "description":  "Write content to a file in the workspace",
+    "dangerous":  true,
+    "version":  "1.0.0",
+    "tags":  [
+                 "filesystem"
+             ],
+    "author":  "Yi-Lin",
+    "name":  "write",
+    "constraintFields":  [
+        {"key": "allowed_paths", "label": "允许的路径", "type": "string-list", "placeholder": "例: /src/**", "validateArg": "path", "validateRule": "glob-allow"},
+        {"key": "denied_paths", "label": "禁止的路径", "type": "string-list", "placeholder": "例: node_modules/**", "validateArg": "path", "validateRule": "glob-deny"},
+        {"key": "max_file_size", "label": "最大文件体积", "type": "string", "placeholder": "例: 1MB, 512KB", "validateArg": "content", "validateRule": "bytes-max"}
+    ]
+}

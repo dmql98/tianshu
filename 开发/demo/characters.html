@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 · 角色</title>
+<style>
+:root{
+  --bg-main:#f5f0e8;--bg-card:#ede6da;--bg-hover:#e0d8cc;--bg-input:#faf8f4;
+  --border:rgba(180,160,130,0.15);--border-light:rgba(180,160,130,0.08);
+  --gold:#c8960a;--gold-light:#f5d68a;--jade:#2a9d5c;--cinnabar:#c45c3c;
+  --ink-deep:#2c2418;--ink-mid:#5c5040;--ink-light:#8a7d68;--ink-faint:#b8a890;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
+.app{display:flex;height:100vh}
+.nav-rail{width:60px;min-width:60px;z-index:10;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
+.nav-item .nav-label{font-size:9px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.page-header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.page-title{font-size:18px;font-weight:600}
+.header-actions{display:flex;gap:8px;align-items:center}
+.search-input{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-deep);font-size:12px;outline:none;font-family:inherit;width:180px}
+.search-input:focus{border-color:var(--gold)}
+.btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);cursor:pointer;font-size:13px;font-family:inherit}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.btn.primary{background:var(--gold);color:#fff;border-color:var(--gold)}
+.btn.primary:hover{background:#b08508;color:#fff}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
+.group-title{font-size:12px;font-weight:600;color:var(--ink-light);margin:16px 0 8px;letter-spacing:0.5px}
+.group-title:first-child{margin-top:0}
+.star-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:8px}
+.star-card{border-radius:14px;background:var(--bg-card);border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:all 0.2s}
+.star-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 4px 20px rgba(200,150,10,0.1)}
+.star-art{height:160px;display:flex;align-items:center;justify-content:center;font-size:56px;position:relative;overflow:hidden}
+.star-art img{width:100%;height:100%;object-fit:cover}
+.star-info{padding:14px}
+.star-name{font-size:15px;font-weight:600;margin-bottom:2px}
+.star-title{font-size:11px;color:var(--ink-light);margin-bottom:6px}
+.star-desc{font-size:12px;color:var(--ink-mid);line-height:1.5;margin-bottom:10px}
+.star-tags{display:flex;gap:6px;flex-wrap:wrap}
+.star-tag{padding:2px 8px;border-radius:4px;font-size:10px;background:var(--bg-hover);color:var(--ink-light)}
+.star-tag.gold{background:rgba(200,150,10,0.1);color:var(--gold)}
+.star-tag.jade{background:rgba(42,157,92,0.1);color:var(--jade)}
+.star-tag.blue{background:rgba(37,99,235,0.1);color:#2563eb}
+.star-stats{display:flex;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light)}
+.star-stat{flex:1;text-align:center;position:relative}
+.star-stat+.star-stat::before{content:'';position:absolute;left:0;top:2px;bottom:2px;width:1px;background:var(--border-light)}
+.star-stat-value{font-size:14px;font-weight:600;color:var(--ink-deep)}
+.star-stat-label{font-size:9px;color:var(--ink-light);margin-top:1px}
+.star-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:0 2px}
+.star-active{font-size:10px;color:var(--ink-faint)}
+.star-spark{display:flex;align-items:flex-end;gap:2px;height:16px}
+.star-spark i{width:3px;border-radius:1px;background:var(--gold);opacity:0.5}
+.star-spark i:nth-child(odd){opacity:0.85}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail">
+    <div class="nav-logo" title="天枢">天</div>
+    <button class="nav-item" onclick="location.href='chat.html'" title="会话">💬<span class="nav-label">会话</span></button>
+    <button class="nav-item active" title="角色">🎭<span class="nav-label">角色</span></button>
+    <button class="nav-item" onclick="location.href='skills.html'" title="技能">⚡<span class="nav-label">技能</span></button>
+    <button class="nav-item" onclick="location.href='tools.html'" title="工具">🔧<span class="nav-label">工具</span></button>
+    <button class="nav-item" onclick="location.href='mcp.html'" title="MCP">🔗<span class="nav-label">MCP</span></button>
+    <button class="nav-item" onclick="location.href='knowledge.html'" title="知识库">📚<span class="nav-label">知识</span></button>
+    <button class="nav-item" onclick="location.href='market.html'" title="市场">🏪<span class="nav-label">市场</span></button>
+    <div style="width:28px;height:1px;background:var(--border);margin:6px 0"></div>
+    <button class="nav-item" onclick="location.href='events.html'" title="事件">⚡<span class="nav-label">事件</span></button>
+    <div style="flex:1"></div>
+    <button class="nav-item" onclick="location.href='settings.html'" title="设置">⚙️<span class="nav-label">设置</span></button>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <span class="page-title">角色管理</span>
+      <div class="header-actions">
+        <input class="search-input" placeholder="搜索角色..."/>
+        <button class="btn primary">+ 新建角色</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <div class="group-title">中枢</div>
+      <div class="star-grid">
+        <div class="star-card" onclick="location.href='character-detail.html'">
+          <div class="star-art" style="background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(124,58,237,0.03));font-size:56px">👑</div>
+          <div class="star-info">
+            <div class="star-name">紫微</div>
+            <div class="star-title">万能中枢</div>
+            <div class="star-desc">沉稳威严的帝王，负责统筹协调与任务分配。</div>
+            <div class="star-tags">
+              <span class="star-tag jade">已启用</span>
+              <span class="star-tag blue">主 Agent</span>
+              <span class="star-tag">Bypass</span>
+              <span class="star-tag">kimi-k2.7-code</span>
+            </div>
+            <div class="star-stats">
+              <div class="star-stat"><div class="star-stat-value">42</div><div class="star-stat-label">会话</div></div>
+              <div class="star-stat"><div class="star-stat-value">1.2K</div><div class="star-stat-label">调用</div></div>
+              <div class="star-stat"><div class="star-stat-value">100%</div><div class="star-stat-label">成功率</div></div>
+            </div>
+            <div class="star-foot">
+              <span class="star-active">活跃于 10 分钟前</span>
+              <div class="star-spark"><i style="height:40%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:90%"></i><i style="height:65%"></i><i style="height:100%"></i><i style="height:80%"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group-title">默认</div>
+      <div class="star-grid">
+        <div class="star-card" onclick="location.href='character-detail.html'">
+          <div class="star-art" style="background:linear-gradient(135deg,rgba(200,150,10,0.08),rgba(200,150,10,0.03))"><img src="star-art.jpg"/></div>
+          <div class="star-info">
+            <div class="star-name">长庚</div>
+            <div class="star-title">日常执事</div>
+            <div class="star-desc">温润如玉的青衫书生，擅长日常事务处理与文件管理。</div>
+            <div class="star-tags">
+              <span class="star-tag jade">已启用</span>
+              <span class="star-tag blue">主/子</span>
+              <span class="star-tag">Ask</span>
+              <span class="star-tag">kimi-k2.5</span>
+            </div>
+            <div class="star-stats">
+              <div class="star-stat"><div class="star-stat-value">128</div><div class="star-stat-label">会话</div></div>
+              <div class="star-stat"><div class="star-stat-value">4.2K</div><div class="star-stat-label">调用</div></div>
+              <div class="star-stat"><div class="star-stat-value">98%</div><div class="star-stat-label">成功率</div></div>
+            </div>
+            <div class="star-foot">
+              <span class="star-active">活跃中</span>
+              <div class="star-spark"><i style="height:60%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:95%"></i><i style="height:70%"></i><i style="height:85%"></i><i style="height:100%"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="star-card" onclick="location.href='character-detail.html'">
+          <div class="star-art" style="background:linear-gradient(135deg,rgba(37,99,235,0.08),rgba(37,99,235,0.03));font-size:56px">⚙️</div>
+          <div class="star-info">
+            <div class="star-name">天璇</div>
+            <div class="star-title">代码工匠</div>
+            <div class="star-desc">理性冷静的工程师，专注于代码编写与调试。</div>
+            <div class="star-tags">
+              <span class="star-tag jade">已启用</span>
+              <span class="star-tag blue">主/子</span>
+              <span class="star-tag">Ask</span>
+              <span class="star-tag">deepseek-v4-pro</span>
+            </div>
+            <div class="star-stats">
+              <div class="star-stat"><div class="star-stat-value">96</div><div class="star-stat-label">会话</div></div>
+              <div class="star-stat"><div class="star-stat-value">3.8K</div><div class="star-stat-label">调用</div></div>
+              <div class="star-stat"><div class="star-stat-value">97%</div><div class="star-stat-label">成功率</div></div>
+            </div>
+            <div class="star-foot">
+              <span class="star-active">活跃于 2 小时前</span>
+              <div class="star-spark"><i style="height:50%"></i><i style="height:75%"></i><i style="height:60%"></i><i style="height:85%"></i><i style="height:100%"></i><i style="height:55%"></i><i style="height:70%"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="star-card" onclick="location.href='character-detail.html'">
+          <div class="star-art" style="background:linear-gradient(135deg,rgba(5,150,105,0.08),rgba(5,150,105,0.03));font-size:56px">📝</div>
+          <div class="star-info">
+            <div class="star-name">文曲</div>
+            <div class="star-title">掌墨使</div>
+            <div class="star-desc">温雅博学的藏书家，擅长文档写作与知识整理。</div>
+            <div class="star-tags">
+              <span class="star-tag jade">已启用</span>
+              <span class="star-tag blue">主 Agent</span>
+              <span class="star-tag">Plan</span>
+              <span class="star-tag">glm-5.2</span>
+            </div>
+            <div class="star-stats">
+              <div class="star-stat"><div class="star-stat-value">87</div><div class="star-stat-label">会话</div></div>
+              <div class="star-stat"><div class="star-stat-value">3.1K</div><div class="star-stat-label">调用</div></div>
+              <div class="star-stat"><div class="star-stat-value">99%</div><div class="star-stat-label">成功率</div></div>
+            </div>
+            <div class="star-foot">
+              <span class="star-active">活跃于昨天</span>
+              <div class="star-spark"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:65%"></i><i style="height:90%"></i><i style="height:50%"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group-title">开发</div>
+      <div class="star-grid">
+        <div class="star-card" onclick="location.href='character-detail.html'">
+          <div class="star-art" style="background:linear-gradient(135deg,rgba(37,99,235,0.08),rgba(37,99,235,0.03));font-size:56px">⚙️</div>
+          <div class="star-info">
+            <div class="star-name">天璇</div>
+            <div class="star-title">代码工匠</div>
+            <div class="star-desc">理性冷静的工程师，专注于代码编写与调试。</div>
+            <div class="star-tags">
+              <span class="star-tag jade">已启用</span>
+              <span class="star-tag blue">主/子</span>
+              <span class="star-tag">Ask</span>
+              <span class="star-tag">deepseek-v4-pro</span>
+            </div>
+            <div class="star-stats">
+              <div class="star-stat"><div class="star-stat-value">96</div><div class="star-stat-label">会话</div></div>
+              <div class="star-stat"><div class="star-stat-value">3.8K</div><div class="star-stat-label">调用</div></div>
+              <div class="star-stat"><div class="star-stat-value">97%</div><div class="star-stat-label">成功率</div></div>
+            </div>
+            <div class="star-foot">
+              <span class="star-active">活跃于 2 小时前</span>
+              <div class="star-spark"><i style="height:50%"></i><i style="height:75%"></i><i style="height:60%"></i><i style="height:85%"></i><i style="height:100%"></i><i style="height:55%"></i><i style="height:70%"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 · 会话</title>
+<style>
+:root {
+  --bg-main: #f5f0e8; --bg-card: #ede6da; --bg-hover: #e0d8cc; --bg-input: #faf8f4;
+  --border: rgba(180,160,130,0.15); --border-light: rgba(180,160,130,0.08);
+  --gold: #c8960a; --gold-light: #f5d68a; --jade: #2a9d5c; --cinnabar: #c45c3c;
+  --ink-deep: #2c2418; --ink-mid: #5c5040; --ink-light: #8a7d68; --ink-faint: #b8a890;
+  --star-changgeng: #c8960a; --star-tianxuan: #2563eb; --star-wenqu: #059669; --star-ziwei: #7c3aed;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
+::selection{background:var(--gold-light);color:var(--ink-deep)}
+.app{display:flex;height:100vh;position:relative}
+.nav-rail{width:60px;min-width:60px;z-index:10;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer;transition:transform 0.2s}
+.nav-logo:hover{transform:scale(1.05)}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
+.nav-item .nav-label{font-size:9px;line-height:1}
+.nav-item .nav-badge{position:absolute;top:2px;right:2px;min-width:14px;height:14px;padding:0 3px;background:var(--cinnabar);border-radius:7px;font-size:8px;font-weight:600;color:#fff;display:flex;align-items:center;justify-content:center}
+.nav-divider{width:28px;height:1px;background:var(--border);margin:6px 0}
+.nav-spacer{flex:1}
+.ctx-panel{width:220px;min-width:220px;z-index:9;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 0.25s,min-width 0.25s,opacity 0.25s}
+.ctx-panel.hidden{width:0;min-width:0;opacity:0;border:none}
+.ctx-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ctx-title{font-size:13px;font-weight:600;color:var(--ink-mid)}
+.ctx-actions{display:flex;gap:4px}
+.ctx-actions button{width:22px;height:22px;border-radius:4px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:12px}
+.ctx-actions button:hover{background:var(--bg-hover);color:var(--ink-deep)}
+.ctx-search{padding:8px 10px 6px}
+.ctx-search input{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-deep);font-size:12px;outline:none;font-family:inherit;transition:border-color 0.15s}
+.ctx-search input:focus{border-color:var(--gold)}
+.ctx-search input::placeholder{color:var(--ink-faint)}
+.ctx-body{flex:1;overflow-y:auto;padding:0 8px}
+.project-item{margin-bottom:4px}
+.project-header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.15s;font-size:13px;font-weight:500;color:var(--ink-mid)}
+.project-header:hover{background:var(--bg-hover)}
+.project-header.active{background:rgba(200,150,10,0.06);color:var(--gold)}
+.project-icon{font-size:14px;opacity:0.7}
+.project-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-arrow{font-size:9px;color:var(--ink-faint);transition:transform 0.2s;opacity:0.5}
+.project-arrow.open{transform:rotate(90deg);opacity:1}
+.project-children{padding-left:12px;margin-top:2px}
+.session-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.15s;margin-bottom:2px;position:relative}
+.session-item:hover{background:var(--bg-hover)}
+.session-item.active{background:rgba(200,150,10,0.06)}
+.session-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--gold);border-radius:1px}
+.session-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;opacity:0.8}
+.session-item.active .session-dot{opacity:1}
+.session-dot.chat{background:var(--jade)}
+.session-dot.event{background:var(--gold)}
+.session-info{flex:1;min-width:0}
+.session-title{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-mid);font-weight:400}
+.session-item.active .session-title{color:var(--ink-deep);font-weight:500}
+.session-meta{font-size:10px;color:var(--ink-light);display:flex;gap:6px;margin-top:2px;align-items:center}
+.session-badge{font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(200,150,10,0.1);color:var(--gold);font-weight:500}
+.subsession-item{padding-left:32px}
+.subsession-item .session-dot{width:5px;height:5px}
+.subsession-item .session-title{font-size:12px}
+.add-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);cursor:pointer;font-size:12px;margin:4px 10px 8px;transition:all 0.15s}
+.add-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(200,150,10,0.04)}
+.ctx-divider{height:1px;background:var(--border);margin:8px 10px}
+.event-group{margin-top:4px}
+.event-group-title{font-size:11px;font-weight:600;color:var(--ink-light);padding:4px 12px;letter-spacing:0.5px}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;z-index:2;overflow:hidden}
+.route-bar{height:32px;display:flex;align-items:center;padding:0 20px;position:relative;overflow:hidden;background:linear-gradient(90deg,transparent,rgba(200,150,10,0.08),transparent);border-bottom:1px solid var(--border-light)}
+.route-bar .route-text{font-size:12px;color:var(--gold);letter-spacing:2px;z-index:2}
+.meteor{position:absolute;top:50%;width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),#fff);border-radius:2px;transform:translateY(-50%);animation:meteorFly 3s ease-out infinite;box-shadow:0 0 10px rgba(200,150,10,0.5)}
+@keyframes meteorFly{0%{left:-10%;opacity:0}10%{opacity:1}60%{left:70%;opacity:1}100%{left:110%;opacity:0}}
+.chat-scroll{flex:1;overflow-y:auto;padding:20px 28px;display:flex;flex-direction:column;gap:16px}
+.chat-scroll::-webkit-scrollbar{width:6px}
+.chat-scroll::-webkit-scrollbar-thumb{background:var(--ink-faint);border-radius:3px}
+.msg-group{display:flex;flex-direction:column;gap:4px;max-width:75%}
+.msg-group.user{align-self:flex-end;align-items:flex-end}
+.msg-group.star{align-self:flex-start;align-items:flex-start}
+.msg-sender{display:flex;align-items:center;gap:6px;padding:0 4px;font-size:11px;color:var(--ink-light)}
+.msg-sender .star-icon{font-size:14px}
+.msg-sender .star-name{font-weight:600;color:var(--ink-mid)}
+.msg-sender .star-title{color:var(--ink-faint)}
+.msg-bubble{padding:12px 16px;border-radius:14px;font-size:14px;line-height:1.65;position:relative;word-break:break-word}
+.msg-group.star .msg-bubble{background:var(--bg-card);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--ink-deep)}
+.msg-group.user .msg-bubble{background:var(--gold);color:#fff;border-bottom-right-radius:4px}
+.msg-time{font-size:10px;color:var(--ink-faint);padding:0 4px}
+.thinking-block{margin-bottom:8px;padding:8px 12px;background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.12);border-left:3px solid var(--star-tianxuan);border-radius:8px;font-size:12px;color:var(--ink-mid)}
+.thinking-block .th-header{font-size:10px;color:var(--star-tianxuan);margin-bottom:4px}
+.tool-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;margin-top:6px;font-size:11px;cursor:pointer;transition:all 0.15s;border:1px solid var(--border)}
+.tool-tag.success{background:rgba(42,157,92,0.06);border-color:rgba(42,157,92,0.2);color:var(--jade)}
+.tool-tag.success:hover{background:rgba(42,157,92,0.12)}
+.tool-tag.error{background:rgba(196,92,60,0.06);border-color:rgba(196,92,60,0.2);color:var(--cinnabar)}
+.tool-tag .expand-icon{margin-left:4px;font-size:10px;transition:transform 0.2s}
+.tool-tag.expanded .expand-icon{transform:rotate(90deg)}
+.tool-detail{margin-top:4px;padding:8px 10px;border-radius:6px;background:var(--bg-input);border:1px solid var(--border);font-size:11px;color:var(--ink-light);font-family:monospace;max-height:120px;overflow-y:auto;display:none}
+.tool-detail.show{display:block}
+.input-area{border-top:1px solid var(--border-light);background:var(--bg-card)}
+.input-top-bar{display:flex;align-items:center;gap:8px;padding:8px 28px;border-bottom:1px solid var(--border);background:var(--bg-card)}
+.input-top-bar .menu-btn{width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.input-top-bar .menu-btn:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.input-top-bar .session-name{font-size:13px;font-weight:500;color:var(--ink-mid);flex:1}
+.input-top-bar .edit-btn{width:24px;height:24px;border-radius:4px;border:none;background:transparent;color:var(--ink-faint);cursor:pointer;font-size:12px}
+.input-top-bar .edit-btn:hover{color:var(--gold)}
+.input-top-bar .top-btn{width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.input-top-bar .top-btn:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.input-top-bar .top-btn.active{color:var(--gold);background:rgba(200,150,10,0.08)}
+.input-main{display:flex;gap:12px;align-items:stretch;padding:12px 28px 14px}
+.input-star-avatar{width:130px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;border:2px solid var(--star-color,var(--gold));background:var(--bg-hover);transition:all 0.2s;overflow:hidden;border-radius:16px}
+.input-star-avatar:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(200,150,10,0.2)}
+.input-star-avatar::after{content:'';position:absolute;bottom:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:var(--jade);border:2px solid var(--bg-card);z-index:1}
+.input-star-avatar img{transform:scale(1.4) translateY(+8%)}
+.input-box{flex:1;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);overflow:visible;position:relative;transition:border-color 0.2s,box-shadow 0.2s;min-height:80px}
+.input-box:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(200,150,10,0.08)}
+.chat-textarea{flex:1;padding:10px 14px;padding-bottom:36px;border:none;background:transparent;color:var(--ink-deep);font-family:inherit;font-size:14px;resize:none;outline:none;min-height:24px;max-height:120px;line-height:1.5}
+.chat-textarea::placeholder{color:var(--ink-faint)}
+.input-bottom{display:flex;align-items:center;gap:6px;padding:6px 10px}
+.input-bottom .tool-btn{padding:4px 8px;border-radius:4px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:11px;font-family:inherit;display:flex;align-items:center;gap:4px}
+.input-bottom .tool-btn:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.input-actions{position:absolute;bottom:8px;right:10px;display:flex;align-items:center;gap:6px}
+.input-actions .model-select{padding:4px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--ink-light);cursor:pointer;font-size:11px;font-family:inherit}
+.input-actions .model-select:hover{border-color:var(--gold);color:var(--gold)}
+.send-btn{width:32px;height:32px;border-radius:8px;border:none;background:var(--gold);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0;transition:all 0.2s;display:flex;align-items:center;justify-content:center}
+.send-btn:hover{background:#b08508;box-shadow:0 0 16px rgba(200,150,10,0.3)}
+.right-panel{width:240px;min-width:240px;z-index:9;background:var(--bg-card);border-left:1px solid var(--border);display:flex;flex-direction:column;transition:width 0.25s,min-width 0.25s,opacity 0.25s}
+.right-panel.hidden{width:0;min-width:0;opacity:0;border:none;overflow:hidden}
+.rp-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.rp-title{font-size:13px;font-weight:600;color:var(--ink-mid)}
+.rp-close{cursor:pointer;color:var(--ink-faint);font-size:14px}
+.rp-close:hover{color:var(--ink-deep)}
+.rp-body{flex:1;overflow-y:auto;padding:0}
+.rp-art-card{position:relative;overflow:hidden}
+.rp-art{width:100%;height:180px;display:flex;align-items:center;justify-content:center;font-size:64px}
+.rp-art-info{padding:12px 14px}
+.rp-art-name{font-size:16px;font-weight:600;color:var(--ink-deep);margin-bottom:2px}
+.rp-art-title{font-size:12px;color:var(--ink-light);margin-bottom:4px}
+.rp-art-desc{font-size:11px;color:var(--ink-mid);line-height:1.5}
+.rp-section{padding:12px 14px;margin-bottom:0;border-top:1px solid var(--border-light)}
+.rp-section-title{font-size:11px;font-weight:600;color:var(--ink-light);margin-bottom:8px;letter-spacing:0.5px}
+.rp-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px}
+.rp-row .label{color:var(--ink-light)}
+.rp-row .value{color:var(--ink-mid);font-weight:500}
+.rp-meter{height:4px;border-radius:2px;background:var(--bg-hover);overflow:hidden;margin-top:4px}
+.rp-meter .fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--jade),var(--gold))}
+.rp-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.rp-stat{padding:8px;border-radius:6px;text-align:center;background:var(--bg-input);border:1px solid var(--border-light)}
+.rp-stat-value{font-size:16px;font-weight:600;color:var(--ink-deep)}
+.rp-stat-label{font-size:10px;color:var(--ink-light);margin-top:2px}
+.file-panel{width:240px;min-width:240px;z-index:9;background:var(--bg-card);border-left:1px solid var(--border);display:flex;flex-direction:column;transition:width 0.25s,min-width 0.25s,opacity 0.25s}
+.file-panel.hidden{width:0;min-width:0;opacity:0;border:none;overflow:hidden}
+.fp-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.fp-title{font-size:13px;font-weight:600;color:var(--ink-mid)}
+.fp-close{cursor:pointer;color:var(--ink-faint);font-size:14px}
+.fp-close:hover{color:var(--ink-deep)}
+.fp-body{flex:1;overflow-y:auto;padding:12px}
+.fp-section{margin-bottom:12px}
+.fp-section-title{font-size:11px;font-weight:600;color:var(--ink-light);margin-bottom:8px;letter-spacing:0.5px}
+.fp-file-item{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--ink-mid)}
+.fp-file-icon{font-size:12px;flex-shrink:0}
+.fp-file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-file-del{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:12px;padding:2px;line-height:1}
+.fp-file-del:hover{color:var(--cinnabar)}
+.file-toggle-btn{position:fixed;right:260px;top:50%;transform:translateY(-50%);z-index:20;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--ink-light);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.file-toggle-btn:hover{border-color:var(--gold);color:var(--gold)}
+.rp-ws-item{display:flex;align-items:center;gap:6px;padding:4px 0}
+.rp-ws-path{flex:1;font-size:11px;color:var(--ink-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace}
+.rp-ws-del{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:12px;padding:2px;line-height:1}
+.rp-ws-del:hover{color:var(--cinnabar)}
+.rp-file-item{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--ink-mid)}
+.rp-file-icon{font-size:12px;flex-shrink:0}
+.rp-file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rp-file-del{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:12px;padding:2px;line-height:1}
+.rp-file-del:hover{color:var(--cinnabar)}
+.approval-overlay{position:fixed;inset:0;z-index:100;background:rgba(44,36,24,0.4);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center}
+.approval-dialog{width:400px;padding:20px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 20px 60px rgba(44,36,24,0.2)}
+.approval-title{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--ink-deep)}
+.approval-desc{font-size:13px;color:var(--ink-mid);margin-bottom:12px;line-height:1.6}
+.approval-path{padding:8px 12px;border-radius:8px;margin-bottom:14px;background:var(--bg-input);border:1px solid var(--border);font-family:monospace;font-size:12px;color:var(--gold);word-break:break-all}
+.approval-actions{display:flex;gap:8px}
+.approval-btn{flex:1;padding:10px;border-radius:8px;border:none;font-family:inherit;font-size:13px;cursor:pointer;transition:all 0.2s}
+.approval-btn.reject{background:transparent;color:var(--cinnabar);border:1px solid var(--cinnabar)}
+.approval-btn.once{background:var(--bg-hover);color:var(--ink-deep)}
+.approval-btn.always{background:var(--gold);color:#fff}
+.page-content{flex:1;overflow-y:auto;padding:24px 32px}
+.page-title{font-size:20px;font-weight:600;margin-bottom:16px;color:var(--ink-deep)}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card-item{padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);cursor:pointer;transition:all 0.2s}
+.card-item:hover{border-color:var(--gold)}
+.card-icon{font-size:20px;margin-bottom:6px}
+.card-title{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--ink-deep)}
+.card-desc{font-size:11px;color:var(--ink-light);line-height:1.5}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px}
+.empty-title{font-size:16px;color:var(--ink-mid);font-weight:500}
+.empty-hint{font-size:12px;color:var(--ink-faint)}
+.star-picker{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+.star-card{width:140px;padding:20px 16px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);cursor:pointer;transition:all 0.2s;text-align:center}
+.star-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 4px 16px rgba(200,150,10,0.12)}
+.star-card .sc-icon{font-size:32px;margin-bottom:8px}
+.star-card .sc-name{font-size:14px;font-weight:600;color:var(--ink-deep);margin-bottom:2px}
+.star-card .sc-title{font-size:11px;color:var(--ink-light)}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail">
+    <div class="nav-logo" title="天枢">天</div>
+    <button class="nav-item active" data-nav="chat" onclick="location.href='chat.html'" title="会话">💬<span class="nav-label">会话</span></button>
+    <button class="nav-item" data-nav="characters" onclick="location.href='characters.html'" title="角色">🎭<span class="nav-label">角色</span></button>
+    <button class="nav-item" data-nav="skills" onclick="location.href='skills.html'" title="技能">⚡<span class="nav-label">技能</span></button>
+    <button class="nav-item" data-nav="tools" onclick="location.href='tools.html'" title="工具">🔧<span class="nav-label">工具</span></button>
+    <button class="nav-item" data-nav="mcp" onclick="location.href='mcp.html'" title="MCP">🔗<span class="nav-label">MCP</span></button>
+    <button class="nav-item" data-nav="knowledge" onclick="location.href='knowledge.html'" title="知识库">📚<span class="nav-label">知识</span></button>
+    <button class="nav-item" data-nav="market" onclick="location.href='market.html'" title="市场">🏪<span class="nav-label">市场</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-item" data-nav="events" onclick="location.href='events.html'" title="事件">⚡<span class="nav-label">事件</span><span class="nav-badge">2</span></button>
+    <div class="nav-spacer"></div>
+    <button class="nav-item" data-nav="settings" onclick="location.href='settings.html'" title="设置">⚙️<span class="nav-label">设置</span></button>
+  </nav>
+
+  <aside class="ctx-panel" id="ctxPanel">
+    <div class="ctx-header">
+      <span class="ctx-title">会话</span>
+    </div>
+    <div class="ctx-search"><input placeholder="搜索会话..."/></div>
+    <div class="add-btn" onclick="alert('新建项目')">+ 新建项目</div>
+    <div class="ctx-body">
+      <div class="project-item">
+        <div class="project-header active" onclick="toggleProject(this)">
+          <span class="project-icon">📁</span><span class="project-name">Yi-Lin 开发</span><span class="project-arrow open">▶</span>
+        </div>
+        <div class="project-children" style="display:block;">
+          <div class="session-item active" onclick="selectSession(this)"><div class="session-dot chat"></div><div class="session-info"><div class="session-title">前端优化方案</div><div class="session-meta"><span>刚刚</span><span class="session-badge">天璇</span></div></div></div>
+          <div class="session-item" onclick="selectSession(this)"><div class="session-dot chat"></div><div class="session-info"><div class="session-title">UI 设计讨论</div><div class="session-meta"><span>2小时前</span></div></div></div>
+          <div class="session-item subsession-item" onclick="selectSession(this)"><div class="session-dot chat"></div><div class="session-info"><div class="session-title">代码审查</div><div class="session-meta"><span>子会话 · 1小时前</span></div></div></div>
+          <div class="session-item subsession-item" onclick="selectSession(this)"><div class="session-dot chat"></div><div class="session-info"><div class="session-title">Bug 修复</div><div class="session-meta"><span>子会话 · 30分钟前</span></div></div></div>
+          <div class="session-item" onclick="selectSession(this)"><div class="session-dot event"></div><div class="session-info"><div class="session-title">自动测试执行</div><div class="session-meta"><span>15:28</span><span class="session-badge">事件</span></div></div></div>
+        </div>
+      </div>
+      <div class="project-item">
+        <div class="project-header" onclick="toggleProject(this)"><span class="project-icon">📁</span><span class="project-name">LeAgent 研究</span><span class="project-arrow">▶</span></div>
+        <div class="project-children" style="display:none;"><div class="session-item" onclick="selectSession(this)"><div class="session-dot chat"></div><div class="session-info"><div class="session-title">架构分析</div><div class="session-meta"><span>昨天</span></div></div></div></div>
+      </div>
+      <div class="project-item">
+        <div class="project-header" onclick="toggleProject(this)"><span class="project-icon">📁</span><span class="project-name">日常杂务</span><span class="project-arrow">▶</span></div>
+        <div class="project-children" style="display:none;"><div class="session-item" onclick="selectSession(this)"><div class="session-dot chat"></div><div class="session-info"><div class="session-title">周报润色</div><div class="session-meta"><span>昨天</span><span class="session-badge">文曲</span></div></div></div></div>
+      </div>
+      <div class="ctx-divider"></div>
+      <div class="event-group">
+        <div class="event-group-title">事件</div>
+        <div class="session-item" onclick="selectSession(this)"><div class="session-dot event"></div><div class="session-info"><div class="session-title">代码审查 - main</div><div class="session-meta"><span>等待执行</span></div></div></div>
+        <div class="session-item" onclick="selectSession(this)"><div class="session-dot" style="background:var(--star-tianxuan)"></div><div class="session-info"><div class="session-title">UI 优化自动测试</div><div class="session-meta"><span>执行中 · 12分钟</span></div></div></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="route-bar" id="routeBar" style="display:none;"><span class="route-text" id="routeText"></span><div class="meteor"></div></div>
+    <div id="page-chat" style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;">
+      <div class="input-top-bar">
+        <button class="menu-btn" onclick="toggleCtxPanel()" title="展开/收起侧栏">☰</button>
+        <span class="session-name" id="sessionTitle">前端优化方案</span>
+        <button class="top-btn" title="编辑会话名">⋯</button>
+        <div style="flex:1"></div>
+        <button class="top-btn" onclick="toggleRightPanel()" title="星官详情">👤</button>
+        <button class="top-btn" onclick="toggleFilePanel()" title="文件">📁</button>
+      </div>
+      <div class="chat-scroll" id="chatScroll"></div>
+      <div class="input-area">
+        <div class="input-main">
+          <div class="input-star-avatar" id="starAvatar" title="当前星官">
+            <img id="idleFrame" src="frames/frame_0001.jpg" style="width:100%;height:100%;object-fit:cover"/>
+          </div>
+          <div class="input-box">
+            <textarea class="chat-textarea" id="chatInput" rows="1" placeholder="与长庚对话... (@提及, /plan /ask /bypass)"></textarea>
+            <div class="input-bottom">
+              <button class="tool-btn" title="附件">+ 附件</button>
+              <button class="tool-btn" title="权限">🔓 完全访问</button>
+            </div>
+            <div class="input-actions">
+              <button class="model-select" title="切换模型">kimi-k2.5 ⌄</button>
+              <button class="send-btn" onclick="sendMessage()" title="发送">⬆</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-characters" class="page-content" style="display:none;"><div class="page-title">角色管理</div><p style="color:var(--ink-light);">角色立绘与配置...</p></div>
+    <!-- 其他页面已独立为单独文件 -->
+  </main>
+
+  <aside class="right-panel" id="rightPanel">
+    <div class="rp-header"><span class="rp-title" id="rpTitle">星官详情</span><span class="rp-close" onclick="toggleRightPanel()">✕</span></div>
+    <div class="rp-body" id="rpBody"></div>
+  </aside>
+
+  <aside class="file-panel" id="filePanel">
+    <div class="fp-header">
+      <span class="fp-title">文件</span>
+      <span class="fp-close" onclick="toggleFilePanel()">✕</span>
+    </div>
+    <div class="fp-body">
+      <div class="fp-section">
+        <div class="fp-section-title">附件</div>
+        <div class="fp-files" id="fpAttachments">
+          <div class="fp-file-item"><span class="fp-file-icon">📎</span><span class="fp-file-name">sales.csv</span></div>
+        </div>
+      </div>
+      <div class="fp-section">
+        <div class="fp-section-title">输出文件</div>
+        <div class="fp-files" id="fpOutputs">
+          <div class="fp-file-item"><span class="fp-file-icon">📄</span><span class="fp-file-name">plot.py</span></div>
+          <div class="fp-file-item"><span class="fp-file-icon">🖼️</span><span class="fp-file-name">output.png</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="approval-overlay" id="approvalOverlay" style="display:none;">
+  <div class="approval-dialog">
+    <div class="approval-title">⚠️ 工作区权限申请</div>
+    <div class="approval-desc">工具 <strong id="approvalTool">bash</strong> 需要访问工作区外的路径：</div>
+    <div class="approval-path" id="approvalPath"></div>
+    <div class="approval-actions">
+      <button class="approval-btn reject" onclick="respondApproval('reject')">拒绝</button>
+      <button class="approval-btn once" onclick="respondApproval('once')">仅本次</button>
+      <button class="approval-btn always" onclick="respondApproval('always')">始终允许</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STARS={
+  changgeng:{name:'长庚',title:'日常执事',icon:'🌟',color:'var(--star-changgeng)',desc:'温润如玉的青衫书生',role:'both',groups:['默认'],default_strategy:'Ask',provider:'OpenCode Go',model:'kimi-k2.5',maxSteps:10,tools:['read','write','bash','webfetch','websearch'],skills:['文档分析','网页抓取']},
+  tianxuan:{name:'天璇',title:'代码工匠',icon:'⚙️',color:'var(--star-tianxuan)',desc:'理性冷静的工程师',role:'both',groups:['默认','开发'],default_strategy:'Ask',provider:'OpenCode Go',model:'deepseek-v4-pro',maxSteps:15,tools:['read','write','edit','bash','grep','glob'],skills:['代码审查']},
+  wenqu:{name:'文曲',title:'掌墨使',icon:'📝',color:'var(--star-wenqu)',desc:'温雅博学的藏书家',role:'main',groups:['默认','写作'],default_strategy:'Plan',provider:'OpenCode Go',model:'glm-5.2',maxSteps:10,tools:['read','write','edit','webfetch','websearch'],skills:['文档分析','网页抓取','UI 设计']},
+  ziwei:{name:'紫微',title:'万能中枢',icon:'👑',color:'var(--star-ziwei)',desc:'沉稳威严的帝王',role:'main',groups:['中枢'],default_strategy:'Bypass',provider:'OpenCode Go',model:'kimi-k2.7-code',maxSteps:20,tools:['route_to_star','ask_user','answer_directly'],skills:[]}
+};
+let activeStar='changgeng',currentNav='chat',rpOpen=true,msgCount=0;
+const starCycle=['changgeng','tianxuan','wenqu','ziwei'];
+let cycleIdx=0;
+
+function init(){
+  switchStar('changgeng');
+  renderPanel();
+  addMessage('star','changgeng','暮色入牖，阿曜今日辛劳。今日有待办三件，一封邮件需回复。要先处理哪个？');
+  addMessage('user',null,'帮我写个脚本，把CSV里第三列的数据取出来绘制折线图');
+  setTimeout(()=>{
+    showRoute('紫微遣 · 天璇执码');
+    setTimeout(()=>{
+      switchStar('tianxuan');
+      addThinking('tianxuan','用户在处理 CSV 数据分析任务，需要读取文件、提取第三列、调用绘图库。先确认数据文件路径和格式。');
+      addMessage('star','tianxuan','好的，让我先看看数据结构。');
+      addToolCall('tianxuan','read','success','C:\\Data\\sales.csv (1,204 rows)','name,age,salary\nAlice,28,5000\nBob,35,6200\nCarol,42,7800');
+      addMessage('star','tianxuan','结构清楚了。第三列是销售额，我用 matplotlib 画图。');
+      addToolCall('tianxuan','write','success','plot.py (486 bytes)');
+    },800);
+  },1200);
+}
+
+function switchNav(nav){
+  if(nav==='chat')return;
+  const fileMap={characters:'characters.html',skills:'skills.html',tools:'tools.html',events:'events.html',settings:'settings.html',mcp:'mcp.html',knowledge:'knowledge.html',market:'market.html'};
+  if(fileMap[nav]){location.href=fileMap[nav];return;}
+}
+
+function toggleProject(el){
+  const ch=el.parentElement.querySelector('.project-children');
+  const ar=el.querySelector('.project-arrow');
+  const open=ch.style.display!=='none';
+  ch.style.display=open?'none':'block';
+  ar.classList.toggle('open',!open);
+}
+function selectSession(el){
+  document.querySelectorAll('.session-item').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function addMessage(role,starId,content){
+  const scroll=document.getElementById('chatScroll');
+  const star=starId?STARS[starId]:null;
+  const isUser=role==='user';
+  const time=new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+  const div=document.createElement('div');
+  div.className=`msg-group ${isUser?'user':'star'}`;
+  let senderHtml='';
+  if(!isUser&&star){
+    senderHtml=`<div class="msg-sender"><span class="star-icon">${star.icon}</span><span class="star-name" style="color:${star.color}">${star.name}</span><span class="star-title">· ${star.title}</span></div>`;
+  }
+  div.innerHTML=senderHtml+
+    `<div class="msg-bubble">${content.replace(/\n/g,'<br>')}</div>`+
+    `<div class="msg-time">${time}</div>`;
+  scroll.appendChild(div);
+  scroll.scrollTop=scroll.scrollHeight;
+  msgCount++;
+}
+
+function addThinking(starId,content){
+  const scroll=document.getElementById('chatScroll');
+  const star=STARS[starId];
+  const div=document.createElement('div');
+  div.className='msg-group star';
+  div.innerHTML=`<div class="msg-sender"><span class="star-icon">${star.icon}</span><span class="star-name" style="color:${star.color}">${star.name}</span></div>
+    <div class="thinking-block"><div class="th-header">◈ 思考中 · 2.3s</div>${content}</div>`;
+  scroll.appendChild(div);
+  scroll.scrollTop=scroll.scrollHeight;
+}
+
+function addToolCall(starId,toolName,status,detail,preview){
+  const scroll=document.getElementById('chatScroll');
+  const star=STARS[starId];
+  const icons={read:'📄',write:'✏️',edit:'🔧',bash:'⚙️',grep:'🔍',glob:'📂'};
+  const uid='tool_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  const div=document.createElement('div');
+  div.className='msg-group star';
+  let html=`<div class="msg-sender"><span class="star-icon">${star.icon}</span><span class="star-name" style="color:${star.color}">${star.name}</span></div>
+    <div><span class="tool-tag ${status}" onclick="toggleToolDetail('${uid}')">
+      <span>${icons[toolName]||'⚙️'}</span> ${toolName} · ${status==='success'?'✓ 成功':'✗ 失败'} <span class="expand-icon">▶</span>
+    </span>
+    <div style="font-size:11px;color:var(--ink-light);margin-top:2px;">${detail}</div>`;
+  if(preview){
+    html+=`<div class="tool-detail" id="${uid}">${preview.replace(/\n/g,'<br>')}</div>`;
+  }
+  html+=`</div>`;
+  div.innerHTML=html;
+  scroll.appendChild(div);
+  scroll.scrollTop=scroll.scrollHeight;
+}
+
+function toggleToolDetail(uid){
+  const el=document.getElementById(uid);
+  if(!el)return;
+  const tag=el.previousElementSibling.previousElementSibling;
+  el.classList.toggle('show');
+  if(tag)tag.classList.toggle('expanded');
+}
+
+function showRoute(text){
+  const bar=document.getElementById('routeBar');
+  document.getElementById('routeText').textContent=text;
+  bar.style.display='flex';
+  const m=bar.querySelector('.meteor');
+  m.style.animation='none';m.offsetHeight;m.style.animation='';
+  setTimeout(()=>{bar.style.display='none';},4000);
+}
+
+function switchStar(starId){
+  activeStar=starId;
+  const star=STARS[starId];
+  const avatar=document.getElementById('starAvatar');
+  avatar.style.setProperty('--star-color',star.color);
+  avatar.style.borderColor=star.color;
+  avatar.title=star.name+' · '+star.title;
+  document.getElementById('chatInput').placeholder=`与${star.name}对话... (@提及, /plan /ask /bypass)`;
+  renderPanel();
+}
+function cycleStar(){cycleIdx=(cycleIdx+1)%starCycle.length;switchStar(starCycle[cycleIdx]);}
+
+function renderPanel(){
+  const star=STARS[activeStar];
+  document.getElementById('rpTitle').textContent=star.name+' · '+star.title;
+  document.getElementById('rpBody').innerHTML=`
+    <div class="rp-art-card">
+      <div class="rp-art" style="background:linear-gradient(135deg,${star.color}15,${star.color}08)"><img src="star-art.jpg" style="width:100%;height:100%;object-fit:cover" alt="${star.name}"/></div>
+      <div class="rp-art-info">
+        <div class="rp-art-name">${star.name}</div>
+        <div class="rp-art-title">${star.title}</div>
+        <div class="rp-art-desc">${star.desc}</div>
+      </div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-section-title">运行配置</div>
+      <div class="rp-row"><span class="label">模型服务</span><span class="value">${star.provider}</span></div>
+      <div class="rp-row"><span class="label">模型</span><span class="value">${star.model}</span></div>
+      <div class="rp-row"><span class="label">策略</span><span class="value">${star.default_strategy}</span></div>
+      <div class="rp-row"><span class="label">角色类型</span><span class="value">${star.role==='both'?'主/子 Agent':star.role==='main'?'主 Agent':'子 Agent'}</span></div>
+      <div class="rp-row"><span class="label">最大步数</span><span class="value">${star.maxSteps}</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-section-title">项目区</div>
+      <div class="rp-ws-item"><span class="rp-ws-path">C:\Users\dmql\Documents\TianShu</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-section-title" style="display:flex;justify-content:space-between;align-items:center">授权工作区 <button onclick="addWorkspace()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:14px;line-height:1" title="添加路径">+</button></div>
+      <div class="rp-workspaces" id="rpWorkspaces">
+        <div class="rp-ws-item"><span class="rp-ws-path">C:\Users\dmql\Documents\TianShu</span><button class="rp-ws-del" onclick="removeWorkspace(this)" title="删除">✕</button></div>
+      </div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-section-title">运行状态</div>
+      <div class="rp-row"><span class="label">上下文</span><span class="value">12.4K / 128K</span></div>
+      <div class="rp-meter"><div class="fill" style="width:10%"></div></div>
+      <div class="rp-row" style="margin-top:6px"><span class="label">缓存命中</span><span class="value" style="color:var(--jade)">62%</span></div>
+      <div class="rp-row"><span class="label">当前策略</span><span class="value">${star.default_strategy}</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-section-title" style="display:flex;justify-content:space-between;align-items:center">绑定知识库 <button onclick="addKnowledgeBase()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:14px;line-height:1" title="绑定知识库">+</button></div>
+      <div class="rp-files" id="rpKnowledge">
+        <div class="fp-file-item"><span class="fp-file-icon">📚</span><span class="fp-file-name">产品文档</span></div>
+      </div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-section-title">能力</div>
+      <div class="rp-row"><span class="label">技能</span><span class="value">${star.skills.length} 个</span></div>
+      <div class="rp-row"><span class="label">工具</span><span class="value">${star.tools.length} 个就绪</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-section-title">会话统计</div>
+      <div class="rp-stats">
+        <div class="rp-stat"><div class="rp-stat-value">${msgCount}</div><div class="rp-stat-label">消息</div></div>
+        <div class="rp-stat"><div class="rp-stat-value">3.8K</div><div class="rp-stat-label">Tokens</div></div>
+        <div class="rp-stat"><div class="rp-stat-value">2</div><div class="rp-stat-label">工具调用</div></div>
+        <div class="rp-stat"><div class="rp-stat-value">0</div><div class="rp-stat-label">事件</div></div>
+      </div>
+    </div>`;
+}
+
+function toggleRightPanel(){
+  rpOpen=!rpOpen;
+  document.getElementById('rightPanel').classList.toggle('hidden',!rpOpen);
+  document.getElementById('rpToggle').style.display=rpOpen?'none':'flex';
+}
+
+let fpOpen=false;
+function toggleFilePanel(){
+  fpOpen=!fpOpen;
+  document.getElementById('filePanel').classList.toggle('hidden',!fpOpen);
+}
+function toggleCtxPanel(){
+  document.getElementById('ctxPanel').classList.toggle('hidden');
+}
+
+function sendMessage(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  addMessage('user',null,text);
+  const mention=text.match(/@(\S+)/);
+  if(mention){
+    const starId=Object.keys(STARS).find(id=>STARS[id].name===mention[1]);
+    if(starId&&starId!==activeStar){
+      showRoute(`紫微遣 · ${STARS[starId].name}应事`);
+      setTimeout(()=>switchStar(starId),600);
+    }
+  }
+  setTimeout(()=>{addMessage('star',activeStar,'好的，让我来处理。');},800);
+}
+
+document.getElementById('chatInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+});
+document.getElementById('chatInput').addEventListener('input',function(){
+  this.style.height='auto';
+  this.style.height=Math.min(this.scrollHeight,120)+'px';
+});
+
+const idleVideo=document.querySelector('.input-star-avatar video');
+if(idleVideo){
+  idleVideo.addEventListener('timeupdate',function(){
+    if(this.currentTime>this.duration-0.15)this.currentTime=0;
+  });
+}
+
+const idleFrame=document.getElementById('idleFrame');
+const frameCache=[];
+let totalFrames=0;
+let frameReady=false;
+for(let i=1;i<=200;i++){
+  const img=new Image();
+  img.src='frames/frame_'+String(i).padStart(4,'0')+'.jpg';
+  img.onload=()=>{totalFrames++;};
+  img.onerror=()=>{if(!frameReady){frameReady=true;startIdleAnim();}};
+  frameCache.push(img);
+}
+let frameIdx=0;
+function startIdleAnim(){
+  setInterval(()=>{frameIdx=(frameIdx+1)%totalFrames;idleFrame.src=frameCache[frameIdx].src;},42);
+}
+
+function respondApproval(choice){
+  document.getElementById('approvalOverlay').style.display='none';
+  addMessage('star',activeStar,choice==='reject'?'好的，已取消该操作。':'权限已获取，继续执行。');
+}
+
+function addWorkspace(){
+  const path=prompt('输入工作区路径：');
+  if(!path)return;
+  const container=document.getElementById('rpWorkspaces');
+  const div=document.createElement('div');
+  div.className='rp-ws-item';
+  div.innerHTML=`<span class="rp-ws-path">${path}</span><button class="rp-ws-del" onclick="removeWorkspace(this)" title="删除">✕</button>`;
+  container.appendChild(div);
+}
+
+function removeWorkspace(btn){
+  btn.closest('.rp-ws-item').remove();
+}
+
+function addAttachment(name){
+  const container=document.getElementById('rpAttachments');
+  if(!container)return;
+  const div=document.createElement('div');
+  div.className='rp-file-item';
+  div.innerHTML=`<span class="rp-file-icon">📎</span><span class="rp-file-name">${name}</span>`;
+  container.appendChild(div);
+}
+
+function addOutputFile(name){
+  const container=document.getElementById('rpOutputs');
+  if(!container)return;
+  const div=document.createElement('div');
+  div.className='rp-file-item';
+  div.innerHTML=`<span class="rp-file-icon">📄</span><span class="rp-file-name">${name}</span>`;
+  container.appendChild(div);
+}
+
+function addKnowledgeBase(){
+  const name=prompt('输入知识库名称：');
+  if(!name)return;
+  const container=document.getElementById('rpKnowledge');
+  const div=document.createElement('div');
+  div.className='rp-file-item';
+  div.innerHTML=`<span class="rp-file-icon">📚</span><span class="rp-file-name">${name}</span><button class="rp-file-del" onclick="this.closest('.rp-file-item').remove()" title="解绑">✕</button>`;
+  container.appendChild(div);
+}
+
+init();
+</script>
+</body>
+</html>

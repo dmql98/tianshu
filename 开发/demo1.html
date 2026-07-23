@@ -1,0 +1,1226 @@
+
+html_content = '''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 Tianshu - 国风星官 AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap');
+  
+  :root {
+    --deep-night: #0a0e17;
+    --night-blue: #0f1623;
+    --star-gold: #d4af37;
+    --star-gold-dim: rgba(212, 175, 55, 0.3);
+    --rice-paper: #f5f0e8;
+    --green-mountain: #4a7c59;
+    --cinnabar: #c75b39;
+    --text-primary: rgba(245, 240, 232, 0.9);
+    --text-secondary: rgba(245, 240, 232, 0.5);
+    --text-muted: rgba(245, 240, 232, 0.25);
+    --glass-border: rgba(212, 175, 55, 0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Serif SC', 'STSong', 'SimSun', serif;
+    background: var(--deep-night);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ===== 程序化星空背景 Canvas ===== */
+  #starCanvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+
+  /* ===== 程序化宣纸纹理层 ===== */
+  .paper-texture {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' result='noise'/%3E%3CfeDiffuseLighting in='noise' lighting-color='%23f5f0e8' surfaceScale='2'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* ===== 主布局 ===== */
+  .app-container {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    height: 100vh;
+  }
+
+  /* ===== 左侧边栏 ===== */
+  .sidebar {
+    width: 84px;
+    background: rgba(10, 14, 23, 0.88);
+    border-right: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    backdrop-filter: blur(20px);
+    position: relative;
+  }
+
+  .sidebar-title {
+    writing-mode: vertical-rl;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--star-gold);
+    letter-spacing: 14px;
+    margin-bottom: 28px;
+    text-shadow: 0 0 25px rgba(212, 175, 55, 0.4), 0 0 50px rgba(212, 175, 55, 0.1);
+    opacity: 0.9;
+    cursor: default;
+  }
+
+  .star-officials {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+  }
+
+  /* ===== 程序化星官头像 ===== */
+  .official-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+  }
+
+  .official-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.8s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 程序化生成的星官图腾 - 用CSS渐变几何 */
+  .avatar-totem {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    opacity: 0.6;
+  }
+
+  /* 紫微 - 帝星图腾：同心圆+放射线 */
+  .totem-ziwei {
+    background: 
+      radial-gradient(circle at 30% 30%, rgba(212,175,55,0.8) 0%, transparent 40%),
+      radial-gradient(circle at 70% 70%, rgba(212,175,55,0.4) 0%, transparent 30%),
+      conic-gradient(from 0deg, transparent 0deg, rgba(212,175,55,0.2) 20deg, transparent 40deg, rgba(212,175,55,0.2) 60deg, transparent 80deg, rgba(212,175,55,0.2) 100deg, transparent 120deg, rgba(212,175,55,0.2) 140deg, transparent 160deg, rgba(212,175,55,0.2) 180deg, transparent 200deg, rgba(212,175,55,0.2) 220deg, transparent 240deg, rgba(212,175,55,0.2) 260deg, transparent 280deg, rgba(212,175,55,0.2) 300deg, transparent 320deg, rgba(212,175,55,0.2) 340deg, transparent 360deg);
+  }
+
+  /* 长庚 - 暮星图腾：柔和光晕 */
+  .totem-changgeng {
+    background: 
+      radial-gradient(ellipse at 40% 40%, rgba(255,220,150,0.7) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 60%, rgba(212,175,55,0.4) 0%, transparent 40%);
+  }
+
+  /* 天璇 - 天玑图腾：棱角几何 */
+  .totem-tianxuan {
+    background: 
+      linear-gradient(45deg, transparent 40%, rgba(122,156,198,0.6) 45%, transparent 50%),
+      linear-gradient(-45deg, transparent 40%, rgba(122,156,198,0.6) 45%, transparent 50%),
+      linear-gradient(135deg, transparent 40%, rgba(122,156,198,0.4) 45%, transparent 50%),
+      linear-gradient(-135deg, transparent 40%, rgba(122,156,198,0.4) 45%, transparent 50%);
+  }
+
+  /* 织女 - 天孙图腾：丝线纹理 */
+  .totem-zhinu {
+    background: 
+      repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(184,169,201,0.4) 3px, rgba(184,169,201,0.4) 4px),
+      repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(184,169,201,0.3) 3px, rgba(184,169,201,0.3) 4px);
+  }
+
+  /* 辰星 - 水官图腾：波纹 */
+  .totem-chenxing {
+    background: 
+      repeating-radial-gradient(circle at 50% 50%, transparent 0px, transparent 4px, rgba(107,142,159,0.3) 5px, transparent 6px);
+  }
+
+  /* 文曲 - 文华图腾：书卷纹理 */
+  .totem-wenqu {
+    background: 
+      linear-gradient(180deg, rgba(196,167,125,0.3) 0%, transparent 10%, transparent 90%, rgba(196,167,125,0.3) 100%),
+      repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(196,167,125,0.15) 8px, rgba(196,167,125,0.15) 9px);
+  }
+
+  /* 瑶光 - 破军图腾：泼墨感 */
+  .totem-yaoguang {
+    background: 
+      radial-gradient(ellipse at 20% 30%, rgba(155,124,182,0.5) 0%, transparent 30%),
+      radial-gradient(ellipse at 80% 70%, rgba(155,124,182,0.4) 0%, transparent 25%),
+      radial-gradient(ellipse at 50% 50%, rgba(155,124,182,0.2) 0%, transparent 40%);
+  }
+
+  .avatar-symbol {
+    position: relative;
+    z-index: 2;
+    font-size: 18px;
+    font-weight: 700;
+    color: rgba(245, 240, 232, 0.9);
+    text-shadow: 0 0 8px rgba(0,0,0,0.5);
+  }
+
+  /* 状态：当值 */
+  .official-icon.active .official-avatar {
+    border: 1px solid var(--star-gold);
+    box-shadow: 
+      0 0 20px rgba(212, 175, 55, 0.3),
+      0 0 40px rgba(212, 175, 55, 0.1),
+      inset 0 0 15px rgba(212, 175, 55, 0.1);
+    animation: breathe 3s ease-in-out infinite;
+  }
+
+  .official-icon.active .avatar-totem {
+    opacity: 0.9;
+    animation: totem-rotate 8s linear infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 20px rgba(212, 175, 55, 0.3), 0 0 40px rgba(212, 175, 55, 0.1); }
+    50% { box-shadow: 0 0 35px rgba(212, 175, 55, 0.5), 0 0 70px rgba(212, 175, 55, 0.2); }
+  }
+
+  @keyframes totem-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* 状态：长眠 */
+  .official-icon.dormant .official-avatar {
+    background: rgba(245, 240, 232, 0.03);
+    filter: grayscale(1) brightness(0.35);
+  }
+
+  .official-icon.dormant .avatar-totem {
+    opacity: 0.2;
+  }
+
+  .official-icon.dormant .avatar-symbol {
+    opacity: 0.3;
+  }
+
+  /* 裂纹覆盖层 */
+  .crack-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M30,20 Q50,35 70,25 Q60,50 75,70 Q50,60 25,75 Q40,50 30,20' fill='none' stroke='rgba(200,200,200,0.3)' stroke-width='0.8'/%3E%3Cpath d='M45,15 Q55,40 40,55 Q60,45 70,30' fill='none' stroke='rgba(180,180,180,0.2)' stroke-width='0.6'/%3E%3C/svg%3E") center/contain no-repeat;
+    transition: opacity 0.5s;
+  }
+
+  .official-icon.dormant .crack-overlay {
+    opacity: 0.6;
+  }
+
+  /* 觉醒动画 */
+  .official-icon.awakening .official-avatar {
+    animation: awaken-burst 1.8s ease-out forwards;
+  }
+
+  .official-icon.awakening .crack-overlay {
+    animation: crack-glow 1.8s ease-out forwards;
+  }
+
+  @keyframes awaken-burst {
+    0% { filter: grayscale(1) brightness(0.35); transform: scale(1); }
+    25% { filter: grayscale(0.6) brightness(0.7); transform: scale(1.05); }
+    50% { filter: grayscale(0.2) brightness(1.3); transform: scale(1.15); box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.8); }
+    70% { filter: grayscale(0) brightness(1.4); transform: scale(1.2); box-shadow: 0 0 80px 30px rgba(212, 175, 55, 0.5); }
+    100% { filter: grayscale(0) brightness(1); transform: scale(1); }
+  }
+
+  @keyframes crack-glow {
+    0%, 30% { opacity: 0.6; }
+    50% { opacity: 1; box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.6); }
+    100% { opacity: 0; }
+  }
+
+  .official-tooltip {
+    position: absolute;
+    left: 64px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(10, 14, 23, 0.95);
+    border: 1px solid var(--glass-border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 100;
+    color: var(--star-gold);
+    letter-spacing: 2px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  .official-icon:hover .official-tooltip {
+    opacity: 1;
+  }
+
+  /* ===== 中央主区 ===== */
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* 星轨路由 */
+  .star-track {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.08);
+  }
+
+  .star-track-line {
+    position: absolute;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent);
+    opacity: 0.5;
+  }
+
+  .star-track-text {
+    font-size: 14px;
+    color: var(--star-gold);
+    letter-spacing: 6px;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+    position: relative;
+    z-index: 2;
+  }
+
+  .star-track-text.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .shooting-star {
+    position: absolute;
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--star-gold), rgba(212,175,55,0.5), transparent);
+    opacity: 0;
+    filter: blur(1px);
+  }
+
+  .shooting-star::before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    background: var(--star-gold);
+    border-radius: 50%;
+    box-shadow: 0 0 10px 4px rgba(212, 175, 55, 0.6), 0 0 30px 10px rgba(212, 175, 55, 0.2);
+  }
+
+  .shooting-star.animate {
+    animation: shoot 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes shoot {
+    0% { left: -120px; opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { left: calc(100% + 120px); opacity: 0; }
+  }
+
+  /* 对话区 */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .chat-area::-webkit-scrollbar { width: 3px; }
+  .chat-area::-webkit-scrollbar-track { background: transparent; }
+  .chat-area::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.15); border-radius: 2px; }
+
+  .message {
+    display: flex;
+    gap: 14px;
+    max-width: 82%;
+    animation: message-in 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes message-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .message.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+
+  .message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 600;
+    flex-shrink: 0;
+    border: 1px solid;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .message.user .message-avatar {
+    background: rgba(245, 240, 232, 0.08);
+    border-color: rgba(245, 240, 232, 0.15);
+    color: var(--rice-paper);
+  }
+
+  .message.ai .message-avatar {
+    background: rgba(212, 175, 55, 0.08);
+    border-color: rgba(212, 175, 55, 0.2);
+  }
+
+  .message-bubble {
+    padding: 16px 20px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.9;
+    position: relative;
+    max-width: calc(100% - 54px);
+    letter-spacing: 0.5px;
+  }
+
+  .message.user .message-bubble {
+    background: rgba(245, 240, 232, 0.06);
+    border: 1px solid rgba(245, 240, 232, 0.08);
+    color: var(--text-primary);
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.ai .message-bubble {
+    background: rgba(212, 175, 55, 0.04);
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+  }
+
+  .message-official-name {
+    font-size: 12px;
+    color: var(--star-gold);
+    margin-bottom: 6px;
+    opacity: 0.6;
+    letter-spacing: 3px;
+  }
+
+  /* 输入区 */
+  .input-area {
+    padding: 18px 36px 28px;
+    border-top: 1px solid rgba(212, 175, 55, 0.06);
+  }
+
+  .input-wrapper {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    background: rgba(15, 22, 35, 0.85);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 14px 22px;
+    backdrop-filter: blur(15px);
+    transition: all 0.4s ease;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: rgba(212, 175, 55, 0.25);
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.05), inset 0 1px 0 rgba(212, 175, 55, 0.05);
+  }
+
+  .input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.7;
+    resize: none;
+    max-height: 120px;
+    min-height: 24px;
+    letter-spacing: 0.5px;
+  }
+
+  .input-field::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--star-gold);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s ease;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .send-btn:hover {
+    background: rgba(212, 175, 55, 0.2);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.2), 0 0 40px rgba(212, 175, 55, 0.1);
+    transform: scale(1.05);
+  }
+
+  .send-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* 快速指令 */
+  .quick-actions {
+    display: flex;
+    gap: 10px;
+    padding: 0 36px 14px;
+    flex-wrap: wrap;
+  }
+
+  .quick-action {
+    padding: 7px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(212, 175, 55, 0.12);
+    background: rgba(212, 175, 55, 0.04);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    letter-spacing: 1px;
+  }
+
+  .quick-action:hover {
+    border-color: rgba(212, 175, 55, 0.3);
+    color: var(--star-gold);
+    background: rgba(212, 175, 55, 0.08);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  /* 右下角状态 */
+  .status-area {
+    position: fixed;
+    bottom: 28px;
+    right: 36px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 50;
+  }
+
+  .status-silhouette {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.12) 0%, transparent 65%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    animation: breathe 3s ease-in-out infinite;
+    border: 1px solid rgba(212, 175, 55, 0.08);
+    position: relative;
+  }
+
+  .status-silhouette::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1px solid rgba(212, 175, 55, 0.05);
+    animation: breathe 3s ease-in-out infinite reverse;
+  }
+
+  .status-info {
+    text-align: right;
+  }
+
+  .status-title {
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+  }
+
+  .status-name {
+    font-size: 18px;
+    color: var(--star-gold);
+    font-weight: 700;
+    letter-spacing: 6px;
+    text-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+  }
+
+  /* 时间指示 */
+  .time-indicator {
+    position: fixed;
+    top: 18px;
+    right: 36px;
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    z-index: 50;
+  }
+
+  /* 羁绊特效 */
+  .bond-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .bond-flash.active {
+    animation: bond-burst 2.5s ease-out forwards;
+  }
+
+  @keyframes bond-burst {
+    0% { opacity: 0; background: radial-gradient(circle at center, rgba(212, 175, 55, 0) 0%, transparent 60%); }
+    20% { opacity: 1; background: radial-gradient(circle at center, rgba(212, 175, 55, 0.2) 0%, transparent 50%); }
+    100% { opacity: 0; background: radial-gradient(circle at center, rgba(212, 175, 55, 0) 0%, transparent 60%); }
+  }
+
+  .bond-text {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 36px;
+    color: var(--star-gold);
+    letter-spacing: 12px;
+    text-shadow: 
+      0 0 30px rgba(212, 175, 55, 0.6),
+      0 0 60px rgba(212, 175, 55, 0.3),
+      0 0 100px rgba(212, 175, 55, 0.1);
+    opacity: 0;
+    z-index: 201;
+    pointer-events: none;
+    font-weight: 700;
+  }
+
+  .bond-text.active {
+    animation: bond-text-in 2.5s ease-out forwards;
+  }
+
+  @keyframes bond-text-in {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); letter-spacing: 30px; }
+    25% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); letter-spacing: 12px; }
+    60% { opacity: 1; transform: translate(-50%, -50%) scale(1); letter-spacing: 12px; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); letter-spacing: 20px; }
+  }
+
+  /* 连珠粒子 */
+  .bond-particles {
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    pointer-events: none;
+  }
+
+  .bond-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--star-gold);
+    border-radius: 50%;
+    opacity: 0;
+  }
+
+  .bond-particle.active {
+    animation: particle-float 2s ease-out forwards;
+  }
+
+  @keyframes particle-float {
+    0% { opacity: 1; transform: translate(0, 0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+  }
+
+  /* 输入提示 */
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px;
+    align-items: center;
+  }
+
+  .typing-indicator span {
+    width: 6px;
+    height: 6px;
+    background: var(--star-gold);
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: typing-bounce 1.4s ease-in-out infinite;
+  }
+
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-8px); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="starCanvas"></canvas>
+<div class="paper-texture"></div>
+
+<div class="app-container">
+  <!-- 左侧边栏 -->
+  <aside class="sidebar">
+    <div class="sidebar-title">天枢</div>
+    <div class="star-officials" id="starOfficials"></div>
+  </aside>
+
+  <!-- 中央主区 -->
+  <main class="main-area">
+    <div class="star-track" id="starTrack">
+      <div class="star-track-line"></div>
+      <div class="shooting-star" id="shootingStar"></div>
+      <div class="star-track-text" id="starTrackText"></div>
+    </div>
+
+    <div class="chat-area" id="chatArea"></div>
+
+    <div class="quick-actions" id="quickActions"></div>
+
+    <div class="input-area">
+      <div class="input-wrapper">
+        <textarea class="input-field" id="inputField" placeholder="敕令已备，请宣..." rows="1"></textarea>
+        <button class="send-btn" id="sendBtn">✦</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="status-area">
+  <div class="status-info">
+    <div class="status-title">当值星官</div>
+    <div class="status-name" id="statusName">长庚</div>
+  </div>
+  <div class="status-silhouette" id="statusSilhouette">🌟</div>
+</div>
+
+<div class="time-indicator" id="timeIndicator"></div>
+
+<div class="bond-flash" id="bondFlash"></div>
+<div class="bond-text" id="bondText"></div>
+<div class="bond-particles" id="bondParticles"></div>
+
+<script>
+// ===== 程序化星空 Canvas =====
+const canvas = document.getElementById('starCanvas');
+const ctx = canvas.getContext('2d');
+let stars = [];
+let width, height;
+
+function resizeCanvas() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  initStars();
+}
+
+function initStars() {
+  stars = [];
+  const count = Math.floor((width * height) / 8000);
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      size: Math.random() * 1.5 + 0.5,
+      opacity: Math.random() * 0.6 + 0.1,
+      twinkleSpeed: Math.random() * 0.02 + 0.005,
+      twinklePhase: Math.random() * Math.PI * 2,
+      color: Math.random() > 0.7 ? '212, 175, 55' : '245, 240, 232'
+    });
+  }
+}
+
+function drawStars() {
+  ctx.clearRect(0, 0, width, height);
+  
+  // 深邃背景渐变
+  const gradient = ctx.createRadialGradient(width/2, height, 0, width/2, height/2, width);
+  gradient.addColorStop(0, '#0f1623');
+  gradient.addColorStop(0.5, '#0a0e17');
+  gradient.addColorStop(1, '#070a10');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  
+  // 青绿山水微光（底部）
+  const mountainGrad = ctx.createLinearGradient(0, height * 0.6, 0, height);
+  mountainGrad.addColorStop(0, 'rgba(74, 124, 89, 0)');
+  mountainGrad.addColorStop(1, 'rgba(74, 124, 89, 0.06)');
+  ctx.fillStyle = mountainGrad;
+  ctx.fillRect(0, height * 0.6, width, height * 0.4);
+  
+  // 绘制星星
+  const time = Date.now() * 0.001;
+  stars.forEach(star => {
+    const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase) * 0.5 + 0.5;
+    const alpha = star.opacity * (0.3 + twinkle * 0.7);
+    
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${star.color}, ${alpha})`;
+    ctx.fill();
+    
+    // 大星星加光晕
+    if (star.size > 1.2) {
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size * 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${star.color}, ${alpha * 0.15})`;
+      ctx.fill();
+    }
+  });
+  
+  requestAnimationFrame(drawStars);
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+drawStars();
+
+// ===== 星官数据 =====
+const officials = {
+  ziwei: {
+    name: '紫微', title: '帝星·万能中枢', symbol: '帝', color: '#d4af37',
+    dormant: false, totem: 'totem-ziwei',
+    responses: {
+      default: '准。此事我已知晓，即刻遣人办理。',
+      group: '群英听令，共议此事。文曲、天璇，你二人各陈己见。',
+      route: (t) => `命${t}听令，速来应事。`
+    }
+  },
+  changgeng: {
+    name: '长庚', title: '暮星·日常执事', symbol: '庚', color: '#d4af37',
+    dormant: false, totem: 'totem-changgeng',
+    responses: {
+      default: '不妨，此事且听我来安排。已办妥，你且放心。',
+      weather: '今日天象清明，气温宜人，不妨出去走走。',
+      greeting: '暮色入牖，今日辛劳。有待办三件，还有一封邮件需回复。要先处理哪个？'
+    }
+  },
+  tianxuan: {
+    name: '天璇', title: '天玑·代码工匠', symbol: '璇', color: '#7a9cc6',
+    dormant: true, totem: 'totem-tianxuan',
+    responses: {
+      default: '工欲善其事，必先利其器。这段代码我来看看。',
+      code: '已生成脚本，核心逻辑使用 pandas 处理 CSV 第三列，matplotlib 绘制折线。需要我解释参数细节吗？',
+      debug: 'bug 定位完成，问题出在循环索引越界。建议改用 enumerate 遍历。'
+    }
+  },
+  zhinu: {
+    name: '织女', title: '天孙·造星之手', symbol: '织', color: '#b8a9c9',
+    dormant: true, totem: 'totem-zhinu',
+    responses: {
+      default: '机杼声歇久矣，今夕复何夕？',
+      create: '我已为他织就了三重人格底色：冷面笑匠、热梗少年、温言段子手。你选哪个做底胚？',
+      character: '新角色已织就，星位已点亮。'
+    }
+  },
+  chenxing: {
+    name: '辰星', title: '水官·渊海典藏', symbol: '辰', color: '#6b8e9f',
+    dormant: true, totem: 'totem-chenxing',
+    responses: {
+      default: '据《渊海》所载，此事需从长计议。',
+      knowledge: '知识库检索完毕，相关文献七篇，核心观点已整理归档。',
+      archive: '文档已归档，归入"辰部·卷三"，日后查阅可直取。'
+    }
+  },
+  wenqu: {
+    name: '文曲', title: '文华·掌墨使', symbol: '文', color: '#c4a77d',
+    dormant: true, totem: 'totem-wenqu',
+    responses: {
+      default: '据《文华志》载，此事当有下文。',
+      document: '周报已润色，改动了三处措辞，另加了一段下周规划建议。你看看是否合意。',
+      contract: '合同草案已拟就，条款引用《民法典》相关规定，请过目。'
+    }
+  },
+  yaoguang: {
+    name: '瑶光', title: '破军·丹青之手', symbol: '瑶', color: '#9b7cb6',
+    dormant: true, totem: 'totem-yaoguang',
+    responses: {
+      default: '丹青之事，需先定基调。',
+      ppt: '先给我大纲方向，我来定一套配色和版式基调——这次想用青绿山水风，还是极简墨白？',
+      design: '配色已定为"千里江山"青绿系，版式采用留白意境，十页已成。'
+    }
+  }
+};
+
+let currentOfficial = 'changgeng';
+let isProcessing = false;
+let activeOfficials = new Set(['changgeng']);
+
+// ===== 初始化侧边栏 =====
+function initSidebar() {
+  const container = document.getElementById('starOfficials');
+  const order = ['ziwei', 'changgeng', 'tianxuan', 'wenqu', 'chenxing', 'yaoguang', 'zhinu'];
+  
+  order.forEach(key => {
+    const off = officials[key];
+    const el = document.createElement('div');
+    el.className = `official-icon ${off.dormant ? 'dormant' : 'active'}`;
+    el.dataset.key = key;
+    el.innerHTML = `
+      <div class="official-avatar">
+        <div class="avatar-totem ${off.totem}"></div>
+        <div class="avatar-symbol">${off.symbol}</div>
+        <div class="crack-overlay"></div>
+      </div>
+      <div class="official-tooltip">${off.name} · ${off.title}</div>
+    `;
+    el.addEventListener('click', () => activateOfficial(key));
+    container.appendChild(el);
+  });
+}
+
+// ===== 激活星官 =====
+function activateOfficial(key) {
+  const off = officials[key];
+  const icon = document.querySelector(`.official-icon[data-key="${key}"]`);
+  
+  if (off.dormant) {
+    off.dormant = false;
+    icon.classList.remove('dormant');
+    icon.classList.add('awakening');
+    
+    const awakenTexts = {
+      tianxuan: '工欲善其事，必先利其器。我来了。',
+      zhinu: '机杼声歇久矣，今夕复何夕？',
+      chenxing: '据《渊海》载，今日当出。',
+      wenqu: '文华阁久未开，今日有客？',
+      yaoguang: '丹青未干，又添新卷。'
+    };
+    
+    setTimeout(() => {
+      icon.classList.remove('awakening');
+      icon.classList.add('active');
+      if (awakenTexts[key]) addMessage(key, awakenTexts[key]);
+    }, 1800);
+  }
+  
+  document.querySelectorAll('.official-icon').forEach(el => el.classList.remove('active'));
+  icon.classList.add('active');
+  currentOfficial = key;
+  
+  document.getElementById('statusName').textContent = off.name;
+  document.getElementById('statusSilhouette').textContent = off.symbol;
+  
+  if (key !== 'ziwei') showStarTrack(`紫微遣 · ${off.name}应事`);
+  
+  updateQuickActions();
+}
+
+// ===== 星轨动画 =====
+function showStarTrack(text) {
+  const trackText = document.getElementById('starTrackText');
+  const shootingStar = document.getElementById('shootingStar');
+  
+  trackText.classList.remove('show');
+  shootingStar.classList.remove('animate');
+  void shootingStar.offsetWidth;
+  
+  shootingStar.classList.add('animate');
+  setTimeout(() => {
+    trackText.textContent = text;
+    trackText.classList.add('show');
+  }, 800);
+  setTimeout(() => trackText.classList.remove('show'), 4500);
+}
+
+// ===== 添加消息 =====
+function addMessage(officialKey, text, isUser = false) {
+  const chatArea = document.getElementById('chatArea');
+  const msg = document.createElement('div');
+  msg.className = `message ${isUser ? 'user' : 'ai'}`;
+  
+  if (isUser) {
+    msg.innerHTML = `
+      <div class="message-avatar">我</div>
+      <div class="message-bubble">${escapeHtml(text)}</div>
+    `;
+  } else {
+    const off = officials[officialKey];
+    msg.innerHTML = `
+      <div class="message-avatar" style="color: ${off.color}">
+        <div style="position:absolute;inset:0;border-radius:50%;background:${off.color}10;z-index:0"></div>
+        <span style="position:relative;z-index:1">${off.symbol}</span>
+      </div>
+      <div class="message-bubble">
+        <div class="message-official-name">${off.name}</div>
+        ${escapeHtml(text)}
+      </div>
+    `;
+  }
+  
+  chatArea.appendChild(msg);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ===== 处理输入 =====
+function handleUserInput(text) {
+  if (!text.trim() || isProcessing) return;
+  
+  addMessage(null, text, true);
+  isProcessing = true;
+  
+  // 显示输入中
+  showTyping();
+  
+  const response = parseIntent(text);
+  
+  setTimeout(() => {
+    removeTyping();
+    
+    if (response.official && response.official !== currentOfficial) {
+      activateOfficial(response.official);
+      setTimeout(() => {
+        addMessage(response.official, response.text);
+        isProcessing = false;
+      }, 1000);
+    } else {
+      addMessage(currentOfficial, response.text);
+      isProcessing = false;
+    }
+    
+    checkBond(response.official || currentOfficial);
+  }, 1200);
+}
+
+function showTyping() {
+  const chatArea = document.getElementById('chatArea');
+  const typing = document.createElement('div');
+  typing.className = 'message ai';
+  typing.id = 'typingMsg';
+  const off = officials[currentOfficial];
+  typing.innerHTML = `
+    <div class="message-avatar" style="color: ${off.color}"><span style="position:relative;z-index:1">${off.symbol}</span></div>
+    <div class="message-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>
+  `;
+  chatArea.appendChild(typing);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function removeTyping() {
+  const typing = document.getElementById('typingMsg');
+  if (typing) typing.remove();
+}
+
+// ===== 意图解析 =====
+function parseIntent(text) {
+  const lower = text.toLowerCase();
+  
+  if (lower.includes('紫微') || lower.includes('群聊') || lower.includes('一起') || lower.includes('都叫来')) {
+    if (lower.includes('文曲') && lower.includes('天璇')) {
+      return { official: 'ziwei', text: '文曲、天璇听令。阿曜欲议自动周报之事，你二人各陈己见。' };
+    }
+    return { official: 'ziwei', text: '准。此事我已知晓，即刻遣人办理。' };
+  }
+  
+  if (lower.includes('天璇') || lower.includes('代码') || lower.includes('脚本') || lower.includes('python') || lower.includes('bug')) {
+    return { official: 'tianxuan', text: '工欲善其事，必先利其器。这段代码我来看看。核心逻辑已生成，需要我解释参数细节吗？' };
+  }
+  if (lower.includes('织女') || lower.includes('角色') || lower.includes('人格') || lower.includes('创建')) {
+    return { official: 'zhinu', text: '我已为他织就了三重人格底色：冷面笑匠、热梗少年、温言段子手。你选哪个做底胚？' };
+  }
+  if (lower.includes('辰星') || lower.includes('知识') || lower.includes('资料') || lower.includes('整理')) {
+    return { official: 'chenxing', text: '据《渊海》所载，此事需从长计议。知识库检索完毕，相关文献已整理归档。' };
+  }
+  if (lower.includes('文曲') || lower.includes('周报') || lower.includes('文档') || lower.includes('合同') || lower.includes('润色')) {
+    return { official: 'wenqu', text: '周报已润色，改动了三处措辞，另加了一段下周规划建议。你看看是否合意。' };
+  }
+  if (lower.includes('瑶光') || lower.includes('ppt') || lower.includes('演示') || lower.includes('幻灯片')) {
+    return { official: 'yaoguang', text: '先给我大纲方向，我来定一套配色和版式基调——这次想用青绿山水风，还是极简墨白？' };
+  }
+  
+  if (lower.includes('天气') || lower.includes('提醒') || lower.includes('早安') || lower.includes('晚安')) {
+    return { official: 'changgeng', text: '不妨，此事且听我来安排。今日天象清明，气温宜人，已为你记下明日事项。' };
+  }
+  
+  const off = officials[currentOfficial];
+  return { official: currentOfficial, text: off.responses.default };
+}
+
+// ===== 羁绊检查 =====
+function checkBond(official) {
+  activeOfficials.add(official);
+  
+  const bonds = [
+    { combo: ['wenqu', 'chenxing'], name: '博古通今', text: '文曲+辰星：知识图谱与文档一体化输出' },
+    { combo: ['tianxuan', 'wenqu'], name: '文武双全', text: '天璇+文曲：代码+技术文档一次性输出' },
+    { combo: ['ziwei', 'tianxuan', 'wenqu'], name: '群英会', text: '紫微召三星官：群聊模式自动开启' }
+  ];
+  
+  bonds.forEach(bond => {
+    if (bond.combo.every(o => activeOfficials.has(o))) {
+      triggerBond(bond.name, bond.text);
+    }
+  });
+}
+
+function triggerBond(name, text) {
+  const flash = document.getElementById('bondFlash');
+  const bondText = document.getElementById('bondText');
+  const particles = document.getElementById('bondParticles');
+  
+  bondText.textContent = name;
+  flash.classList.add('active');
+  bondText.classList.add('active');
+  
+  // 生成粒子
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'bond-particle';
+    p.style.left = '50%';
+    p.style.top = '50%';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 100 + Math.random() * 300;
+    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    p.style.animationDelay = Math.random() * 0.5 + 's';
+    particles.appendChild(p);
+    setTimeout(() => p.classList.add('active'), 50);
+    setTimeout(() => p.remove(), 2500);
+  }
+  
+  setTimeout(() => {
+    flash.classList.remove('active');
+    bondText.classList.remove('active');
+  }, 2500);
+}
+
+// ===== 快速指令 =====
+function updateQuickActions() {
+  const container = document.getElementById('quickActions');
+  const actions = {
+    changgeng: ['查天气', '设提醒', '早安'],
+    ziwei: ['开群聊', '召天璇', '召文曲'],
+    tianxuan: ['写爬虫', 'Debug', 'Python脚本'],
+    wenqu: ['润色周报', '起草合同', '整理文案'],
+    chenxing: ['查资料', '归档文档', '知识检索'],
+    yaoguang: ['做PPT', '青绿风', '墨白风'],
+    zhinu: ['造角色', '冷面笑匠', '热梗少年']
+  };
+  
+  const current = actions[currentOfficial] || actions.changgeng;
+  container.innerHTML = current.map(a => `<button class="quick-action" onclick="sendQuick('${a}')">${a}</button>`).join('');
+}
+
+function sendQuick(text) {
+  document.getElementById('inputField').value = text;
+  handleUserInput(text);
+}
+
+// ===== 时间更新 =====
+function updateTime() {
+  const now = new Date();
+  const hours = now.getHours();
+  const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('timeIndicator').textContent = timeStr;
+  
+  // 昼夜微调 Canvas 色调
+  if (hours >= 6 && hours < 18) {
+    canvas.style.filter = 'hue-rotate(-5deg) brightness(1.15) saturate(0.9)';
+  } else {
+    canvas.style.filter = 'hue-rotate(0deg) brightness(1) saturate(1)';
+  }
+}
+
+// ===== 事件绑定 =====
+document.getElementById('sendBtn').addEventListener('click', () => {
+  const input = document.getElementById('inputField');
+  handleUserInput(input.value);
+  input.value = '';
+  input.rows = 1;
+});
+
+document.getElementById('inputField').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const input = document.getElementById('inputField');
+    handleUserInput(input.value);
+    input.value = '';
+    input.rows = 1;
+  }
+});
+
+document.getElementById('inputField').addEventListener('input', function() {
+  this.rows = Math.min(5, Math.max(1, this.scrollHeight / 24));
+});
+
+// ===== 初始化 =====
+initSidebar();
+updateQuickActions();
+updateTime();
+setInterval(updateTime, 60000);
+
+// 开场白
+setTimeout(() => {
+  addMessage('changgeng', '暮色入牖，阿曜今日辛劳。今日有待办三件，还有一封邮件需回复。要先处理哪个？');
+}, 1000);
+</script>
+
+</body>
+</html>'''

@@ -1,0 +1,41 @@
+﻿{
+    "parameters":  {
+                       "properties":  {
+                                          "replaceAll":  {
+                                                             "type":  "boolean",
+                                                             "description":  "Replace all occurrences"
+                                                         },
+                                          "path":  {
+                                                       "type":  "string",
+                                                       "description":  "Path relative to workspace"
+                                                   },
+                                          "oldString":  {
+                                                            "type":  "string",
+                                                            "description":  "The exact text to search for"
+                                                        },
+                                          "newString":  {
+                                                            "type":  "string",
+                                                            "description":  "The replacement text"
+                                                        }
+                                      },
+                       "type":  "object",
+                       "required":  [
+                                        "path",
+                                        "oldString",
+                                        "newString"
+                                    ]
+                   },
+    "source":  "builtin",
+    "description":  "Apply an exact-string replacement edit to a file in the workspace",
+    "dangerous":  true,
+    "version":  "1.0.0",
+    "tags":  [
+                 "filesystem"
+             ],
+    "author":  "Yi-Lin",
+    "name":  "edit",
+    "constraintFields":  [
+        {"key": "allowed_paths", "label": "允许的路径", "type": "string-list", "placeholder": "例: /src/**", "validateArg": "path", "validateRule": "glob-allow"},
+        {"key": "denied_paths", "label": "禁止的路径", "type": "string-list", "placeholder": "例: node_modules/**", "validateArg": "path", "validateRule": "glob-deny"}
+    ]
+}

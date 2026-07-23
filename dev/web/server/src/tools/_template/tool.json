@@ -1,0 +1,20 @@
+{
+  "name": "my-tool",
+  "description": "Description of what this tool does",
+  "source": "builtin",
+  "tags": ["category"],
+  "version": "1.0.0",
+  "author": "Developer",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "arg1": { "type": "string", "description": "Argument description" }
+    },
+    "required": ["arg1"]
+  },
+  "constraintFields": [
+    { "key": "allowed_paths", "label": "允许的路径", "type": "string-list", "placeholder": "例: /src/**", "validateArg": "path", "validateRule": "glob-allow" },
+    { "key": "denied_paths", "label": "禁止的路径", "type": "string-list", "placeholder": "例: node_modules/**", "validateArg": "path", "validateRule": "glob-deny" }
+  ]
+}

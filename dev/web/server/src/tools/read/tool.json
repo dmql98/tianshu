@@ -1,0 +1,27 @@
+﻿{
+    "parameters":  {
+                       "properties":  {
+                                          "path":  {
+                                                       "type":  "string",
+                                                       "description":  "Path relative to workspace"
+                                                   }
+                                      },
+                       "type":  "object",
+                       "required":  [
+                                        "path"
+                                    ]
+                   },
+    "source":  "builtin",
+    "description":  "Read file contents from the workspace",
+    "dangerous":  false,
+    "version":  "1.0.0",
+    "tags":  [
+                 "filesystem"
+             ],
+    "author":  "Yi-Lin",
+    "name":  "read",
+    "constraintFields":  [
+        {"key": "allowed_paths", "label": "允许的路径", "type": "string-list", "placeholder": "例: /src/**", "validateArg": "path", "validateRule": "glob-allow"},
+        {"key": "denied_paths", "label": "禁止的路径", "type": "string-list", "placeholder": "例: node_modules/**", "validateArg": "path", "validateRule": "glob-deny"}
+    ]
+}

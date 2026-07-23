@@ -1,0 +1,9 @@
+{
+    "name": "skill_manager",
+    "description": "List available skills or read a skill's full SKILL.md content. Skills are discovered server-side (workspace-independent).",
+    "source": "builtin",
+    "dangerous": false,
+    "version": "1.0.0",
+    "tags": ["skills"],
+    "author": "Yi-Lin"
+}

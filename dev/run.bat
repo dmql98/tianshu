@@ -1,0 +1,45 @@
+@echo off
+cd /d "%~dp0"
+title TianShu
+
+:: Check Node.js
+where node >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Node.js not found. Run setup.bat first.
+    pause
+    exit /b 1
+)
+
+:: Check dependencies
+if not exist "web\server\node_modules" (
+    echo [ERROR] Server dependencies not found. Run setup.bat first.
+    pause
+    exit /b 1
+)
+if not exist "web\client\node_modules" (
+    echo [ERROR] Client dependencies not found. Run setup.bat first.
+    pause
+    exit /b 1
+)
+
+:: Kill existing processes on ports
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3210 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
+timeout /t 1 /nobreak >nul
+
+:: Start server
+echo Starting TianShu Server on :3210 ...
+start "TianShu Server" cmd /k "cd /d %~dp0web\server && npx tsx src\index.ts"
+timeout /t 2 /nobreak >nul
+
+:: Start client
+echo Starting TianShu Client on :5173 ...
+start "TianShu Client" cmd /k "cd /d %~dp0web\client && npx vite"
+timeout /t 3 /nobreak >nul
+
+:: Open browser
+start "" "http://localhost:5173"
+
+echo.
+echo  Server :3210  |  Client :5173
+echo  Close this window to stop both.

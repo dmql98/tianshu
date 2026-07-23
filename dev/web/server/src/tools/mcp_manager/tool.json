@@ -1,0 +1,44 @@
+{
+    "parameters": {
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["list", "read", "create", "update", "delete", "test"],
+                "description": "\"list\" returns all MCP servers; \"read\" returns a server's config; \"create\" creates a new server; \"update\" modifies an existing one; \"delete\" removes a server; \"test\" tests the connection."
+            },
+            "name": {
+                "type": "string",
+                "description": "Required for read/create/update/delete. The MCP server name."
+            },
+            "command": {
+                "type": "string",
+                "description": "Required for create. The command to start the MCP server."
+            },
+            "args": {
+                "type": "string",
+                "description": "Space-separated arguments for the command."
+            },
+            "env": {
+                "type": "string",
+                "description": "Environment variables, one per line (KEY=VALUE)."
+            },
+            "cwd": {
+                "type": "string",
+                "description": "Working directory for the server process."
+            },
+            "timeout": {
+                "type": "string",
+                "description": "Connection timeout in seconds."
+            }
+        },
+        "type": "object",
+        "required": ["action"]
+    },
+    "source": "builtin",
+    "description": "List, read, create, update, delete, or test MCP server configurations",
+    "dangerous": false,
+    "version": "1.0.0",
+    "tags": ["system"],
+    "author": "Yi-Lin",
+    "name": "mcp_manager"
+}

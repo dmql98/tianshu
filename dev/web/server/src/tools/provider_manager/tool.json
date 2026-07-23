@@ -1,0 +1,40 @@
+{
+    "parameters": {
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["list", "read", "create", "update", "delete"],
+                "description": "\"list\" returns all providers; \"read\" returns a provider's config; \"create\" adds a new provider; \"update\" modifies an existing one; \"delete\" removes a provider."
+            },
+            "provider_id": {
+                "type": "string",
+                "description": "The provider ID (e.g. \"openai\", \"deepseek\")."
+            },
+            "name": {
+                "type": "string",
+                "description": "Display name."
+            },
+            "base_url": {
+                "type": "string",
+                "description": "API base URL, OpenAI-compatible format."
+            },
+            "api_key": {
+                "type": "string",
+                "description": "API key."
+            },
+            "models": {
+                "type": "string",
+                "description": "Comma-separated model IDs."
+            }
+        },
+        "type": "object",
+        "required": ["action"]
+    },
+    "source": "builtin",
+    "description": "Manage LLM providers (list/read/create/update/delete)",
+    "dangerous": false,
+    "version": "1.0.0",
+    "tags": ["system"],
+    "author": "Yi-Lin",
+    "name": "provider_manager"
+}

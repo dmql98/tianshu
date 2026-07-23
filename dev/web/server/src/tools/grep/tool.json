@@ -1,0 +1,31 @@
+﻿{
+    "parameters":  {
+                       "properties":  {
+                                          "pattern":  {
+                                                          "type":  "string",
+                                                          "description":  "Regex pattern"
+                                                      },
+                                          "path":  {
+                                                       "type":  "string",
+                                                       "description":  "Directory to search, relative to workspace (optional)"
+                                                   }
+                                      },
+                       "type":  "object",
+                       "required":  [
+                                        "pattern"
+                                    ]
+                   },
+    "source":  "builtin",
+    "description":  "Search file contents using a regex pattern",
+    "dangerous":  false,
+    "version":  "1.0.0",
+    "tags":  [
+                 "filesystem"
+             ],
+    "author":  "Yi-Lin",
+    "name":  "grep",
+    "constraintFields":  [
+        {"key": "allowed_paths", "label": "允许的搜索目录", "type": "string-list", "placeholder": "例: /src/**", "validateArg": "path", "validateRule": "glob-allow"},
+        {"key": "denied_paths", "label": "禁止的搜索目录", "type": "string-list", "placeholder": "例: node_modules/**", "validateArg": "path", "validateRule": "glob-deny"}
+    ]
+}

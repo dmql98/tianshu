@@ -1,0 +1,21 @@
+{
+    "parameters":  {
+                       "properties":  {
+                                          "session_id":  {
+                                                              "type":  "string",
+                                                              "description":  "Filter by session ID (optional)"
+                                                          }
+                                      },
+                       "type":  "object",
+                       "required":  []
+                   },
+    "source":  "builtin",
+    "description":  "读取 debug 会话记录：先合并旧 turn 文件，再返回 data/debug/ 下所有会话的对话内容",
+    "dangerous":  false,
+    "version":  "1.0.0",
+    "tags":  [
+                 "debug"
+             ],
+    "author":  "Yi-Lin",
+    "name":  "debug_sessions"
+}

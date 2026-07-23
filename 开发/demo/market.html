@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 · 弈林</title>
+<style>
+:root{
+  --bg-main:#f5f0e8;--bg-card:#ede6da;--bg-hover:#e0d8cc;--bg-input:#faf8f4;
+  --border:rgba(180,160,130,0.15);--border-light:rgba(180,160,130,0.08);
+  --gold:#c8960a;--jade:#2a9d5c;--cinnabar:#c45c3c;--blue:#2563eb;
+  --ink-deep:#2c2418;--ink-mid:#5c5040;--ink-light:#8a7d68;--ink-faint:#b8a890;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
+.app{display:flex;height:100vh}
+.nav-rail{width:60px;min-width:60px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
+.nav-item .nav-label{font-size:9px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.page-header{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.page-title{font-size:16px;font-weight:600;white-space:nowrap}
+.header-search{flex:1;max-width:360px}
+.header-search input{width:100%;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-deep);font-size:12px;outline:none;font-family:inherit}
+.header-search input:focus{border-color:var(--gold)}
+.market-tabs{display:flex;gap:4px;margin-left:auto}
+.market-tab{padding:6px 12px;border-radius:8px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:12px;font-family:inherit;transition:all 0.15s}
+.market-tab:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.market-tab.active{background:rgba(200,150,10,0.08);color:var(--gold);font-weight:500}
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+.section-title{font-size:14px;font-weight:600;color:var(--ink-mid);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-title .badge{font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(200,150,10,0.1);color:var(--gold)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:28px}
+.card{border-radius:12px;background:var(--bg-card);border:1px solid var(--border);padding:16px;transition:all 0.2s;cursor:pointer}
+.card:hover{border-color:var(--gold);box-shadow:0 2px 12px rgba(200,150,10,0.08)}
+.card-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+.card-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.card-title{font-size:14px;font-weight:600;color:var(--ink-deep)}
+.card-author{font-size:11px;color:var(--ink-light)}
+.card-desc{font-size:12px;color:var(--ink-mid);line-height:1.5;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.card-tag{padding:2px 7px;border-radius:4px;font-size:10px;background:var(--bg-hover);color:var(--ink-light)}
+.card-tag.skill{background:rgba(42,157,92,0.1);color:var(--jade)}
+.card-tag.tool{background:rgba(37,99,235,0.1);color:var(--blue)}
+.card-tag.new{background:rgba(196,92,60,0.1);color:var(--cinnabar)}
+.card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border-light)}
+.card-stats{display:flex;gap:10px;font-size:10px;color:var(--ink-faint)}
+.card-action{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--ink-mid);cursor:pointer;font-size:11px;font-family:inherit;transition:all 0.15s}
+.card-action:hover{border-color:var(--gold);color:var(--gold)}
+.card-action.installed{background:rgba(42,157,92,0.08);color:var(--jade);border-color:rgba(42,157,92,0.3)}
+.hot-list{display:flex;flex-direction:column;gap:6px;margin-bottom:28px;max-width:480px}
+.hot-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-light);cursor:pointer;transition:all 0.15s}
+.hot-item:hover{border-color:var(--gold)}
+.hot-rank{font-size:14px;font-weight:700;color:var(--ink-faint);width:24px;text-align:center}
+.hot-rank.top{color:var(--gold)}
+.hot-info{flex:1;min-width:0}
+.hot-name{font-size:13px;font-weight:500;color:var(--ink-mid)}
+.hot-meta{font-size:10px;color:var(--ink-faint)}
+.hot-installs{font-size:11px;color:var(--jade);font-weight:500}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail">
+    <div class="nav-logo" title="天枢">天</div>
+    <button class="nav-item" onclick="location.href='chat.html'" title="会话">💬<span class="nav-label">会话</span></button>
+    <button class="nav-item" onclick="location.href='characters.html'" title="角色">🎭<span class="nav-label">角色</span></button>
+    <button class="nav-item" onclick="location.href='skills.html'" title="技能">⚡<span class="nav-label">技能</span></button>
+    <button class="nav-item" onclick="location.href='tools.html'" title="工具">🔧<span class="nav-label">工具</span></button>
+    <button class="nav-item" onclick="location.href='mcp.html'" title="MCP">🔗<span class="nav-label">MCP</span></button>
+    <button class="nav-item" onclick="location.href='knowledge.html'" title="知识库">📚<span class="nav-label">知识</span></button>
+    <button class="nav-item active" title="市场">🏪<span class="nav-label">市场</span></button>
+    <div style="width:28px;height:1px;background:var(--border);margin:6px 0"></div>
+    <button class="nav-item" onclick="location.href='events.html'" title="事件">⚡<span class="nav-label">事件</span></button>
+    <div style="flex:1"></div>
+    <button class="nav-item" onclick="location.href='settings.html'" title="设置">⚙️<span class="nav-label">设置</span></button>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <span class="page-title">弈林</span>
+      <div class="header-search"><input placeholder="搜索技能、工具、MCP 服务..."/></div>
+      <div class="market-tabs">
+        <button class="market-tab active">全部</button>
+        <button class="market-tab">技能</button>
+        <button class="market-tab">工具</button>
+        <button class="market-tab">MCP</button>
+        <button class="market-tab">角色</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- 热门排行 -->
+      <div class="section-title">🔥 热门排行 <span class="badge">本周</span></div>
+      <div class="hot-list">
+        <div class="hot-item"><span class="hot-rank top">1</span><div class="hot-info"><div class="hot-name">Deep Research</div><div class="hot-meta">技能 · 深度研究与多源信息整合</div></div><span class="hot-installs">1.2K 安装</span></div>
+        <div class="hot-item"><span class="hot-rank top">2</span><div class="hot-info"><div class="hot-name">Code Review Pro</div><div class="hot-meta">技能 · 多维度代码审查</div></div><span class="hot-installs">986 安装</span></div>
+        <div class="hot-item"><span class="hot-rank top">3</span><div class="hot-info"><div class="hot-name">Context7</div><div class="hot-meta">MCP · 库文档查询服务</div></div><span class="hot-installs">874 安装</span></div>
+        <div class="hot-item"><span class="hot-rank">4</span><div class="hot-info"><div class="hot-name">自动化测试</div><div class="hot-meta">技能 · 测试用例生成与执行</div></div><span class="hot-installs">652 安装</span></div>
+        <div class="hot-item"><span class="hot-rank">5</span><div class="hot-info"><div class="hot-name">Playwright</div><div class="hot-meta">MCP · 浏览器自动化</div></div><span class="hot-installs">543 安装</span></div>
+      </div>
+
+      <!-- 推荐技能 -->
+      <div class="section-title">⚡ 推荐技能</div>
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(200,150,10,0.08)">🔬</div>
+            <div><div class="card-title">Deep Research</div><div class="card-author">by 天枢团队</div></div>
+          </div>
+          <div class="card-desc">深度研究技能，支持多源信息整合、交叉验证、自动生成结构化报告。适用于需要全面调研的复杂问题。</div>
+          <div class="card-tags"><span class="card-tag skill">技能</span><span class="card-tag new">NEW</span><span class="card-tag">调研</span><span class="card-tag">报告</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 1.2K</span><span>⭐ 4.8</span><span>v2.1.0</span></div>
+            <button class="card-action installed">已安装</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(42,157,92,0.08)">🔍</div>
+            <div><div class="card-title">Code Review Pro</div><div class="card-author">by 天枢团队</div></div>
+          </div>
+          <div class="card-desc">多维度代码审查，支持安全漏洞检测、性能分析、代码风格检查、架构合理性评估。</div>
+          <div class="card-tags"><span class="card-tag skill">技能</span><span class="card-tag">代码审查</span><span class="card-tag">安全</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 986</span><span>⭐ 4.7</span><span>v1.8.3</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(37,99,235,0.08)">🧪</div>
+            <div><div class="card-title">自动化测试</div><div class="card-author">by 天枢团队</div></div>
+          </div>
+          <div class="card-desc">自动生成测试用例，支持单元测试、集成测试、端到端测试，并生成覆盖率报告。</div>
+          <div class="card-tags"><span class="card-tag skill">技能</span><span class="card-tag">测试</span><span class="card-tag">CI</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 652</span><span>⭐ 4.5</span><span>v1.3.0</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(124,58,237,0.08)">🎨</div>
+            <div><div class="card-title">UI Design Assistant</div><div class="card-author">by 弈林社区</div></div>
+          </div>
+          <div class="card-desc">UI/UX 设计助手，支持设计稿生成、组件推荐、色彩方案建议、响应式适配方案。</div>
+          <div class="card-tags"><span class="card-tag skill">技能</span><span class="card-tag">设计</span><span class="card-tag">UI</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 423</span><span>⭐ 4.3</span><span>v1.0.2</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 推荐 MCP -->
+      <div class="section-title">🔗 推荐 MCP 服务</div>
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(14,165,233,0.08)">📖</div>
+            <div><div class="card-title">Context7</div><div class="card-author">by context7.ai</div></div>
+          </div>
+          <div class="card-desc">实时查询库文档，获取最新 API 参考与使用示例。支持主流前端/后端框架。</div>
+          <div class="card-tags"><span class="card-tag tool">MCP</span><span class="card-tag">文档</span><span class="card-tag">API</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 874</span><span>⭐ 4.9</span><span>v1.4.0</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(5,150,105,0.08)">🎭</div>
+            <div><div class="card-title">Playwright</div><div class="card-author">by Microsoft</div></div>
+          </div>
+          <div class="card-desc">浏览器自动化，支持页面导航、表单填写、截图、数据提取、E2E 测试。</div>
+          <div class="card-tags"><span class="card-tag tool">MCP</span><span class="card-tag">浏览器</span><span class="card-tag">自动化</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 543</span><span>⭐ 4.8</span><span>v0.0.28</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(245,158,11,0.08)">🌐</div>
+            <div><div class="card-title">Brave Search</div><div class="card-author">by Brave</div></div>
+          </div>
+          <div class="card-desc">隐私友好的搜索引擎，支持网页搜索与新闻聚合。</div>
+          <div class="card-tags"><span class="card-tag tool">MCP</span><span class="card-tag">搜索</span><span class="card-tag">隐私</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 312</span><span>⭐ 4.6</span><span>v1.0.0</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 推荐角色 -->
+      <div class="section-title">🎭 推荐角色</div>
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(200,150,10,0.08)">📚</div>
+            <div><div class="card-title">文档管家</div><div class="card-author">by 弈林社区</div></div>
+          </div>
+          <div class="card-desc">专注文档写作与整理的角色，擅长技术文档、博客、报告等长文写作。</div>
+          <div class="card-tags"><span class="card-tag">角色</span><span class="card-tag">写作</span><span class="card-tag">Plan</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 256</span><span>⭐ 4.4</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(37,99,235,0.08)">🛡️</div>
+            <div><div class="card-title">安全审计员</div><div class="card-author">by 弈林社区</div></div>
+          </div>
+          <div class="card-desc">专注安全审计的角色，擅长漏洞扫描、权限检查、依赖审计、安全报告生成。</div>
+          <div class="card-tags"><span class="card-tag">角色</span><span class="card-tag">安全</span><span class="card-tag">Plan</span></div>
+          <div class="card-footer">
+            <div class="card-stats"><span>⬇ 189</span><span>⭐ 4.6</span></div>
+            <button class="card-action">安装</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+document.querySelectorAll('.market-tab').forEach(t=>t.addEventListener('click',function(){
+  document.querySelectorAll('.market-tab').forEach(x=>x.classList.remove('active'));
+  this.classList.add('active');
+}));
+document.querySelectorAll('.card-action').forEach(b=>b.addEventListener('click',function(e){
+  e.stopPropagation();
+  if(this.classList.contains('installed')){
+    this.classList.remove('installed');this.textContent='安装';
+  }else{
+    this.classList.add('installed');this.textContent='已安装';
+  }
+}));
+</script>
+</body>
+</html>

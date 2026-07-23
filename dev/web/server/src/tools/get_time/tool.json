@@ -1,0 +1,14 @@
+{
+    "name": "get_time",
+    "description": "Get the current date, time, and timezone. Call this whenever you need to know the current time (e.g., checking business hours, scheduling events, understanding time-sensitive context).",
+    "source": "builtin",
+    "tags": ["system"],
+    "version": "1.0.0",
+    "author": "Yi-Lin",
+    "dangerous": false,
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+    }
+}

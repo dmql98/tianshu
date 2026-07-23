@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 · 事件</title>
+<style>
+:root{
+  --bg-main:#f5f0e8;--bg-card:#ede6da;--bg-hover:#e0d8cc;--bg-input:#faf8f4;
+  --border:rgba(180,160,130,0.15);--border-light:rgba(180,160,130,0.08);
+  --gold:#c8960a;--jade:#2a9d5c;--cinnabar:#c45c3c;--blue:#2563eb;
+  --ink-deep:#2c2418;--ink-mid:#5c5040;--ink-light:#8a7d68;--ink-faint:#b8a890;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
+.app{display:flex;height:100vh}
+.nav-rail{width:60px;min-width:60px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
+.nav-item .nav-label{font-size:9px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.page-header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.page-title{font-size:18px;font-weight:600}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
+.event-lanes{display:flex;gap:12px;height:100%}
+.lane{flex:1;display:flex;flex-direction:column}
+.lane-header{padding:10px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.lane-body{flex:1;padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.lane.pending .lane-header{background:rgba(245,158,11,0.08);color:var(--gold)}
+.lane.running .lane-header{background:rgba(37,99,235,0.08);color:var(--blue)}
+.lane.done .lane-header{background:rgba(42,157,92,0.08);color:var(--jade)}
+.lane.failed .lane-header{background:rgba(196,92,60,0.08);color:var(--cinnabar)}
+.event-card{border-radius:8px;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);cursor:pointer;transition:all 0.15s}
+.event-card:hover{border-color:var(--gold)}
+.event-card-title{font-size:12px;font-weight:500;margin-bottom:4px}
+.event-card-agent{font-size:10px;color:var(--ink-mid);margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.event-card-meta{font-size:10px;color:var(--ink-light);display:flex;justify-content:space-between;align-items:center}
+.event-badge{font-size:9px;padding:1px 5px;border-radius:3px}
+.event-cron{font-size:9px;color:var(--ink-faint);font-family:monospace;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail">
+    <div class="nav-logo" title="天枢">天</div>
+    <button class="nav-item" onclick="location.href='chat.html'" title="会话">💬<span class="nav-label">会话</span></button>
+    <button class="nav-item" onclick="location.href='characters.html'" title="角色">🎭<span class="nav-label">角色</span></button>
+    <button class="nav-item" onclick="location.href='skills.html'" title="技能">⚡<span class="nav-label">技能</span></button>
+    <button class="nav-item" onclick="location.href='tools.html'" title="工具">🔧<span class="nav-label">工具</span></button>
+    <button class="nav-item" onclick="location.href='mcp.html'" title="MCP">🔗<span class="nav-label">MCP</span></button>
+    <button class="nav-item" onclick="location.href='knowledge.html'" title="知识库">📚<span class="nav-label">知识</span></button>
+    <button class="nav-item" onclick="location.href='market.html'" title="市场">🏪<span class="nav-label">市场</span></button>
+    <div style="width:28px;height:1px;background:var(--border);margin:6px 0"></div>
+    <button class="nav-item active" title="事件">⚡<span class="nav-label">事件</span></button>
+    <div style="flex:1"></div>
+    <button class="nav-item" onclick="location.href='settings.html'" title="设置">⚙️<span class="nav-label">设置</span></button>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <span class="page-title">事件中心</span>
+      <span style="font-size:12px;color:var(--ink-light)">6 个事件 · 1 个正在执行</span>
+    </div>
+    <div class="content">
+      <div class="event-lanes">
+        <div class="lane pending">
+          <div class="lane-header">⏳ 待处理 (2)</div>
+          <div class="lane-body">
+            <div class="event-card">
+              <div class="event-card-title">代码审查 - main</div>
+              <div class="event-card-agent">👑 紫微</div>
+              <div class="event-card-meta"><span>触发于 15:28 · 重试 0</span><span class="event-badge" style="background:rgba(200,150,10,0.1);color:var(--gold)">等待执行</span></div>
+              <div class="event-cron">cron: 0 */4 * * *</div>
+            </div>
+            <div class="event-card">
+              <div class="event-card-title">知识库增量索引</div>
+              <div class="event-card-agent">🌟 长庚</div>
+              <div class="event-card-meta"><span>触发于 16:00 · 重试 0</span><span class="event-badge" style="background:rgba(200,150,10,0.1);color:var(--gold)">等待执行</span></div>
+              <div class="event-cron">cron: 0 2 * * *</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lane running">
+          <div class="lane-header">▶ 执行中 (1)</div>
+          <div class="lane-body">
+            <div class="event-card">
+              <div class="event-card-title">UI 优化自动测试</div>
+              <div class="event-card-agent">⚙️ 天璇</div>
+              <div class="event-card-meta"><span>触发于 15:16 · 已运行 12 分钟</span><span class="event-badge" style="background:rgba(37,99,235,0.1);color:var(--blue)">执行中</span></div>
+              <div class="event-cron">手动触发</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lane done">
+          <div class="lane-header">✓ 已完成 (2)</div>
+          <div class="lane-body">
+            <div class="event-card">
+              <div class="event-card-title">每日代码备份</div>
+              <div class="event-card-agent">🌟 长庚</div>
+              <div class="event-card-meta"><span>06:00 · 耗时 3 分钟</span><span class="event-badge" style="background:rgba(42,157,92,0.1);color:var(--jade)">成功</span></div>
+              <div class="event-cron">cron: 0 6 * * *</div>
+            </div>
+            <div class="event-card">
+              <div class="event-card-title">离线复盘 · 技能聚类</div>
+              <div class="event-card-agent">👑 紫微</div>
+              <div class="event-card-meta"><span>02:00 · 生成 1 个技能</span><span class="event-badge" style="background:rgba(42,157,92,0.1);color:var(--jade)">成功</span></div>
+              <div class="event-cron">cron: 0 2 * * * · 进化引擎</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lane failed">
+          <div class="lane-header">✗ 失败 (1)</div>
+          <div class="lane-body">
+            <div class="event-card">
+              <div class="event-card-title">数据迁移</div>
+              <div class="event-card-agent">👑 紫微</div>
+              <div class="event-card-meta"><span>昨天 · 重试 2</span><span class="event-badge" style="background:rgba(196,92,60,0.1);color:var(--cinnabar)">失败</span></div>
+              <div class="event-cron" style="color:var(--cinnabar)">Provider "openai" not found</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

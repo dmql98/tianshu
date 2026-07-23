@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 · MCP</title>
+<style>
+:root{
+  --bg-main:#f5f0e8;--bg-card:#ede6da;--bg-hover:#e0d8cc;--bg-input:#faf8f4;
+  --border:rgba(180,160,130,0.15);--border-light:rgba(180,160,130,0.08);
+  --gold:#c8960a;--jade:#2a9d5c;--cinnabar:#c45c3c;--blue:#2563eb;
+  --ink-deep:#2c2418;--ink-mid:#5c5040;--ink-light:#8a7d68;--ink-faint:#b8a890;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
+.app{display:flex;height:100vh}
+.nav-rail{width:60px;min-width:60px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
+.nav-item .nav-label{font-size:9px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.page-header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.page-title{font-size:18px;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);cursor:pointer;font-size:13px;font-family:inherit}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.btn.primary{background:var(--gold);color:#fff;border-color:var(--gold)}
+.btn.sm{padding:5px 12px;font-size:12px}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
+.mcp-list{display:flex;flex-direction:column;gap:10px;max-width:760px}
+.mcp-card{border-radius:12px;background:var(--bg-card);border:1px solid var(--border);padding:16px}
+.mcp-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mcp-name{font-size:14px;font-weight:600;flex:1}
+.mcp-status{font-size:10px;padding:2px 8px;border-radius:4px}
+.mcp-status.connected{background:rgba(42,157,92,0.1);color:var(--jade)}
+.mcp-status.failed{background:rgba(196,92,60,0.1);color:var(--cinnabar)}
+.mcp-status.disabled{background:var(--bg-hover);color:var(--ink-faint)}
+.mcp-cmd{font-size:11px;color:var(--ink-mid);font-family:monospace;background:var(--bg-input);padding:6px 10px;border-radius:6px;border:1px solid var(--border-light);margin-bottom:10px;word-break:break-all}
+.mcp-tools{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.mcp-tool-tag{padding:2px 8px;border-radius:4px;font-size:10px;font-family:monospace;background:var(--bg-hover);color:var(--ink-mid)}
+.mcp-foot{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--border-light);margin-top:4px}
+.mcp-uptime{font-size:10px;color:var(--ink-light)}
+.mcp-last{font-size:10px;color:var(--ink-faint)}
+.mcp-actions{display:flex;gap:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail">
+    <div class="nav-logo" title="天枢">天</div>
+    <button class="nav-item" onclick="location.href='chat.html'" title="会话">💬<span class="nav-label">会话</span></button>
+    <button class="nav-item" onclick="location.href='characters.html'" title="角色">🎭<span class="nav-label">角色</span></button>
+    <button class="nav-item" onclick="location.href='skills.html'" title="技能">⚡<span class="nav-label">技能</span></button>
+    <button class="nav-item" onclick="location.href='tools.html'" title="工具">🔧<span class="nav-label">工具</span></button>
+    <button class="nav-item active" title="MCP">🔗<span class="nav-label">MCP</span></button>
+    <button class="nav-item" onclick="location.href='knowledge.html'" title="知识库">📚<span class="nav-label">知识</span></button>
+    <button class="nav-item" onclick="location.href='market.html'" title="市场">🏪<span class="nav-label">市场</span></button>
+    <div style="width:28px;height:1px;background:var(--border);margin:6px 0"></div>
+    <button class="nav-item" onclick="location.href='events.html'" title="事件">⚡<span class="nav-label">事件</span></button>
+    <div style="flex:1"></div>
+    <button class="nav-item" onclick="location.href='settings.html'" title="设置">⚙️<span class="nav-label">设置</span></button>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <span class="page-title">MCP 服务</span>
+      <div class="header-actions">
+        <button class="btn">导入 JSON</button>
+        <button class="btn primary">+ 添加服务</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="mcp-list">
+
+        <div class="mcp-card">
+          <div class="mcp-header">
+            <span class="mcp-name">context7</span>
+            <span class="mcp-status connected">已连接 (2)</span>
+            <button class="btn sm">测试</button>
+            <button class="btn sm">编辑</button>
+            <button class="btn sm">禁用</button>
+          </div>
+          <div class="mcp-cmd">npx -y @upstash/context7-mcp</div>
+          <div class="mcp-tools">
+            <span class="mcp-tool-tag">context7_resolve</span>
+            <span class="mcp-tool-tag">context7_query</span>
+          </div>
+          <div class="mcp-foot"><span class="mcp-uptime">运行 3 天 12 小时</span><span class="mcp-last">最后调用 2 分钟前</span></div>
+        </div>
+
+        <div class="mcp-card">
+          <div class="mcp-header">
+            <span class="mcp-name">codegraph</span>
+            <span class="mcp-status connected">已连接 (7)</span>
+            <button class="btn sm">测试</button>
+            <button class="btn sm">编辑</button>
+            <button class="btn sm">禁用</button>
+          </div>
+          <div class="mcp-cmd">codegraph mcp</div>
+          <div class="mcp-tools">
+            <span class="mcp-tool-tag">codegraph_search</span>
+            <span class="mcp-tool-tag">codegraph_callers</span>
+            <span class="mcp-tool-tag">codegraph_callees</span>
+            <span class="mcp-tool-tag">codegraph_explore</span>
+            <span class="mcp-tool-tag">codegraph_trace</span>
+            <span class="mcp-tool-tag">codegraph_impact</span>
+            <span class="mcp-tool-tag">codegraph_status</span>
+          </div>
+          <div class="mcp-foot"><span class="mcp-uptime">运行 3 天 12 小时</span><span class="mcp-last">最后调用 5 分钟前</span></div>
+        </div>
+
+        <div class="mcp-card">
+          <div class="mcp-header">
+            <span class="mcp-name">filesystem</span>
+            <span class="mcp-status failed">连接失败</span>
+            <button class="btn sm">重试</button>
+            <button class="btn sm">编辑</button>
+            <button class="btn sm">删除</button>
+          </div>
+          <div class="mcp-cmd">npx -y @modelcontextprotocol/server-filesystem C:\workspace</div>
+          <div style="font-size:11px;color:var(--cinnabar);margin-bottom:8px">Error: spawn npx ENOENT</div>
+        </div>
+
+        <div class="mcp-card" style="opacity:0.6">
+          <div class="mcp-header">
+            <span class="mcp-name">playwright</span>
+            <span class="mcp-status disabled">已禁用</span>
+            <button class="btn sm">启用</button>
+            <button class="btn sm">编辑</button>
+            <button class="btn sm">删除</button>
+          </div>
+          <div class="mcp-cmd">npx -y @playwright/mcp@latest</div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

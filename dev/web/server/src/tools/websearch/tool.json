@@ -1,0 +1,23 @@
+﻿{
+    "parameters":  {
+                       "properties":  {
+                                          "query":  {
+                                                        "type":  "string",
+                                                        "description":  "The search query"
+                                                    }
+                                      },
+                       "type":  "object",
+                       "required":  [
+                                        "query"
+                                    ]
+                   },
+    "source":  "builtin",
+    "description":  "Search the web for recent information",
+    "dangerous":  false,
+    "version":  "1.0.0",
+    "tags":  [
+                 "web"
+             ],
+    "author":  "Yi-Lin",
+    "name":  "websearch"
+}

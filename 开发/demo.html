@@ -1,0 +1,927 @@
+html_code = '''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>国风星官 Agent Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(135deg, #0a0a1a 0%, #0f172a 50%, #1a0b2e 100%);
+    min-height: 100vh;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    color: #e2e8f0;
+    overflow-x: hidden;
+  }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  /* 顶部区域 */
+  .top-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .main-card {
+    flex: 1;
+    min-width: 300px;
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1a0b2e 0%, #2d1b4e 50%, #0f172a 100%);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+  .main-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 256px;
+    height: 256px;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .main-card-inner { position: relative; z-index: 1; }
+  .main-card h1 {
+    font-size: 24px;
+    font-weight: bold;
+    color: #fef3c7;
+    letter-spacing: 0.2em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .main-card .subtitle {
+    color: rgba(216, 180, 254, 0.7);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .stat-item {
+    text-align: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .stat-item .number {
+    font-size: 24px;
+    font-weight: bold;
+  }
+  .stat-item .label {
+    font-size: 12px;
+    color: rgba(216, 180, 254, 0.6);
+    margin-top: 4px;
+  }
+
+  .side-card {
+    width: 100%;
+    max-width: 320px;
+    border-radius: 16px;
+    padding: 24px;
+    background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+  }
+  .side-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .side-card-header h2 {
+    font-size: 18px;
+    color: #cffafe;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    background: rgba(6, 182, 212, 0.2);
+    color: #67e8f9;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+  .astro-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .astro-row:last-child { border-bottom: none; }
+  .astro-label { color: #94a3b8; }
+  .astro-value { font-weight: 500; }
+  .astro-value.amber { color: #fcd34d; }
+  .astro-value.cyan { color: #67e8f9; }
+  .astro-value.purple { color: #c4b5fd; }
+  .astro-value.emerald { color: #6ee7b7; }
+  .status-bar {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* 二十八宿星图 */
+  .star-chart-section {
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+  .section-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .section-header h2 {
+    font-size: 20px;
+    color: #fef3c7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: #e2e8f0;
+    transition: all 0.3s;
+  }
+  .filter-btn:hover { background: rgba(255,255,255,0.15); }
+  .filter-btn.active { background: rgba(139, 92, 246, 0.3); border-color: rgba(139, 92, 246, 0.5); }
+
+  .star-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+  }
+  .star-card {
+    position: relative;
+    padding: 16px 12px;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    user-select: none;
+  }
+  .star-card:hover { transform: scale(1.05); }
+  .star-card.dimmed { opacity: 0.2; }
+  .star-card.east {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+  .star-card.south {
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.1) 0%, rgba(244, 63, 94, 0.05) 100%);
+    border: 1px solid rgba(244, 63, 94, 0.2);
+  }
+  .star-card.west {
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.1) 0%, rgba(148, 163, 184, 0.05) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+  .star-card.north {
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+  }
+  .star-icon { font-size: 24px; margin-bottom: 4px; transition: transform 0.3s; }
+  .star-card:hover .star-icon { transform: scale(1.2); }
+  .star-name { font-size: 16px; font-weight: bold; }
+  .star-card.east .star-name { color: #6ee7b7; }
+  .star-card.south .star-name { color: #fda4af; }
+  .star-card.west .star-name { color: #cbd5e1; }
+  .star-card.north .star-name { color: #67e8f9; }
+  .star-animal { font-size: 11px; margin-top: 4px; }
+  .star-card.east .star-animal { color: rgba(16, 185, 129, 0.6); }
+  .star-card.south .star-animal { color: rgba(244, 63, 94, 0.6); }
+  .star-card.west .star-animal { color: rgba(148, 163, 184, 0.6); }
+  .star-card.north .star-animal { color: rgba(6, 182, 212, 0.6); }
+  .star-dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    animation: twinkle 2s infinite;
+  }
+  .star-dot.amber { background: #fbbf24; }
+  .star-dot.emerald { background: #34d399; }
+  @keyframes twinkle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* 悬浮提示 */
+  .tooltip {
+    position: fixed;
+    z-index: 1000;
+    padding: 16px;
+    border-radius: 12px;
+    max-width: 280px;
+    pointer-events: none;
+    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    display: none;
+  }
+  .tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .tooltip-header .icon { font-size: 20px; }
+  .tooltip-header .title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fef3c7;
+  }
+  .tooltip-desc {
+    font-size: 13px;
+    color: rgba(216, 180, 254, 0.8);
+    line-height: 1.6;
+  }
+  .tooltip-tags {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .tag-amber {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+  .tag-purple {
+    background: rgba(139, 92, 246, 0.2);
+    color: #c4b5fd;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+
+  /* 三垣星官 */
+  .three-enclosures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  .enclosure-card {
+    border-radius: 16px;
+    padding: 20px;
+    background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
+  }
+  .enclosure-card.purple { border: 1px solid rgba(139, 92, 246, 0.2); }
+  .enclosure-card.cyan { border: 1px solid rgba(56, 189, 248, 0.2); }
+  .enclosure-card.amber { border: 1px solid rgba(245, 158, 11, 0.2); }
+  .enclosure-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .enclosure-header h3 { font-size: 16px; }
+  .enclosure-header .enclosure-count {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 9999px;
+  }
+  .enclosure-card.purple h3 { color: #d8b4fe; }
+  .enclosure-card.purple .enclosure-count { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+  .enclosure-card.cyan h3 { color: #67e8f9; }
+  .enclosure-card.cyan .enclosure-count { background: rgba(6, 182, 212, 0.2); color: #67e8f9; }
+  .enclosure-card.amber h3 { color: #fcd34d; }
+  .enclosure-card.amber .enclosure-count { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+
+  .star-official-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .star-official-item:hover { background: rgba(255,255,255,0.08); }
+  .star-official-item .left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .star-official-item .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .star-official-item .name { font-size: 14px; color: #cbd5e1; }
+  .star-official-item .count { font-size: 12px; color: #64748b; }
+
+  /* 底部区域 */
+  .bottom-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+  .bottom-card {
+    border-radius: 16px;
+    padding: 20px;
+    background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
+  }
+  .bottom-card.rose { border: 1px solid rgba(244, 63, 94, 0.2); }
+  .bottom-card.emerald { border: 1px solid rgba(16, 185, 129, 0.2); }
+  .bottom-card h3 {
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .bottom-card.rose h3 { color: #fda4af; }
+  .bottom-card.emerald h3 { color: #6ee7b7; }
+
+  .anomaly-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    margin-bottom: 10px;
+    border-left: 2px solid;
+  }
+  .anomaly-item.amber { border-left-color: #fbbf24; }
+  .anomaly-item.cyan { border-left-color: #22d3ee; }
+  .anomaly-item.purple { border-left-color: #a78bfa; }
+  .anomaly-date {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+  .anomaly-title {
+    font-size: 14px;
+    color: #e2e8f0;
+  }
+  .anomaly-desc {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  .power-bar {
+    margin-bottom: 16px;
+  }
+  .power-bar-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  .power-bar-track {
+    height: 8px;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  .power-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 1s ease;
+  }
+  .power-bar-fill.emerald { background: #34d399; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4); }
+  .power-bar-fill.rose { background: #fb7185; box-shadow: 0 0 10px rgba(251, 113, 133, 0.4); }
+  .power-bar-fill.slate { background: #94a3b8; box-shadow: 0 0 10px rgba(148, 163, 184, 0.4); }
+  .power-bar-fill.cyan { background: #22d3ee; box-shadow: 0 0 10px rgba(34, 211, 238, 0.4); }
+
+  .footer {
+    text-align: center;
+    padding: 32px 0 16px;
+    font-size: 12px;
+    color: #475569;
+  }
+
+  /* 响应式 */
+  @media (max-width: 768px) {
+    .top-section { flex-direction: column; }
+    .side-card { max-width: 100%; }
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .star-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- 顶部：星官总览 -->
+  <div class="top-section">
+    <!-- 主星官卡 -->
+    <div class="main-card">
+      <div class="main-card-inner">
+        <h1><span>✦</span> 紫微垣 · 星官总览</h1>
+        <p class="subtitle">Ziwei Enclosure · Celestial Bureau Dashboard</p>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="number" style="color: #fbbf24;">28</div>
+            <div class="label">宿星</div>
+          </div>
+          <div class="stat-item">
+            <div class="number" style="color: #22d3ee;">1464</div>
+            <div class="label">诸星</div>
+          </div>
+          <div class="stat-item">
+            <div class="number" style="color: #fb7185;">283</div>
+            <div class="label">星官</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 当前天象 -->
+    <div class="side-card">
+      <div class="side-card-header">
+        <h2>🌙 当前天象</h2>
+        <span class="badge">实时</span>
+      </div>
+      <div class="astro-row">
+        <span class="astro-label">斗柄指向</span>
+        <span class="astro-value amber">西南 · 鹑尾</span>
+      </div>
+      <div class="astro-row">
+        <span class="astro-label">值日星官</span>
+        <span class="astro-value cyan">房日兔</span>
+      </div>
+      <div class="astro-row">
+        <span class="astro-label">月相</span>
+        <span class="astro-value purple">🌕 望</span>
+      </div>
+      <div class="astro-row">
+        <span class="astro-label">节气</span>
+        <span class="astro-value emerald">大暑 · 二候</span>
+      </div>
+      <div class="status-bar">
+        <div class="pulse-dot"></div>
+        <span>星官系统运行正常 · 灵气充沛</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 二十八宿星图 -->
+  <div class="star-chart-section">
+    <div class="section-header">
+      <h2>🌟 二十八宿 · 四象星图</h2>
+      <div class="filter-buttons">
+        <button class="filter-btn active" onclick="filterStars('all', this)">全部</button>
+        <button class="filter-btn" onclick="filterStars('east', this)">东方青龙</button>
+        <button class="filter-btn" onclick="filterStars('south', this)">南方朱雀</button>
+        <button class="filter-btn" onclick="filterStars('west', this)">西方白虎</button>
+        <button class="filter-btn" onclick="filterStars('north', this)">北方玄武</button>
+      </div>
+    </div>
+
+    <div class="star-grid" id="starGrid">
+      <!-- 东方青龙七宿 -->
+      <div class="star-card east" data-name="角" data-desc="东方青龙第一宿，主造化万物，有两颗星。" data-icon="🐉">
+        <div class="star-icon">🐉</div>
+        <div class="star-name">角</div>
+        <div class="star-animal">木蛟</div>
+        <div class="star-dot emerald"></div>
+      </div>
+      <div class="star-card east" data-name="亢" data-desc="东方青龙第二宿，主疾，有四颗星。" data-icon="🐉">
+        <div class="star-icon">🐉</div>
+        <div class="star-name">亢</div>
+        <div class="star-animal">金龙</div>
+      </div>
+      <div class="star-card east" data-name="氐" data-desc="东方青龙第三宿，主根，有四颗星。" data-icon="🐉">
+        <div class="star-icon">🐉</div>
+        <div class="star-name">氐</div>
+        <div class="star-animal">土貉</div>
+      </div>
+      <div class="star-card east" data-name="房" data-desc="东方青龙第四宿，主天驷，有四颗星。" data-icon="🐉">
+        <div class="star-icon">🐉</div>
+        <div class="star-name">房</div>
+        <div class="star-animal">日兔</div>
+        <div class="star-dot amber"></div>
+      </div>
+      <div class="star-card east" data-name="心" data-desc="东方青龙第五宿，主明堂，有三颗星。" data-icon="🐉">
+        <div class="star-icon">🐉</div>
+        <div class="star-name">心</div>
+        <div class="star-animal">月狐</div>
+      </div>
+      <div class="star-card east" data-name="尾" data-desc="东方青龙第六宿，主后宫，有九颗星。" data-icon="🐉">
+        <div class="star-icon">🐉</div>
+        <div class="star-name">尾</div>
+        <div class="star-animal">火虎</div>
+      </div>
+      <div class="star-card east" data-name="箕" data-desc="东方青龙第七宿，主口舌，有四颗星。" data-icon="🐉">
+        <div class="star-icon">🐉</div>
+        <div class="star-name">箕</div>
+        <div class="star-animal">水豹</div>
+      </div>
+
+      <!-- 北方玄武七宿 -->
+      <div class="star-card north" data-name="斗" data-desc="北方玄武第一宿，主天子寿命，有六颗星。" data-icon="🐢">
+        <div class="star-icon">🐢</div>
+        <div class="star-name">斗</div>
+        <div class="star-animal">木獬</div>
+      </div>
+      <div class="star-card north" data-name="牛" data-desc="北方玄武第二宿，主牺牲，有六颗星。" data-icon="🐢">
+        <div class="star-icon">🐢</div>
+        <div class="star-name">牛</div>
+        <div class="star-animal">金牛</div>
+      </div>
+      <div class="star-card north" data-name="女" data-desc="北方玄武第三宿，主布帛，有四颗星。" data-icon="🐢">
+        <div class="star-icon">🐢</div>
+        <div class="star-name">女</div>
+        <div class="star-animal">土蝠</div>
+      </div>
+      <div class="star-card north" data-name="虚" data-desc="北方玄武第四宿，主庙堂哭泣，有两颗星。" data-icon="🐢">
+        <div class="star-icon">🐢</div>
+        <div class="star-name">虚</div>
+        <div class="star-animal">日鼠</div>
+      </div>
+      <div class="star-card north" data-name="危" data-desc="北方玄武第五宿，主坟墓，有三颗星。" data-icon="🐢">
+        <div class="star-icon">🐢</div>
+        <div class="star-name">危</div>
+        <div class="star-animal">月燕</div>
+      </div>
+      <div class="star-card north" data-name="室" data-desc="北方玄武第六宿，主土工，有两颗星。" data-icon="🐢">
+        <div class="star-icon">🐢</div>
+        <div class="star-name">室</div>
+        <div class="star-animal">火猪</div>
+      </div>
+      <div class="star-card north" data-name="壁" data-desc="北方玄武第七宿，主文章，有两颗星。" data-icon="🐢">
+        <div class="star-icon">🐢</div>
+        <div class="star-name">壁</div>
+        <div class="star-animal">水貐</div>
+      </div>
+
+      <!-- 西方白虎七宿 -->
+      <div class="star-card west" data-name="奎" data-desc="西方白虎第一宿，主库兵，有十六颗星。" data-icon="🐯">
+        <div class="star-icon">🐯</div>
+        <div class="star-name">奎</div>
+        <div class="star-animal">木狼</div>
+      </div>
+      <div class="star-card west" data-name="娄" data-desc="西方白虎第二宿，主兴兵聚众，有三颗星。" data-icon="🐯">
+        <div class="star-icon">🐯</div>
+        <div class="star-name">娄</div>
+        <div class="star-animal">金狗</div>
+      </div>
+      <div class="star-card west" data-name="胃" data-desc="西方白虎第三宿，主仓廪，有三颗星。" data-icon="🐯">
+        <div class="star-icon">🐯</div>
+        <div class="star-name">胃</div>
+        <div class="star-animal">土雉</div>
+      </div>
+      <div class="star-card west" data-name="昴" data-desc="西方白虎第四宿，主狱事，有七颗星。" data-icon="🐯">
+        <div class="star-icon">🐯</div>
+        <div class="star-name">昴</div>
+        <div class="star-animal">日鸡</div>
+      </div>
+      <div class="star-card west" data-name="毕" data-desc="西方白虎第五宿，主边兵，有八颗星。" data-icon="🐯">
+        <div class="star-icon">🐯</div>
+        <div class="star-name">毕</div>
+        <div class="star-animal">月乌</div>
+      </div>
+      <div class="star-card west" data-name="觜" data-desc="西方白虎第六宿，主葆旅，有三颗星。" data-icon="🐯">
+        <div class="star-icon">🐯</div>
+        <div class="star-name">觜</div>
+        <div class="star-animal">火猴</div>
+      </div>
+      <div class="star-card west" data-name="参" data-desc="西方白虎第七宿，主斩刈，有七颗星。" data-icon="🐯">
+        <div class="star-icon">🐯</div>
+        <div class="star-name">参</div>
+        <div class="star-animal">水猿</div>
+      </div>
+
+      <!-- 南方朱雀七宿 -->
+      <div class="star-card south" data-name="井" data-desc="南方朱雀第一宿，主水衡，有八颗星。" data-icon="🦅">
+        <div class="star-icon">🦅</div>
+        <div class="star-name">井</div>
+        <div class="star-animal">木犴</div>
+      </div>
+      <div class="star-card south" data-name="鬼" data-desc="南方朱雀第二宿，主祠祀，有四颗星。" data-icon="🦅">
+        <div class="star-icon">🦅</div>
+        <div class="star-name">鬼</div>
+        <div class="star-animal">金羊</div>
+      </div>
+      <div class="star-card south" data-name="柳" data-desc="南方朱雀第三宿，主草木，有八颗星。" data-icon="🦅">
+        <div class="star-icon">🦅</div>
+        <div class="star-name">柳</div>
+        <div class="star-animal">土獐</div>
+      </div>
+      <div class="star-card south" data-name="星" data-desc="南方朱雀第四宿，主衣服，有七颗星。" data-icon="🦅">
+        <div class="star-icon">🦅</div>
+        <div class="star-name">星</div>
+        <div class="star-animal">日马</div>
+      </div>
+      <div class="star-card south" data-name="张" data-desc="南方朱雀第五宿，主珍宝，有六颗星。" data-icon="🦅">
+        <div class="star-icon">🦅</div>
+        <div class="star-name">张</div>
+        <div class="star-animal">月鹿</div>
+      </div>
+      <div class="star-card south" data-name="翼" data-desc="南方朱雀第六宿，主乐府，有二十二颗星。" data-icon="🦅">
+        <div class="star-icon">🦅</div>
+        <div class="star-name">翼</div>
+        <div class="star-animal">火蛇</div>
+      </div>
+      <div class="star-card south" data-name="轸" data-desc="南方朱雀第七宿，主车骑，有四颗星。" data-icon="🦅">
+        <div class="star-icon">🦅</div>
+        <div class="star-name">轸</div>
+        <div class="star-animal">水蚓</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 三垣星官 -->
+  <div class="three-enclosures">
+    <div class="enclosure-card purple">
+      <div class="enclosure-header">
+        <span>👑</span>
+        <h3>紫微垣</h3>
+        <span class="enclosure-count">37 星官</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#fbbf24;"></span><span class="name">北极</span></div>
+        <span class="count">5星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#a78bfa;"></span><span class="name">四辅</span></div>
+        <span class="count">4星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#22d3ee;"></span><span class="name">天乙</span></div>
+        <span class="count">1星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#fb7185;"></span><span class="name">太乙</span></div>
+        <span class="count">1星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#34d399;"></span><span class="name">紫微左垣</span></div>
+        <span class="count">8星</span>
+      </div>
+    </div>
+
+    <div class="enclosure-card cyan">
+      <div class="enclosure-header">
+        <span>⚖️</span>
+        <h3>太微垣</h3>
+        <span class="enclosure-count">20 星官</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#fbbf24;"></span><span class="name">太微左垣</span></div>
+        <span class="count">5星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#a78bfa;"></span><span class="name">太微右垣</span></div>
+        <span class="count">5星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#22d3ee;"></span><span class="name">五帝座</span></div>
+        <span class="count">5星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#fb7185;"></span><span class="name">太子</span></div>
+        <span class="count">1星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#34d399;"></span><span class="name">从官</span></div>
+        <span class="count">1星</span>
+      </div>
+    </div>
+
+    <div class="enclosure-card amber">
+      <div class="enclosure-header">
+        <span>🏛️</span>
+        <h3>天市垣</h3>
+        <span class="enclosure-count">19 星官</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#fbbf24;"></span><span class="name">天市左垣</span></div>
+        <span class="count">11星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#a78bfa;"></span><span class="name">天市右垣</span></div>
+        <span class="count">11星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#22d3ee;"></span><span class="name">市楼</span></div>
+        <span class="count">6星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#fb7185;"></span><span class="name">车肆</span></div>
+        <span class="count">2星</span>
+      </div>
+      <div class="star-official-item">
+        <div class="left"><span class="dot" style="background:#34d399;"></span><span class="name">宗正</span></div>
+        <span class="count">2星</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部区域 -->
+  <div class="bottom-section">
+    <!-- 星象异动记录 -->
+    <div class="bottom-card rose">
+      <h3>📜 星象异动记录</h3>
+      <div class="anomaly-item amber">
+        <span class="anomaly-date">今日</span>
+        <div>
+          <div class="anomaly-title">荧惑守心</div>
+          <div class="anomaly-desc">火星进入心宿区域，灵气波动异常</div>
+        </div>
+      </div>
+      <div class="anomaly-item cyan">
+        <span class="anomaly-date">三日前</span>
+        <div>
+          <div class="anomaly-title">太白经天</div>
+          <div class="anomaly-desc">金星白昼可见，西方白虎气盛</div>
+        </div>
+      </div>
+      <div class="anomaly-item purple">
+        <span class="anomaly-date">七日前</span>
+        <div>
+          <div class="anomaly-title">彗星入紫微</div>
+          <div class="anomaly-desc">客星犯帝座，紫微垣灵气紊乱</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 四象灵力监测 -->
+    <div class="bottom-card emerald">
+      <h3>⚡ 四象灵力监测</h3>
+      <div class="power-bar">
+        <div class="power-bar-header">
+          <span style="color:#6ee7b7;">🐉 东方青龙</span>
+          <span style="color:#34d399;" id="eastPower">87%</span>
+        </div>
+        <div class="power-bar-track">
+          <div class="power-bar-fill emerald" id="eastBar" style="width:87%"></div>
+        </div>
+      </div>
+      <div class="power-bar">
+        <div class="power-bar-header">
+          <span style="color:#fda4af;">🦅 南方朱雀</span>
+          <span style="color:#fb7185;" id="southPower">92%</span>
+        </div>
+        <div class="power-bar-track">
+          <div class="power-bar-fill rose" id="southBar" style="width:92%"></div>
+        </div>
+      </div>
+      <div class="power-bar">
+        <div class="power-bar-header">
+          <span style="color:#cbd5e1;">🐯 西方白虎</span>
+          <span style="color:#94a3b8;" id="westPower">64%</span>
+        </div>
+        <div class="power-bar-track">
+          <div class="power-bar-fill slate" id="westBar" style="width:64%"></div>
+        </div>
+      </div>
+      <div class="power-bar">
+        <div class="power-bar-header">
+          <span style="color:#67e8f9;">🐢 北方玄武</span>
+          <span style="color:#22d3ee;" id="northPower">78%</span>
+        </div>
+        <div class="power-bar-track">
+          <div class="power-bar-fill cyan" id="northBar" style="width:78%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    ✦ 星官系统 v2.0 · 基于《步天歌》与《丹元子步天歌》 · 灵气同步中 ✦
+  </div>
+</div>
+
+<!-- 悬浮提示 -->
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-header">
+    <span class="icon" id="tooltipIcon"></span>
+    <span class="title" id="tooltipTitle"></span>
+  </div>
+  <p class="tooltip-desc" id="tooltipDesc"></p>
+  <div class="tooltip-tags">
+    <span class="tag tag-amber">星宿</span>
+    <span class="tag tag-purple">二十八宿</span>
+  </div>
+</div>
+
+<script>
+  // 筛选功能
+  function filterStars(direction, btn) {
+    // 更新按钮状态
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // 更新卡片显示
+    const cards = document.querySelectorAll('.star-card');
+    cards.forEach(card => {
+      if (direction === 'all') {
+        card.classList.remove('dimmed');
+      } else if (card.classList.contains(direction)) {
+        card.classList.remove('dimmed');
+      } else {
+        card.classList.add('dimmed');
+      }
+    });
+  }
+
+  // 悬浮提示
+  const tooltip = document.getElementById('tooltip');
+  const tooltipIcon = document.getElementById('tooltipIcon');
+  const tooltipTitle = document.getElementById('tooltipTitle');
+  const tooltipDesc = document.getElementById('tooltipDesc');
+
+  document.querySelectorAll('.star-card').forEach(card => {
+    card.addEventListener('mouseenter', (e) => {
+      tooltipIcon.textContent = card.dataset.icon;
+      tooltipTitle.textContent = card.dataset.name + '宿';
+      tooltipDesc.textContent = card.dataset.desc;
+      tooltip.style.display = 'block';
+    });
+    card.addEventListener('mousemove', (e) => {
+      tooltip.style.left = (e.clientX + 15) + 'px';
+      tooltip.style.top = (e.clientY + 15) + 'px';
+    });
+    card.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  });
+
+  // 灵力条动态波动
+  const powerBars = [
+    { id: 'eastBar', label: 'eastPower', base: 87 },
+    { id: 'southBar', label: 'southPower', base: 92 },
+    { id: 'westBar', label: 'westPower', base: 64 },
+    { id: 'northBar', label: 'northPower', base: 78 }
+  ];
+
+  setInterval(() => {
+    powerBars.forEach(bar => {
+      const variation = Math.floor(Math.random() * 5) - 2;
+      const newVal = Math.max(50, Math.min(100, bar.base + variation));
+      document.getElementById(bar.id).style.width = newVal + '%';
+      document.getElementById(bar.label).textContent = newVal + '%';
+    });
+  }, 3000);
+
+  // 星点闪烁
+  setInterval(() => {
+    document.querySelectorAll('.star-dot').forEach(dot => {
+      dot.style.opacity = Math.random() > 0.5 ? '1' : '0.2';
+    });
+  }, 2000);
+</script>
+
+</body>
+</html>'''
+
+with open('/mnt/agents/output/star_chart_dashboard.html', 'w', encoding='utf-8') as f:
+    f.write(html_code)
+
+print("文件已保存，大小:", len(html_code), "字符")

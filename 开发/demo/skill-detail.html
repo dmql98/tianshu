@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 · 文档分析</title>
+<style>
+:root{
+  --bg-main:#f5f0e8;--bg-card:#ede6da;--bg-hover:#e0d8cc;--bg-input:#faf8f4;
+  --border:rgba(180,160,130,0.15);--border-light:rgba(180,160,130,0.08);
+  --gold:#c8960a;--jade:#2a9d5c;--cinnabar:#c45c3c;--blue:#2563eb;--purple:#7c3aed;
+  --ink-deep:#2c2418;--ink-mid:#5c5040;--ink-light:#8a7d68;--ink-faint:#b8a890;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
+.app{display:flex;height:100vh}
+.nav-rail{width:60px;min-width:60px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
+.nav-item .nav-label{font-size:9px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.detail-header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px}
+.back-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--ink-light);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.back-btn:hover{border-color:var(--gold);color:var(--gold)}
+.detail-header-info{display:flex;align-items:center;gap:10px}
+.detail-header-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.detail-header-info h1{font-size:18px;font-weight:600}
+.detail-header-info p{font-size:11px;color:var(--ink-light)}
+.detail-body{flex:1;display:flex;overflow:hidden}
+.detail-side{width:260px;min-width:260px;padding:24px;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.detail-side-icon{width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px;border:2px solid var(--border);background:var(--bg-input)}
+.detail-side-name{font-size:16px;font-weight:600}
+.detail-side-author{font-size:11px;color:var(--ink-light)}
+.detail-side-desc{font-size:12px;color:var(--ink-mid);line-height:1.6}
+.detail-actions{display:flex;flex-direction:column;gap:8px}
+.detail-btn{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);cursor:pointer;font-size:13px;font-family:inherit;text-align:center;transition:all 0.15s}
+.detail-btn:hover{border-color:var(--gold);color:var(--gold)}
+.detail-btn.primary{background:var(--gold);color:#fff;border-color:var(--gold)}
+.detail-btn.primary:hover{background:#b08508;color:#fff}
+.detail-btn.danger{color:#fff;background:var(--cinnabar);border-color:var(--cinnabar)}
+.detail-btn.danger:hover{background:#a84830;border-color:#a84830}
+.detail-content{flex:1;overflow-y:auto;padding:24px 28px}
+.detail-tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.detail-tab{padding:8px 16px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:13px;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s}
+.detail-tab:hover{color:var(--ink-mid)}
+.detail-tab.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:500}
+.detail-section{margin-bottom:24px}
+.detail-section-title{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--ink-deep);display:flex;align-items:center;justify-content:space-between}
+.edit-link{font-size:11px;color:var(--gold);cursor:pointer;font-weight:400}
+.tab-page{display:none}
+.tab-page.active{display:block}
+.md-box{padding:12px 14px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-light);font-size:12px;color:var(--ink-mid);line-height:1.7;white-space:pre-wrap;min-height:60px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.info-item{padding:10px 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-light)}
+.info-item-label{font-size:10px;color:var(--ink-light);margin-bottom:2px}
+.info-item-value{font-size:13px;color:var(--ink-deep);font-weight:500}
+.detail-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.detail-col{min-width:0}
+.tool-list{display:flex;flex-direction:column;gap:6px}
+.tool-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-light);transition:all 0.15s}
+.tool-item:hover{border-color:var(--gold);background:rgba(200,150,10,0.03)}
+.tool-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;background:var(--bg-hover)}
+.tool-name{font-size:13px;color:var(--ink-mid);flex:1;font-family:monospace}
+.tool-swap{margin-left:auto;width:22px;height:22px;border-radius:5px;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s}
+.tool-swap.remove{background:transparent;color:var(--ink-faint)}
+.tool-swap.remove:hover{background:rgba(196,92,60,0.1);color:var(--cinnabar)}
+.tool-swap.add{background:transparent;color:var(--ink-faint)}
+.tool-swap.add:hover{background:rgba(42,157,92,0.1);color:var(--jade)}
+.tool-source{font-size:9px;padding:1px 5px;border-radius:3px}
+.tool-source.builtin{background:rgba(42,157,92,0.08);color:var(--jade)}
+.tool-source.mcp{background:rgba(37,99,235,0.08);color:var(--blue)}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat-item{padding:12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-light);text-align:center}
+.stat-value{font-size:20px;font-weight:600;color:var(--ink-deep)}
+.stat-sub{font-size:9px;color:var(--jade);margin-top:1px}
+.stat-label{font-size:10px;color:var(--ink-light);margin-top:2px}
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:100px;padding:12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border-light)}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%}
+.bar-fill{width:100%;border-radius:3px 3px 0 0;background:linear-gradient(180deg,var(--gold),rgba(200,150,10,0.4));min-height:4px}
+.bar-label{font-size:9px;color:var(--ink-faint)}
+.tag-list{display:flex;gap:6px;flex-wrap:wrap}
+.tag{padding:3px 10px;border-radius:6px;font-size:11px;background:var(--bg-hover);color:var(--ink-mid);cursor:pointer}
+.tag.on{background:rgba(200,150,10,0.1);color:var(--gold);border:1px solid rgba(200,150,10,0.3)}
+.toggle{width:36px;height:20px;border-radius:10px;background:var(--bg-hover);border:1px solid var(--border);cursor:pointer;position:relative;transition:all 0.2s}
+.toggle.on{background:var(--jade);border-color:var(--jade)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform 0.2s}
+.toggle.on::after{transform:translateX(16px)}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail">
+    <div class="nav-logo" title="天枢">天</div>
+    <button class="nav-item" onclick="location.href='chat.html'" title="会话">💬<span class="nav-label">会话</span></button>
+    <button class="nav-item" onclick="location.href='characters.html'" title="角色">🎭<span class="nav-label">角色</span></button>
+    <button class="nav-item active" title="技能">⚡<span class="nav-label">技能</span></button>
+    <button class="nav-item" onclick="location.href='tools.html'" title="工具">🔧<span class="nav-label">工具</span></button>
+    <button class="nav-item" onclick="location.href='mcp.html'" title="MCP">🔗<span class="nav-label">MCP</span></button>
+    <button class="nav-item" onclick="location.href='knowledge.html'" title="知识库">📚<span class="nav-label">知识</span></button>
+    <button class="nav-item" onclick="location.href='market.html'" title="市场">🏪<span class="nav-label">市场</span></button>
+    <div style="width:28px;height:1px;background:var(--border);margin:6px 0"></div>
+    <button class="nav-item" onclick="location.href='events.html'" title="事件">⚡<span class="nav-label">事件</span></button>
+    <div style="flex:1"></div>
+    <button class="nav-item" onclick="location.href='settings.html'" title="设置">⚙️<span class="nav-label">设置</span></button>
+  </nav>
+
+  <main class="main">
+    <div class="detail-header">
+      <button class="back-btn" onclick="location.href='skills.html'">←</button>
+      <div class="detail-header-info">
+        <div class="detail-header-icon" style="background:rgba(200,150,10,0.08)">📄</div>
+        <div>
+          <h1>文档分析</h1>
+          <p>skill_doc_analysis · 进化生成</p>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <button class="detail-btn" style="border-color:var(--jade);color:var(--jade)">已启用</button>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-side">
+        <div class="detail-side-icon" style="background:rgba(200,150,10,0.08);border-color:rgba(200,150,10,0.2)">📄</div>
+        <div class="detail-side-name">文档分析</div>
+        <div class="detail-side-author">by 进化引擎 · v1.2.0</div>
+        <div class="detail-side-desc">分析文档内容，提取关键信息。支持 PDF、Word、TXT、Markdown 等格式，自动识别文档结构与核心内容。</div>
+        <div class="detail-actions">
+          <button class="detail-btn primary">测试运行</button>
+          <button class="detail-btn">导出配置</button>
+        </div>
+      </div>
+
+      <div class="detail-content">
+        <div class="detail-tabs">
+          <button class="detail-tab active" onclick="switchTab('overview',this)">概览</button>
+          <button class="detail-tab" onclick="switchTab('tools',this)">依赖工具</button>
+          <button class="detail-tab" onclick="switchTab('stats',this)">统计</button>
+        </div>
+
+        <!-- 概览 -->
+        <div class="tab-page active" id="tab-overview">
+          <div class="detail-section">
+            <div class="detail-section-title">SKILL.md<span class="edit-link">编辑</span></div>
+            <div class="md-box">---
+name: doc-analysis
+description: 分析文档内容，提取关键信息。支持 PDF、Word、TXT、Markdown 等格式，自动识别文档结构与核心内容。
+license: MIT
+metadata:
+  author: 进化引擎
+  version: 1.2.0
+allowed-tools:
+  - read
+  - webfetch
+---
+
+# 文档分析
+
+## 功能说明
+
+分析文档内容，提取关键信息与结构化数据。
+
+## 支持格式
+
+- PDF 文档（文字+图片）
+- Word 文档（.docx）
+- 纯文本（.txt）
+- Markdown（.md）
+- 表格（.csv, .xlsx）
+
+## 处理流程
+
+1. 读取文件内容
+2. 识别文档类型与结构
+3. 提取标题、段落、表格等元素
+4. 生成结构化摘要
+5. 返回 JSON 格式的分析结果</div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-title">附件</div>
+            <div class="tool-list" id="skillAttachments">
+              <div class="tool-item" style="cursor:pointer" onclick="toggleFolder(this)"><span style="font-size:14px">📁</span><div class="tool-name">references</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">3 个文件</span><span style="font-size:10px;color:var(--ink-faint)">▶</span></div>
+              <div class="tool-item" style="display:none;padding-left:44px;background:var(--bg-input)" data-folder="references"><span style="font-size:12px">📄</span><div class="tool-name">fee-policy.md</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">12 KB</span><button class="tool-swap add" title="打开">📂</button></div>
+              <div class="tool-item" style="display:none;padding-left:44px;background:var(--bg-input)" data-folder="references"><span style="font-size:12px">📄</span><div class="tool-name">api-docs.md</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">45 KB</span><button class="tool-swap add" title="打开">📂</button></div>
+              <div class="tool-item" style="display:none;padding-left:44px;background:var(--bg-input)" data-folder="references"><span style="font-size:12px">📊</span><div class="tool-name">field-mapping.csv</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">8 KB</span><button class="tool-swap add" title="打开">📂</button></div>
+
+              <div class="tool-item" style="cursor:pointer" onclick="toggleFolder(this)"><span style="font-size:14px">📁</span><div class="tool-name">scripts</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">2 个文件</span><span style="font-size:10px;color:var(--ink-faint)">▶</span></div>
+              <div class="tool-item" style="display:none;padding-left:44px;background:var(--bg-input)" data-folder="scripts"><span style="font-size:12px">🐍</span><div class="tool-name">analyze.py</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">3.2 KB</span><button class="tool-swap add" title="打开">📂</button></div>
+              <div class="tool-item" style="display:none;padding-left:44px;background:var(--bg-input)" data-folder="scripts"><span style="font-size:12px">⚙️</span><div class="tool-name">extract.sh</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">1.1 KB</span><button class="tool-swap add" title="打开">📂</button></div>
+
+              <div class="tool-item" style="cursor:pointer" onclick="toggleFolder(this)"><span style="font-size:14px">📁</span><div class="tool-name">assets</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">2 个文件</span><span style="font-size:10px;color:var(--ink-faint)">▶</span></div>
+              <div class="tool-item" style="display:none;padding-left:44px;background:var(--bg-input)" data-folder="assets"><span style="font-size:12px">📋</span><div class="tool-name">template.docx</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">24 KB</span><button class="tool-swap add" title="打开">📂</button></div>
+              <div class="tool-item" style="display:none;padding-left:44px;background:var(--bg-input)" data-folder="assets"><span style="font-size:12px">📄</span><div class="tool-name">schema.json</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">2 KB</span><button class="tool-swap add" title="打开">📂</button></div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-title">来源信息</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="info-item-label">来源</div><div class="info-item-value">进化引擎生成</div></div>
+              <div class="info-item"><div class="info-item-label">版本</div><div class="info-item-value">v1.2.0</div></div>
+              <div class="info-item"><div class="info-item-label">创建时间</div><div class="info-item-value">2026-03-15</div></div>
+              <div class="info-item"><div class="info-item-label">最后更新</div><div class="info-item-value">2026-07-18</div></div>
+              <div class="info-item"><div class="info-item-label">Token 预估</div><div class="info-item-value">~3.2K</div></div>
+              <div class="info-item"><div class="info-item-label">触发方式</div><div class="info-item-value">自动检测</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 依赖工具 -->
+        <div class="tab-page" id="tab-tools">
+          <div class="detail-section">
+            <div class="detail-section-title">所需工具</div>
+            <div class="tool-list">
+              <div class="tool-item"><div class="tool-icon">📖</div><div class="tool-name">read</div><span style="font-size:11px;color:var(--ink-light);margin-left:auto">读取文档内容</span></div>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">可选工具</div>
+            <div class="tool-list">
+              <div class="tool-item"><div class="tool-icon">🌐</div><div class="tool-name">webfetch</div><span style="font-size:11px;color:var(--ink-light);margin-left:auto">抓取在线文档</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 统计 -->
+        <div class="tab-page" id="tab-stats">
+          <div class="detail-section">
+            <div class="detail-section-title">使用概览</div>
+            <div class="stats-row">
+              <div class="stat-item"><div class="stat-value">2.4K</div><div class="stat-sub">↑ 180 本周</div><div class="stat-label">调用次数</div></div>
+              <div class="stat-item"><div class="stat-value">98%</div><div class="stat-sub">↑ 1.2%</div><div class="stat-label">成功率</div></div>
+              <div class="stat-item"><div class="stat-value">1.2s</div><div class="stat-sub">↓ 0.1s</div><div class="stat-label">平均耗时</div></div>
+              <div class="stat-item"><div class="stat-value">2</div><div class="stat-sub"></div><div class="stat-label">绑定角色</div></div>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">绑定角色</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div style="text-align:center"><div style="width:48px;height:48px;border-radius:12px;background:rgba(200,150,10,0.08);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:4px">🌟</div><div style="font-size:11px;color:var(--ink-mid)">长庚</div></div>
+              <div style="text-align:center"><div style="width:48px;height:48px;border-radius:12px;background:rgba(5,150,105,0.08);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:4px">📝</div><div style="font-size:11px;color:var(--ink-mid)">文曲</div></div>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">调用趋势（近7天）</div>
+            <div class="bar-chart">
+              <div class="bar-col"><div class="bar-fill" style="height:40%"></div><div class="bar-label">一</div></div>
+              <div class="bar-col"><div class="bar-fill" style="height:65%"></div><div class="bar-label">二</div></div>
+              <div class="bar-col"><div class="bar-fill" style="height:50%"></div><div class="bar-label">三</div></div>
+              <div class="bar-col"><div class="bar-fill" style="height:80%"></div><div class="bar-label">四</div></div>
+              <div class="bar-col"><div class="bar-fill" style="height:95%"></div><div class="bar-label">五</div></div>
+              <div class="bar-col"><div class="bar-fill" style="height:70%"></div><div class="bar-label">六</div></div>
+              <div class="bar-col"><div class="bar-fill" style="height:100%"></div><div class="bar-label">日</div></div>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">最近调用</div>
+            <div class="tool-item" style="cursor:pointer"><span style="font-size:12px">💬</span><div class="tool-name" style="font-family:inherit;font-size:12px">前端优化方案讨论</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">10 分钟前 · 成功</span></div>
+            <div class="tool-item" style="cursor:pointer"><span style="font-size:12px">💬</span><div class="tool-name" style="font-family:inherit;font-size:12px">周报润色</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">昨天 · 成功</span></div>
+            <div class="tool-item" style="cursor:pointer"><span style="font-size:12px">💬</span><div class="tool-name" style="font-family:inherit;font-size:12px">API 文档分析</div><span style="font-size:10px;color:var(--ink-faint);margin-left:auto">3 天前 · 成功</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border-light)">
+          <button class="detail-btn danger" style="width:100%">删除技能</button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function switchTab(tab,btn){
+  document.querySelectorAll('.detail-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-page').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+function toggleFolder(el){
+  const name=el.querySelector('.tool-name').textContent;
+  const arrow=el.querySelector('span:last-child');
+  const isOpen=arrow.textContent==='▼';
+  arrow.textContent=isOpen?'▶':'▼';
+  el.nextElementSibling;
+  document.querySelectorAll(`[data-folder="${name}"]`).forEach(f=>{
+    f.style.display=isOpen?'none':'flex';
+  });
+}
+function moveItem(btn,targetId){
+  const item=btn.closest('.tool-item');
+  const target=document.getElementById(targetId);
+  const isToBound=targetId.startsWith('bound');
+  item.style.transition='opacity 0.12s';
+  item.style.opacity='0';
+  setTimeout(()=>{
+    btn.className='tool-swap '+(isToBound?'remove':'add');
+    btn.textContent=isToBound?'✕':'+';
+    btn.title=isToBound?'解绑':'绑定';
+    const reverseMap={boundChars:'availChars',availChars:'boundChars'};
+    btn.onclick=function(){moveItem(this,reverseMap[targetId]);};
+    item.style.opacity='1';
+    target.appendChild(item);
+  },120);
+}
+</script>
+</body>
+</html>

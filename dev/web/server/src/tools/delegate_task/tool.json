@@ -1,0 +1,42 @@
+﻿{
+    "dangerous":  true,
+    "version":  "1.0.0",
+    "signal":  true,
+    "tags":  [
+                 "system"
+             ],
+    "name":  "delegate_task",
+    "source":  "builtin",
+    "description":  "委托子任务给同组 sub 角色",
+    "author":  "Yi-Lin",
+    "parameters":  {
+                       "properties":  {
+                                          "sub_strategy":  {
+                                                               "enum":  [
+                                                                            "Plan",
+                                                                            "Ask",
+                                                                            "Bypass"
+                                                                        ],
+                                                               "description":  "子任务策略（可选，默认继承）",
+                                                               "type":  "string"
+                                                           },
+                                          "task":  {
+                                                       "type":  "string",
+                                                       "description":  "子任务描述"
+                                                   },
+                                          "target_character_id":  {
+                                                                      "type":  "string",
+                                                                      "description":  "目标角色 ID"
+                                                                  },
+                                          "instances":  {
+                                                            "type":  "number",
+                                                            "description":  "并发实例数（可选，默认 1）"
+                                                        }
+                                      },
+                       "type":  "object",
+                       "required":  [
+                                        "task",
+                                        "target_character_id"
+                                    ]
+                   }
+}

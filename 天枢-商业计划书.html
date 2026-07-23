@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢（Tianshu）— 商业计划书</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Serif SC', 'SimSun', 'Songti SC', serif;
+    background: #0a0a12;
+    color: #d4d0c8;
+    line-height: 1.9;
+    font-size: 16px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 60px 40px; }
+  h1 {
+    font-size: 2.4em;
+    font-weight: 900;
+    color: #e8d5a3;
+    text-align: center;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+  }
+  h1::before, h1::after {
+    content: '✦';
+    color: #8a7a5a;
+    margin: 0 16px;
+    font-size: 0.6em;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 0.95em;
+    color: #8a7a5a;
+    margin-bottom: 40px;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+  blockquote {
+    border-left: 3px solid #c9a84c;
+    background: rgba(201,168,76,0.06);
+    padding: 16px 24px;
+    margin: 24px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.95em;
+    color: #c0b89a;
+  }
+  blockquote strong { color: #e8d5a3; }
+  hr {
+    border: none;
+    border-top: 1px solid #2a2a3a;
+    margin: 48px 0;
+  }
+  h2 {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #e8d5a3;
+    margin: 48px 0 20px;
+    padding-left: 14px;
+    border-left: 4px solid #c9a84c;
+  }
+  h3 {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #d4c498;
+    margin: 32px 0 14px;
+  }
+  p { margin: 14px 0; text-align: justify; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 0.9em;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+  th, td {
+    border: 1px solid #2a2a3a;
+    padding: 10px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #1a1a28;
+    color: #e8d5a3;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td { background: #10101a; }
+  tr:hover td { background: #181828; }
+  pre {
+    background: #0e0e1a;
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85em;
+    line-height: 1.6;
+    color: #c0b89a;
+    margin: 20px 0;
+  }
+  strong { color: #e8d5a3; }
+  em { color: #a09880; font-style: normal; }
+  ul, ol { margin: 12px 0; padding-left: 24px; }
+  li { margin: 6px 0; }
+  /* 错位表特殊染色 */
+  table table { margin: 0; }
+  .highlight-gold { color: #f0d060; }
+  .meta {
+    text-align: center;
+    color: #6a6a7a;
+    font-size: 0.85em;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid #1a1a28;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+  @media (max-width: 720px) {
+    .container { padding: 30px 18px; }
+    h1 { font-size: 1.6em; }
+    h2 { font-size: 1.3em; }
+    table { font-size: 0.8em; }
+    th, td { padding: 6px 8px; }
+    h1::before, h1::after { content: ''; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>天枢</h1>
+<p class="subtitle">Tianshu — 商业计划书</p>
+
+<blockquote>
+<strong>一句话定义：</strong>天枢是一款由游戏设计师打造的桌面AI Agent——自带12位星官角色、事件驱动机制、收集养成体系，让AI交互拥有游戏级的体验与留存。
+</blockquote>
+
+<hr>
+
+<h2>WHY — 为什么做？为什么是现在？</h2>
+
+<h3>市场转变：AI桌面端进入"有工具无人格"的真空期</h3>
+
+<p>2024-2026年，全球AI行业经历了一场静默的结构性分裂：</p>
+
+<p>一边是ChatGPT、Claude等通用助手快速占领生产力场景，拥有强大的工具调用能力但界面始终是"一个对话框"——用户与AI的关系停留在"发指令→收结果"的功能交换，没有任何情感连接和体验差异化。</p>
+
+<p>另一边是Character.AI等角色扮演平台验证了一个事实：用户愿意为AI人格付费，千万月活证明"情绪价值≠伪需求"。但这些角色活在网页聊天框里，不能真正帮用户干活。</p>
+
+<p>桌面Agent的演进出现了两条岔路。一条是CC、Codex、OpenCode等开发者向工具——有桌面端，但清一色「工具风格」：终端或极简GUI，功能强大但零人格化。另一条是Hermes这类多Profile方案——用户手动切换Profile来区分场景，但本质是单Agent换面具，上下文依然混杂。</p>
+
+<p>中国市场的情况更特殊。<strong>国内大模型厂商（小米、智谱等）至今没有推出任何桌面端产品。</strong> 腾讯的WorkBuddy虽有桌面形态，但架构基于龙虾套壳，甚至落后于Hermes的Profile切换方案。整个国内桌面Agent赛道既无成熟产品，也无标杆玩家。</p>
+
+<p>市场留下了一个清晰的真空：<strong>没有一款产品把"桌面Agent的工具能力"和"多角色的人格设计"从底层融合在一起，让每个角色拥有纯净上下文，还配上好看的皮囊。</strong></p>
+
+<h3>问题与机遇：AI人格化的三重错位</h3>
+
+<table>
+<tr>
+  <th>错位</th>
+  <th>代表产品</th>
+  <th>问题</th>
+</tr>
+<tr>
+  <td>有人格但不能干活</td>
+  <td>Character.AI</td>
+  <td>用户为角色付费，但角色无法执行复杂任务，使用场景受限</td>
+</tr>
+<tr>
+  <td>能干活但无人格</td>
+  <td>ChatGPT、Claude</td>
+  <td>工具能力强，但交互体验同质化，用户忠诚度依赖模型切换成本而非产品本身</td>
+</tr>
+<tr>
+  <td>有桌面Agent但无GUI</td>
+  <td>CC、Codex（境外）</td>
+  <td>功能强大但终端界面门槛高，被封后国内用户无替代方案</td>
+</tr>
+</table>
+
+<p>天枢的机会在于：<strong>只有我们同时解决了这三个问题。</strong></p>
+
+<p>创始人的独特背景为此提供了底气——端木千林，美国伍斯特理工学院互动媒体与游戏设计硕士。游戏设计训练的核心方法论（角色塑造、世界观构建、交互循环、留存机制）直接构成了天枢的产品基因。这不是一个AI工程师硬做"人格化"的业余尝试，而是游戏设计师用专业方法论重新设计AI交互方式的系统性工程。</p>
+
+<h3>理想状态：当AI不再是工具，而是伙伴</h3>
+
+<p>当天枢成功时，用户的日常是这样的——</p>
+
+<p>打开电脑，不是面对一个冷冰冰的对话框，而是一座水墨星阁在桌面展开。长庚星官以"暮色入牖"问候，递上昨夜生成的周报摘要。想改代码，说一句"荧惑帮我看看这个函数"，无需切换窗口、无需选择工具——星轨流转间，荧惑星官带着代码审查结果现身。想收集更多星官？解锁天罡辅助写作、织女构建创意角色、文曲星官整理知识。12位星官各司其职，像一支由AI组成的内阁，围绕用户的需求协同工作。</p>
+
+<p>每一句对话、每一次调用都沉淀为星官命盘——用户能看到自己与各星官的互动频率、任务类型分布。这不是数据监控，而是"我与我的星官团队"的成长叙事。</p>
+
+<p>在这个世界里，AI不再是冷冰冰的"大模型接口"，而是用户桌面上有性格、有颜值、能干活的伙伴。<strong>人格驱动留存，工具驱动付费，收藏驱动传播。</strong> 这就是天枢要创造的用户理想状态。</p>
+
+<hr>
+
+<h2>WHAT — 打造什么？</h2>
+
+<h3>产品：12星官人格引擎 + 工具执行骨架</h3>
+
+<p>天枢不是"给AI套个皮"——它的底层技术底座<a href="https://github.com/TaoForge-AI-Digi/Yi" style="color:#f0d060;text-decoration:none;border-bottom:1px dashed #f0d060;">Yi-Lin</a>已经完成了引擎层、工具系统、多Agent调度、MCP接入、Provider抽象的全部验证（15万行代码、6000+文件、8个内置工具可注册可扩展）。天枢在此之上构建的是<strong>人格管理层</strong>和<strong>交互层</strong>。</p>
+
+<p><strong>三层架构：</strong></p>
+
+<table>
+<tr>
+  <th>层级</th>
+  <th>内容</th>
+  <th>状态</th>
+</tr>
+<tr>
+  <td>引擎层（Yi-Lin Core）</td>
+  <td>工具系统、角色引擎、多Agent调度、MCP协议、Provider管理</td>
+  <td>✅ 已验证</td>
+</tr>
+<tr>
+  <td>人格管理层（星阁系统 Yi-Lin 角色管理）</td>
+  <td>12星官人格预设、紫微星轨路由、事件系统、星官命盘</td>
+  <td>✅ 已验证</td>
+</tr>
+<tr>
+  <td>交互层（桌面端GUI）</td>
+  <td>国风水墨UI、星轨动效、星官对话界面、工具面板</td>
+  <td>🔧 开发中 Yi-Lin已有gui Demo</td>
+</tr>
+</table>
+
+<p><strong>核心功能：</strong></p>
+
+<ul>
+<li><strong>多角色原生设计，非Profile切换</strong>：市面上的"多角色Agent"本质是单个Agent换Profile——历史记录混杂，上下文互相污染。天枢从底层就是多Agent架构，每个星官拥有独立的上下文窗口、工具权限和记忆空间。这意味着：天璇写代码时不会读到荧惑聊日常的记录，长庚做情感陪伴时不会被编程指令干扰。<strong>纯净上下文 = 更好的模型响应质量 + 更低的token浪费。</strong></li>
+<li><strong>紫微意动·星轨路由</strong>：用户说一句话，紫微自动识别意图，星空动效流转将请求送达最优星官——不需要用户选择谁来做，AI自己知道。</li>
+<li><strong>12星官人格系统</strong>：每星官有独立soul.md+character.json人格预设、语气风格、工具权限、知识领域。星官间通过事件驱动协作，形成"内阁式"协同工作流。</li>
+<li><strong>"事件"系统</strong>：灵感来自游戏设计中的事件驱动机制。事件 = 触发条件 + 响应动作。触发条件可以是：定时（每天早8点触发"晨间简报"事件）、开机（系统启动后自动收集待办信息）、使用频率达标（触发星官进化事件，觉醒新能力或优化技能精度）、连续未使用（触发回归事件，星官问候并回溯记忆）、组合调用（触发羁绊事件，多星官协作解锁组合技）。事件系统将"用AI"从被动问答变为主动响应——<strong>Agent不再等人开口，而是在对的时机自己出现。</strong></li>
+<li><strong>星官命盘</strong>：使用数据可视化仪表盘，展示各星官调用频率、任务类型分布、响应时长趋势，形成用户习惯雷达图。</li>
+<li><strong>自定义造星接口</strong>（后续版本）：用户可创建自定义星官人格，设定语气、工具白名单和触发条件。</li>
+</ul>
+
+<h3>价值主张：唯一同时解决"人格化+工具化+桌面GUI"的产品</h3>
+
+<table>
+<tr>
+  <th>维度</th>
+  <th>天枢</th>
+  <th>Character.AI</th>
+  <th>ChatGPT/Claude</th>
+  <th>CC/Codex/OpenCode</th>
+  <th>Hermes</th>
+  <th>国内大厂（小米/智谱）</th>
+</tr>
+<tr>
+  <td>桌面端</td>
+  <td>✅ 原生</td>
+  <td>❌ 仅Web</td>
+  <td>⭐ 有但简陋</td>
+  <td>✅ 有</td>
+  <td>✅ 有</td>
+  <td>❌ 无</td>
+</tr>
+<tr>
+  <td>多角色原生</td>
+  <td>✅ 底层多Agent架构</td>
+  <td>✅ 可创建角色</td>
+  <td>❌ 无</td>
+  <td>❌ 无</td>
+  <td>❌ 单Agent切Profile</td>
+  <td>❌ 无</td>
+</tr>
+<tr>
+  <td>纯净上下文</td>
+  <td>✅ 每星官独立</td>
+  <td>✅ 每角色独立</td>
+  <td>❌ 单会话</td>
+  <td>❌ 单会话</td>
+  <td>❌ 历史混合</td>
+  <td>❌ 无</td>
+</tr>
+<tr>
+  <td>工具执行</td>
+  <td>✅ 基于Yi-Lin引擎</td>
+  <td>❌ 不能干活</td>
+  <td>✅ 强</td>
+  <td>✅ 强</td>
+  <td>✅ 部分</td>
+  <td>❌ 无</td>
+</tr>
+<tr>
+  <td>人格化</td>
+  <td>✅ 12星官IP体系</td>
+  <td>✅ 用户创建角色</td>
+  <td>❌ 无</td>
+  <td>❌ 工具风格</td>
+  <td>⭐ 有但浅</td>
+  <td>❌ 无</td>
+</tr>
+<tr>
+  <td>游戏化机制</td>
+  <td>✅ 事件/进化/羁绊</td>
+  <td>⭐ 部分</td>
+  <td>❌ 无</td>
+  <td>❌ 无</td>
+  <td>❌ 无</td>
+  <td>❌ 无</td>
+</tr>
+<tr>
+  <td>国内可用</td>
+  <td>✅</td>
+  <td>✅</td>
+  <td>✅</td>
+  <td>❌ 被封/不确定</td>
+  <td>❌ 被封</td>
+  <td>✅ 但无桌面端</td>
+</tr>
+</table>
+
+<h3>商业模式：免费游玩，卖外观和通行证，UGC抽成</h3>
+
+<p><strong>应用本身免费，不收功能钱。</strong> 核心Agent能力、基础星官、工具调用全部免费开放——让用户先留下来、用起来。</p>
+
+<p>盈利点拆为六层：</p>
+
+<table>
+<tr>
+  <th>层</th>
+  <th>产品形态</th>
+  <th>定价逻辑</th>
+  <th>对标游戏行业</th>
+</tr>
+<tr>
+  <td><strong>① 外观商店</strong></td>
+  <td>星官皮肤、觉醒动画、星轨特效、UI主题</td>
+  <td>单件付费或组合包</td>
+  <td>英雄联盟/原神卖皮肤</td>
+</tr>
+<tr>
+  <td><strong>② Token / Coding Plan（通行证）</strong></td>
+  <td><strong>核心付费品。</strong> 用户购买Token包，附带一条"通行证进度条"——消耗Token时自动推进进度，达到节点解锁限定皮肤/特效/动画。不同Token额度对应不同价位的通行证档位。</td>
+  <td>按档位定价对应不同Token量+通行证奖励线</td>
+  <td>堡垒之夜通行证——买的是Token（玩法权益），顺便走进度条拿外观</td>
+</tr>
+<tr>
+  <td><strong>③ 官方DLC</strong></td>
+  <td>官方出品的专用星官角色+技能包+知识库，可直接购买部署</td>
+  <td>按角色/包定价</td>
+  <td>DLC角色包</td>
+</tr>
+<tr>
+  <td><strong>④ UGC市场（资产交易）</strong></td>
+  <td>用户自建角色，带自定义技能、工具权限和知识库，上架市场交易；平台抽成</td>
+  <td>创作者定价，平台抽佣20-30%</td>
+  <td>Roblox/Steam工坊，创作者经济</td>
+</tr>
+<tr>
+  <td><strong>⑤ API服务</strong></td>
+  <td>重度用户或企业用户的模型API独立计费，超出免费配额后按量付费</td>
+  <td>按token量计</td>
+  <td>PaaS资源售卖</td>
+</tr>
+</table>
+
+<p>其中 <strong>③官方DLC</strong> 和 <strong>④UGC市场</strong> 复用Yi-Lin已有的市场架构设计——角色系统、技能系统、知识库系统已在引擎层完成验证，天枢只需补充前端展示和交易结算即可上线。</p>
+
+<p><strong>为什么这么设计？</strong></p>
+
+<p>核心逻辑：用户本来就要为AI模型调用付费。与其卖一个"订阅"再额外卖皮肤，不如把Coding Plan直接做成通行证——<strong>你买Token跑AI，Token烧掉的轨迹就是进度条，进度到了就送皮肤。</strong> 用户不觉得自己在"买外观"，而是在"用AI，顺便解锁了奖励"。皮肤是消耗Token的衍生品，不是付费目标本身。</p>
+
+<p>三层收入飞轮叠加：</p>
+
+<pre>
+外观商店（直购，满足"我就要这个"的确定性需求）
+  + Token/通行证（Coding Plan游戏化，所有用AI的人都是潜在付费者）
+  + 官方DLC + UGC抽成（角色资产化，创作者经济网络效应）
+</pre>
+
+<p>用户路径：免费体验 → 开始频繁使用AI → Token不够用 → 买个通行证档位（反正本来就要花钱跑AI）→ 烧Token解锁了第一个限定皮肤 → 为了集齐整套皮肤买更高档位 → 逛市场发现有趣的创作者星官 → 买 → 自己也开始创作 → 上架赚Token → 生态锁死。</p>
+
+<p><strong>这不是"卖皮肤的Agent"，而是"把Coding Plan做成Battle Pass来卖"。游戏投资人一听就懂——结构和堡垒之夜一模一样：买Battle Pass（Token包）→ 玩游戏（用AI）→ 升级解锁外观。只是天枢的"游戏"恰好是写代码、写文章、做研究。</strong></p>
+
+<p><strong>分销策略：</strong></p>
+<ul>
+<li>前期：开源社区（GitHub星官预设包）+ 技术社区口碑（即刻/V2EX）</li>
+<li>中期：社交媒体裂变（B站星官觉醒动画 + 国风画师二创）</li>
+<li>后期：应用商店ASO + 跨平台扩展</li>
+</ul>
+
+<p><strong>护城河：</strong></p>
+<ul>
+<li>星官IP体系作为独占性文化资产，非功能可比</li>
+<li>UGC市场+知识库积累形成双边网络效应——越多创作者=越多内容=越多用户=越多创作者</li>
+<li>星官命盘沉淀的使用数据形成迁移成本</li>
+<li>造星接口+市场抽成构成生态锁定</li>
+</ul>
+
+<hr>
+
+<h2>HOW — 凭什么能成？</h2>
+
+<h3>势能：技术底座已就绪，窗口期已打开</h3>
+
+<p>当前进展：</p>
+
+<ul>
+<li><strong>技术底座已打牢</strong>。Yi-Lin项目完成15万行代码、6000+文件，工具系统、Agent调度、MCP接入、Provider管理均达生产级稳定。天枢不需要从零造轮子，专注于人格层和交互层的增量创新。</li>
+<li><strong>产品开发进行中</strong>。V0.1 Alpha目标4-6周跑通3个核心星官（长庚、天罡、荧惑）的桌面端基础工具调用闭环，V0.5 Beta完成12星官全集上线。</li>
+<li><strong>境外竞品被封创造窗口期</strong>。Claude Code在中国已被封锁，Codex境内访问持续波动，国内用户对桌面端AI Agent的需求得不到满足——天枢以"国内可用+有GUI有人格"的差异化定位直接承接这一真空需求。</li>
+</ul>
+
+<h3>产品创始人匹配：游戏设计师做AI人格，这是降维打击</h3>
+
+<p>端木千林的背景不是"AI工程师转行做产品"——他的核心专业是<strong>互动媒体与游戏设计</strong>（美国伍斯特理工学院硕士），一个围绕角色塑造、世界观构建、交互循环、留存机制设计的成熟学科。</p>
+
+<p>在美期间的实践项目可一窥其设计思路：</p>
+
+<ul>
+<li><strong>伍斯特博物馆"AR尼罗河珍宝"</strong>：将古埃及文物通过增强现实"复活"在游客手机屏幕上——不是冷冰冰的百科说明，而是让文物自己讲故事。这本质上和"让AI人格活起来"是同一个命题。</li>
+<li><strong>FIRST Robotics 益智游戏</strong>：为非营利组织开发，用游戏机制降低青少年对机器人编程的认知门槛。天枢的"星轨路由"——让用户不用说"该选哪个工具"——正是同一套"降低认知摩擦"的设计原则。</li>
+<li><strong>伍斯特学院物理系蒸汽朋克刷题App</strong>：用蒸汽朋克美学包裹物理习题，让学生在角色扮演感中完成刷题。天枢的"星官收集 + 觉醒 + 羁绊组合技"本质上就是同一套方法论——用叙事驱动行为，用角色包裹功能。</li>
+</ul>
+
+<p>这三个项目的共同线索是：<strong>用交互设计和游戏机制重新包装"有点枯燥但有用的事"</strong>。天枢对AI做的事情，和当年对博物馆、机器人教育、物理习题做的事情，是同一件事。</p>
+
+<p>这意味着天枢的"人格化"不是拍脑袋加个虚拟形象，而是游戏设计方法论在AI交互领域的系统性迁移：</p>
+
+<ul>
+<li>星官不是头像，是角色——有成长曲线、解锁条件、羁绊关系、进化事件</li>
+<li>星官命盘不是数据看板，是叙事工具——用户的每次调用都成为"我与星官的共同经历"</li>
+<li>星官收集不是功能列表，是留存引擎——集齐12星官本身就是目标</li>
+<li>多角色不是Profile切换，是架构设计——纯净上下文带来更优性能</li>
+</ul>
+
+<p><strong>大多数AI产品在拼模型能力，我们在拼交互设计。这是根本性的差异。</strong></p>
+
+<hr>
+
+<h2>WHERE — 未来去哪？市场多大？</h2>
+
+<h3>市场机会：结构性真空 + 政策窗口</h3>
+
+<p><strong>市场总量估算：</strong></p>
+
+<table>
+<tr>
+  <th>维度</th>
+  <th>数值</th>
+  <th>依据</th>
+</tr>
+<tr>
+  <td>国内AI工具月活用户</td>
+  <td>~8000万</td>
+  <td>ChatGPT国内月活+国产模型用户</td>
+</tr>
+<tr>
+  <td>桌面端AI工具用户占比</td>
+  <td>~15%</td>
+  <td>桌面端vs移动端使用习惯</td>
+</tr>
+<tr>
+  <td>愿为人格化付费的用户比例</td>
+  <td>~20%</td>
+  <td>参考Character.AI付费转化</td>
+</tr>
+<tr>
+  <td><strong>可服务市场（SAM）</strong></td>
+  <td><strong>~240万潜在付费用户</strong></td>
+  <td>8000万×15%×20%</td>
+</tr>
+<tr>
+  <td>按ARPU ¥200/年</td>
+  <td><strong>~4.8亿元/年可服务市场</strong></td>
+  <td>保守估算</td>
+</tr>
+</table>
+
+<p><strong>竞争格局：</strong></p>
+
+<table>
+<tr>
+  <th>竞争者</th>
+  <th>天枢相对优势</th>
+</tr>
+<tr>
+  <td>ChatGPT/Claude桌面端</td>
+  <td>无人格化、无国风IP、无视觉差异化</td>
+</tr>
+<tr>
+  <td>Character.AI</td>
+  <td>不能执行工具任务、仅Web端、非中文原生</td>
+</tr>
+<tr>
+  <td>CC/Codex/OpenCode</td>
+  <td>纯工具风格，无人格化；CC已被封，Codex不确定</td>
+</tr>
+<tr>
+  <td>Hermes等单Agent多Profile</td>
+  <td>Profile切换共享上下文，天枢多角色原生设计，上下文纯净</td>
+</tr>
+<tr>
+  <td>国内大厂（小米/智谱）</td>
+  <td>至今无桌面端产品，桌面Agent赛道无人占位</td>
+</tr>
+<tr>
+  <td>Tencent WorkBuddy</td>
+  <td>架构落后于Hermes，基于龙虾套壳，非原生设计</td>
+</tr>
+</table>
+
+<p><strong>为什么天枢能赢？</strong>
+因为竞品在"人格化"和"工具化"两个维度只能选一个，而天枢从设计之初就被要求两者兼顾。这不是功能叠加，而是底层架构设计——星官人格与工具权限绑定的多Agent架构，让"人格"不是UI层贴片，而是贯穿产品每一层的设计语言。</p>
+
+<p>此外，天枢独有的<strong>纯净上下文优势</strong>是很多技术团队会忽视但实际影响巨大的细节。单Agent切换Profile导致历史记录混杂，不仅降低模型响应质量，还浪费token成本。天枢每星官独立上下文的架构，在频繁切换场景下拥有结构性的效费比优势。</p>
+
+<p>更大的结构性机会在于：<strong>国内大厂至今没有一款桌面端Agent产品。</strong> 小米没有，智谱没有，百度没有。CC被封后国内桌面Agent赛道处于无人占位的空白期——不是"红海竞争"，而是"谁先站住位置谁就是品类定义者"的窗口。</p>
+
+<h3>路线图</h3>
+
+<table>
+<tr>
+  <th>阶段</th>
+  <th>里程碑</th>
+  <th>时间</th>
+</tr>
+<tr>
+  <td>V0.1 Alpha</td>
+  <td>3个星官（长庚、天罡、荧惑）桌面端工具调用闭环</td>
+  <td>4-6周</td>
+</tr>
+<tr>
+  <td>V0.5 Beta</td>
+  <td>12星官全集上线 + 星轨路由 + 觉醒动画</td>
+  <td>8-12周</td>
+</tr>
+<tr>
+  <td>V1.0 Launch</td>
+  <td>上架官网 + Mac/Windows</td>
+  <td>Q4 2026</td>
+</tr>
+<tr>
+  <td>V1.5+</td>
+  <td>造星接口开放 + 星盘升级 + 移动端Companion</td>
+  <td>Q1-Q2 2027</td>
+</tr>
+</table>
+
+<h3>收入预测</h3>
+
+<table>
+<tr>
+  <th>指标</th>
+  <th>第一年</th>
+  <th>第二年</th>
+  <th>第三年</th>
+</tr>
+<tr>
+  <td>月活用户</td>
+  <td>5,000</td>
+  <td>50,000</td>
+  <td>200,000</td>
+</tr>
+<tr>
+  <td>付费转化率</td>
+  <td>5%</td>
+  <td>8%</td>
+  <td>10%</td>
+</tr>
+<tr>
+  <td>付费用户</td>
+  <td>250</td>
+  <td>4,000</td>
+  <td>20,000</td>
+</tr>
+<tr>
+  <td>ARPU（月）</td>
+  <td>¥15</td>
+  <td>¥18</td>
+  <td>¥20</td>
+</tr>
+<tr>
+  <td><strong>年收入</strong></td>
+  <td><strong>¥45,000</strong></td>
+  <td><strong>¥864,000</strong></td>
+  <td><strong>¥4,800,000</strong></td>
+</tr>
+</table>
+
+<p>三年目标估值按10倍PS计算约4800万元，IRR预计40-60%。</p>
+
+<hr>
+
+<h2>WHO</h2>
+
+<p>团队以创始人端木千林为核心，其他成员主要为开发工程师，覆盖AI Agent引擎、前端GUI、工控协议与系统集成等方向。团队精悍高效，以技术驱动决策，专注于从引擎层到交互层的全栈交付。</p>
+
+<h3>创始人：端木千林</h3>
+
+<p>美国伍斯特理工学院（WPI）互动媒体与游戏设计硕士。WPI的游戏开发项目在全美以"技术+设计"融合著称——这不是一个纯美术或纯编程的学位，而是培养能从玩家动机出发设计交互系统的综合素质。</p>
+
+<p>在美期间代表性实践：</p>
+
+<ul>
+<li><strong>伍斯特博物馆"AR尼罗河珍宝"</strong>：用增强现实让古埃及文物在游客手机屏幕"复活"并叙事</li>
+<li><strong>FIRST Robotics 益智游戏</strong>：为非营利组织开发，用游戏机制降低青少年对机器人编程的认知门槛</li>
+<li><strong>伍斯特学院物理系蒸汽朋克刷题App</strong>：用蒸汽朋克美学包裹物理习题，让学生在角色扮演感中完成刷题</li>
+</ul>
+
+<p>回国后，端木千林将这套方法论从"游戏/教育/展览"迁移到"AI交互"领域——Yi-Lin项目（15万行代码、6000+文件）证明了他从交互设计到AI工程的全栈能力。</p>
+
+<p>这个背景对天枢的意义：</p>
+
+<ul>
+<li><strong>角色设计方法论</strong>：星官不是随意设定的，每星官的"人格-语气-工具权限"矩阵来自游戏设计中的角色定位理论</li>
+<li><strong>留存机制设计</strong>：星官收集-觉醒-羁绊组合技的递进体系，本质上是游戏化留存循环的AI产品化迁移</li>
+<li><strong>世界观构建能力</strong>：12星官取材中国传统星宿文化，不是贴标签，而是有世界观支撑的IP体系</li>
+</ul>
+
+<blockquote>游戏设计师的背景 × AI Agent工程师的能力 = 市场上几乎找不到同样组合的创始人来做这件事。</blockquote>
+
+<hr>
+
+<h2>融资需求</h2>
+
+<table>
+<tr>
+  <th>项目</th>
+  <th>内容</th>
+</tr>
+<tr>
+  <td>本轮融资金额</td>
+  <td>200-500万元 / 出让7-15%</td>
+</tr>
+<tr>
+  <td>用途</td>
+  <td>产品研发与GUI开发（45%）、交互内容运营（5%）、市场推广（40%）、合规与知识产权（10%）</td>
+</tr>
+<tr>
+  <td>下一阶段目标</td>
+  <td>12星官全部上线 + 桌面端GUI完成 + 早期种子用户验证闭环</td>
+</tr>
+<tr>
+  <td>下轮里程碑</td>
+  <td>月活5万 + 付费转化率5% + 商业模式验证</td>
+</tr>
+</table>
+
+<hr>
+
+<h2>风险与应对</h2>
+
+<table>
+<tr>
+  <th>风险</th>
+  <th>应对</th>
+</tr>
+<tr>
+  <td>大厂跟进人格化功能</td>
+  <td>星官IP体系不可复制，国风文化壁垒需时间积累，游戏化留存设计非功能可比</td>
+</tr>
+<tr>
+  <td>用户增长不达预期</td>
+  <td>社区口碑驱动，控成本；开源策略降低获客成本</td>
+</tr>
+<tr>
+  <td>API成本上涨</td>
+  <td>多模型供应商切换，不绑定单一供应商</td>
+</tr>
+<tr>
+  <td>桌面端分发门槛</td>
+  <td>支持Web版fallback</td>
+</tr>
+<tr>
+  <td>CC/Codex重新开放中国</td>
+  <td>天枢核心差异在人格化+GUI，非单纯Agent替代，定位不同</td>
+</tr>
+</table>
+
+<hr>
+
+<h2>总结</h2>
+
+<p><strong>天枢 = 游戏设计方法论 × 多Agent工程架构 × 国风文化IP。</strong></p>
+
+<p>不是给单Agent换Profile，而是从底层就是多角色原生架构。把游戏中的"事件"机制带到AI交互里——定时提醒、开机简报、频率进化、回归唤醒，Agent不再等人开口，而是在对的时机自己出现。好用只是基础，好看给付费理由，好玩的系统给不卸载的理由。</p>
+
+<p>在CC被封、Codex不确定、Hermes等Profile切换方案存在上下文混淆问题的窗口期，天枢以"多角色原生 + 纯净上下文 + 事件驱动进化 + 国风审美"的组合占据了一个清晰的结构性空白。</p>
+
+<p>投资人不需要赌模型能力天花板——因为天枢的胜负手不取决于模型，而取决于产品设计。</p>
+
+<hr>
+
+<h2>Yi-Lin 系统截图</h2>
+
+<div style="margin:24px 0;">
+
+<h3 style="color:#d4c498;margin:20px 0 12px;">会话</h3>
+<div style="display:grid;grid-template-columns:1fr;gap:16px;">
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/会话.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">会话</div>
+  </div>
+</div>
+
+<h3 style="color:#d4c498;margin:20px 0 12px;">角色</h3>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/角色-技能管理.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">角色 - 技能管理</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/角色-工具&MCP.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">角色 - 工具&amp;MCP</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/角色-角色记忆.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">角色 - 角色记忆</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/角色-知识库管理角色.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">角色 - 知识库管理角色</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/角色-任务执行角色.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">角色 - 任务执行角色</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/角色-日常秘书.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">角色 - 日常秘书</div>
+  </div>
+</div>
+
+<h3 style="color:#d4c498;margin:20px 0 12px;">事件</h3>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/事件管理中心.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">事件管理中心</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/事件-总结技能.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">事件 - 总结技能</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/事件-技能优化.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">事件 - 技能优化</div>
+  </div>
+</div>
+
+<h3 style="color:#d4c498;margin:20px 0 12px;">配置</h3>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/配置-MCP配置.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">配置 - MCP配置</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/配置-工具配置.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">配置 - 工具配置</div>
+  </div>
+  <div style="border:1px solid #2a2a3a;border-radius:8px;overflow:hidden;background:#10101a;">
+    <img src="截图/配置-技能配置.png" style="width:100%;display:block;" loading="lazy">
+    <div style="padding:6px 10px;font-size:0.8em;color:#8a7a5a;">配置 - 技能配置</div>
+  </div>
+</div>
+
+</div>
+
+<div class="meta" style="text-align:center;color:#8a7a5a;font-size:0.9em;line-height:2;">
+  <div style="margin-bottom:8px;">联系方式</div>
+  <div>📞 18120763971 &nbsp;|&nbsp; 微信同号 &nbsp;|&nbsp; 📧 931229080@qq.com</div>
+  <div style="margin-top:12px;color:#6a6a7a;font-size:0.85em;">天枢（Tianshu）— 商业计划书 · 由Yi-Lin引擎驱动</div>
+</div>
+
+</div>
+</body>
+</html>

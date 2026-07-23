@@ -1,0 +1,20 @@
+node_modules/
+dist/
+
+# Database files
+*.db
+data/*.db*
+web/server/data/*.db*
+
+# Runtime data
+data/providers.json
+data/debug/
+/data/mcpservers
+
+# Web server logs & data
+/web/server/data/bash-logs
+web/server/data/providers.json
+web/server/data/debug/
+web/data/
+
+/data/media
