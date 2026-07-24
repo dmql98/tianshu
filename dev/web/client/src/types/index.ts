@@ -46,18 +46,31 @@ export interface Message {
 export interface Character {
   id: string
   name: string
-  title: string
-  desc: string
-  icon: string
+  description: string
+  avatar: string
   color: string
   role: 'main' | 'sub' | 'both'
   groups: string[]
   default_strategy: 'Plan' | 'Ask' | 'Bypass'
   provider: string
   model: string
-  max_steps: number
-  tools: string[]
+  maxSteps: number
+  tools: { name: string }[]
   skills: string[]
+  enabled: boolean
+  hidden?: boolean
+  soul?: string
+  userProfile?: string
+  memoryContent?: string
+  customPrompt?: string
+  memory?: { enabled: boolean; selfEvolution: boolean; charLimit: number }
+  createdAt?: number
+  updatedAt?: number
+}
+
+export interface CharacterStats {
+  sessionCount: number
+  lastActive: number | null
 }
 
 // 技能相关

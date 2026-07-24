@@ -1,7 +1,11 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client'
-import type { Character } from '@/types'
+import type { Character, CharacterStats } from '@/types'
 
 export const fetchCharacters = () => apiGet<Character[]>('/api/characters')
+
+export const fetchCharacter = (id: string) => apiGet<Character>(`/api/characters/${id}`)
+
+export const fetchCharacterStats = (id: string) => apiGet<CharacterStats>(`/api/characters/${id}/stats`)
 
 export const createCharacter = (data: Partial<Character> & { id: string }) =>
   apiPost<Character>('/api/characters', data)

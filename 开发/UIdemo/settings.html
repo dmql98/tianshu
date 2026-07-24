@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 · 设置</title>
+<style>
+:root{
+  --bg-main:#f5f0e8;--bg-card:#ede6da;--bg-hover:#e0d8cc;--bg-input:#faf8f4;
+  --border:rgba(180,160,130,0.15);--border-light:rgba(180,160,130,0.08);
+  --gold:#c8960a;--jade:#2a9d5c;--cinnabar:#c45c3c;--blue:#2563eb;
+  --ink-deep:#2c2418;--ink-mid:#5c5040;--ink-light:#8a7d68;--ink-faint:#b8a890;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
+.app{display:flex;height:100vh}
+.nav-rail{width:60px;min-width:60px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+.nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
+.nav-item .nav-label{font-size:9px}
+.main{flex:1;display:flex;overflow:hidden}
+.settings-nav{width:180px;min-width:180px;border-right:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden}
+.settings-nav-header{padding:16px;border-bottom:1px solid var(--border-light)}
+.settings-nav-title{font-size:16px;font-weight:600}
+.settings-nav-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:2px}
+.settings-nav-item{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:none;background:transparent;color:var(--ink-mid);cursor:pointer;font-size:13px;font-family:inherit;text-align:left;transition:all 0.15s;position:relative}
+.settings-nav-item:hover{background:var(--bg-hover)}
+.settings-nav-item.active{background:rgba(200,150,10,0.06);color:var(--gold);font-weight:500}
+.settings-nav-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:0 2px 2px 0;background:var(--gold)}
+.settings-content{flex:1;overflow-y:auto;padding:24px 32px}
+.settings-section{max-width:640px}
+.section-title{font-size:18px;font-weight:600;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-light)}
+.section-desc{font-size:12px;color:var(--ink-light);margin-bottom:16px;line-height:1.5}
+.tab-page{display:none}
+.tab-page.active{display:block}
+.setting-group{margin-bottom:24px}
+.setting-group-title{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--ink-deep);display:flex;align-items:center;justify-content:space-between}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-light)}
+.setting-row:last-child{border-bottom:none}
+.setting-info{flex:1;margin-right:16px}
+.setting-label{font-size:13px;color:var(--ink-mid);display:block}
+.setting-hint{font-size:11px;color:var(--ink-faint);margin-top:2px}
+.setting-control{flex-shrink:0;display:flex;align-items:center;gap:8px}
+.toggle{width:40px;height:22px;border-radius:11px;background:var(--bg-hover);border:1px solid var(--border);cursor:pointer;position:relative;transition:all 0.2s}
+.toggle.on{background:var(--jade);border-color:var(--jade)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.toggle.on::after{transform:translateX(18px)}
+select,input[type=text],input[type=password],input[type=number]{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-deep);font-size:12px;font-family:inherit;outline:none}
+select:focus,input:focus{border-color:var(--gold)}
+textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-deep);font-size:12px;font-family:inherit;outline:none;resize:vertical}
+textarea:focus{border-color:var(--gold)}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);cursor:pointer;font-size:12px;font-family:inherit;transition:all 0.15s}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.btn.primary{background:var(--gold);color:#fff;border-color:var(--gold)}
+.btn.primary:hover{background:#b08508;color:#fff}
+.btn.sm{padding:4px 10px;font-size:11px}
+.btn.danger{color:var(--cinnabar);border-color:var(--cinnabar)}
+.btn.danger:hover{background:rgba(196,92,60,0.06)}
+.provider-card{border-radius:10px;background:var(--bg-input);border:1px solid var(--border-light);padding:14px;margin-bottom:10px}
+.provider-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.provider-name{font-size:14px;font-weight:600;flex:1}
+.provider-badge{font-size:10px;padding:2px 6px;border-radius:4px}
+.provider-badge.builtin{background:rgba(42,157,92,0.1);color:var(--jade)}
+.provider-badge.custom{background:rgba(37,99,235,0.1);color:var(--blue)}
+.provider-url{font-size:11px;color:var(--ink-light);font-family:monospace;margin-bottom:10px;word-break:break-all}
+.model-list{display:flex;flex-wrap:wrap;gap:4px}
+.model-tag{padding:3px 8px;border-radius:4px;font-size:10px;font-family:monospace;background:var(--bg-hover);color:var(--ink-light);cursor:pointer;transition:all 0.15s}
+.model-tag.on{background:rgba(42,157,92,0.1);color:var(--jade)}
+.model-tag:hover{border:1px solid var(--gold)}
+.evo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.evo-item{padding:8px 10px;border-radius:6px;background:var(--bg-input);border:1px solid var(--border-light)}
+.evo-item label{font-size:11px;color:var(--ink-light);display:block;margin-bottom:4px}
+.evo-item input{width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--ink-deep);font-size:12px;font-family:inherit;outline:none}
+.evo-item input:focus{border-color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail">
+    <div class="nav-logo" title="天枢">天</div>
+    <button class="nav-item" onclick="location.href='chat.html'" title="会话">💬<span class="nav-label">会话</span></button>
+    <button class="nav-item" onclick="location.href='characters.html'" title="角色">🎭<span class="nav-label">角色</span></button>
+    <button class="nav-item" onclick="location.href='skills.html'" title="技能">⚡<span class="nav-label">技能</span></button>
+    <button class="nav-item" onclick="location.href='tools.html'" title="工具">🔧<span class="nav-label">工具</span></button>
+    <button class="nav-item" onclick="location.href='mcp.html'" title="MCP">🔗<span class="nav-label">MCP</span></button>
+    <button class="nav-item" onclick="location.href='knowledge.html'" title="知识库">📚<span class="nav-label">知识</span></button>
+    <button class="nav-item" onclick="location.href='market.html'" title="星河">🏪<span class="nav-label">星河</span></button>
+    <div style="width:28px;height:1px;background:var(--border);margin:6px 0"></div>
+    <button class="nav-item" onclick="location.href='events.html'" title="事件">⚡<span class="nav-label">事件</span></button>
+    <div style="flex:1"></div>
+    <button class="nav-item active" title="设置">⚙️<span class="nav-label">设置</span></button>
+  </nav>
+
+  <main class="main">
+    <!-- 设置导航 -->
+    <div class="settings-nav">
+      <div class="settings-nav-header"><span class="settings-nav-title">设置</span></div>
+      <div class="settings-nav-list">
+        <button class="settings-nav-item active" onclick="switchTab('provider',this)">🔗 模型服务</button>
+        <button class="settings-nav-item" onclick="switchTab('display',this)">🎨 显示</button>
+        <button class="settings-nav-item" onclick="switchTab('session',this)">💬 会话</button>
+        <button class="settings-nav-item" onclick="switchTab('event',this)">⚡ 事件</button>
+        <button class="settings-nav-item" onclick="switchTab('about',this)">ℹ️ 关于</button>
+      </div>
+    </div>
+
+    <!-- 设置内容 -->
+    <div class="settings-content">
+
+      <!-- 模型服务 -->
+      <div class="tab-page active" id="tab-provider">
+        <div class="settings-section">
+          <div class="section-title">模型服务</div>
+          <div class="section-desc">配置 LLM 模型服务提供商，管理 API 密钥和可用模型。</div>
+
+          <div class="provider-card">
+            <div class="provider-header">
+              <span class="provider-name">OpenCode Go</span>
+              <span class="provider-badge builtin">内置</span>
+              <button class="btn sm">刷新模型</button>
+              <button class="btn sm">编辑</button>
+            </div>
+            <div class="provider-url">https://opencode.ai/zen/go/v1/</div>
+            <div class="model-list">
+              <span class="model-tag on">kimi-k2.5</span>
+              <span class="model-tag on">kimi-k2.6</span>
+              <span class="model-tag on">kimi-k2.7-code</span>
+              <span class="model-tag on">glm-5.2</span>
+              <span class="model-tag on">deepseek-v4-pro</span>
+              <span class="model-tag">deepseek-v4-flash</span>
+              <span class="model-tag on">qwen3.7-max</span>
+              <span class="model-tag">qwen3.6-plus</span>
+              <span class="model-tag on">minimax-m3</span>
+              <span class="model-tag">minimax-m2.7</span>
+              <span class="model-tag">mimo-v2.5-pro</span>
+              <span class="model-tag">hy3-preview</span>
+            </div>
+          </div>
+
+          <div class="provider-card">
+            <div class="provider-header">
+              <span class="provider-name">OpenCode Zen</span>
+              <span class="provider-badge custom">自定义</span>
+              <button class="btn sm">刷新模型</button>
+              <button class="btn sm">编辑</button>
+              <button class="btn sm danger">删除</button>
+            </div>
+            <div class="provider-url">https://opencode.ai/zen/v1/</div>
+            <div class="model-list">
+              <span class="model-tag">big-pickle</span>
+              <span class="model-tag on">deepseek-v4-flash-free</span>
+              <span class="model-tag on">mimo-v2.5-free</span>
+              <span class="model-tag">nemotron-3-ultra-free</span>
+              <span class="model-tag">north-mini-code-free</span>
+            </div>
+          </div>
+
+          <button class="btn primary" style="margin-top:8px">+ 添加服务</button>
+        </div>
+      </div>
+
+      <!-- 显示 -->
+      <div class="tab-page" id="tab-display">
+        <div class="settings-section">
+          <div class="section-title">显示</div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">界面语言</span><span class="setting-hint">选择界面显示语言</span></div>
+            <div class="setting-control"><select><option>简体中文</option><option>English</option></select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">主题</span><span class="setting-hint">界面显示主题</span></div>
+            <div class="setting-control"><select><option>宣纸</option><option>暗夜</option><option>自动</option></select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">消息通知</span><span class="setting-hint">接收新消息与事件通知</span></div>
+            <div class="setting-control"><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">声音提示</span><span class="setting-hint">任务完成时播放提示音</span></div>
+            <div class="setting-control"><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 会话 -->
+      <div class="tab-page" id="tab-session">
+        <div class="settings-section">
+          <div class="section-title">会话</div>
+          <div class="section-desc">会话显示偏好与默认配置。</div>
+
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">默认工作区</span><span class="setting-hint">新会话的默认工作目录</span></div>
+            <div class="setting-control"><input type="text" value="C:\.Tianshu" style="width:280px"/></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">流式输出</span><span class="setting-hint">实时逐字显示 LLM 回复</span></div>
+            <div class="setting-control"><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">紧凑模式</span><span class="setting-hint">缩小消息间距，显示更多内容</span></div>
+            <div class="setting-control"><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">显示推理</span><span class="setting-hint">展示模型的思考过程</span></div>
+            <div class="setting-control"><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">显示消耗</span><span class="setting-hint">在消息中显示 token 消耗</span></div>
+            <div class="setting-control"><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+        </div>
+
+        <div class="settings-section" style="margin-top:32px">
+          <div class="section-title">默认系统提示词</div>
+          <div class="section-desc">所有未自定义 prompt.md 的角色使用此模板。<code style="background:var(--bg-hover);padding:1px 4px;border-radius:3px;font-size:11px">{{GUIDANCE}}</code> 会被自动替换为工具使用指引。</div>
+          <textarea rows="10" placeholder="你是天枢 AI 助手...">你是天枢 AI 助手，一个专业的 AI Agent 系统。你可以使用工具来完成任务，包括读写文件、执行命令、搜索网页等。
+
+请遵循以下原则：
+1. 优先使用工具获取准确信息
+2. 操作前确认用户意图
+3. 结果清晰简洁地呈现</textarea>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+            <button class="btn primary">保存</button>
+            <span style="font-size:12px;color:var(--jade);display:none">已保存</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 事件 -->
+      <div class="tab-page" id="tab-event">
+        <div class="settings-section">
+          <div class="section-title">事件</div>
+
+          <!-- 事件通用 -->
+          <div class="setting-group">
+            <div class="setting-group-title">事件引擎</div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">启用事件调度</span><span class="setting-hint">定时执行 Cron 事件</span></div>
+              <div class="setting-control"><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">调度间隔</span><span class="setting-hint">事件调度器检查间隔（秒）</span></div>
+              <div class="setting-control"><input type="number" value="30" style="width:60px"/> 秒</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">归档时间</span><span class="setting-hint">已完成事件保留时长</span></div>
+              <div class="setting-control"><input type="number" value="72" style="width:60px"/> 小时</div>
+            </div>
+          </div>
+
+          <!-- 进化引擎 -->
+          <div class="setting-group">
+            <div class="setting-group-title">进化引擎 <span style="font-size:11px;font-weight:400;color:var(--ink-faint)">在线洞察检测 + 离线 LCS 聚类</span></div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">每日离线复盘</span><span class="setting-hint">凌晨 2:00 运行进化引擎聚类分析</span></div>
+              <div class="setting-control"><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">进化角色</span><span class="setting-hint">用于技能生成的 Agent 角色</span></div>
+              <div class="setting-control"><select><option value="">无</option><option value="changgeng">长庚 (changgeng)</option><option value="tianxuan">天璇 (tianxuan)</option><option value="wenqu">文曲 (wenqu)</option><option value="ziwei">紫微 (ziwei)</option></select></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">进化模型服务</span><span class="setting-hint">技能生成使用的模型服务</span></div>
+              <div class="setting-control"><select><option>OpenCode Go</option><option>OpenCode Zen</option></select></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">进化模型</span><span class="setting-hint">技能生成使用的模型</span></div>
+              <div class="setting-control"><select><option>kimi-k2.7-code</option><option>deepseek-v4-pro</option><option>glm-5.2</option></select></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-label">进化工作区</span><span class="setting-hint">技能生成使用的代码工作区</span></div>
+              <div class="setting-control"><input type="text" value="C:\Users\dmql\Documents\TianShu" style="width:220px"/></div>
+            </div>
+          </div>
+
+          <!-- 进化触发参数 -->
+          <div class="setting-group">
+            <div class="setting-group-title">触发参数</div>
+            <div class="evo-grid">
+              <div class="evo-item"><label>检测窗口</label><input type="number" value="8"/></div>
+              <div class="evo-item"><label>错误率阈值</label><input type="number" value="0.5" step="0.1"/></div>
+              <div class="evo-item"><label>重复次数</label><input type="number" value="3"/></div>
+              <div class="evo-item"><label>高频最小调用</label><input type="number" value="6"/></div>
+              <div class="evo-item"><label>高频最大去重</label><input type="number" value="2"/></div>
+              <div class="evo-item"><label>通知超时（秒）</label><input type="number" value="2"/></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn">重置默认值</button>
+            <button class="btn danger">清空配置</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 关于 -->
+      <div class="tab-page" id="tab-about">
+        <div class="settings-section">
+          <div class="section-title">关于</div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">天枢版本</span></div>
+            <div class="setting-control"><span style="font-size:13px;color:var(--ink-mid);font-weight:500">v0.1.0</span></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">检查更新</span></div>
+            <div class="setting-control"><button class="btn">检查</button></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+function switchTab(tab,btn){
+  document.querySelectorAll('.settings-nav-item').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-page').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+document.querySelectorAll('.model-tag').forEach(t=>t.addEventListener('click',()=>t.classList.toggle('on')));
+</script>
+</body>
+</html>

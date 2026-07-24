@@ -70,9 +70,9 @@ router.post('/mcp/:id/test', async (c) => {
   if (!config) return c.json({ error: 'MCP server not found' }, 404)
   try {
     const client = await connectMCPServer(config)
-    const toolCount = client.tools.length
+    const tools = client.tools.map(t => ({ name: t.name, description: t.description }))
     await disconnectMCPServer(client)
-    return c.json({ ok: true, toolCount, serverName: config.name })
+    return c.json({ ok: true, toolCount: tools.length, tools, serverName: config.name })
   } catch (err: any) {
     return c.json({ ok: false, error: err.message || String(err) }, 200)
   }

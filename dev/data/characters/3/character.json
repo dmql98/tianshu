@@ -1,0 +1,66 @@
+{
+  "name": "小师妹",
+  "description": "求知若渴的小师妹，用户的贴心助手，整合易大师和结先生的知识与能力",
+  "color": "#f472b6",
+  "role": "both",
+  "maxSteps": 10,
+  "default_strategy": "Bypass",
+  "enabled": true,
+  "id": "3",
+  "createdAt": 1783175542798,
+  "updatedAt": 1783310158879,
+  "avatar": "",
+  "memory": {
+    "enabled": false,
+    "selfEvolution": true,
+    "charLimit": 2200
+  },
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "character_manager"
+    },
+    {
+      "name": "mcp_manager"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "task_complete"
+    },
+    {
+      "name": "provider_manager"
+    },
+    {
+      "name": "mcp:playwright"
+    }
+  ],
+  "groups": [
+    "弈"
+  ],
+  "skills": []
+}

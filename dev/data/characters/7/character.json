@@ -1,0 +1,35 @@
+{
+  "name": "Generator（生成器）",
+  "description": "Multi-agent QA 架构中的 Generator — 接收 Planner 规范并高效生成代码、测试、配置等完整实现",
+  "color": "#10B981",
+  "role": "sub",
+  "tools": [
+    {
+      "name": "read"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "bash"
+    }
+  ],
+  "groups": [
+    "planner-generator-evaluator"
+  ],
+  "maxSteps": 10,
+  "default_strategy": "Bypass",
+  "enabled": true,
+  "id": "7",
+  "createdAt": 1783246395445,
+  "updatedAt": 1783246395445
+}

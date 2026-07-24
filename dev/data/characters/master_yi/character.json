@@ -1,0 +1,60 @@
+{
+  "name": "易大师",
+  "description": "锐意进取的易大师，专注于优化方案、工具设计和效率提升",
+  "color": "#6366f1",
+  "role": "both",
+  "maxSteps": 10,
+  "default_strategy": "Bypass",
+  "enabled": true,
+  "id": "master_yi",
+  "createdAt": 1783175542810,
+  "updatedAt": 1783310173596,
+  "avatar": "",
+  "memory": {
+    "enabled": false,
+    "selfEvolution": false,
+    "charLimit": 2200
+  },
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "character_manager"
+    },
+    {
+      "name": "mcp_manager"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "provider_manager"
+    },
+    {
+      "name": "mcp:codegraph"
+    },
+    {
+      "name": "debug_sessions"
+    }
+  ],
+  "groups": [
+    "弈"
+  ],
+  "skills": []
+}

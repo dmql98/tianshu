@@ -4,6 +4,7 @@ import type { CharacterRecord } from '../db/characterStore.js'
 import { characterContentStore } from '../character/store.js'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
+import { getDb } from '../db/schema.js'
 
 const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 import { resolveCharacterTools } from '../tools/definitions.js'
@@ -56,5 +57,12 @@ router.put('/:id', async (c) => {
 router.delete('/:id', (c) => {
   const ok = characterMetaStore.delete(c.req.param('id'))
   return ok ? c.json({ success: true }) : c.json({ error: 'Not found' }, 404)
+})
+router.get('/:id/stats', (c) => {
+  const id = c.req.param('id')
+  const db = getDb()
+  const sessionCount = (db.prepare('SELECT COUNT(*) as count FROM sessions WHERE character_id = ?').get(id) as any)?.count || 0
+  const lastActive = (db.prepare('SELECT MAX(updated_at) as ts FROM sessions WHERE character_id = ?').get(id) as any)?.ts || null
+  return c.json({ sessionCount, lastActive })
 })
 export default router
