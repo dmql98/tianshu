@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { readdirSync, readFileSync, statSync, existsSync } from 'fs'
 import { join, resolve, relative, extname } from 'path'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 const SKILLS_ROOT = resolve(DATA_DIR, 'skills')
 
 interface SkillMeta {

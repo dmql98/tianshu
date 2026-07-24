@@ -100,7 +100,11 @@ export interface Provider {
   name: string
   base_url: string
   api_key?: string
+  has_api_key?: boolean
+  envKey?: string
+  format?: string
   models: ProviderModel[]
+  enabled_models?: string[]
   is_builtin?: boolean
 }
 

@@ -40,7 +40,7 @@ app.route('/api/evolution-config', evolutionRouter)
 app.route('/api/prompts', promptsRouter)
 app.get('/health', (c) => c.json({ ok: true }))
 
-const port = Number(process.env.PORT) || 3210
+const port = Number(process.env.PORT) || 3001
 const httpServer = serve({ fetch: app.fetch, port }, () => {
   console.log(`Yi-Lin server on :${port}`)
 })

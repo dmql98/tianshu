@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { createProvider, fetchBuiltinProviders, type ProviderModel } from '@/api/providers'
 
-const ProviderIcon = ({ id, size = 24 }: { id: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 40 40">
-    <use href={`/provider-icons/sprite.svg#${id}`} />
-  </svg>
-)
+const formatLabel: Record<string, string> = {
+  openai: 'OpenAI 兼容', anthropic: 'Anthropic 格式', gemini: 'Gemini 格式',
+}
 
 interface Props {
   onClose: () => void
@@ -16,14 +14,28 @@ export default function AddProviderDialog({ onClose }: Props) {
   const { load } = useProvidersStore()
   const [step, setStep] = useState<'select' | 'config'>('select')
   const [builtinProviders, setBuiltinProviders] = useState<any[]>([])
+  const [search, setSearch] = useState('')
   const [selectedProvider, setSelectedProvider] = useState<any>(null)
   const [formData, setFormData] = useState({ name: '', baseUrl: '', apiKey: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchBuiltinProviders().then(setBuiltinProviders).catch(console.error)
   }, [])
+
+  useEffect(() => {
+    if (step === 'select') searchRef.current?.focus()
+  }, [step])
+
+  const filtered = useMemo(() => {
+    if (!search) return builtinProviders
+    const q = search.toLowerCase()
+    return builtinProviders.filter(p =>
+      p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) || (p.format || '').includes(q)
+    )
+  }, [builtinProviders, search])
 
   const handleSelectProvider = (provider: any) => {
     setSelectedProvider(provider)
@@ -32,6 +44,14 @@ export default function AddProviderDialog({ onClose }: Props) {
       baseUrl: provider.base_url,
       apiKey: '',
     })
+    setSearch('')
+    setStep('config')
+  }
+
+  const handleCustom = () => {
+    setSelectedProvider(null)
+    setFormData({ name: '', baseUrl: '', apiKey: '' })
+    setSearch('')
     setStep('config')
   }
 
@@ -79,17 +99,34 @@ export default function AddProviderDialog({ onClose }: Props) {
         <div className="provider-dialog-body">
           {step === 'select' ? (
             <div className="provider-list">
-              {builtinProviders.map(provider => (
+              <div style={{padding:'0 4px 8px'}}>
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="搜索服务商..."
+                  style={{
+                    width:'100%', padding:'6px 10px', borderRadius:6,
+                    border:'1px solid var(--border)', background:'var(--bg)',
+                    color:'var(--ink)', outline:'none', fontSize:13,
+                  }}
+                />
+              </div>
+              {filtered.map(provider => (
                 <div
                   key={provider.id}
                   className="provider-list-item"
                   onClick={() => handleSelectProvider(provider)}
                 >
                   <div className="provider-list-icon">
-                    <ProviderIcon id={provider.id} />
+                    <svg width={24} height={24} viewBox="0 0 40 40">
+                      <use href={`/provider-icons/sprite.svg#${provider.id}`} />
+                    </svg>
                   </div>
                   <div className="provider-list-info">
                     <div className="provider-list-name">{provider.name}</div>
+                    <div className="provider-list-desc">{formatLabel[provider.format] || provider.format}</div>
                   </div>
                   <div className="provider-list-arrow">›</div>
                 </div>
@@ -97,18 +134,19 @@ export default function AddProviderDialog({ onClose }: Props) {
               <div
                 className="provider-list-item"
                 style={{borderStyle: 'dashed'}}
-                onClick={() => {
-                  setSelectedProvider(null)
-                  setFormData({ name: '', baseUrl: '', apiKey: '' })
-                  setStep('config')
-                }}
+                onClick={handleCustom}
               >
-                <div className="provider-list-icon">➕</div>
+                <div className="provider-list-icon" style={{fontSize:18}}>➕</div>
                 <div className="provider-list-info">
                   <div className="provider-list-name">自定义服务商</div>
                 </div>
                 <div className="provider-list-arrow">›</div>
               </div>
+              {filtered.length === 0 && search && (
+                <div style={{textAlign:'center',padding:24,color:'var(--ink-faint)',fontSize:13}}>
+                  未找到匹配的服务商
+                </div>
+              )}
             </div>
           ) : (
             <div className="provider-form">
@@ -139,10 +177,12 @@ export default function AddProviderDialog({ onClose }: Props) {
               <div className="provider-form-field">
                 <label>
                   API Key
-                  {selectedProvider?.envKey && (
-                    <span className="provider-form-hint">或设置 {selectedProvider.envKey} 环境变量</span>
-                  )}
                 </label>
+                {selectedProvider?.envKey && (
+                  <div style={{fontSize:11,color:'var(--ink-faint)',marginBottom:4}}>
+                    也可设置环境变量 <code style={{background:'var(--bg-hover)',padding:'1px 4px',borderRadius:3}}>{selectedProvider.envKey}</code>
+                  </div>
+                )}
                 <input 
                   type="password" 
                   value={formData.apiKey}
@@ -159,7 +199,7 @@ export default function AddProviderDialog({ onClose }: Props) {
             <button className="provider-btn secondary" onClick={onClose}>取消</button>
           ) : (
             <>
-              <button className="provider-btn secondary" onClick={() => setStep('select')}>返回</button>
+              <button className="provider-btn secondary" onClick={() => { setStep('select'); setSearch('') }}>返回</button>
               <button 
                 className="provider-btn primary" 
                 onClick={handleSubmit}

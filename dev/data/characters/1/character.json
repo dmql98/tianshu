@@ -1,0 +1,21 @@
+{
+  "name": "1",
+  "description": "",
+  "avatar": "",
+  "color": "#6366f1",
+  "memory": {
+    "enabled": false,
+    "selfEvolution": false,
+    "charLimit": 2200
+  },
+  "tools": [],
+  "maxSteps": 10,
+  "role": "both",
+  "groups": [],
+  "default_strategy": "Ask",
+  "skills": [],
+  "enabled": true,
+  "id": "1",
+  "createdAt": 1784850875000,
+  "updatedAt": 1784850875000
+}

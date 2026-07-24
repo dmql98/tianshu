@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync, unlinkSync, rmSync, statSync } from 'fs'
 import { resolve } from 'path'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 const DEBUG_DIR = resolve(DATA_DIR, 'debug')
 const DAY_MS = 86400000
 

@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, readdirSync, readFileSync } from 'fs'
 import { createHash } from 'crypto'
 import { resolve } from 'path'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 const DEBUG_DIR = resolve(DATA_DIR, 'debug')
 
 function systemPromptFingerprint(messages: unknown[]): string {

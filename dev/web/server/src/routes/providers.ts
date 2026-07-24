@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { providerStore } from '../db/providerStore.js'
-import { detectAvailable } from '../providers/index.js'
 
 const router = new Hono()
 
@@ -32,12 +31,6 @@ async function getModelCatalog(): Promise<Record<string, number>> {
 }
 
 router.get('/', (c) => c.json(providerStore.getAll()))
-router.get('/builtin', (c) => c.json(providerStore.getBuiltin()))
-router.get('/custom', (c) => c.json(providerStore.getCustom()))
-router.get('/detect', (c) => c.json(detectAvailable().map(p => ({
-  id: p.id, name: p.name, format: p.format,
-  envKey: p.envKey, available: true,
-}))))
 router.post('/', async (c) => {
   const body = await c.req.json()
   return c.json(providerStore.create(body), 201)
@@ -51,6 +44,24 @@ router.put('/:id', async (c) => {
 router.delete('/:id', (c) => {
   if (!providerStore.delete(c.req.param('id'))) return c.json({ error: 'Not found' }, 404)
   return c.json({ ok: true })
+})
+
+router.post('/:id/test', async (c) => {
+  const provider = providerStore.getById(c.req.param('id'))
+  if (!provider) return c.json({ error: 'Not found' }, 404)
+  try {
+    const res = await fetch(`${provider.base_url.replace(/\/+$/, '')}/models`, {
+      headers: provider.api_key ? { Authorization: `Bearer ${provider.api_key}` } : {},
+      signal: AbortSignal.timeout(10000),
+    })
+    if (res.ok) {
+      return c.json({ ok: true, status: res.status })
+    } else {
+      return c.json({ ok: false, status: res.status, error: `HTTP ${res.status}` })
+    }
+  } catch (e: any) {
+    return c.json({ ok: false, error: e.message || 'Connection failed' })
+  }
 })
 
 router.get('/:id/models', async (c) => {

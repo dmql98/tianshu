@@ -66,7 +66,7 @@ export async function connectMCPServer(config: MCPServerConfig, workspace?: stri
   }
 
   const client = new Client(
-    { name: 'tianshu-mcp', version: '0.1.0' },
+    { name: 'yi-lin-mcp', version: '0.1.0' },
     { capabilities: { roots: {} } }
   )
 

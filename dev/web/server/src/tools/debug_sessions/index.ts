@@ -3,7 +3,7 @@ import { resolve } from 'path'
 import type { ToolModule } from '../types.js'
 import { mergeOldDebugTurns } from '../../debug/merge-turns.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../../data')
 const DEBUG_DIR = resolve(DATA_DIR, 'debug')
 
 export const tool: ToolModule = {

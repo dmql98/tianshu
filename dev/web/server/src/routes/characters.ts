@@ -5,7 +5,7 @@ import { characterContentStore } from '../character/store.js'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 import { resolveCharacterTools } from '../tools/definitions.js'
 
 function mergeContent(meta: CharacterRecord, id: string) {

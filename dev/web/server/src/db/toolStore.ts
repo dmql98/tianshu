@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync, renameSync } from 'fs'
 import { resolve, join } from 'path'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 const MCP_DIR = resolve(DATA_DIR, 'mcpservers')
 const OLD_FILE = resolve(DATA_DIR, 'mcpservers.json')
 mkdirSync(MCP_DIR, { recursive: true })

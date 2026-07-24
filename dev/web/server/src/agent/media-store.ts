@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs'
 import { resolve } from 'path'
 import { randomUUID } from 'crypto'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 const MEDIA_DIR = resolve(DATA_DIR, 'media')
 
 export interface AttachmentMeta {

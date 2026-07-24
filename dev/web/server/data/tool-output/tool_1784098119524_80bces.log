@@ -1,0 +1,1697 @@
+OpenClaw — Personal AI Assistant  
+
+ [![](/favicon.svg) OpenClaw](/)
+
+[Product](/) [Ecosystem](/ecosystem) [Integrations](/integrations) [Blog](/blog) [Docs](https://docs.openclaw.ai/) [Discord](https://discord.com/invite/clawd) [GitHub](https://github.com/openclaw/openclaw)
+
+[Product](/) [Ecosystem](/ecosystem) [Integrations](/integrations) [Blog](/blog) [Docs](https://docs.openclaw.ai/) [Discord](https://discord.com/invite/clawd) [GitHub](https://github.com/openclaw/openclaw)
+
+                ...                    .:.::-::...                  ..--==++xxx++==--::..                                           ..::--==++x+x++==--...                  ..::-::.:.                   .. .               
+               . .                   . ..:::.:..                 ..::-=+++++==--::..                                                     ..::--==+++++=-::..                 ....:::.. .                   . .              
+                .                   ..:::::..                  .::--==+++==--.:..                                                           ..::--==++++=--::.                 ...:::.:..                   .               
+                                   ....:....                 ..::-=+====::..                                                                     ..::==+====::..                 ..:.:.:..                                  
+                                  ..:::.:..                .::--==+==--::.                        ....:.::::-:-:-::::.:....                        .::--==+==--::.                ..:.:.:..                                 
+                                 ....:..                 ..::--===--::                       ..::-:-=+=++xxxxXxXxxxx++====:-::..                       .:--===--::..                 ..:.:..                                
+                                ..:.:..                 ..:-=-=--::..                   ..::--++xxX###88@8@@@@@@@@@@@88##XXxx++--::..                   ..::--=-=-:..                 ..:.:..                               
+                               .......                 ..:----::..                   ..::==xxX#8#88@8@8888#8#8#8#8#8888@8@88#8#Xxx==::..                   ..::----:..                 .......                              
+                              ..:....                .::-----::..                 ..--=+XX##888#8##XXxx++++=+===+=+=++xxXX##88888##XX+=--..                 ..::-----::.                ....:..                             
+                             . ... .               ..::-:-::..                 ..:-=+xx#####XX++==--::.:...... ......:.::--==++XX#####xx+=-:..                 ..::-:-::..               . ... .                            
+                            .....                 ..::-:-::..                .::==xxXX#XXx+==--::..                       ..:.--==+xXX#XXxx==::.                ..::-:-::..                ......                           
+                           . ...                 ..:.:::....               ..:-++xxXxx+=--:. .                                 . .:--=+xxXxx+=--..               ..:.:::.:..                 ... .                          
+                            ...                 ..::-::.:.               .::==+xxxx+=--...                                          .:--=+xxxx+==::.               .::::-::..                .....                          
+                           . .                 ..:.:::..               ..::==+++==-:..                                                 ..--==+++==::..               ..:::....                 . .                          
+                          ...                  ...:::..               ..:-==+=+--::.                                                      ::--+++==-:..               ..:.:...                  . .                         
+                           .                   ..:....               ..--===--::..                     . . . ... . . .                     ..::--===-:..               ....:..                   .                          
+                                             ...:....               .:--===--:.                   ....:.:::::::::::::.:....                  ...--===--:.               ....:..                                             
+                                             ..... .               ..-:---::..                 ....:::::::::::.:::::::::::....                 ..::---::..               . .....                                            
+                                            ......                ..::---::.                ..:.:.:::.:....       ....:.:.:::.:..                .::---::..                ......                                           
+                                             . .                 ..:::::..                 ....:....                     .........                 ..::-::..                 . .                                            
+                                            ...                 ..:::::..                ...:....                           ....:...                ..:::::..                ....                                           
+                                             .                  ...:.:..               . .....                                 ..... .               ....:...                  .                                            
+                                                                ..:....               .....                                       ... .               ....:..                                                               
+                                                               . ...                   .                                             .                   ... .                                                              
+                                                                ...                                                                                      .....                                                              
+                                                                 .                                                                                         .                                                                
+
+Open source · Runs on your machine
+
+# The AI that *really* does things.
+
+Organizes your inbox, sends emails, manages your calendar, checks you in for flights.  
+All from WhatsApp, Telegram, or any chat app you already use.
+
+[Get started](#quickstart) [Read the docs](https://docs.openclaw.ai/)
+
+## Quick Start
+
+install
+
+One-liner npm Hackable Apps
+
+npm pnpm
+
+installer pnpm
+
+macOS & Linux Windows
+
+β Beta
+
+\# Works everywhere. On macOS, first run may need an Administrator for Homebrew.
+
+$ curl -fsSL https://openclaw.ai/install.sh | bash
+
+\# Install OpenClaw
+
+$ npm i -g openclaw
+
+\# Meet your lobster
+
+$ openclaw onboard
+
+\# For those who read source code for fun
+
+$ curl -fsSL https://openclaw.ai/install.sh | bash -s -- --install-method git
+
+\# Source checkouts are pnpm workspaces
+
+$ git clone https://github.com/openclaw/openclaw.git
+
+$ cd openclaw && corepack enable && pnpm install
+
+\# Run from source; bundled plugins use extensions/\* deps
+
+$ pnpm openclaw onboard
+
+Companion Apps Beta
+
+Native controls for the gateway, chat, setup, and node features.
+
+macOS macOS 15+ · Universal Binary
+
+[Download macOS](https://github.com/openclaw/openclaw/releases/latest)
+
+Windows Hub [Windows 10 20H2+ or Windows 11 · Tray, setup, chat, node mode](https://docs.openclaw.ai/platforms/windows)
+
+[Download x64](https://github.com/openclaw/openclaw/releases/latest/download/OpenClawCompanion-Setup-x64.exe) [Download ARM64](https://github.com/openclaw/openclaw/releases/latest/download/OpenClawCompanion-Setup-arm64.exe)
+
+Works on macOS, Linux, and Windows. The one-liner installs Node.js and everything else for you. Switch later with `openclaw update --channel dev` or `openclaw update --channel stable`.
+
+## What People Say
+
+[View all related content](/shoutouts)
+
+[![pavandavuluri](/avatars/x/pavandavuluri.jpg)
+
+"The Clawfather 🦞. Thank you for joining us at Build today @steipete!"
+
+@pavandavuluri
+
+](https://x.com/pavandavuluri/status/2061993903629406606)[![rodrigofarinha](/avatars/x/rodrigofarinha.jpg)
+
+"The speed of agents in this new version is incredible. Kudos to @steipete and the whole community 🦞"
+
+@rodrigofarinha
+
+](https://x.com/rodrigofarinha/status/2050979564608700722)[![ashleywolf](/avatars/x/ashleywolf.jpg)
+
+"Last night we celebrated @openclaw, the fastest growing project on GitHub. In just six months, @steipete, dozens of maintainers, and thousands of contributors built something remarkable: open source personal agents. 🚀 We had over 3,300 people registered for the event!"
+
+@ashleywolf
+
+](https://x.com/ashleywolf/status/2062588715768451426)[![bartslodyczka](/avatars/x/bartslodyczka.jpg)
+
+"If it wasn't for OpenClaw we wouldn't have the massive progress across these kinds of personal agent harnesses. OpenClaw was the first agent harness I used, and now I get to enjoy other harnesses too. Thank you Legend, keep it up"
+
+@bartslodyczka
+
+](https://x.com/bartslodyczka/status/2072155449890361612)[![nelsonlopes\_](/avatars/x/nelsonlopes_.jpg)
+
+"I'm finally testing @openclaw. This is crazy good, this thing is probably going to run my life. Congratulations @steipete! But I want my sleep back 🤣"
+
+@nelsonlopes\_
+
+](https://x.com/nelsonlopes_/status/2059900770221166737)[![morganlinton](/avatars/x/morganlinton.jpg)
+
+"Thanks Peter, I've been super impressed with how much OpenClaw has improved over the last month. As someone that's been using it since the early days, it's kinda like a whole new product now, so much polish 🤌"
+
+@morganlinton
+
+](https://x.com/morganlinton/status/2055034715024031932)[![mronge](/avatars/x/mronge.jpg)
+
+"The latest OpenClaw release is fantastic! Fixes all the issues I've having the past week. Thank you!"
+
+@mronge
+
+](https://x.com/mronge/status/2051682321560899763)[![satyanadella](/avatars/x/satyanadella.jpg)
+
+"Thanks for joining us, and all the partnership as we make OpenClaw run super well on Windows! 🦞"
+
+@satyanadella
+
+](https://x.com/satyanadella/status/2061940814759223483)[![ycombinator](/avatars/x/ycombinator.jpg)
+
+"Peter Steinberger is the creator of OpenClaw, the open-source AI agent that went from a weekend project to the most-starred software repo on GitHub in under 5 months, with 346k+ stars."
+
+@ycombinator
+
+](https://x.com/ycombinator/status/2062942526856941994)[![jennifermarsman](/avatars/x/jennifermarsman.jpg)
+
+"Using Microsoft Execution Containers, you can run OpenClaw natively on Windows, and the sandbox prevented deletion of all files on the Desktop. Running OpenClaw more safely in an enterprise is "pretty dope". :)"
+
+@jennifermarsman
+
+](https://x.com/jennifermarsman/status/2061867078072549795)[![BradGroux](/avatars/x/bradgroux.jpg)
+
+"I'm addicted to building thanks to OpenClaw and Codex. Yesterday I built dm-annotate, a Mac screen annotation tool. Today, I'm building a curriculum recorder suite."
+
+@BradGroux
+
+](https://x.com/BradGroux/status/2054475596814540839)[![sama](/avatars/x/sama.jpg)
+
+"you can sign in to openclaw with your chatgpt account now and use your subscription there! happy lobstering."
+
+@sama
+
+](https://x.com/sama/status/2050357911915028689)[![elonmusk](/avatars/x/elonmusk.jpg)
+
+"You can access 𝕏 API via @OpenClaw. We’re trying to make it affordable without giving away the shop. Hopefully, this can be useful & fun 💫"
+
+@elonmusk
+
+](https://x.com/elonmusk/status/2045572706939355483)[![growing\_daniel](/avatars/x/growing_daniel.jpg)
+
+"A snake showed up in our backyard yesterday. Instead of panicking, I sent this photo to my OpenClaw. It identified it as a harmless gopher snake, gave me a local number to call to confirm, and suggested ways to catch it to make it a pet for the kids. I have small moments like this everyday now, usually less dramatic, that remind me how AI has made daily life feel a little more magical."
+
+@growing\_daniel
+
+](https://x.com/growing_daniel/status/2058365643687395717)[![garrytan](/avatars/x/garrytan.jpg)
+
+"It's happened. My OpenClaw and Hermes Agent are now chatting with one another. The cyberpunk future is here, but hopefully it's a whitepill instead of a blackpill. Let's try to push it to the former."
+
+@garrytan
+
+](https://x.com/garrytan/status/2053550761917698273)[![donasarkar](/avatars/x/donasarkar.jpg)
+
+"I am SO SO excited about the Windows x OpenClaw announcement at #MSBuild. I love that our 🦞s can do all sorts of work for us (prepping for performance reviews, figuring out what happened in meetings that I refused to go to, godforsaken EXPENSE REPORTS, ha). And @steipete is ACTUALLY the coolest dude you’ve ever met."
+
+@donasarkar
+
+](https://x.com/donasarkar/status/2061870695345525125)[![frankdegods](/avatars/x/frankdegods.jpg)
+
+"I changed my mind recently. OpenClaw acquisition will pay off for OpenAI. It’s still by far the best personal agent in the world. Nothing has come close. It’s a net new product experience for normies and non SaaS businesses. Plus, Peter is top 0.1% talent acquisition. gg"
+
+@frankdegods
+
+](https://x.com/frankdegods/status/2048186816159784978)[![BenjaminBadejo](/avatars/x/benjaminbadejo.jpg)
+
+"Here’s OpenAI’s latest realtime voice model, GPT-Realtime-2, wired up to OpenClaw. It’s amazing. Realtime continuous chat and fast OpenClaw agent action on real tasks. Truly excellent."
+
+@BenjaminBadejo
+
+](https://x.com/BenjaminBadejo/status/2052511264476147762)[![OmarShahine](/avatars/x/omarshahine.jpg)
+
+"Shit wow I just gave my @openclaw Lobster a real phone number using @twilio and called him. Mind blown. Took 20 min to set up. I still can't believe it."
+
+@OmarShahine
+
+](https://x.com/OmarShahine/status/2054702944130666631)[![hungv47](/avatars/x/hungv47.jpg)
+
+"It's a crime that this repo only has under 400 stars. /autoreview and /handoff are literally two of the best agent skills I've ever used. Massive thanks @steipete and @openclaw"
+
+@hungv47
+
+](https://x.com/hungv47/status/2062804416521289877)[![Strong\_Genetics](/avatars/x/strong_genetics.jpg)
+
+"If you left Openclaw because of update stability its time to give it another try. The last 2 weeks have been the best experience I've had on openclaw so far. Glad i stuck with it and didn't migrate or give up because of complexity. I ended up learning things i wouldn't have known otherwise and now im on the most Feature rich Agentic System."
+
+@Strong\_Genetics
+
+](https://x.com/Strong_Genetics/status/2055371796040626409)[![MahmoudAshraf93](/avatars/x/mahmoudashraf93.jpg)
+
+"Finally updated my openclaw and now using GPT-5.5 and the difference is visible and the humor is as like claude models! Amazing work on the harness @steipete"
+
+@MahmoudAshraf93
+
+](https://x.com/MahmoudAshraf93/status/2053066856504668605)[![jonahships\_](/avatars/x/jonahships_.jpg)
+
+"Setup @openclaw by @steipete yesterday. All I have to say is, wow. First I was using my Claude Max sub and I used all of my limit quickly, so today I had my claw bot setup a proxy to route my CoPilot subscription as a API endpoint so now it runs on that. It's the fact that claw can just keep building upon itself just by talking to it in discord is crazy. The future is already here"
+
+@jonahships\_
+
+](https://x.com/jonahships_/status/2010605025844723765)[![AryehDubois](/avatars/x/aryehdubois.jpg)
+
+"Tried Claw by @steipete. I tried to build my own AI assistant bots before, and I am very impressed how many hard things Claw gets right. Persistent memory, persona onboarding, comms integration, heartbeats. A few minor wrinkles remain, but the end result is AWESOME."
+
+@AryehDubois
+
+](https://x.com/AryehDubois/status/2011742378655432791)[![markjaquith](/avatars/x/markjaquith.jpg)
+
+"I've been saying for like six months that even if LLMs suddenly stopped improving, we could spend \*years\* discovering new transformative uses. @openclaw feels like that kind of "just had to glue all the parts together" leap forward. Incredible experience."
+
+@markjaquith
+
+](https://x.com/markjaquith/status/2010430366944055433)[![danpeguine](/avatars/x/danpeguine.jpg)
+
+"Why @openclaw is nuts: your context and skills live on YOUR computer, not a walled garden. It's open source. Growing community building skills. Only 19 days old and constantly improving. 'Personal AI assistant' undersells it — it's a company assistant, family assistant, team tool. Proactive AF: cron jobs, reminders, background tasks. Memory is amazing, context persists 24/7."
+
+@danpeguine
+
+](https://x.com/danpeguine/status/2014760164113477700)[![nateliason](/avatars/x/nateliason.jpg)
+
+"Yeah this was 1,000% worth it. Separate Claude subscription + Claw, managing Claude Code / Codex sessions I can kick off anywhere, autonomously running tests on my app and capturing errors through a sentry webhook then resolving them and opening PRs... The future is here."
+
+@nateliason
+
+](https://x.com/nateliason/status/2013725082850414592)[![nathanclark\_](/avatars/x/nathanclark_.jpg)
+
+"A smart model with eyes and hands at a desk with keyboard and mouse. You message it like a coworker and it does everything a person could do with that Mac mini. That's what you have now."
+
+@nathanclark\_
+
+](https://x.com/nathanclark_/status/2014647048612773912)[![nickvasiles](/avatars/x/nickvasiles.jpg)
+
+"OpenClaw is a 24/7 assistant with access to its own computer. What if there were ten, or a hundred, or a thousand?? All running 24/7 in the cloud with access to your files, Gmail, calendar, everything about you... That's the future, and we're living it today."
+
+@nickvasiles
+
+](https://x.com/nickvasiles/status/2014790519529095447)[![davemorin](/avatars/x/davemorin.jpg)
+
+"At this point I don't even know what to call @openclaw. It is something new. After a few weeks in with it, this is the first time I have felt like I am living in the future since the launch of ChatGPT."
+
+@davemorin
+
+](https://x.com/davemorin/status/2013723700668096605)[![cnakazawa](/avatars/x/cnakazawa.jpg)
+
+"OpenClaw is the first "software" in ages for which I constantly check for new releases on GitHub. It's hard to put into words. It's a special project."
+
+@cnakazawa
+
+](https://x.com/cnakazawa/status/2014145277465432519)[![abhi\_\_katiyar](/avatars/x/abhi__katiyar.jpg)
+
+"When you experience @openclaw it gives the same kick as when we first saw the power of ChatGPT, DeepSeek, and Claude Code. You realize that a fundamental shift is happening on how we use AI."
+
+@abhi\_\_katiyar
+
+](https://x.com/abhi__katiyar/status/2014187653600526474)[![therno](/avatars/x/therno.jpg)
+
+"It's running my company."
+
+@therno
+
+](https://x.com/therno/status/2014216984267780431)[![LuciusHQ](/avatars/x/luciushq.jpg)
+
+"After years of AI hype, I thought nothing could faze me. Then I installed @openclaw. From nervous 'hi what can you do?' to full throttle - design, code review, taxes, PM, content pipelines... AI as teammate, not tool. The endgame of digital employees is here."
+
+@LuciusHQ
+
+](https://x.com/LuciusHQ/status/2014513697557758002)[![christinetyip](/avatars/x/christinetyip.jpg)
+
+"Just shipped my first personal AI assistant. On WhatsApp. Builds my second brain while I chat. Memory moves across agents (Codex, Cursor, Manus, etc.) And a lot more skills still to plug in. Personal AI is getting real with @steipete's @openclaw."
+
+@christinetyip
+
+](https://x.com/christinetyip/status/2010776377931575569)[![MaxRovensky](/avatars/x/maxrovensky.jpg)
+
+"It will actually be the thing that nukes a ton of startups, not ChatGPT as people meme about. The fact that it's hackable (and more importantly, self-hackable) and hostable on-prem will make sure tech like this DOMINATES conventional SaaS imo"
+
+@MaxRovensky
+
+](https://x.com/MaxRovensky/status/2010676669124612111)[![antonplex](/avatars/x/antonplex.jpg)
+
+"Just got my Winix air purifier, Claude code discovered and confirmed controls working within minutes. Now handing off to my @openclaw so it can handle controlling my room's air quality according to my biomarker optimization goals."
+
+@antonplex
+
+](https://x.com/antonplex/status/2010518442471006253)[![svenkataram](/avatars/x/svenkataram.jpg)
+
+"Gotta give incredible kudos to @steipete and his @openclaw - it's one of the first tools I've used that truly feels like magic. I've also set it up so it knows my Obsidian notes and my Claude sub-agents…incredible stuff!"
+
+@svenkataram
+
+](https://x.com/svenkataram/status/2010211836038427127)[![Hormold](/avatars/x/hormold.jpg)
+
+"My @openclaw accidentally started a fight with Lemonade Insurance because of a wrong interpretation of my response. After this email, they started to reinvestigate the case instead of instantly rejecting it. Thanks, AI."
+
+@Hormold
+
+](https://x.com/Hormold/status/2011133394764382583)[![AlbertMoral](/avatars/x/albertmoral.jpg)
+
+"I just finished setting up @openclaw by @steipete on my Raspberry Pi with Cloudflare, and it feels magical ✨ Built a website from my phone in minutes and connected WHOOP to quickly check my metrics and daily habits 🔥"
+
+@AlbertMoral
+
+](https://x.com/AlbertMoral/status/2010288787885064227)[![snopoke](/avatars/x/snopoke.jpg)
+
+"I've been running OpenClaw on my laptop for a week now. Honestly it feels like it did to run Linux Vs windows 20 years ago. You're in control, you can hack it and make it yours instead of relying on some tech giant."
+
+@snopoke
+
+](https://x.com/snopoke/status/2010419070123008248)[![kylezantos](/avatars/x/kylezantos.jpg)
+
+"Today was one of those days that I sort of ran to my computer after dropping off my toddler at daycare. Why? Because I got part-way through setting up @openclaw last night and it's a portal to a new reality."
+
+@kylezantos
+
+](https://x.com/kylezantos/status/2011149783218704803)[![darrwalk](/avatars/x/darrwalk.jpg)
+
+"Got OpenClaw set up and now I have an AI assistant named Claudia who lives in Telegram, remembers everything I tell her, and can actually \*do\* stuff. She just wrote this tweet. Meta? Maybe. Cool? Absolutely."
+
+@darrwalk
+
+](https://x.com/darrwalk/status/2010426677730660603)[![jakubkrcmar](/avatars/x/jakubkrcmar.jpg)
+
+"Current level of open-source apps capabilities: does everything, connects to everything, remembers everything. It's all collapsing into one unique personal OS — all apps, interfaces, walled gardens etc gone"
+
+@jakubkrcmar
+
+](https://x.com/jakubkrcmar/status/2011186102367814135)[![jdrhyne](/avatars/x/jdrhyne.jpg)
+
+"I've enjoyed Brosef, my @openclaw so much that I needed to clone him. Brosef figured out exactly how to do it, then executed it himself so I have 3 instances running concurrently in his Discord server home."
+
+@jdrhyne
+
+](https://x.com/jdrhyne/status/2010155191731950036)[![dajaset](/avatars/x/dajaset.jpg)
+
+"I got up and running today with @openclaw and its been nothing short of an iPhone moment for me. Thanks @steipete for creating this first true personal assistant experience for us - it's magical!"
+
+@dajaset
+
+](https://x.com/dajaset/status/2010510107876933669)[![Cucho](/avatars/x/cucho.jpg)
+
+"The future of how AI personal assistants look like is @openclaw. Has already help me submit health reimbursements, find doctor appointments, find and send me relevant documents, among others."
+
+@Cucho
+
+](https://x.com/Cucho/status/2010801019572412680)[![marvelgirl\_eth](/avatars/x/marvelgirl_eth.jpg)
+
+"you have done an incredible job! im also a total non technical beginner so the CLI is a whole new interface for me but its super addictive - 2 am and Im still going. keep up the great work"
+
+@marvelgirl\_eth
+
+](https://x.com/marvelgirl_eth)[![ivanfioravanti](/avatars/x/ivanfioravanti.jpg)
+
+"Finally tried my own @openclaw and I've been blown away. 🤯 This is unbelievably powerful and virtually limitless, you can create your own extensions in few hours with the help of AI."
+
+@ivanfioravanti
+
+](https://x.com/ivanfioravanti/status/2010665360933179656)[![wizaj](/avatars/x/wizaj.jpg)
+
+"I didn’t find an easy way to programmatically query flights so of course I asked my @openclaw to build a terminal cli with multi providers. You’re onto something great @steipete 🙌🏾"
+
+@wizaj
+
+](https://x.com/wizaj/status/2010767447192637601)[![iamsubhrajyoti](/avatars/x/iamsubhrajyoti.jpg)
+
+"I can understand why people love @openclaw so much. I wanted to automate some tasks from Todoist and claw was able to create a skill for it on its own, all within a Telegram chat."
+
+@iamsubhrajyoti
+
+](https://x.com/iamsubhrajyoti/status/2009949389884920153)[![bffmike](/avatars/x/bffmike.jpg)
+
+"I now have @openclaw independently assessing how it can help me in the background. It wrote a doc connecting two completely unrelated conversations from different comms channels."
+
+@bffmike
+
+](https://x.com/bffmike/status/2010083520958415287)[![Abhay08](/avatars/x/abhay08.jpg)
+
+"Me reading about @openclaw: 'this looks complicated' 😅 me 30 mins later: controlling Gmail, Calendar, WordPress, Hetzner from Telegram like a boss. Smooth as single malt."
+
+@Abhay08
+
+](https://x.com/Abhay08/status/2010300670730293693)[![sharoni\_k](/avatars/x/sharoni_k.jpg)
+
+"Took literally 5 mins to set everything up. Started by asking 'what do you need to see my whoop data?'. Now it fetches directly from whoop and gives me updates, summaries."
+
+@sharoni\_k
+
+](https://x.com/sharoni_k/status/2010306102148428286)[![stolinski](/avatars/x/stolinski.jpg)
+
+"Dang, I had my OpenClaw write me custom meditations, then have automatic TTS, combining with generated ambient audio to make personalized, custom meditations. Kinda rips."
+
+@stolinski
+
+](https://x.com/stolinski)[![conradsagewiz](/avatars/x/conradsagewiz.jpg)
+
+"I'm literally on my phone in a telegram chat and it's communicating with codex cli on my computer creating detailed spec files while out on a walk with my dog. 🤯 Wtffff"
+
+@conradsagewiz
+
+](https://x.com/conradsagewiz/status/2012954824631898300)[![larus\_ivar](/avatars/x/larus_ivar.jpg)
+
+"I just backed out of my vibe cornered corner / dark cave and am blown away by @openclaw. Amazing project, blasphemy tw: the crustacean meme theme hides a design gem."
+
+@larus\_ivar
+
+](https://x.com/larus_ivar/status/2012477771054805281)[![The\_Global\_Soul](/avatars/x/the_global_soul.jpg)
+
+"Since you are enjoying it, also try @openclaw - it is quite magical and pulls you in more and more as you use it. (not affiliated, just enjoy using the product)."
+
+@The\_Global\_Soul
+
+](https://x.com/The_Global_Soul/status/2010498518855913731)[![pavandavuluri](/avatars/x/pavandavuluri.jpg)
+
+"The Clawfather 🦞. Thank you for joining us at Build today @steipete!"
+
+@pavandavuluri
+
+](https://x.com/pavandavuluri/status/2061993903629406606)[![rodrigofarinha](/avatars/x/rodrigofarinha.jpg)
+
+"The speed of agents in this new version is incredible. Kudos to @steipete and the whole community 🦞"
+
+@rodrigofarinha
+
+](https://x.com/rodrigofarinha/status/2050979564608700722)[![ashleywolf](/avatars/x/ashleywolf.jpg)
+
+"Last night we celebrated @openclaw, the fastest growing project on GitHub. In just six months, @steipete, dozens of maintainers, and thousands of contributors built something remarkable: open source personal agents. 🚀 We had over 3,300 people registered for the event!"
+
+@ashleywolf
+
+](https://x.com/ashleywolf/status/2062588715768451426)[![bartslodyczka](/avatars/x/bartslodyczka.jpg)
+
+"If it wasn't for OpenClaw we wouldn't have the massive progress across these kinds of personal agent harnesses. OpenClaw was the first agent harness I used, and now I get to enjoy other harnesses too. Thank you Legend, keep it up"
+
+@bartslodyczka
+
+](https://x.com/bartslodyczka/status/2072155449890361612)[![nelsonlopes\_](/avatars/x/nelsonlopes_.jpg)
+
+"I'm finally testing @openclaw. This is crazy good, this thing is probably going to run my life. Congratulations @steipete! But I want my sleep back 🤣"
+
+@nelsonlopes\_
+
+](https://x.com/nelsonlopes_/status/2059900770221166737)[![morganlinton](/avatars/x/morganlinton.jpg)
+
+"Thanks Peter, I've been super impressed with how much OpenClaw has improved over the last month. As someone that's been using it since the early days, it's kinda like a whole new product now, so much polish 🤌"
+
+@morganlinton
+
+](https://x.com/morganlinton/status/2055034715024031932)[![mronge](/avatars/x/mronge.jpg)
+
+"The latest OpenClaw release is fantastic! Fixes all the issues I've having the past week. Thank you!"
+
+@mronge
+
+](https://x.com/mronge/status/2051682321560899763)[![satyanadella](/avatars/x/satyanadella.jpg)
+
+"Thanks for joining us, and all the partnership as we make OpenClaw run super well on Windows! 🦞"
+
+@satyanadella
+
+](https://x.com/satyanadella/status/2061940814759223483)[![ycombinator](/avatars/x/ycombinator.jpg)
+
+"Peter Steinberger is the creator of OpenClaw, the open-source AI agent that went from a weekend project to the most-starred software repo on GitHub in under 5 months, with 346k+ stars."
+
+@ycombinator
+
+](https://x.com/ycombinator/status/2062942526856941994)[![jennifermarsman](/avatars/x/jennifermarsman.jpg)
+
+"Using Microsoft Execution Containers, you can run OpenClaw natively on Windows, and the sandbox prevented deletion of all files on the Desktop. Running OpenClaw more safely in an enterprise is "pretty dope". :)"
+
+@jennifermarsman
+
+](https://x.com/jennifermarsman/status/2061867078072549795)[![BradGroux](/avatars/x/bradgroux.jpg)
+
+"I'm addicted to building thanks to OpenClaw and Codex. Yesterday I built dm-annotate, a Mac screen annotation tool. Today, I'm building a curriculum recorder suite."
+
+@BradGroux
+
+](https://x.com/BradGroux/status/2054475596814540839)[![sama](/avatars/x/sama.jpg)
+
+"you can sign in to openclaw with your chatgpt account now and use your subscription there! happy lobstering."
+
+@sama
+
+](https://x.com/sama/status/2050357911915028689)[![elonmusk](/avatars/x/elonmusk.jpg)
+
+"You can access 𝕏 API via @OpenClaw. We’re trying to make it affordable without giving away the shop. Hopefully, this can be useful & fun 💫"
+
+@elonmusk
+
+](https://x.com/elonmusk/status/2045572706939355483)[![growing\_daniel](/avatars/x/growing_daniel.jpg)
+
+"A snake showed up in our backyard yesterday. Instead of panicking, I sent this photo to my OpenClaw. It identified it as a harmless gopher snake, gave me a local number to call to confirm, and suggested ways to catch it to make it a pet for the kids. I have small moments like this everyday now, usually less dramatic, that remind me how AI has made daily life feel a little more magical."
+
+@growing\_daniel
+
+](https://x.com/growing_daniel/status/2058365643687395717)[![garrytan](/avatars/x/garrytan.jpg)
+
+"It's happened. My OpenClaw and Hermes Agent are now chatting with one another. The cyberpunk future is here, but hopefully it's a whitepill instead of a blackpill. Let's try to push it to the former."
+
+@garrytan
+
+](https://x.com/garrytan/status/2053550761917698273)[![donasarkar](/avatars/x/donasarkar.jpg)
+
+"I am SO SO excited about the Windows x OpenClaw announcement at #MSBuild. I love that our 🦞s can do all sorts of work for us (prepping for performance reviews, figuring out what happened in meetings that I refused to go to, godforsaken EXPENSE REPORTS, ha). And @steipete is ACTUALLY the coolest dude you’ve ever met."
+
+@donasarkar
+
+](https://x.com/donasarkar/status/2061870695345525125)[![frankdegods](/avatars/x/frankdegods.jpg)
+
+"I changed my mind recently. OpenClaw acquisition will pay off for OpenAI. It’s still by far the best personal agent in the world. Nothing has come close. It’s a net new product experience for normies and non SaaS businesses. Plus, Peter is top 0.1% talent acquisition. gg"
+
+@frankdegods
+
+](https://x.com/frankdegods/status/2048186816159784978)[![BenjaminBadejo](/avatars/x/benjaminbadejo.jpg)
+
+"Here’s OpenAI’s latest realtime voice model, GPT-Realtime-2, wired up to OpenClaw. It’s amazing. Realtime continuous chat and fast OpenClaw agent action on real tasks. Truly excellent."
+
+@BenjaminBadejo
+
+](https://x.com/BenjaminBadejo/status/2052511264476147762)[![OmarShahine](/avatars/x/omarshahine.jpg)
+
+"Shit wow I just gave my @openclaw Lobster a real phone number using @twilio and called him. Mind blown. Took 20 min to set up. I still can't believe it."
+
+@OmarShahine
+
+](https://x.com/OmarShahine/status/2054702944130666631)[![hungv47](/avatars/x/hungv47.jpg)
+
+"It's a crime that this repo only has under 400 stars. /autoreview and /handoff are literally two of the best agent skills I've ever used. Massive thanks @steipete and @openclaw"
+
+@hungv47
+
+](https://x.com/hungv47/status/2062804416521289877)[![Strong\_Genetics](/avatars/x/strong_genetics.jpg)
+
+"If you left Openclaw because of update stability its time to give it another try. The last 2 weeks have been the best experience I've had on openclaw so far. Glad i stuck with it and didn't migrate or give up because of complexity. I ended up learning things i wouldn't have known otherwise and now im on the most Feature rich Agentic System."
+
+@Strong\_Genetics
+
+](https://x.com/Strong_Genetics/status/2055371796040626409)[![MahmoudAshraf93](/avatars/x/mahmoudashraf93.jpg)
+
+"Finally updated my openclaw and now using GPT-5.5 and the difference is visible and the humor is as like claude models! Amazing work on the harness @steipete"
+
+@MahmoudAshraf93
+
+](https://x.com/MahmoudAshraf93/status/2053066856504668605)[![jonahships\_](/avatars/x/jonahships_.jpg)
+
+"Setup @openclaw by @steipete yesterday. All I have to say is, wow. First I was using my Claude Max sub and I used all of my limit quickly, so today I had my claw bot setup a proxy to route my CoPilot subscription as a API endpoint so now it runs on that. It's the fact that claw can just keep building upon itself just by talking to it in discord is crazy. The future is already here"
+
+@jonahships\_
+
+](https://x.com/jonahships_/status/2010605025844723765)[![AryehDubois](/avatars/x/aryehdubois.jpg)
+
+"Tried Claw by @steipete. I tried to build my own AI assistant bots before, and I am very impressed how many hard things Claw gets right. Persistent memory, persona onboarding, comms integration, heartbeats. A few minor wrinkles remain, but the end result is AWESOME."
+
+@AryehDubois
+
+](https://x.com/AryehDubois/status/2011742378655432791)[![markjaquith](/avatars/x/markjaquith.jpg)
+
+"I've been saying for like six months that even if LLMs suddenly stopped improving, we could spend \*years\* discovering new transformative uses. @openclaw feels like that kind of "just had to glue all the parts together" leap forward. Incredible experience."
+
+@markjaquith
+
+](https://x.com/markjaquith/status/2010430366944055433)[![danpeguine](/avatars/x/danpeguine.jpg)
+
+"Why @openclaw is nuts: your context and skills live on YOUR computer, not a walled garden. It's open source. Growing community building skills. Only 19 days old and constantly improving. 'Personal AI assistant' undersells it — it's a company assistant, family assistant, team tool. Proactive AF: cron jobs, reminders, background tasks. Memory is amazing, context persists 24/7."
+
+@danpeguine
+
+](https://x.com/danpeguine/status/2014760164113477700)[![nateliason](/avatars/x/nateliason.jpg)
+
+"Yeah this was 1,000% worth it. Separate Claude subscription + Claw, managing Claude Code / Codex sessions I can kick off anywhere, autonomously running tests on my app and capturing errors through a sentry webhook then resolving them and opening PRs... The future is here."
+
+@nateliason
+
+](https://x.com/nateliason/status/2013725082850414592)[![nathanclark\_](/avatars/x/nathanclark_.jpg)
+
+"A smart model with eyes and hands at a desk with keyboard and mouse. You message it like a coworker and it does everything a person could do with that Mac mini. That's what you have now."
+
+@nathanclark\_
+
+](https://x.com/nathanclark_/status/2014647048612773912)[![nickvasiles](/avatars/x/nickvasiles.jpg)
+
+"OpenClaw is a 24/7 assistant with access to its own computer. What if there were ten, or a hundred, or a thousand?? All running 24/7 in the cloud with access to your files, Gmail, calendar, everything about you... That's the future, and we're living it today."
+
+@nickvasiles
+
+](https://x.com/nickvasiles/status/2014790519529095447)[![davemorin](/avatars/x/davemorin.jpg)
+
+"At this point I don't even know what to call @openclaw. It is something new. After a few weeks in with it, this is the first time I have felt like I am living in the future since the launch of ChatGPT."
+
+@davemorin
+
+](https://x.com/davemorin/status/2013723700668096605)[![cnakazawa](/avatars/x/cnakazawa.jpg)
+
+"OpenClaw is the first "software" in ages for which I constantly check for new releases on GitHub. It's hard to put into words. It's a special project."
+
+@cnakazawa
+
+](https://x.com/cnakazawa/status/2014145277465432519)[![abhi\_\_katiyar](/avatars/x/abhi__katiyar.jpg)
+
+"When you experience @openclaw it gives the same kick as when we first saw the power of ChatGPT, DeepSeek, and Claude Code. You realize that a fundamental shift is happening on how we use AI."
+
+@abhi\_\_katiyar
+
+](https://x.com/abhi__katiyar/status/2014187653600526474)[![therno](/avatars/x/therno.jpg)
+
+"It's running my company."
+
+@therno
+
+](https://x.com/therno/status/2014216984267780431)[![LuciusHQ](/avatars/x/luciushq.jpg)
+
+"After years of AI hype, I thought nothing could faze me. Then I installed @openclaw. From nervous 'hi what can you do?' to full throttle - design, code review, taxes, PM, content pipelines... AI as teammate, not tool. The endgame of digital employees is here."
+
+@LuciusHQ
+
+](https://x.com/LuciusHQ/status/2014513697557758002)[![christinetyip](/avatars/x/christinetyip.jpg)
+
+"Just shipped my first personal AI assistant. On WhatsApp. Builds my second brain while I chat. Memory moves across agents (Codex, Cursor, Manus, etc.) And a lot more skills still to plug in. Personal AI is getting real with @steipete's @openclaw."
+
+@christinetyip
+
+](https://x.com/christinetyip/status/2010776377931575569)[![MaxRovensky](/avatars/x/maxrovensky.jpg)
+
+"It will actually be the thing that nukes a ton of startups, not ChatGPT as people meme about. The fact that it's hackable (and more importantly, self-hackable) and hostable on-prem will make sure tech like this DOMINATES conventional SaaS imo"
+
+@MaxRovensky
+
+](https://x.com/MaxRovensky/status/2010676669124612111)[![antonplex](/avatars/x/antonplex.jpg)
+
+"Just got my Winix air purifier, Claude code discovered and confirmed controls working within minutes. Now handing off to my @openclaw so it can handle controlling my room's air quality according to my biomarker optimization goals."
+
+@antonplex
+
+](https://x.com/antonplex/status/2010518442471006253)[![svenkataram](/avatars/x/svenkataram.jpg)
+
+"Gotta give incredible kudos to @steipete and his @openclaw - it's one of the first tools I've used that truly feels like magic. I've also set it up so it knows my Obsidian notes and my Claude sub-agents…incredible stuff!"
+
+@svenkataram
+
+](https://x.com/svenkataram/status/2010211836038427127)[![Hormold](/avatars/x/hormold.jpg)
+
+"My @openclaw accidentally started a fight with Lemonade Insurance because of a wrong interpretation of my response. After this email, they started to reinvestigate the case instead of instantly rejecting it. Thanks, AI."
+
+@Hormold
+
+](https://x.com/Hormold/status/2011133394764382583)[![AlbertMoral](/avatars/x/albertmoral.jpg)
+
+"I just finished setting up @openclaw by @steipete on my Raspberry Pi with Cloudflare, and it feels magical ✨ Built a website from my phone in minutes and connected WHOOP to quickly check my metrics and daily habits 🔥"
+
+@AlbertMoral
+
+](https://x.com/AlbertMoral/status/2010288787885064227)[![snopoke](/avatars/x/snopoke.jpg)
+
+"I've been running OpenClaw on my laptop for a week now. Honestly it feels like it did to run Linux Vs windows 20 years ago. You're in control, you can hack it and make it yours instead of relying on some tech giant."
+
+@snopoke
+
+](https://x.com/snopoke/status/2010419070123008248)[![kylezantos](/avatars/x/kylezantos.jpg)
+
+"Today was one of those days that I sort of ran to my computer after dropping off my toddler at daycare. Why? Because I got part-way through setting up @openclaw last night and it's a portal to a new reality."
+
+@kylezantos
+
+](https://x.com/kylezantos/status/2011149783218704803)[![darrwalk](/avatars/x/darrwalk.jpg)
+
+"Got OpenClaw set up and now I have an AI assistant named Claudia who lives in Telegram, remembers everything I tell her, and can actually \*do\* stuff. She just wrote this tweet. Meta? Maybe. Cool? Absolutely."
+
+@darrwalk
+
+](https://x.com/darrwalk/status/2010426677730660603)[![jakubkrcmar](/avatars/x/jakubkrcmar.jpg)
+
+"Current level of open-source apps capabilities: does everything, connects to everything, remembers everything. It's all collapsing into one unique personal OS — all apps, interfaces, walled gardens etc gone"
+
+@jakubkrcmar
+
+](https://x.com/jakubkrcmar/status/2011186102367814135)[![jdrhyne](/avatars/x/jdrhyne.jpg)
+
+"I've enjoyed Brosef, my @openclaw so much that I needed to clone him. Brosef figured out exactly how to do it, then executed it himself so I have 3 instances running concurrently in his Discord server home."
+
+@jdrhyne
+
+](https://x.com/jdrhyne/status/2010155191731950036)[![dajaset](/avatars/x/dajaset.jpg)
+
+"I got up and running today with @openclaw and its been nothing short of an iPhone moment for me. Thanks @steipete for creating this first true personal assistant experience for us - it's magical!"
+
+@dajaset
+
+](https://x.com/dajaset/status/2010510107876933669)[![Cucho](/avatars/x/cucho.jpg)
+
+"The future of how AI personal assistants look like is @openclaw. Has already help me submit health reimbursements, find doctor appointments, find and send me relevant documents, among others."
+
+@Cucho
+
+](https://x.com/Cucho/status/2010801019572412680)[![marvelgirl\_eth](/avatars/x/marvelgirl_eth.jpg)
+
+"you have done an incredible job! im also a total non technical beginner so the CLI is a whole new interface for me but its super addictive - 2 am and Im still going. keep up the great work"
+
+@marvelgirl\_eth
+
+](https://x.com/marvelgirl_eth)[![ivanfioravanti](/avatars/x/ivanfioravanti.jpg)
+
+"Finally tried my own @openclaw and I've been blown away. 🤯 This is unbelievably powerful and virtually limitless, you can create your own extensions in few hours with the help of AI."
+
+@ivanfioravanti
+
+](https://x.com/ivanfioravanti/status/2010665360933179656)[![wizaj](/avatars/x/wizaj.jpg)
+
+"I didn’t find an easy way to programmatically query flights so of course I asked my @openclaw to build a terminal cli with multi providers. You’re onto something great @steipete 🙌🏾"
+
+@wizaj
+
+](https://x.com/wizaj/status/2010767447192637601)[![iamsubhrajyoti](/avatars/x/iamsubhrajyoti.jpg)
+
+"I can understand why people love @openclaw so much. I wanted to automate some tasks from Todoist and claw was able to create a skill for it on its own, all within a Telegram chat."
+
+@iamsubhrajyoti
+
+](https://x.com/iamsubhrajyoti/status/2009949389884920153)[![bffmike](/avatars/x/bffmike.jpg)
+
+"I now have @openclaw independently assessing how it can help me in the background. It wrote a doc connecting two completely unrelated conversations from different comms channels."
+
+@bffmike
+
+](https://x.com/bffmike/status/2010083520958415287)[![Abhay08](/avatars/x/abhay08.jpg)
+
+"Me reading about @openclaw: 'this looks complicated' 😅 me 30 mins later: controlling Gmail, Calendar, WordPress, Hetzner from Telegram like a boss. Smooth as single malt."
+
+@Abhay08
+
+](https://x.com/Abhay08/status/2010300670730293693)[![sharoni\_k](/avatars/x/sharoni_k.jpg)
+
+"Took literally 5 mins to set everything up. Started by asking 'what do you need to see my whoop data?'. Now it fetches directly from whoop and gives me updates, summaries."
+
+@sharoni\_k
+
+](https://x.com/sharoni_k/status/2010306102148428286)[![stolinski](/avatars/x/stolinski.jpg)
+
+"Dang, I had my OpenClaw write me custom meditations, then have automatic TTS, combining with generated ambient audio to make personalized, custom meditations. Kinda rips."
+
+@stolinski
+
+](https://x.com/stolinski)[![conradsagewiz](/avatars/x/conradsagewiz.jpg)
+
+"I'm literally on my phone in a telegram chat and it's communicating with codex cli on my computer creating detailed spec files while out on a walk with my dog. 🤯 Wtffff"
+
+@conradsagewiz
+
+](https://x.com/conradsagewiz/status/2012954824631898300)[![larus\_ivar](/avatars/x/larus_ivar.jpg)
+
+"I just backed out of my vibe cornered corner / dark cave and am blown away by @openclaw. Amazing project, blasphemy tw: the crustacean meme theme hides a design gem."
+
+@larus\_ivar
+
+](https://x.com/larus_ivar/status/2012477771054805281)[![The\_Global\_Soul](/avatars/x/the_global_soul.jpg)
+
+"Since you are enjoying it, also try @openclaw - it is quite magical and pulls you in more and more as you use it. (not affiliated, just enjoy using the product)."
+
+@The\_Global\_Soul
+
+](https://x.com/The_Global_Soul/status/2010498518855913731)
+
+[![xMikeMickelson](/avatars/x/xmikemickelson.jpg)
+
+"i asked @openclaw to make a sora2 video and make it a bit edgy. it came back 5 mins later having figured out watermark removal, api keys, and a full workflow"
+
+@xMikeMickelson
+
+](https://x.com/xMikeMickelson/status/2011646612637155760)[![hey\_zilla](/avatars/x/hey_zilla.jpg)
+
+"everything just worked first time and it combined tools in unexpected ways and even added skills and made edits to its own prompt that were hot-reloaded"
+
+@hey\_zilla
+
+](https://x.com/hey_zilla/status/2010450591815016601)[![weisjohn](/avatars/x/weisjohn.jpg)
+
+"Just onboarded to @openclaw today. Have been thinking of building a Personal OS for weeks. Now I don't need to... h/t to @steipete and the contributors!"
+
+@weisjohn
+
+](https://x.com/weisjohn/status/2010851742326415507)[![tobi\_bsf](/avatars/x/tobi_bsf.jpg)
+
+"Using @openclaw for a week and it genuinely feels like early AGI. The gap between 'what I can imagine' and 'what actually works' has never been smaller."
+
+@tobi\_bsf
+
+](https://x.com/tobi_bsf/status/2008888825217527924)[![dreetje](/avatars/x/dreetje.jpg)
+
+"I am so addicted to @openclaw. It is getting essential to my daily life. It checks, organizes, reminds, it's amazing. And it's like good friend. Crazy."
+
+@dreetje
+
+](https://x.com/dreetje/status/2012248852020023480)[![AdamShao](/avatars/x/adamshao.jpg)
+
+"@openclaw is the most interesting project I've come across recently—an open-source personal AI assistant that can call almost any tool through plugins."
+
+@AdamShao
+
+](https://x.com/AdamShao/status/2010192031235125619)[![vishalsachdev](/avatars/x/vishalsachdev.jpg)
+
+"@openclaw is awesome. I've been feeding it YouTube videos to turn "cool ideas" into reusable agent skills (repeatable workflows + guardrails + refs)."
+
+@vishalsachdev
+
+](https://x.com/vishalsachdev/status/2011675850945519743)[![thekitze](/avatars/x/thekitze.jpg)
+
+"create your own OpenClaw, go in debt in you have to i love the idea of this nerdy crab chilling in my attic on my mac studio just giving me shit lmao"
+
+@thekitze
+
+](https://x.com/thekitze/status/2008289167625863379)[![vallver](/avatars/x/vallver.jpg)
+
+"OpenClaw built me a simple Stumbleupon for some of my favourite articles. http://Stumblereads.com From my phone, while putting my baby to sleep..."
+
+@vallver
+
+](https://x.com/vallver/status/2010508094313263502)[![Infoxicador](/avatars/x/infoxicador.jpg)
+
+"My @openclaw realised it needed an API key… it opened my browser… opened the Google Cloud Console… Configured oauth and provisioned a new token"
+
+@Infoxicador
+
+](https://x.com/Infoxicador/status/2009422796464771522)[![kailazh](/avatars/x/kailazh.jpg)
+
+"Finally set up @openclaw today and am completely blown away! This is the closest to experiencing an AI enabled future! Truly a game changer!"
+
+@kailazh
+
+](https://x.com/kailazh/status/2010296143922758133)[![SedRicKCZ](/avatars/x/sedrickcz.jpg)
+
+"@openclaw is absolute game changer for me. The amount of things I done from my phone just during my breakfast is absolutely breathtaking."
+
+@SedRicKCZ
+
+](https://x.com/SedRicKCZ/status/2008797603534946372)[![bangkokbuild](/avatars/x/bangkokbuild.jpg)
+
+"Just told Ema, my @openclaw, via Telegram to turn off the PC (and herself, as she was running on it) Executed perfectly. Such a cool tool"
+
+@bangkokbuild
+
+](https://x.com/bangkokbuild/status/2010735247525335322)[![pranavkarthik\_\_](/avatars/x/pranavkarthik__.jpg)
+
+"Wanted a way for it to have access to my courses/assignments at uni. Asked it to build a skill - it did and started using it on its own."
+
+@pranavkarthik\_\_
+
+](https://x.com/pranavkarthik__/status/2009835051522162874)[![iamjohnellison](/avatars/x/iamjohnellison.jpg)
+
+"I'm having a lot of fun with this and it's going to totally change the way I support my students learning how to vibe code!"
+
+@iamjohnellison
+
+](https://x.com/iamjohnellison/status/2010623622847873342)[![draslan\_eth](/avatars/x/draslan_eth.jpg)
+
+"It's a miracle. Looking forward to the development in the next weeks/months. I think @openclaw started something amazing."
+
+@draslan\_eth
+
+](https://x.com/draslan_eth/status/2012553419232280586)[![LLMJunky](/avatars/x/llmjunky.jpg)
+
+"This is legit the only 'agent' / model / whatever-you-call-this-but-probably-agi that I have seen that's actually funny."
+
+@LLMJunky
+
+](https://x.com/LLMJunky/status/2010045556501164366)[![skillmcp](/avatars/x/skillmcp.jpg)
+
+"Autonomous Claude Code loops from my phone. 'fix tests' via Telegram. Runs the loop, sends progress every 5 iterations."
+
+@skillmcp
+
+](https://x.com/skillmcp/status/2008791236526952790)[![mirthtime](/avatars/x/mirthtime.jpg)
+
+"My @openclaw just called my phone and spoke to me with an aussie accent from @elevenlabsio. This is ridiculous"
+
+@mirthtime
+
+](https://x.com/mirthtime/status/2011134300561830342)[![HixVAC](/avatars/x/hixvac.jpg)
+
+"Apparently @openclaw checks in during heartbeats!? A kinda awesome surprise! Love the proactive reaching out."
+
+@HixVAC
+
+](https://x.com/HixVAC/status/2011142166874374520)[![BraydonCoyer](/avatars/x/braydoncoyer.jpg)
+
+"Named him Jarvis. Daily briefings, calendar checks, reminds me when to leave for pickleball based on traffic."
+
+@BraydonCoyer
+
+](https://x.com/BraydonCoyer/status/2008537198061379720)[![SenatorWeb3](/avatars/x/senatorweb3.jpg)
+
+"OpenClaw is a game changer. the potential for custom extensions is huge, and ai really speeds up the process"
+
+@SenatorWeb3
+
+](https://x.com/SenatorWeb3/status/2012679608659771424)[![mneves75](/avatars/x/mneves75.jpg)
+
+"Try @openclaw. I think you are going to love it. And you can use iMessage, WhatsApp, telegram to talk to it."
+
+@mneves75
+
+](https://x.com/mneves75/status/2011673080062681560)[![oneishaansharma](/avatars/x/oneishaansharma.jpg)
+
+"🦞 Is a whole new world! Like having super powers! Getting so much done while afk, it's mind blowing 🤯"
+
+@oneishaansharma
+
+](https://x.com/oneishaansharma/status/2013067106322092131)[![drevantonder](/avatars/x/drevantonder.jpg)
+
+"Got @openclaw set up. Getting it to unsubscribe from a whole bunch of emails I don't want. Really cool!"
+
+@drevantonder
+
+](https://x.com/drevantonder/status/2011655066596553108)[![cryptikcell](/avatars/x/cryptikcell.jpg)
+
+"Finally gave in and set up @openclaw and it's so damn good on WhatsApp!! It works like a charm with ✨!"
+
+@cryptikcell
+
+](https://x.com/cryptikcell/status/2012599614814220345)[![Dimillian](/avatars/x/dimillian.jpg)
+
+"A megacorp like Anthropic or OpenAI could not build this. Literally impossible with how corpo works."
+
+@Dimillian
+
+](https://x.com/Dimillian/status/2008446638172340398)[![ItzR3NO](/avatars/x/itzr3no.jpg)
+
+"God dammit I was trying to resist … and now I can’t stop talking and adding things to @openclaw 🙃"
+
+@ItzR3NO
+
+](https://x.com/ItzR3NO/status/2010860706292494519)[![BioInfo](/avatars/x/bioinfo.jpg)
+
+"Not enterprise. Not hosted. Infrastructure you control. This is what personal AI should feel like."
+
+@BioInfo
+
+](https://x.com/BioInfo/status/2010115166315393370)[![pocarles](/avatars/x/pocarles.jpg)
+
+"Processed our entire source of truth via WhatsApp in minutes, where RAG agents struggled for days."
+
+@pocarles
+
+](https://x.com/pocarles/status/2007925850562531676)[![adam91holt](/avatars/x/adam91holt.jpg)
+
+"Everyday my @openclaw is getting better. It’s becoming so important, especially with multi agent."
+
+@adam91holt
+
+](https://x.com/adam91holt/status/2010768201173622822)[![logscore](/avatars/x/logscore.jpg)
+
+"I love that OpenClaw has a "Hackable" install option. This should be a standard for OSS projects"
+
+@logscore
+
+](https://x.com/logscore/status/2011126513022935133)[![signalgaining](/avatars/x/signalgaining.jpg)
+
+"I asked it to take picture of the sky whenever it's pretty. It designed a skill and took a pic!"
+
+@signalgaining
+
+](https://x.com/signalgaining/status/2010523120604746151)[![cnlinkcnlink](/avatars/x/cnlinkcnlink.jpg)
+
+"Finally got around to setting up @openclaw and it is truly the best AI tool at the moment."
+
+@cnlinkcnlink
+
+](https://x.com/cnlinkcnlink/status/2010149031071363355)[![Giebz](/avatars/x/giebz.jpg)
+
+"OpenClaw > anything GPT will ever release. Most fun I've had building in my entire life."
+
+@Giebz
+
+](https://x.com/Giebz/status/2009354385349095672)[![coyotevn](/avatars/x/coyotevn.jpg)
+
+"It is one of the most delightful thing (app, agent, product) I've used in a few years."
+
+@coyotevn
+
+](https://x.com/coyotevn/status/2010270055985295529)[![youbiak](/avatars/x/youbiak.jpg)
+
+"I'm literally building a whole website on a Nokia 3310 by calling @openclaw right now."
+
+@youbiak
+
+](https://x.com/youbiak/status/2010097771735585016)[![tomosman](/avatars/x/tomosman.jpg)
+
+"gg man! everyday I speak to more people about OpenClaw and it never fails to amaze!"
+
+@tomosman
+
+](https://x.com/tomosman/status/2012661550692102382)[![jameskraus](/avatars/x/jameskraus.jpg)
+
+"Came out of my shell and gave my @openclaw, Shelly, my credit card. Works amazing."
+
+@jameskraus
+
+](https://x.com/jameskraus/status/2012335532940894306)[![TheZachMueller](/avatars/x/thezachmueller.jpg)
+
+"Running fully locally off MiniMax 2.5 and can do the tool parsing for what I need!"
+
+@TheZachMueller
+
+](https://x.com/TheZachMueller/status/2012668844842578213)[![deepstereo\_](/avatars/x/deepstereo_.jpg)
+
+"Now that we have @openclaw I don’t really care which models will power Siri 🦞😄"
+
+@deepstereo\_
+
+](https://x.com/deepstereo_/status/2010810551656726835)[![buddyhadry](/avatars/x/buddyhadry.jpg)
+
+"Catching fun vibes I haven't felt since I first got into computers 30 years ago."
+
+@buddyhadry
+
+](https://x.com/buddyhadry/status/2010005331925954739)[![jokull](/avatars/x/jokull.jpg)
+
+"Added JMAP search to my OpenClaw. Along with 20 other things. From my phone."
+
+@jokull
+
+](https://x.com/jokull/status/2011140610120642899)[![tyleryust](/avatars/x/tyleryust.jpg)
+
+"@openclaw is so fun to play around with. The future of agents will be so fun"
+
+@tyleryust
+
+](https://x.com/tyleryust/status/2010887971743092744)[![aaronmakelky](/avatars/x/aaronmakelky.jpg)
+
+"This is the best 'morning briefing' style interface I've seen, love it!"
+
+@aaronmakelky
+
+](https://x.com/aaronmakelky/status/2010190236584947845)[![crossiBuilds](/avatars/x/crossibuilds.jpg)
+
+"Everything Siri was supposed to be. And it goes so much further."
+
+@crossiBuilds
+
+](https://x.com/crossiBuilds/status/2008478023826153665)[![Ashwinreads](/avatars/x/ashwinreads.jpg)
+
+"@openclaw might actually organise my life. unreal, just unreal."
+
+@Ashwinreads
+
+](https://x.com/Ashwinreads/status/2010498194623311921)[![KrauseFx](/avatars/x/krausefx.jpg)
+
+"What @steipete has built with @openclaw is out of this world."
+
+@KrauseFx
+
+](https://x.com/KrauseFx/status/2008531076487246176)[![tysonhutchins\_](/avatars/x/tysonhutchins_.jpg)
+
+"A glimpse into the future of how normal people will use AI."
+
+@tysonhutchins\_
+
+](https://x.com/tysonhutchins_/status/2010046933893865701)[![JorgeMenaDev](/avatars/x/jorgemenadev.jpg)
+
+"I just tried @openclaw using telegram. Wow. This is crazy."
+
+@JorgeMenaDev
+
+](https://x.com/JorgeMenaDev/status/2012512348456599719)[![BitcoinPeace77](/avatars/x/bitcoinpeace77.jpg)
+
+"What you've given to the world is nothing short of amazing"
+
+@BitcoinPeace77
+
+](https://x.com/BitcoinPeace77/status/2013064560992047412)[![karpathy](/avatars/x/karpathy.jpg)
+
+"Excellent reading thank you. Love oracle and Claw."
+
+@karpathy
+
+](https://x.com/karpathy/status/2005692186470514904)[![serrrfirat](/avatars/x/serrrfirat.jpg)
+
+"just use @openclaw man, it will set you free."
+
+@serrrfirat
+
+](https://x.com/serrrfirat/status/2011128261196333448)[![alex\_here\_now](/avatars/x/alex_here_now.jpg)
+
+"This lobster is gonna take over the world"
+
+@alex\_here\_now
+
+](https://x.com/alex_here_now/status/2010473539514904746)[![robmartinson](/avatars/x/robmartinson.jpg)
+
+"This is nuts. @openclaw is a superpower."
+
+@robmartinson
+
+](https://x.com/robmartinson/status/2010410971056242689)[![nofil\_ai](/avatars/x/nofil_ai.jpg)
+
+"@openclaw is Jarvis. It already exists."
+
+@nofil\_ai
+
+](https://x.com/nofil_ai/status/2010460892576788958)[![Hesamation](/avatars/x/hesamation.jpg)
+
+"TLDR; open source built a better version of Siri that Apple ($3.6 trillion company) was sleeping on for years. Welcome to the AI era where a dude and a repo fills in the cracks of billion dollar industries."
+
+@Hesamation
+
+](https://x.com/Hesamation/status/2015110922159730971)[![FrancisBrero](/avatars/x/francisbrero.jpg)
+
+"AGI is a lobster, it will never sink!"
+
+@FrancisBrero
+
+](https://x.com/FrancisBrero/status/2012317589117247782)[![xMikeMickelson](/avatars/x/xmikemickelson.jpg)
+
+"i asked @openclaw to make a sora2 video and make it a bit edgy. it came back 5 mins later having figured out watermark removal, api keys, and a full workflow"
+
+@xMikeMickelson
+
+](https://x.com/xMikeMickelson/status/2011646612637155760)[![hey\_zilla](/avatars/x/hey_zilla.jpg)
+
+"everything just worked first time and it combined tools in unexpected ways and even added skills and made edits to its own prompt that were hot-reloaded"
+
+@hey\_zilla
+
+](https://x.com/hey_zilla/status/2010450591815016601)[![weisjohn](/avatars/x/weisjohn.jpg)
+
+"Just onboarded to @openclaw today. Have been thinking of building a Personal OS for weeks. Now I don't need to... h/t to @steipete and the contributors!"
+
+@weisjohn
+
+](https://x.com/weisjohn/status/2010851742326415507)[![tobi\_bsf](/avatars/x/tobi_bsf.jpg)
+
+"Using @openclaw for a week and it genuinely feels like early AGI. The gap between 'what I can imagine' and 'what actually works' has never been smaller."
+
+@tobi\_bsf
+
+](https://x.com/tobi_bsf/status/2008888825217527924)[![dreetje](/avatars/x/dreetje.jpg)
+
+"I am so addicted to @openclaw. It is getting essential to my daily life. It checks, organizes, reminds, it's amazing. And it's like good friend. Crazy."
+
+@dreetje
+
+](https://x.com/dreetje/status/2012248852020023480)[![AdamShao](/avatars/x/adamshao.jpg)
+
+"@openclaw is the most interesting project I've come across recently—an open-source personal AI assistant that can call almost any tool through plugins."
+
+@AdamShao
+
+](https://x.com/AdamShao/status/2010192031235125619)[![vishalsachdev](/avatars/x/vishalsachdev.jpg)
+
+"@openclaw is awesome. I've been feeding it YouTube videos to turn "cool ideas" into reusable agent skills (repeatable workflows + guardrails + refs)."
+
+@vishalsachdev
+
+](https://x.com/vishalsachdev/status/2011675850945519743)[![thekitze](/avatars/x/thekitze.jpg)
+
+"create your own OpenClaw, go in debt in you have to i love the idea of this nerdy crab chilling in my attic on my mac studio just giving me shit lmao"
+
+@thekitze
+
+](https://x.com/thekitze/status/2008289167625863379)[![vallver](/avatars/x/vallver.jpg)
+
+"OpenClaw built me a simple Stumbleupon for some of my favourite articles. http://Stumblereads.com From my phone, while putting my baby to sleep..."
+
+@vallver
+
+](https://x.com/vallver/status/2010508094313263502)[![Infoxicador](/avatars/x/infoxicador.jpg)
+
+"My @openclaw realised it needed an API key… it opened my browser… opened the Google Cloud Console… Configured oauth and provisioned a new token"
+
+@Infoxicador
+
+](https://x.com/Infoxicador/status/2009422796464771522)[![kailazh](/avatars/x/kailazh.jpg)
+
+"Finally set up @openclaw today and am completely blown away! This is the closest to experiencing an AI enabled future! Truly a game changer!"
+
+@kailazh
+
+](https://x.com/kailazh/status/2010296143922758133)[![SedRicKCZ](/avatars/x/sedrickcz.jpg)
+
+"@openclaw is absolute game changer for me. The amount of things I done from my phone just during my breakfast is absolutely breathtaking."
+
+@SedRicKCZ
+
+](https://x.com/SedRicKCZ/status/2008797603534946372)[![bangkokbuild](/avatars/x/bangkokbuild.jpg)
+
+"Just told Ema, my @openclaw, via Telegram to turn off the PC (and herself, as she was running on it) Executed perfectly. Such a cool tool"
+
+@bangkokbuild
+
+](https://x.com/bangkokbuild/status/2010735247525335322)[![pranavkarthik\_\_](/avatars/x/pranavkarthik__.jpg)
+
+"Wanted a way for it to have access to my courses/assignments at uni. Asked it to build a skill - it did and started using it on its own."
+
+@pranavkarthik\_\_
+
+](https://x.com/pranavkarthik__/status/2009835051522162874)[![iamjohnellison](/avatars/x/iamjohnellison.jpg)
+
+"I'm having a lot of fun with this and it's going to totally change the way I support my students learning how to vibe code!"
+
+@iamjohnellison
+
+](https://x.com/iamjohnellison/status/2010623622847873342)[![draslan\_eth](/avatars/x/draslan_eth.jpg)
+
+"It's a miracle. Looking forward to the development in the next weeks/months. I think @openclaw started something amazing."
+
+@draslan\_eth
+
+](https://x.com/draslan_eth/status/2012553419232280586)[![LLMJunky](/avatars/x/llmjunky.jpg)
+
+"This is legit the only 'agent' / model / whatever-you-call-this-but-probably-agi that I have seen that's actually funny."
+
+@LLMJunky
+
+](https://x.com/LLMJunky/status/2010045556501164366)[![skillmcp](/avatars/x/skillmcp.jpg)
+
+"Autonomous Claude Code loops from my phone. 'fix tests' via Telegram. Runs the loop, sends progress every 5 iterations."
+
+@skillmcp
+
+](https://x.com/skillmcp/status/2008791236526952790)[![mirthtime](/avatars/x/mirthtime.jpg)
+
+"My @openclaw just called my phone and spoke to me with an aussie accent from @elevenlabsio. This is ridiculous"
+
+@mirthtime
+
+](https://x.com/mirthtime/status/2011134300561830342)[![HixVAC](/avatars/x/hixvac.jpg)
+
+"Apparently @openclaw checks in during heartbeats!? A kinda awesome surprise! Love the proactive reaching out."
+
+@HixVAC
+
+](https://x.com/HixVAC/status/2011142166874374520)[![BraydonCoyer](/avatars/x/braydoncoyer.jpg)
+
+"Named him Jarvis. Daily briefings, calendar checks, reminds me when to leave for pickleball based on traffic."
+
+@BraydonCoyer
+
+](https://x.com/BraydonCoyer/status/2008537198061379720)[![SenatorWeb3](/avatars/x/senatorweb3.jpg)
+
+"OpenClaw is a game changer. the potential for custom extensions is huge, and ai really speeds up the process"
+
+@SenatorWeb3
+
+](https://x.com/SenatorWeb3/status/2012679608659771424)[![mneves75](/avatars/x/mneves75.jpg)
+
+"Try @openclaw. I think you are going to love it. And you can use iMessage, WhatsApp, telegram to talk to it."
+
+@mneves75
+
+](https://x.com/mneves75/status/2011673080062681560)[![oneishaansharma](/avatars/x/oneishaansharma.jpg)
+
+"🦞 Is a whole new world! Like having super powers! Getting so much done while afk, it's mind blowing 🤯"
+
+@oneishaansharma
+
+](https://x.com/oneishaansharma/status/2013067106322092131)[![drevantonder](/avatars/x/drevantonder.jpg)
+
+"Got @openclaw set up. Getting it to unsubscribe from a whole bunch of emails I don't want. Really cool!"
+
+@drevantonder
+
+](https://x.com/drevantonder/status/2011655066596553108)[![cryptikcell](/avatars/x/cryptikcell.jpg)
+
+"Finally gave in and set up @openclaw and it's so damn good on WhatsApp!! It works like a charm with ✨!"
+
+@cryptikcell
+
+](https://x.com/cryptikcell/status/2012599614814220345)[![Dimillian](/avatars/x/dimillian.jpg)
+
+"A megacorp like Anthropic or OpenAI could not build this. Literally impossible with how corpo works."
+
+@Dimillian
+
+](https://x.com/Dimillian/status/2008446638172340398)[![ItzR3NO](/avatars/x/itzr3no.jpg)
+
+"God dammit I was trying to resist … and now I can’t stop talking and adding things to @openclaw 🙃"
+
+@ItzR3NO
+
+](https://x.com/ItzR3NO/status/2010860706292494519)[![BioInfo](/avatars/x/bioinfo.jpg)
+
+"Not enterprise. Not hosted. Infrastructure you control. This is what personal AI should feel like."
+
+@BioInfo
+
+](https://x.com/BioInfo/status/2010115166315393370)[![pocarles](/avatars/x/pocarles.jpg)
+
+"Processed our entire source of truth via WhatsApp in minutes, where RAG agents struggled for days."
+
+@pocarles
+
+](https://x.com/pocarles/status/2007925850562531676)[![adam91holt](/avatars/x/adam91holt.jpg)
+
+"Everyday my @openclaw is getting better. It’s becoming so important, especially with multi agent."
+
+@adam91holt
+
+](https://x.com/adam91holt/status/2010768201173622822)[![logscore](/avatars/x/logscore.jpg)
+
+"I love that OpenClaw has a "Hackable" install option. This should be a standard for OSS projects"
+
+@logscore
+
+](https://x.com/logscore/status/2011126513022935133)[![signalgaining](/avatars/x/signalgaining.jpg)
+
+"I asked it to take picture of the sky whenever it's pretty. It designed a skill and took a pic!"
+
+@signalgaining
+
+](https://x.com/signalgaining/status/2010523120604746151)[![cnlinkcnlink](/avatars/x/cnlinkcnlink.jpg)
+
+"Finally got around to setting up @openclaw and it is truly the best AI tool at the moment."
+
+@cnlinkcnlink
+
+](https://x.com/cnlinkcnlink/status/2010149031071363355)[![Giebz](/avatars/x/giebz.jpg)
+
+"OpenClaw > anything GPT will ever release. Most fun I've had building in my entire life."
+
+@Giebz
+
+](https://x.com/Giebz/status/2009354385349095672)[![coyotevn](/avatars/x/coyotevn.jpg)
+
+"It is one of the most delightful thing (app, agent, product) I've used in a few years."
+
+@coyotevn
+
+](https://x.com/coyotevn/status/2010270055985295529)[![youbiak](/avatars/x/youbiak.jpg)
+
+"I'm literally building a whole website on a Nokia 3310 by calling @openclaw right now."
+
+@youbiak
+
+](https://x.com/youbiak/status/2010097771735585016)[![tomosman](/avatars/x/tomosman.jpg)
+
+"gg man! everyday I speak to more people about OpenClaw and it never fails to amaze!"
+
+@tomosman
+
+](https://x.com/tomosman/status/2012661550692102382)[![jameskraus](/avatars/x/jameskraus.jpg)
+
+"Came out of my shell and gave my @openclaw, Shelly, my credit card. Works amazing."
+
+@jameskraus
+
+](https://x.com/jameskraus/status/2012335532940894306)[![TheZachMueller](/avatars/x/thezachmueller.jpg)
+
+"Running fully locally off MiniMax 2.5 and can do the tool parsing for what I need!"
+
+@TheZachMueller
+
+](https://x.com/TheZachMueller/status/2012668844842578213)[![deepstereo\_](/avatars/x/deepstereo_.jpg)
+
+"Now that we have @openclaw I don’t really care which models will power Siri 🦞😄"
+
+@deepstereo\_
+
+](https://x.com/deepstereo_/status/2010810551656726835)[![buddyhadry](/avatars/x/buddyhadry.jpg)
+
+"Catching fun vibes I haven't felt since I first got into computers 30 years ago."
+
+@buddyhadry
+
+](https://x.com/buddyhadry/status/2010005331925954739)[![jokull](/avatars/x/jokull.jpg)
+
+"Added JMAP search to my OpenClaw. Along with 20 other things. From my phone."
+
+@jokull
+
+](https://x.com/jokull/status/2011140610120642899)[![tyleryust](/avatars/x/tyleryust.jpg)
+
+"@openclaw is so fun to play around with. The future of agents will be so fun"
+
+@tyleryust
+
+](https://x.com/tyleryust/status/2010887971743092744)[![aaronmakelky](/avatars/x/aaronmakelky.jpg)
+
+"This is the best 'morning briefing' style interface I've seen, love it!"
+
+@aaronmakelky
+
+](https://x.com/aaronmakelky/status/2010190236584947845)[![crossiBuilds](/avatars/x/crossibuilds.jpg)
+
+"Everything Siri was supposed to be. And it goes so much further."
+
+@crossiBuilds
+
+](https://x.com/crossiBuilds/status/2008478023826153665)[![Ashwinreads](/avatars/x/ashwinreads.jpg)
+
+"@openclaw might actually organise my life. unreal, just unreal."
+
+@Ashwinreads
+
+](https://x.com/Ashwinreads/status/2010498194623311921)[![KrauseFx](/avatars/x/krausefx.jpg)
+
+"What @steipete has built with @openclaw is out of this world."
+
+@KrauseFx
+
+](https://x.com/KrauseFx/status/2008531076487246176)[![tysonhutchins\_](/avatars/x/tysonhutchins_.jpg)
+
+"A glimpse into the future of how normal people will use AI."
+
+@tysonhutchins\_
+
+](https://x.com/tysonhutchins_/status/2010046933893865701)[![JorgeMenaDev](/avatars/x/jorgemenadev.jpg)
+
+"I just tried @openclaw using telegram. Wow. This is crazy."
+
+@JorgeMenaDev
+
+](https://x.com/JorgeMenaDev/status/2012512348456599719)[![BitcoinPeace77](/avatars/x/bitcoinpeace77.jpg)
+
+"What you've given to the world is nothing short of amazing"
+
+@BitcoinPeace77
+
+](https://x.com/BitcoinPeace77/status/2013064560992047412)[![karpathy](/avatars/x/karpathy.jpg)
+
+"Excellent reading thank you. Love oracle and Claw."
+
+@karpathy
+
+](https://x.com/karpathy/status/2005692186470514904)[![serrrfirat](/avatars/x/serrrfirat.jpg)
+
+"just use @openclaw man, it will set you free."
+
+@serrrfirat
+
+](https://x.com/serrrfirat/status/2011128261196333448)[![alex\_here\_now](/avatars/x/alex_here_now.jpg)
+
+"This lobster is gonna take over the world"
+
+@alex\_here\_now
+
+](https://x.com/alex_here_now/status/2010473539514904746)[![robmartinson](/avatars/x/robmartinson.jpg)
+
+"This is nuts. @openclaw is a superpower."
+
+@robmartinson
+
+](https://x.com/robmartinson/status/2010410971056242689)[![nofil\_ai](/avatars/x/nofil_ai.jpg)
+
+"@openclaw is Jarvis. It already exists."
+
+@nofil\_ai
+
+](https://x.com/nofil_ai/status/2010460892576788958)[![Hesamation](/avatars/x/hesamation.jpg)
+
+"TLDR; open source built a better version of Siri that Apple ($3.6 trillion company) was sleeping on for years. Welcome to the AI era where a dude and a repo fills in the cracks of billion dollar industries."
+
+@Hesamation
+
+](https://x.com/Hesamation/status/2015110922159730971)[![FrancisBrero](/avatars/x/francisbrero.jpg)
+
+"AGI is a lobster, it will never sink!"
+
+@FrancisBrero
+
+](https://x.com/FrancisBrero/status/2012317589117247782)
+
+Latest
+
+## Product notes with docs-level depth.
+
+[Read all](/blog)
+
+ [![](/blog/introducing-openclaw-foundation/team-maintainers.jpg)Latest Jul 8, 2026
+
+### Introducing the OpenClaw Foundation
+
+The lobster grows up: OpenClaw is now a non-profit, with a full-time team, world-class partners, and a mission to bring personal AI to everyone.
+
+announcementfoundation](/blog/introducing-openclaw-foundation)
+
+ [![](/blog/openclaw-agent-skill-workshop/skill-workshop-chat.png)Jun 3, 2026
+
+### Skill Workshop: Turn Agent Work Into Reusable Skills
+
+Review, revise, and apply proposed skills before they change how OpenClaw agents work.](/blog/openclaw-agent-skill-workshop) [![](/blog/openclaw-nvidia-skill-security/openclaw-nvidia-banner.png)Jun 1, 2026
+
+### OpenClaw Collaborates with NVIDIA for Stronger Agent Skill Security
+
+Every ClawHub skill now ships with a Skill Card documenting what the skill does and where it came from, and is scanned by SkillSpector for hidden instructions and other agentic risks](/blog/openclaw-nvidia-skill-security)
+
+## What It Does
+
+[
+
+### Runs on Your Machine
+
+Mac, Windows, or Linux. Bring hosted, subscription-backed, gateway, or local models. State lives on your machine, not a vendor cloud.
+
+](https://docs.openclaw.ai/getting-started)[
+
+### Chat Where You Are
+
+Talk to it on WhatsApp, Telegram, Discord, Slack, Signal, iMessage, or any of its 29 channels. Works in DMs and group chats.
+
+](/integrations)[
+
+### Persistent Memory
+
+Remembers your preferences, projects, and people from one conversation to the next.
+
+](https://docs.openclaw.ai/session)[
+
+### Browser Control
+
+It can browse the web, fill forms, and extract data from any site.
+
+](https://docs.openclaw.ai/browser)[
+
+### Full System Access
+
+Read and write files, run shell commands, execute scripts. Full access or sandboxed—your choice.
+
+](https://docs.openclaw.ai/bash)[
+
+### Skills & Plugins
+
+Extend with community skills or build your own. It can even write its own.
+
+](https://docs.openclaw.ai/skills)
+
+## Works With Everything
+
+[Explore integrations related content](/integrations)
+
+WhatsApp Channel Your agent inside WhatsApp. Telegram Channel Your agent in chats and groups. Discord Channel Your agent in servers and DMs. Slack Channel Your agent where your team works. iMessage Channel Your agent inside Messages. Claude Model Claude, connected to your tools. GPT Model GPT, connected to your tools. Signal Channel Private chats with your agent.
+
+Browser Web Browse, click, and get things done. Gmail Inbox Read, draft, and manage email. GitHub Code Work across issues and pull requests. Obsidian Notes Put your vault to work. Twitter Web Research, draft, and publish. Spotify Tool Control your music from chat. Hue Home Control your lights from chat.
+
+[Browse all integrations](/integrations) [See what people built](/showcase)
+
+## What people are building.
+
+Real OpenClaw workflows shared by the community.
+
+[View showcase](/showcase)
+
+[
+
+THREAD Open
+
+### 15+ Agent Army Running Across 3 Machines
+
+A full OpenClaw setup clearing 10,000 emails, reviewing decks, building CLI tools, optimizing Google Ads, drafting posts, and orchestrating Codex workers across a Discord-driven agent fleet.
+
+multi-agentdiscordautomation
+
+
+
+](https://x.com/jdrhyne/status/2012778049406742632)[
+
+THREAD Open
+
+### Personal Operating System With Daily Briefings
+
+OpenClaw timeblocks tasks, runs weekly reviews from meeting notes, briefs before meetings, watches family school deadlines, researches projects, resolves calendar conflicts, and creates invoices.
+
+calendarbriefingsproductivity
+
+
+
+](https://x.com/danpeguine/status/2012565160586625345)[
+
+THREAD Open
+
+### Voice-Guided Production Fix While Walking the Dog
+
+A live OpenClaw workflow that inspected failed Railway builds, diagnosed the root cause, changed deployment configs, redeployed, fixed a design issue, and submitted a PR over voice.
+
+voicedeploycoding
+
+
+
+](https://x.com/georgedagg_/status/2012119327147798753)[
+
+THREAD Open
+
+### One Chat Controlling Mail, Messages, Orders, Calls, and a Vault
+
+A single OpenClaw assistant checking mail, reading Beeper messages, ordering things, sending reminders, creating GitHub issues, discussing bookmarks, handling voice calls, and reading and writing a dedicated 1Password vault.
+
+mailbeeperpersonal-ai
+
+
+
+](https://x.com/dreetje/status/2012535486401671588)
+
+[Community chatter](https://discord.com/invite/clawd) [Docs showcase](https://docs.openclaw.ai/start/showcase) [More shoutouts](/shoutouts)
+
+## Featured In
+
+[View all related content](/press)
+
+ [![](/press/icons/techcrunch.com.png) TechCrunch Jun 30, 2026
+
+### OpenClaw is finally available on Android and iOS
+
+OpenClaw lands on phones: native iOS and Android apps with chat, Talk mode, and remote action approvals paired to your own Gateway.
+
+Lucas Ropek](https://techcrunch.com/2026/06/30/openclaw-is-finally-available-on-android-and-ios/) [![](/press/icons/fastcompany.com.png) Fast Company Jun 2026
+
+### How Peter Steinberger built OpenClaw
+
+Fast Company puts OpenClaw’s creator on its AI 20 for 2026: building in public, a Discord as the showroom, and half a million systems running the lobster.
+
+Fast Company](https://www.fastcompany.com/91550800/how-peter-steinberger-built-openclaw) [![](/press/icons/blogs.windows.com.png) Microsoft Jun 2, 2026
+
+### Build 2026: Furthering Windows as the trusted platform for development
+
+Straight from the Build keynote: OpenClaw runs natively on Windows inside Microsoft Execution Containers — “the Windows node and gateway run contained, so your system stays secure.”
+
+Pavan Davuluri, EVP Windows + Devices](https://blogs.windows.com/windowsdeveloper/2026/06/02/build-2026-furthering-windows-as-the-trusted-platform-for-development/) [![](/press/icons/techcrunch.com.png) TechCrunch Jun 2, 2026
+
+### Microsoft launches Scout, an OpenClaw-inspired personal assistant
+
+Microsoft ships a personal assistant openly inspired by OpenClaw, bringing agent workflows to the Microsoft 365 ecosystem.
+
+Russell Brandom](https://techcrunch.com/2026/06/02/microsoft-launches-scout-an-openclaw-inspired-personal-assistant/)
+
+[Discord Join the community](https://discord.com/invite/clawd) [Documentation Learn the ropes](https://docs.openclaw.ai/getting-started) [GitHub View the source](https://github.com/openclaw/openclaw) [ClawHub Install skills and plugins](https://clawhub.ai)
+
+Newsletter
+
+## Stay in the Loop. Get updates on new features, integrations, and lobster wisdom.
+
+ Enter your email
+
+## Sponsors
+
+ [![OpenAI](/sponsors/openai.svg)](https://openai.com)[![GitHub](/sponsors/github.svg) ![GitHub](/sponsors/github-light.svg) ](https://github.com)[![NVIDIA](/sponsors/nvidia-dark.svg) ![NVIDIA](/sponsors/nvidia-light.svg) ](https://www.nvidia.com)[![Vercel](/sponsors/vercel-dark.svg) ![Vercel](/sponsors/vercel-light.svg) ](https://vercel.com)[![Blacksmith](/sponsors/blacksmith.svg) ](https://blacksmith.sh)[![Convex](/sponsors/convex.svg)](https://www.convex.dev)
+
+[OpenClaw](/)
+
+Built by [Molty 🦞](https://molty.me), a space lobster AI with a soul, by [Peter Steinberger](https://steipete.me) & [community](https://github.com/openclaw/openclaw#community).
+
+An [OpenClaw Foundation](https://openclaw.org) project.
+
+[𝕏](https://x.com/openclaw)[](https://github.com/openclaw/openclaw)[](https://discord.com/invite/clawd)
+
+## Product
+
+[Showcase](/showcase) [Integrations](/integrations) [Docs](https://docs.openclaw.ai)
+
+## Resources
+
+[Blog](/blog) [Press](/press) [Shoutouts](/shoutouts)
+
+## Project
+
+[Foundation](https://openclaw.org) [Security](/blog#security) [GitHub](https://github.com/openclaw/openclaw)
+
+Independent project, not affiliated with Anthropic.
+
+© 2026
+
+ [![](https://pbs.twimg.com/profile_images/2017100664984186880/orbYx-3U_400x400.jpg) OpenClaw Foundation](https://openclaw.org)

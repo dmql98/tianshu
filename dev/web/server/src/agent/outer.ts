@@ -28,7 +28,7 @@ import type { MCPClient } from '../tools/mcp-client.js'
 const DEFAULT_MAX_TURNS = 20
 const DEFAULT_CONTEXT_WINDOW = 200000
 
-const DEFAULT_WORKSPACE = 'C:\\.Tianshu'
+const DEFAULT_WORKSPACE = 'C:\\.Yi'
 if (!fs.existsSync(DEFAULT_WORKSPACE)) {
   try { fs.mkdirSync(DEFAULT_WORKSPACE, { recursive: true }) } catch {}
 }
@@ -84,7 +84,7 @@ Rules:
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 
-const DATA_DIR = process.env.DATA_DIR || resolve('C:/.Tianshu/data')
+const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
 const DEFAULT_PROMPT_FILE = resolve(DATA_DIR, 'prompts', 'default.md')
 
 function loadPromptTemplate(charId: string): string {
@@ -474,7 +474,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   const contextWindow = modelConfig?.context_window || DEFAULT_CONTEXT_WINDOW
   sessionStore.update(sessionId, { context_window: contextWindow })
 
-  const cap: ProviderCapability = resolveCapability(model, providerId, modelConfig?.supports_vision)
+  const cap: ProviderCapability = resolveCapability(model, modelConfig?.supports_vision)
 
   const workspaces = resolveWorkspaces(session)
   const workspace = resolveWorkspace(session.workspace)
@@ -586,7 +586,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   const compactUntilId = session.compaction_until_id || 0
   for (const row of rows) {
     if (compactUntilId > 0 && row.id <= compactUntilId) continue
-    let m = rowToLLMMessage(row, sessionId, cap, resolveProviderFormat(providerId))
+    let m = rowToLLMMessage(row, sessionId, cap, resolveProviderFormat(provider.base_url))
     if (m && m.role === 'user' && typeof m.content === 'string' && /@(file|folder|url):/.test(m.content)) {
       const refResult = await preprocessContextReferences(m.content, resolveWorkspace(session.workspace))
       if (refResult.expanded) {

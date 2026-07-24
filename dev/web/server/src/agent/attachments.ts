@@ -1,5 +1,4 @@
 import { loadAttachmentBase64 } from './media-store.js'
-import { getModels } from '../providers/index.js'
 
 export interface TextPart {
   type: 'text'
@@ -31,10 +30,15 @@ export type ProviderContentBlock =
 
 export type ProviderFormat = 'openai' | 'anthropic' | 'gemini'
 
-import { getPlugin } from '../providers/index.js'
-
-export function resolveProviderFormat(providerId: string): ProviderFormat {
-  return getPlugin(providerId)?.format ?? 'openai'
+// Yi-Lin's LLM client currently only speaks the OpenAI /chat/completions wire
+// format, so the effective format here is always 'openai'. This resolver and the
+// format branches below keep the lowering layer ready for native Anthropic /
+// Gemini clients (which would also need a matching transport in llm/client.ts).
+export function resolveProviderFormat(baseUrl: string | undefined): ProviderFormat {
+  const u = (baseUrl || '').toLowerCase()
+  if (u.includes('anthropic')) return 'anthropic'
+  if (u.includes('googleapis.com') || u.includes('generativelanguage')) return 'gemini'
+  return 'openai'
 }
 
 export interface ProviderCapability {
@@ -42,30 +46,25 @@ export interface ProviderCapability {
   supportsFiles: boolean
 }
 
-/** Resolve whether the target model can consume multimodal input.
- * Checks plugin model definitions first; falls back to a name-based heuristic. */
-export function resolveCapability(
-  modelId: string,
-  providerId?: string,
-  explicit?: boolean,
-): ProviderCapability {
-  if (explicit !== undefined) return { supportsVision: explicit, supportsFiles: explicit }
-  if (providerId) {
-    const model = getModels(providerId).find(m => m.id === modelId)
-    if (model?.capabilities.supports_vision !== undefined) {
-      return { supportsVision: model.capabilities.supports_vision, supportsFiles: model.capabilities.supports_vision }
-    }
-  }
-  const id = modelId.toLowerCase()
-  const vision = VISION_HINTS.some((h) => id.includes(h))
-  return { supportsVision: vision, supportsFiles: vision }
-}
-
 const VISION_HINTS = [
   'vision', 'vl', 'gpt-4o', 'gpt-4.1', 'gpt-4-turbo', 'gpt-4v', 'claude',
   'gemini', 'qwen-vl', 'qwen2-vl', 'glm-4v', 'minimax', 'pixtral', 'llava',
   'internvl', 'deepseek-vl', 'step', 'kimi', 'moonshot', 'qwq-vl', 'mimo', 'hy3',
 ]
+
+/** Resolve whether the target model can consume multimodal input.
+ * Explicit `supports_vision` on the model record wins; otherwise fall back to a
+ * name-based heuristic. Unknown models default to false so we never silently
+ * send `image_url` to a text-only model (which previously caused hallucination). */
+export function resolveCapability(
+  modelId: string,
+  explicit?: boolean,
+): ProviderCapability {
+  if (explicit !== undefined) return { supportsVision: explicit, supportsFiles: explicit }
+  const id = modelId.toLowerCase()
+  const vision = VISION_HINTS.some((h) => id.includes(h))
+  return { supportsVision: vision, supportsFiles: vision }
+}
 
 export function textPart(text: string): TextPart {
   return { type: 'text', text }

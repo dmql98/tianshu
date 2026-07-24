@@ -9,8 +9,7 @@ import { logLLMCall } from '../debug/llm-logger.js'
 import type { Strategy } from './session.js'
 import type { Server, Socket } from 'socket.io'
 import type { MCPClient } from '../tools/mcp-client.js'
-import { resolve as pathResolve, dirname, relative, extname } from 'path'
-import { statSync } from 'fs'
+import { resolve as pathResolve, dirname, relative } from 'path'
 import { sessionStore } from '../db/sessionStore.js'
 import { saveAttachment } from './media-store.js'
 import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, type AttachmentRecord, type ContentPart } from './attachments.js'
@@ -417,19 +416,8 @@ export async function innerLoop(
     if (result.escaped && sessionId && socket) {
       const escapedPath = result.error?.replace('Path escapes workspace: ', '') || ''
       const absEscapedPath = pathResolve(workspace || process.cwd(), escapedPath)
-      // If the escaped path is a directory, approve it directly
-      // Otherwise approve its parent directory
-      let approvedDir: string
-      try {
-        if (statSync(absEscapedPath).isDirectory()) {
-          approvedDir = absEscapedPath
-        } else {
-          approvedDir = dirname(absEscapedPath)
-        }
-      } catch {
-        // Path doesn't exist — use as-is if no extension (likely a dir), else parent
-        approvedDir = extname(absEscapedPath) ? dirname(absEscapedPath) : absEscapedPath
-      }
+      // Always approve the PARENT directory, not a specific file
+      const approvedDir = dirname(absEscapedPath)
       const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
         socket.emit('approval.requested', {
           session_id: sessionId,

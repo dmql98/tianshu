@@ -24,3 +24,6 @@ export const deleteProvider = (id: string) =>
 
 export const fetchProviderModels = (id: string) =>
   apiGet<ProviderModel[]>(`/api/providers/${id}/models`)
+
+export const testProvider = (id: string) =>
+  apiPost<{ ok: boolean; status?: number; error?: string }>(`/api/providers/${id}/test`)
