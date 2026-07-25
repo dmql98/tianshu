@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchCharacterStats, fetchCharacters } from '@/api/characters'
+import { fetchCharacterStats, fetchCharacters, updateCharacter } from '@/api/characters'
 import { fetchTools } from '@/api/tools'
 import { fetchSkills } from '@/api/skills'
 import type { Character, CharacterStats } from '@/types'
@@ -24,6 +24,16 @@ export default function CharacterDetailPage({
   const [strategy, setStrategy] = useState(char.default_strategy)
   const [stepsEnabled, setStepsEnabled] = useState(char.maxSteps > 0 && char.maxSteps < 999)
   const [maxSteps, setMaxSteps] = useState(char.maxSteps > 0 && char.maxSteps < 999 ? char.maxSteps : 20)
+  const [memoryEnabled, setMemoryEnabled] = useState(char.memory?.enabled ?? false)
+  const [selfEvolution, setSelfEvolution] = useState(char.memory?.selfEvolution ?? false)
+  const [charLimit, setCharLimit] = useState(char.memory?.charLimit ?? 2000)
+  const [soul, setSoul] = useState(char.soul ?? '')
+  const [userProfile, setUserProfile] = useState(char.userProfile ?? '')
+  const [memoryContent, setMemoryContent] = useState(char.memoryContent ?? '')
+  const [customPromptEnabled, setCustomPromptEnabled] = useState(!!char.customPrompt)
+  const [customPrompt, setCustomPrompt] = useState(char.customPrompt ?? '')
+  const [boundTools, setBoundTools] = useState<{ name: string }[]>(char.tools || [])
+  const [boundSkills, setBoundSkills] = useState<string[]>(char.skills || [])
 
   useEffect(() => {
     fetchCharacterStats(char.id).then(setStats).catch(() => {})
@@ -32,8 +42,8 @@ export default function CharacterDetailPage({
     fetchCharacters().then(setAllChars).catch(() => {})
   }, [char.id])
 
-  const boundToolNames = new Set((char.tools || []).map(t => t.name))
-  const boundSkillNames = new Set(char.skills || [])
+  const boundToolNames = new Set(boundTools.map(t => t.name))
+  const boundSkillNames = new Set(boundSkills)
   const unboundTools = allTools.filter(t => !boundToolNames.has(t.name))
   const unboundSkills = allSkills.filter(s => !boundSkillNames.has(s.name))
 
@@ -65,9 +75,6 @@ export default function CharacterDetailPage({
           <p>{char.id} · {roleLabels[char.role] || char.role}</p>
         </div>
         <div style={{ flex: 1 }}></div>
-        {char.enabled !== false && (
-          <button className="detail-btn" style={{ borderColor: 'var(--jade)', color: 'var(--jade)' }}>已启用</button>
-        )}
       </div>
 
       <div className="detail-body">
@@ -160,18 +167,26 @@ export default function CharacterDetailPage({
               <div className="detail-columns">
                 <div className="detail-col">
                   <div className="detail-section-title">Soul（人格）</div>
-                  <div className="md-box">{char.soul || '(未设置)'}</div>
+                  <textarea className="md-box" value={soul} placeholder="(未设置)" onChange={e => { setSoul(e.target.value); updateCharacter(char.id, { soul: e.target.value }) }} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
                 </div>
                 <div className="detail-col">
                   <div className="detail-section-title">User（用户画像）</div>
-                  <div className="md-box">{char.userProfile || '(未设置)'}</div>
+                  <textarea className="md-box" value={userProfile} placeholder="(未设置)" onChange={e => { setUserProfile(e.target.value); updateCharacter(char.id, { userProfile: e.target.value }) }} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
                 </div>
               </div>
             </div>
 
             <div className="detail-section">
               <div className="detail-section-title">自定义提示词</div>
-              <div className="md-box">{char.customPrompt || '(未设置，将使用默认系统提示词)'}</div>
+              <div className="tool-item" style={{ border: 'none', padding: '0 0 8px 0' }}>
+                <div className="tool-name">启用自定义提示词</div>
+                <div className={`toggle ${customPromptEnabled ? 'on' : ''}`} onClick={() => setCustomPromptEnabled(!customPromptEnabled)}></div>
+              </div>
+              {customPromptEnabled ? (
+                <textarea className="md-box" value={customPrompt} placeholder="(输入自定义提示词)" onChange={e => { setCustomPrompt(e.target.value); updateCharacter(char.id, { customPrompt: e.target.value }) }} style={{ minHeight: 250, width: '100%', resize: 'vertical' }} />
+              ) : (
+                <div className="md-box">{char.customPrompt || '(未设置，将使用默认系统提示词)'}</div>
+              )}
             </div>
           </div>
 
@@ -182,21 +197,21 @@ export default function CharacterDetailPage({
               <div className="tool-list">
                 <div className="tool-item">
                   <div className="tool-name">启用记忆</div>
-                  <span style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{char.memory?.enabled ? '是' : '否'}</span>
+                  <div className={`toggle ${memoryEnabled ? 'on' : ''}`} onClick={() => { setMemoryEnabled(!memoryEnabled); updateCharacter(char.id, { memory: { enabled: !memoryEnabled, selfEvolution, charLimit } }) }}></div>
                 </div>
                 <div className="tool-item">
                   <div className="tool-name">自我进化</div>
-                  <span style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{char.memory?.selfEvolution ? '是' : '否'}</span>
+                  <div className={`toggle ${selfEvolution ? 'on' : ''}`} onClick={() => { setSelfEvolution(!selfEvolution); updateCharacter(char.id, { memory: { enabled: memoryEnabled, selfEvolution: !selfEvolution, charLimit } }) }}></div>
                 </div>
                 <div className="tool-item">
                   <div className="tool-name">记忆字符上限</div>
-                  <span style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{char.memory?.charLimit || '--'}</span>
+                  <input type="number" min={0} step={100} value={charLimit} onChange={e => { const v = Number(e.target.value); setCharLimit(v); updateCharacter(char.id, { memory: { enabled: memoryEnabled, selfEvolution, charLimit: v } }) }} style={{ width: 120, marginTop: 4 }} />
                 </div>
               </div>
             </div>
             <div className="detail-section">
               <div className="detail-section-title">Memory（记忆内容）</div>
-              <div className="md-box">{char.memoryContent || '(空)'}</div>
+              <textarea className="md-box" value={memoryContent} placeholder="(空)" onChange={e => { setMemoryContent(e.target.value); updateCharacter(char.id, { memoryContent: e.target.value }) }} style={{ minHeight: 450, width: '100%', resize: 'vertical' }} />
             </div>
           </div>
 
@@ -204,34 +219,59 @@ export default function CharacterDetailPage({
           <div className={`tab-page ${activeTab === 'tools' ? 'active' : ''}`}>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">已绑定工具 ({boundToolNames.size})</div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 8, background: 'rgba(42,157,92,0.02)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {(char.tools || []).map(t => {
-                      const meta = allTools.find(at => at.name === t.name)
-                      return (
-                        <div key={t.name} className="tool-item" style={{ border: 'none', background: 'transparent' }}>
-                          <div className="tool-name">{t.name}</div>
-                          <span className="tool-source builtin">内置</span>
-                          {meta && <span style={{ fontSize: 11, color: 'var(--ink-light)', marginLeft: 'auto' }}>{meta.description}</span>}
+                <div className="detail-section-title">已激活工具 ({boundToolNames.size})</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {boundTools.map(t => {
+                    const meta = allTools.find(at => at.name === t.name)
+                    const remove = () => {
+                      const next = boundTools.filter(bt => bt.name !== t.name)
+                      setBoundTools(next)
+                      updateCharacter(char.id, { tools: next })
+                    }
+                    return (
+                      <div key={t.name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)', position: 'relative' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{t.name.replace(/^mcp:/, '')}</div>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span className={`tool-source ${t.name.startsWith('mcp:') ? 'mcp' : 'builtin'}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4 }}>{t.name.startsWith('mcp:') ? 'MCP' : '内置'}</span>
+                            <button onClick={remove} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
+                          </div>
                         </div>
-                      )
-                    })}
-                  </div>
+                        {meta && <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>}
+                      </div>
+                    )
+                  })}
+                  {boundTools.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>暂无已激活工具</div>
+                  )}
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">可添加工具</div>
-                <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 8, background: 'var(--bg-input)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {unboundTools.slice(0, 10).map(t => (
-                      <div key={t.name} className="tool-item" style={{ border: 'none', background: 'transparent' }}>
-                        <div className="tool-name">{t.name}</div>
-                        <span className={`tool-source ${t.source}`}>{t.source === 'mcp' ? 'MCP' : '内置'}</span>
-                        <button className="tool-swap add" title="绑定" style={{ marginLeft: 'auto' }}>+</button>
+                <div className="detail-section-title">未激活工具 ({unboundTools.length})</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {unboundTools.slice(0, 20).map(t => {
+                    const activate = () => {
+                      const toolName = t.source === 'mcp' ? `mcp:${t.name}` : t.name
+                      const next = [...boundTools, { name: toolName }]
+                      setBoundTools(next)
+                      updateCharacter(char.id, { tools: next })
+                    }
+                    return (
+                      <div key={t.name} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{t.name}</div>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span className={`tool-source ${t.source}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4 }}>{t.source === 'mcp' ? 'MCP' : '内置'}</span>
+                            <button onClick={activate} title="激活" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{t.description}</div>
                       </div>
-                    ))}
-                  </div>
+                    )
+                  })}
+                  {unboundTools.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>所有工具已激活</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -241,39 +281,58 @@ export default function CharacterDetailPage({
           <div className={`tab-page ${activeTab === 'skills' ? 'active' : ''}`}>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">已绑定技能 ({char.skills?.length || 0})</div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 8, background: 'rgba(42,157,92,0.02)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {(char.skills || []).map(name => {
-                      const meta = allSkills.find(s => s.name === name)
-                      return (
-                        <div key={name} className="skill-item">
-                          <div className="skill-name">{name}</div>
-                          {meta && <div className="skill-desc">{meta.description}</div>}
+                <div className="detail-section-title">已激活技能 ({boundSkills.length})</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {boundSkills.map(name => {
+                    const meta = allSkills.find(s => s.name === name)
+                    const remove = () => {
+                      const next = boundSkills.filter(s => s !== name)
+                      setBoundSkills(next)
+                      updateCharacter(char.id, { skills: next })
+                    }
+                    return (
+                      <div key={name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{name}</div>
+                            {meta && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{meta.category}</span>}
+                          </div>
+                          <button onClick={remove} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                         </div>
-                      )
-                    })}
-                    {(!char.skills || char.skills.length === 0) && (
-                      <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>暂无绑定技能</div>
-                    )}
-                  </div>
+                        {meta && <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>}
+                      </div>
+                    )
+                  })}
+                  {boundSkills.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>暂无已激活技能</div>
+                  )}
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">可绑定技能</div>
-                <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 8, background: 'var(--bg-input)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {unboundSkills.slice(0, 10).map(s => (
-                      <div key={s.name} className="skill-item">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div className="skill-name">{s.name}</div>
-                          <span className="tool-source" style={{ background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{s.category}</span>
-                          <button className="skill-swap add" title="绑定" style={{ marginLeft: 'auto' }}>+</button>
+                <div className="detail-section-title">未激活技能 ({unboundSkills.length})</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {unboundSkills.slice(0, 20).map(s => {
+                    const activate = () => {
+                      const next = [...boundSkills, s.name]
+                      setBoundSkills(next)
+                      updateCharacter(char.id, { skills: next })
+                    }
+                    return (
+                      <div key={s.name} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{s.name}</div>
+                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{s.category}</span>
+                          </div>
+                          <button onClick={activate} title="激活" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                         </div>
-                        <div className="skill-desc">{s.description}</div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{s.description}</div>
                       </div>
-                    ))}
-                  </div>
+                    )
+                  })}
+                  {unboundSkills.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>所有技能已激活</div>
+                  )}
                 </div>
               </div>
             </div>

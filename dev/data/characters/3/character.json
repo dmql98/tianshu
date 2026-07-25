@@ -8,11 +8,11 @@
   "enabled": true,
   "id": "3",
   "createdAt": 1783175542798,
-  "updatedAt": 1783310158879,
+  "updatedAt": 1784939194578,
   "avatar": "",
   "memory": {
     "enabled": false,
-    "selfEvolution": true,
+    "selfEvolution": false,
     "charLimit": 2200
   },
   "tools": [
@@ -23,16 +23,28 @@
       "name": "character_manager"
     },
     {
-      "name": "mcp_manager"
+      "name": "debug_sessions"
     },
     {
       "name": "edit"
+    },
+    {
+      "name": "delegate_task"
+    },
+    {
+      "name": "get_time"
     },
     {
       "name": "glob"
     },
     {
       "name": "grep"
+    },
+    {
+      "name": "mcp_manager"
+    },
+    {
+      "name": "provider_manager"
     },
     {
       "name": "read"
@@ -48,15 +60,6 @@
     },
     {
       "name": "write"
-    },
-    {
-      "name": "task_complete"
-    },
-    {
-      "name": "provider_manager"
-    },
-    {
-      "name": "mcp:playwright"
     }
   ],
   "groups": [
