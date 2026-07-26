@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchCharacters } from '@/api/characters'
 import type { Character } from '@/types'
 
@@ -20,7 +21,8 @@ function timeAgo(ts: number | undefined): string {
   return `${days} 天前活跃`
 }
 
-export default function CharactersPage({ onSelect }: { onSelect?: (char: Character) => void }) {
+export default function CharactersPage() {
+  const navigate = useNavigate()
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -53,7 +55,7 @@ export default function CharactersPage({ onSelect }: { onSelect?: (char: Charact
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <button className="btn primary">+ 新建角色</button>
+          <button className="btn primary" onClick={() => navigate('/characters/new')}>+ 新建角色</button>
         </div>
       </div>
       <div className="content">
@@ -65,7 +67,7 @@ export default function CharactersPage({ onSelect }: { onSelect?: (char: Charact
               <div className="group-title">{group}</div>
               <div className="star-grid">
                 {chars.map(char => (
-                  <div key={char.id} className="star-card" onClick={() => onSelect?.(char)}>
+                  <div key={char.id} className="star-card" onClick={() => navigate(`/characters/${char.id}`)}>
                     <div className="star-art" style={{
                       background: char.color
                         ? `linear-gradient(135deg, ${char.color}15, ${char.color}08)`

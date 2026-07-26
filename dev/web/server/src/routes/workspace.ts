@@ -95,4 +95,20 @@ workspaceRouter.post('/resolve', async (c) => {
   return c.json({ path: null })
 })
 
+workspaceRouter.post('/open', async (c) => {
+  const { path: dirPath } = await c.req.json()
+  if (!dirPath || typeof dirPath !== 'string') return c.json({ error: 'Missing path' }, 400)
+  const resolved = path.resolve(dirPath)
+  if (!fs.existsSync(resolved)) return c.json({ error: 'Path not found' }, 404)
+  try {
+    const platform = process.platform
+    if (platform === 'win32') cp.execSync(`explorer "${resolved}"`, { timeout: 3000 })
+    else if (platform === 'darwin') cp.execSync(`open "${resolved}"`, { timeout: 3000 })
+    else cp.execSync(`xdg-open "${resolved}"`, { timeout: 3000 })
+    return c.json({ ok: true })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 export default workspaceRouter

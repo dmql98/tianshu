@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { fetchSkillDetail, type SkillDetail } from '@/api/skills'
 
 const categoryLabels: Record<string, string> = {
@@ -16,21 +17,16 @@ const fileTypeIcons: Record<string, string> = {
   other: '📎',
 }
 
-export default function SkillDetailPage({
-  category,
-  skillName,
-  onBack,
-}: {
-  category: string
-  skillName: string
-  onBack: () => void
-}) {
+export default function SkillDetailPage() {
+  const { category, name: skillName } = useParams<{ category: string; name: string }>()
+  const navigate = useNavigate()
   const [detail, setDetail] = useState<SkillDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
+    if (!category || !skillName) return
     fetchSkillDetail(category, skillName)
       .then(setDetail)
       .finally(() => setLoading(false))
@@ -44,7 +40,7 @@ export default function SkillDetailPage({
     return (
       <div className="main">
         <div className="page-header">
-          <button className="back-btn" onClick={onBack}>←</button>
+          <button className="back-btn" onClick={() => navigate('/skills')}>←</button>
           <span className="page-title">加载中...</span>
         </div>
       </div>
@@ -55,7 +51,7 @@ export default function SkillDetailPage({
     return (
       <div className="main">
         <div className="page-header">
-          <button className="back-btn" onClick={onBack}>←</button>
+          <button className="back-btn" onClick={() => navigate('/skills')}>←</button>
           <span className="page-title">技能未找到</span>
         </div>
       </div>
@@ -73,7 +69,7 @@ export default function SkillDetailPage({
   return (
     <div className="main">
       <div className="detail-header">
-        <button className="back-btn" onClick={onBack}>←</button>
+        <button className="back-btn" onClick={() => navigate('/skills')}>←</button>
         <div className="detail-header-info">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1>{detail.name}</h1>

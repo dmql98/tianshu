@@ -32,7 +32,12 @@ router.get('/:id', (c) => {
 router.post('/', async (c) => {
   const body = await c.req.json() as any
   const { soul, userProfile, memoryContent, customPrompt, ...metaRest } = body
-  const meta = characterMetaStore.create(metaRest)
+  let meta
+  try {
+    meta = characterMetaStore.create(metaRest)
+  } catch (e: any) {
+    return c.json({ error: e.message }, 409)
+  }
   characterContentStore.save(meta.id, {
     soul: soul as string | undefined,
     user: userProfile as string | undefined,
@@ -43,8 +48,20 @@ router.post('/', async (c) => {
 })
 router.put('/:id', async (c) => {
   const body = await c.req.json() as any
-  const { soul, userProfile, memoryContent, customPrompt, ...metaRest } = body
-  const meta = characterMetaStore.update(c.req.param('id'), metaRest)
+  const { soul, userProfile, memoryContent, customPrompt, id: newId, ...metaRest } = body
+  const oldId = c.req.param('id')
+  let currentId = oldId
+  // Handle ID rename
+  if (newId && newId !== oldId) {
+    try {
+      const renamed = characterMetaStore.rename(oldId, newId)
+      if (!renamed) return c.json({ error: 'Not found' }, 404)
+      currentId = newId
+    } catch (e: any) {
+      return c.json({ error: e.message }, 409)
+    }
+  }
+  const meta = characterMetaStore.update(currentId, metaRest)
   if (!meta) return c.json({ error: 'Not found' }, 404)
   characterContentStore.save(meta.id, {
     soul: soul as string | undefined,

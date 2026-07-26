@@ -840,9 +840,13 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
       })
       socket.emit('run.completed', { session_id: sessionId, status: 'task_complete' })
       if (totalInputTokens > 0 || totalOutputTokens > 0) {
+        const totalTk = totalCacheHitTokens + totalCacheMissTokens
         sessionStore.update(sessionId, {
           input_tokens: (session.input_tokens || 0) + totalInputTokens,
           output_tokens: (session.output_tokens || 0) + totalOutputTokens,
+          cache_hit_tokens: totalCacheHitTokens,
+          cache_miss_tokens: totalCacheMissTokens,
+          cache_hit_ratio: totalTk > 0 ? ((totalCacheHitTokens / totalTk) * 100).toFixed(1) : 'N/A',
         })
       }
       for (const [, client] of mcpClients) {
@@ -908,6 +912,9 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     sessionStore.update(sessionId, {
       input_tokens: (session.input_tokens || 0) + totalInputTokens,
       output_tokens: (session.output_tokens || 0) + totalOutputTokens,
+      cache_hit_tokens: totalCacheHitTokens,
+      cache_miss_tokens: totalCacheMissTokens,
+      cache_hit_ratio: hitRatio,
     })
   }
 

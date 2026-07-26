@@ -13,6 +13,14 @@ export interface SessionSummary {
   event_id?: string | null
   current_strategy?: 'Plan' | 'Ask' | 'Bypass'
   context_window?: number | null
+  reasoning_effort?: string
+  input_tokens?: number
+  output_tokens?: number
+  cache_hit_tokens?: number
+  cache_miss_tokens?: number
+  cache_hit_ratio?: string | null
+  compaction_summary?: string | null
+  compaction_until_id?: number | null
   created_at: number
   updated_at: number
 }

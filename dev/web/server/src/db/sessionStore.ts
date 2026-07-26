@@ -9,13 +9,14 @@ export interface SessionRow {
   current_strategy: string | null
   context_window: number | null
   input_tokens: number; output_tokens: number
+  cache_hit_tokens: number; cache_miss_tokens: number; cache_hit_ratio: string | null
   compaction_summary: string | null; compaction_until_id: number | null
   created_at: number; updated_at: number
 }
 
-const INSERT_COLS = 'id, character_id, title, model, provider_id, workspace, workspaces, parent_id, active_group, session_type, event_id, current_strategy, context_window, input_tokens, output_tokens, compaction_summary, compaction_until_id, created_at, updated_at'
-const INSERT_PARAMS = '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @parent_id, @active_group, @session_type, @event_id, @current_strategy, @context_window, @input_tokens, @output_tokens, @compaction_summary, @compaction_until_id, @created_at, @updated_at'
-const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, current_strategy=@current_strategy, context_window=@context_window, input_tokens=@input_tokens, output_tokens=@output_tokens, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, updated_at=@updated_at'
+const INSERT_COLS = 'id, character_id, title, model, provider_id, workspace, workspaces, parent_id, active_group, session_type, event_id, current_strategy, context_window, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, created_at, updated_at'
+const INSERT_PARAMS = '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @parent_id, @active_group, @session_type, @event_id, @current_strategy, @context_window, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @created_at, @updated_at'
+const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, current_strategy=@current_strategy, context_window=@context_window, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, updated_at=@updated_at'
 
 export const sessionStore = {
   list(limit = 50): SessionRow[] {
@@ -40,6 +41,8 @@ export const sessionStore = {
       current_strategy: data.current_strategy ?? null,
       context_window: data.context_window ?? null,
       input_tokens: data.input_tokens || 0, output_tokens: data.output_tokens || 0,
+      cache_hit_tokens: data.cache_hit_tokens || 0, cache_miss_tokens: data.cache_miss_tokens || 0,
+      cache_hit_ratio: data.cache_hit_ratio ?? 'N/A',
       compaction_summary: data.compaction_summary ?? null,
       compaction_until_id: data.compaction_until_id ?? null,
       created_at: now, updated_at: now,

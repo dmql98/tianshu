@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchSkills, type SkillMeta } from '@/api/skills'
 import { fetchCharacters } from '@/api/characters'
 
-export default function SkillView({ onSkillClick }: { onSkillClick?: (skill: SkillMeta) => void }) {
+export default function SkillView() {
+  const navigate = useNavigate()
   const [skills, setSkills] = useState<SkillMeta[]>([])
   const [charSkillMap, setCharSkillMap] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
@@ -67,7 +69,7 @@ export default function SkillView({ onSkillClick }: { onSkillClick?: (skill: Ski
                 {items.map(skill => {
                   const boundChars = charSkillMap[skill.name] || []
                   return (
-                    <div key={`${skill.category}/${skill.name}`} className="skill-card" onClick={() => onSkillClick?.(skill)}>
+                    <div key={`${skill.category}/${skill.name}`} className="skill-card" onClick={() => navigate(`/skills/${skill.category}/${skill.name}`)}>
                       <div className="skill-card-header">
                         <div className="skill-icon" style={{ background: 'rgba(200,150,10,0.08)' }}>
                           {categoryIcons[category] || '⚡'}

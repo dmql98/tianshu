@@ -7,7 +7,7 @@ export const fetchCharacter = (id: string) => apiGet<Character>(`/api/characters
 
 export const fetchCharacterStats = (id: string) => apiGet<CharacterStats>(`/api/characters/${id}/stats`)
 
-export const createCharacter = (data: Partial<Character> & { id: string }) =>
+export const createCharacter = (data: Partial<Character> & { id?: string }) =>
   apiPost<Character>('/api/characters', data)
 
 export const updateCharacter = (id: string, data: Partial<Character>) =>

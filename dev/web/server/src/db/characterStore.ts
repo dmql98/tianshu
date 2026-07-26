@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync } from 'fs'
 import { resolve } from 'path'
 
 const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
@@ -84,10 +84,15 @@ export const characterMetaStore = {
     try { return JSON.parse(readFileSync(f, 'utf-8')) } catch { return null }
   },
 
-  create: (data: Omit<CharacterRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
+  create: (data: Omit<CharacterRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
     const all = readAll()
     const now = Date.now()
-    const record: CharacterRecord = { ...data, id: nextId(all), createdAt: now, updatedAt: now }
+    const id = data.id?.trim() || nextId(all)
+    if (all.some(c => c.id === id)) {
+      throw new Error(`Character ID "${id}" already exists`)
+    }
+    const { id: _, ...rest } = data
+    const record: CharacterRecord = { ...rest, id, createdAt: now, updatedAt: now }
     writeSingle(record)
     return record
   },
@@ -98,6 +103,21 @@ export const characterMetaStore = {
     const updated: CharacterRecord = { ...record, ...data, id, updatedAt: Date.now() }
     writeSingle(updated)
     return updated
+  },
+
+  rename: (oldId: string, newId: string): CharacterRecord | null => {
+    if (oldId === newId) return characterMetaStore.getById(oldId)
+    const all = readAll()
+    if (!all.some(c => c.id === oldId)) return null
+    if (all.some(c => c.id === newId)) throw new Error(`ID "${newId}" already exists`)
+    const oldDir = resolve(CHAR_DIR, oldId)
+    const newDir = resolve(CHAR_DIR, newId)
+    renameSync(oldDir, newDir)
+    const record: CharacterRecord = JSON.parse(readFileSync(resolve(newDir, 'character.json'), 'utf-8'))
+    record.id = newId
+    record.updatedAt = Date.now()
+    writeFileSync(resolve(newDir, 'character.json'), JSON.stringify(record, null, 2), 'utf-8')
+    return record
   },
 
   delete: (id: string) => {

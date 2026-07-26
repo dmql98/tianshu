@@ -10,7 +10,7 @@ body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;backgro
 .nav-rail{width:60px;min-width:60px;z-index:10;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
 .nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer;transition:transform 0.2s}
 .nav-logo:hover{transform:scale(1.05)}
-.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s}
+.nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s;text-decoration:none}
 .nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
 .nav-item.active{background:rgba(200,150,10,0.1);color:var(--gold)}
 .nav-item .nav-label{font-size:9px;line-height:1}
@@ -105,14 +105,15 @@ body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;backgro
 .input-top-bar .top-btn:hover{background:var(--bg-hover);color:var(--ink-mid)}
 .input-top-bar .top-btn.active{color:var(--gold);background:rgba(200,150,10,0.08)}
 .input-main{display:flex;gap:12px;align-items:stretch;padding:12px 28px 14px}
-.input-star-avatar{width:130px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;border:2px solid var(--star-color,var(--gold));background:var(--bg-hover);transition:all 0.2s;overflow:hidden;border-radius:16px}
+.input-star-avatar{width:130px;aspect-ratio:1;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;border:2px solid var(--star-color,var(--gold));background:var(--bg-hover);transition:all 0.2s;overflow:hidden;border-radius:16px}
 .input-star-avatar:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(200,150,10,0.2)}
-.input-star-avatar::after{content:'';position:absolute;bottom:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:var(--jade);border:2px solid var(--bg-card);z-index:1}
 .input-star-avatar img{transform:scale(1.4) translateY(+8%)}
-.input-box{flex:1;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);overflow:visible;position:relative;transition:border-color 0.2s,box-shadow 0.2s;min-height:120px}
+.input-star-avatar span{font-size:48px;font-weight:600;color:var(--ink-mid)}
+.input-box{flex:1;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);overflow:visible;position:relative;transition:border-color 0.2s,box-shadow 0.2s;min-height:80px}
 .input-box:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(200,150,10,0.08)}
-.chat-textarea{flex:1;padding:10px 14px;padding-bottom:36px;border:none;background:transparent;color:var(--ink-deep);font-family:inherit;font-size:14px;resize:none;outline:none;min-height:24px;max-height:120px;line-height:1.5}
-.chat-textarea::placeholder{color:var(--ink-faint)}
+textarea.chat-textarea{flex:1;padding:10px 14px;padding-bottom:36px;border:none;background:transparent;color:var(--ink-deep);font-family:inherit;font-size:14px;resize:none;outline:none;min-height:24px;max-height:120px;line-height:150%}
+textarea.chat-textarea:focus{border:none;outline:none;box-shadow:none}
+textarea.chat-textarea::placeholder{color:var(--ink-faint)}
 .input-bottom{display:flex;align-items:center;gap:6px;padding:6px 10px}
 .input-bottom .tool-btn{padding:4px 8px;border-radius:4px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:11px;font-family:inherit;display:flex;align-items:center;gap:4px}
 .input-bottom .tool-btn:hover{background:var(--bg-hover);color:var(--ink-mid)}
