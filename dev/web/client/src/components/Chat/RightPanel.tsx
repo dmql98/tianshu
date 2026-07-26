@@ -4,6 +4,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useProvidersStore } from '@/stores/providersStore'
 import { fetchCharacters } from '@/api/characters'
 import { updateSession } from '@/api/sessions'
+import CharacterPicker from './CharacterPicker'
 import type { Character } from '@/types'
 
 type Strategy = 'Plan' | 'Ask' | 'Bypass'
@@ -14,6 +15,7 @@ export default function RightPanel() {
   const { toggleRightPanel } = useUIStore()
   const session = sessions.find(s => s.id === activeSessionId)
   const [character, setCharacter] = useState<Character | null>(null)
+  const [showPicker, setShowPicker] = useState(false)
   const charCache = useRef<Map<string, Character>>(new Map())
 
   useEffect(() => {
@@ -98,6 +100,9 @@ export default function RightPanel() {
 
   function handleStrategyChange(strategy: Strategy) {
     setStrategy(strategy)
+    if (activeSessionId) {
+      updateSession(activeSessionId, { current_strategy: strategy }).catch(() => {})
+    }
   }
 
   function handleReasoningEffortChange(effort: string) {
@@ -111,14 +116,17 @@ export default function RightPanel() {
     }
   }
 
-  // Build model options grouped by provider
+  // Build model options grouped by provider (only enabled models)
   const modelOptions: { providerId: string; providerName: string; modelId: string; modelName: string }[] = []
   for (const p of providers) {
+    const enabledSet = p.enabled_models && p.enabled_models.length > 0 ? new Set(p.enabled_models) : null
     for (const m of p.models || []) {
+      const mid = m.id || m.name
+      if (enabledSet && !enabledSet.has(mid)) continue
       modelOptions.push({
         providerId: p.id,
         providerName: p.name,
-        modelId: `${p.id}::${m.id || m.name}`,
+        modelId: `${p.id}::${mid}`,
         modelName: m.name || m.id,
       })
     }
@@ -133,10 +141,10 @@ export default function RightPanel() {
         <span className="rp-close" onClick={toggleRightPanel}>✕</span>
       </div>
       <div className="rp-body">
-        {/* Character art */}
-        {character && (
+        {/* Character art or add button */}
+        {character ? (
           <div className="rp-art-card">
-            <div className="rp-art" style={{ background: `linear-gradient(135deg, ${starColor}15, ${starColor}08)` }}>
+            <div className="rp-art" style={{ background: `linear-gradient(135deg, ${starColor}15, ${starColor}08)`, cursor: 'pointer' }} onClick={() => setShowPicker(true)}>
               {character.avatar
                 ? <img src={character.avatar} alt={starName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <span style={{ fontSize: 64 }}>{starName[0]}</span>
@@ -147,6 +155,34 @@ export default function RightPanel() {
               <div className="rp-art-title">{starTitle}</div>
             </div>
           </div>
+        ) : (
+          <div
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              padding: 24, cursor: 'pointer', gap: 8,
+            }}
+            onClick={() => setShowPicker(true)}
+          >
+            <div style={{
+              width: 64, height: 64, borderRadius: 16, border: '2px dashed var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28, color: 'var(--ink-faint)', background: 'var(--bg-input)',
+              transition: 'all 0.15s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-faint)' }}
+            >+</div>
+            <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>选择角色</span>
+          </div>
+        )}
+
+        {/* Character picker modal */}
+        {showPicker && activeSessionId && (
+          <CharacterPicker
+            sessionId={activeSessionId}
+            onSelect={c => setCharacter(c)}
+            onClose={() => setShowPicker(false)}
+          />
         )}
 
         {/* Running config */}
@@ -160,14 +196,19 @@ export default function RightPanel() {
               style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)', maxWidth: 140 }}
             >
               {modelOptions.length === 0 && <option value="">--</option>}
-              {providers.map(p => (
-                <optgroup key={p.id} label={p.name}>
-                  {(p.models || []).map(m => {
-                    const key = `${p.id}::${m.id || m.name}`
-                    return <option key={key} value={key}>{m.name || m.id}</option>
-                  })}
-                </optgroup>
-              ))}
+              {providers.map(p => {
+                const enabledSet = p.enabled_models && p.enabled_models.length > 0 ? new Set(p.enabled_models) : null
+                const models = (p.models || []).filter(m => !enabledSet || enabledSet.has(m.id || m.name))
+                if (models.length === 0) return null
+                return (
+                  <optgroup key={p.id} label={p.name}>
+                    {models.map(m => {
+                      const key = `${p.id}::${m.id || m.name}`
+                      return <option key={key} value={key}>{m.name || m.id}</option>
+                    })}
+                  </optgroup>
+                )
+              })}
             </select>
           </div>
           <div className="rp-row">

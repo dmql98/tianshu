@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import { fetchEvents } from './api/events'
 import CharacterDetailPage from './pages/CharacterDetailPage'
 import CharactersPage from './pages/CharactersPage'
 import ChatPage from './pages/ChatPage'
@@ -24,6 +26,21 @@ const navItems = [
 
 export default function App() {
   const navigate = useNavigate()
+  const [activeEventCount, setActiveEventCount] = useState(0)
+
+  useEffect(() => {
+    function load() {
+      fetchEvents()
+        .then(events => {
+          const count = events.filter(e => e.status === 'pending' || e.status === 'running').length
+          setActiveEventCount(count)
+        })
+        .catch(() => {})
+    }
+    load()
+    const timer = setInterval(load, 30000) // refresh every 30s
+    return () => clearInterval(timer)
+  }, [])
 
   return (
     <div className="app">
@@ -48,7 +65,7 @@ export default function App() {
         >
           ⚡
           <span className="nav-label">事件</span>
-          <span className="nav-badge">2</span>
+          {activeEventCount > 0 && <span className="nav-badge">{activeEventCount}</span>}
         </NavLink>
         <div className="nav-spacer"></div>
         <NavLink

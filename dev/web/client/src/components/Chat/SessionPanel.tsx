@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
+import FolderPicker from './FolderPicker'
 import type { Session } from '@/types'
 
 function timeAgo(ts: number): string {
@@ -23,6 +24,7 @@ interface ContextMenu {
 export default function SessionPanel() {
   const [search, setSearch] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
   const navigate = useNavigate()
   const menuRef = useRef<HTMLDivElement>(null)
   const {
@@ -109,7 +111,12 @@ export default function SessionPanel() {
   }
 
   async function handleNewSession() {
-    const session = await createSession()
+    setShowFolderPicker(true)
+  }
+
+  async function handleFolderSelect(workspace: string) {
+    setShowFolderPicker(false)
+    const session = await createSession({ workspace })
     navigate(`/chat/${session.id}`)
   }
 
@@ -221,7 +228,7 @@ export default function SessionPanel() {
           onChange={e => setSearch(e.target.value)}
         />
       </div>
-      <div className="add-btn" onClick={handleNewSession}>+ 新建会话</div>
+      <div className="add-btn" onClick={handleNewSession}>+ 新建项目</div>
       <div className="ctx-body">
         {filteredGroups.map(group => (
           <div key={group.name} className="project-item">
@@ -287,6 +294,14 @@ export default function SessionPanel() {
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
           <ContextMenuItem icon="🗑️" label="删除" danger onClick={() => handleDelete(contextMenu.session)} />
         </div>
+      )}
+
+      {/* Folder Picker */}
+      {showFolderPicker && (
+        <FolderPicker
+          onSelect={handleFolderSelect}
+          onClose={() => setShowFolderPicker(false)}
+        />
       )}
     </aside>
   )

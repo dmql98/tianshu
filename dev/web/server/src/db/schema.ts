@@ -24,6 +24,7 @@ export function getDb(): Database.Database {
   try { db.exec('ALTER TABLE sessions ADD COLUMN cache_hit_tokens INTEGER DEFAULT 0') } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN cache_miss_tokens INTEGER DEFAULT 0') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN cache_hit_ratio TEXT DEFAULT 'N/A'") } catch { }
+  try { db.exec("ALTER TABLE sessions ADD COLUMN reasoning_effort TEXT") } catch { }
   try { db.exec('ALTER TABLE events ADD COLUMN model TEXT') } catch { }
   try { db.exec('ALTER TABLE events ADD COLUMN provider_id TEXT') } catch { }
   try { db.exec('ALTER TABLE events ADD COLUMN workspace TEXT') } catch { }
