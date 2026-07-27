@@ -33,7 +33,7 @@ export default function NavRail() {
 
   return (
     <nav className="nav-rail">
-      <div className="nav-logo" title="天枢">天</div>
+      <img className="nav-logo" src="/logo.png" alt="天枢" title="天枢" />
       {navItems.map(item => (
         <button
           key={item.tab}

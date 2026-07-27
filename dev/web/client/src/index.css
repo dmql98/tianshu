@@ -8,7 +8,7 @@ body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;backgro
 
 .app{display:flex;height:100vh;position:relative}
 .nav-rail{width:60px;min-width:60px;z-index:10;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
-.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;background:linear-gradient(135deg,var(--gold),#a07808);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;cursor:pointer;transition:transform 0.2s}
+.nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;cursor:pointer;transition:transform 0.2s;object-fit:cover}
 .nav-logo:hover{transform:scale(1.05)}
 .nav-item{width:44px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-light);font-size:18px;transition:all 0.15s;text-decoration:none}
 .nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}

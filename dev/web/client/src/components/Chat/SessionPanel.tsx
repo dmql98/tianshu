@@ -53,25 +53,13 @@ export default function SessionPanel() {
     [sessions]
   )
 
-  // Group parent sessions by workspace
+  // Group parent sessions by project area (session.workspace)
   const workspaceGroups = useMemo(() => {
     const groups = new Map<string, Session[]>()
     parentSessions.forEach(session => {
-      let workspaces: string[] = ['default']
-      if (session.workspaces) {
-        try {
-          workspaces = typeof session.workspaces === 'string'
-            ? JSON.parse(session.workspaces) : session.workspaces
-        } catch { /* ignore */ }
-      } else if (session.workspace) {
-        workspaces = [session.workspace]
-      }
-      for (const ws of workspaces) {
-        if (!groups.has(ws)) groups.set(ws, [])
-        if (!groups.get(ws)!.find(s => s.id === session.id)) {
-          groups.get(ws)!.push(session)
-        }
-      }
+      const project = session.workspace || 'default'
+      if (!groups.has(project)) groups.set(project, [])
+      groups.get(project)!.push(session)
     })
     return Array.from(groups.entries())
       .map(([name, sessions]) => ({

@@ -57,6 +57,8 @@ export default function RightPanel() {
   } else if (session.workspace) {
     workspaces = [session.workspace]
   }
+  // 授权工作区 = all workspaces except the project area
+  const authorizedWorkspaces = workspaces.filter(ws => ws !== session.workspace)
 
   // Context usage estimate (match old frontend logic)
   let totalChars = 0
@@ -240,10 +242,22 @@ export default function RightPanel() {
           <div className="rp-row"><span className="label">步数限制</span><span className="value">{stepLimitText}</span></div>
         </div>
 
-        {/* Workspaces */}
+        {/* 项目区 — bound at creation, read-only */}
+        <div className="rp-section">
+          <div className="rp-section-title">项目区</div>
+          {session.workspace ? (
+            <div className="rp-ws-item">
+              <span className="rp-ws-path">{session.workspace}</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>未设置项目</div>
+          )}
+        </div>
+
+        {/* 授权工作区 — add/remove freely */}
         <div className="rp-section">
           <div className="rp-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            工作区
+            授权工作区
             <button
               style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
               title="添加路径"
@@ -253,14 +267,12 @@ export default function RightPanel() {
               }}
             >+</button>
           </div>
-          {workspaces.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>无工作区</div>
-          ) : workspaces.map((ws, i) => (
+          {authorizedWorkspaces.length === 0 ? (
+            <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>无授权工作区</div>
+          ) : authorizedWorkspaces.map((ws, i) => (
             <div key={i} className="rp-ws-item">
               <span className="rp-ws-path">{ws}</span>
-              {i > 0 && (
-                <button className="rp-ws-del" title="删除" onClick={() => removeWorkspace(ws)}>✕</button>
-              )}
+              <button className="rp-ws-del" title="删除" onClick={() => removeWorkspace(ws)}>✕</button>
             </div>
           ))}
         </div>

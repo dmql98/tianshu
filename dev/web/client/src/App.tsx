@@ -45,7 +45,7 @@ export default function App() {
   return (
     <div className="app">
       <nav className="nav-rail">
-        <div className="nav-logo" title="天枢" onClick={() => navigate('/')}>天</div>
+        <img className="nav-logo" src="/logo.png" alt="天枢" title="天枢" onClick={() => navigate('/')} />
         {navItems.map(item => (
           <NavLink
             key={item.to}

@@ -41,14 +41,6 @@ export default function ChatPage() {
         <main className="main" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
           <div style={{ fontSize: 48, opacity: 0.3 }}>💬</div>
           <div style={{ fontSize: 16, color: 'var(--ink-mid)', fontWeight: 500 }}>选择一个会话开始对话</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>或创建一个新的会话</div>
-          <button
-            className="detail-btn primary"
-            onClick={handleNewSession}
-            style={{ marginTop: 8 }}
-          >
-            + 新建会话
-          </button>
         </main>
       </>
     )

@@ -163,6 +163,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'provider', label: '🔗 模型服务' },
+    { id: 'system', label: '⚙️ 系统' },
     { id: 'display', label: '🎨 显示' },
     { id: 'session', label: '💬 会话' },
     { id: 'event', label: '⚡ 事件' },
@@ -270,6 +271,29 @@ export default function SettingsPage() {
           <EditProviderDialog provider={editTarget} onClose={() => setEditTarget(null)} />
         )}
 
+        {/* 系统 */}
+        <div className="tab-page" style={{display: activeTab === 'system' ? 'block' : 'none'}}>
+          <div className="settings-section">
+            <div className="section-title">系统</div>
+            <div className="section-desc">全局系统配置，影响所有会话和角色。</div>
+
+            <div className="setting-row">
+              <div className="setting-info"><span className="setting-label">配置路径</span><span className="setting-hint">天枢系统配置与数据的根目录</span></div>
+              <div className="setting-control"><input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value) }} style={{width:280}}/></div>
+            </div>
+          </div>
+
+          <div className="settings-section" style={{marginTop:32}}>
+            <div className="section-title">默认系统提示词</div>
+            <div className="section-desc">所有未自定义 prompt.md 的角色使用此模板。</div>
+            <textarea rows={10} value={defaultPrompt} onChange={e => { setDefaultPrompt(e.target.value); setPromptDirty(true) }} />
+            <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
+              <button className="btn primary" onClick={handleSavePrompt} disabled={!promptDirty}>保存</button>
+              {promptDirty && <span style={{fontSize:11,color:'var(--ink-faint)'}}>未保存</span>}
+            </div>
+          </div>
+        </div>
+
         {/* 显示 */}
         <div className="tab-page" style={{display: activeTab === 'display' ? 'block' : 'none'}}>
           <div className="settings-section">
@@ -310,12 +334,8 @@ export default function SettingsPage() {
         <div className="tab-page" style={{display: activeTab === 'session' ? 'block' : 'none'}}>
           <div className="settings-section">
             <div className="section-title">会话</div>
-            <div className="section-desc">会话显示偏好与默认配置。</div>
+            <div className="section-desc">会话显示偏好与交互设置。</div>
 
-            <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">默认工作区</span><span className="setting-hint">新会话的默认工作目录</span></div>
-              <div className="setting-control"><input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value) }} style={{width:280}}/></div>
-            </div>
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">流式输出</span><span className="setting-hint">实时逐字显示 LLM 回复</span></div>
               <div className="setting-control"><div className={`toggle ${streaming ? 'on' : ''}`} onClick={() => { setStreaming(!streaming); saveLs('streaming', !streaming) }} /></div>
@@ -331,16 +351,6 @@ export default function SettingsPage() {
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">显示消耗</span><span className="setting-hint">在消息中显示 token 消耗</span></div>
               <div className="setting-control"><div className={`toggle ${showCost ? 'on' : ''}`} onClick={() => { setShowCost(!showCost); saveLs('showCost', !showCost) }} /></div>
-            </div>
-          </div>
-
-          <div className="settings-section" style={{marginTop:32}}>
-            <div className="section-title">默认系统提示词</div>
-            <div className="section-desc">所有未自定义 prompt.md 的角色使用此模板。<code style={{background:'var(--bg-hover)',padding:'1px 4px',borderRadius:3,fontSize:11}}>{'{{GUIDANCE}}'}</code> 会被自动替换为工具使用指引。</div>
-            <textarea rows={10} value={defaultPrompt} onChange={e => { setDefaultPrompt(e.target.value); setPromptDirty(true) }} />
-            <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
-              <button className="btn primary" onClick={handleSavePrompt} disabled={!promptDirty}>保存</button>
-              {promptDirty && <span style={{fontSize:11,color:'var(--ink-faint)'}}>未保存</span>}
             </div>
           </div>
         </div>
