@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import MessageItem from './MessageItem'
 
+const isCompact = () => localStorage.getItem('tianshu:compact') === 'true'
+
 export default function MessageList() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const { sessions, activeSessionId } = useChatStore()
@@ -15,7 +17,7 @@ export default function MessageList() {
   }, [messages])
 
   return (
-    <div className="chat-scroll" ref={scrollRef}>
+    <div className={`chat-scroll${isCompact() ? ' compact' : ''}`} ref={scrollRef}>
       {messages.map(msg => (
         <MessageItem key={msg.id} message={msg} />
       ))}

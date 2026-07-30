@@ -152,11 +152,9 @@ export default function SessionPanel() {
   }
 
   function handleDelete(session: Session) {
-    if (confirm(`确定删除会话「${session.title || '新会话'}」？`)) {
-      deleteSession(session.id)
-      if (activeSessionId === session.id) {
-        navigate('/chat')
-      }
+    deleteSession(session.id)
+    if (activeSessionId === session.id) {
+      navigate('/chat')
     }
     setContextMenu(null)
   }

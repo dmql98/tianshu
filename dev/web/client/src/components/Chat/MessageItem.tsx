@@ -2,6 +2,8 @@ import type { Message } from '@/types'
 import ThinkingBlock from './ThinkingBlock'
 import ToolCall from './ToolCall'
 
+const showReasoning = () => localStorage.getItem('tianshu:showReasoning') !== 'false'
+
 interface Props {
   message: Message
 }
@@ -24,6 +26,7 @@ export default function MessageItem({ message }: Props) {
         <ThinkingBlock
           content={message.reasoning}
           duration={message.reasoning_duration}
+          defaultExpanded={showReasoning()}
         />
       )}
       <div className="msg-bubble">

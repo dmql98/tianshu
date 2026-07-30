@@ -4,6 +4,7 @@ import * as sessionsApi from '@/api/sessions'
 import { connectSocket, getSocket } from '@/api/socket'
 import { useProvidersStore } from './providersStore'
 
+
 const PERSIST_KEY = 'tianshu-chat-defaults'
 const DEFAULT_WORKSPACE = 'C:\\.Tianshu'
 
@@ -580,6 +581,17 @@ export const useChatStore = create<ChatState>((set, get) => {
         attachments: [],
         tokenUsage: { input: 0, output: 0, total: 0 },
       }))
+
+      // Auto-generate session title from first message
+      if (!session.title && input.trim()) {
+        const title = input.replace(/\n+/g, ' ').trim().slice(0, 60)
+        set(state => ({
+          sessions: state.sessions.map(s =>
+            s.id === session!.id ? { ...s, title } : s
+          ),
+        }))
+        sessionsApi.updateSession(session.id, { title }).catch(() => {})
+      }
 
       // Ensure provider
       if (!session.provider_id) {

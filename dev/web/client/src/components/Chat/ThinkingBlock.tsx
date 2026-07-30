@@ -3,10 +3,11 @@ import { useState } from 'react'
 interface Props {
   content: string
   duration?: number
+  defaultExpanded?: boolean
 }
 
-export default function ThinkingBlock({ content, duration }: Props) {
-  const [expanded, setExpanded] = useState(false)
+export default function ThinkingBlock({ content, duration, defaultExpanded = false }: Props) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
 
   return (
     <div className="thinking-block" onClick={() => setExpanded(!expanded)}>

@@ -21,16 +21,10 @@ if not exist "web\client\node_modules" (
     pause
     exit /b 1
 )
-if not exist "web\client-old\node_modules" (
-    echo [ERROR] Old client dependencies not found. Run setup.bat first.
-    pause
-    exit /b 1
-)
 
 :: Kill existing processes on ports
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3456 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3457 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3458 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 timeout /t 1 /nobreak >nul
 
 :: Start server
@@ -44,15 +38,9 @@ echo Starting TianShu Client on :3457 ...
 start "TianShu Client" cmd /k "cd /d %~dp0web\client && node_modules\.bin\vite.cmd --port 3457 --host"
 timeout /t 2 /nobreak >nul
 
-:: Start old client
-echo Starting TianShu Old Client on :3458 ...
-start "TianShu Old Client" cmd /k "cd /d %~dp0web\client-old && node_modules\.bin\vite.cmd --port 3458 --host"
-timeout /t 4 /nobreak >nul
-
 :: Open browser
 start "" "http://localhost:3457"
-start "" "http://localhost:3458"
 
 echo.
-echo  Server :3456  |  Client :3457  |  Old Client :3458
+echo  Server :3456  |  Client :3457
 echo  Close this window to stop all.

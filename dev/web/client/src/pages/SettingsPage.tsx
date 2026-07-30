@@ -32,7 +32,6 @@ export default function SettingsPage() {
 
   // ── 会话设置 ──
   const [workspace, setWorkspace] = useState(ls('defaultWorkspace', 'C:\\.Tianshu'))
-  const [streaming, setStreaming] = useState(lsBool('streaming', true))
   const [compact, setCompact] = useState(lsBool('compact', false))
   const [showReasoning, setShowReasoning] = useState(lsBool('showReasoning', true))
   const [showCost, setShowCost] = useState(lsBool('showCost', false))
@@ -339,10 +338,6 @@ export default function SettingsPage() {
             <div className="section-title">会话</div>
             <div className="section-desc">会话显示偏好与交互设置。</div>
 
-            <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">流式输出</span><span className="setting-hint">实时逐字显示 LLM 回复</span></div>
-              <div className="setting-control"><div className={`toggle ${streaming ? 'on' : ''}`} onClick={() => { setStreaming(!streaming); saveLs('streaming', !streaming) }} /></div>
-            </div>
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">紧凑模式</span><span className="setting-hint">缩小消息间距，显示更多内容</span></div>
               <div className="setting-control"><div className={`toggle ${compact ? 'on' : ''}`} onClick={() => { setCompact(!compact); saveLs('compact', !compact) }} /></div>
