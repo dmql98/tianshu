@@ -67,6 +67,7 @@ interface ChatState {
 
   // Cleanup ref (not in state, mutable)
   _currentCleanup: (() => void) | null
+  _activeRunId: string | null
   _notificationTimer: ReturnType<typeof setTimeout> | null
   _loadingSessions: boolean
 
@@ -143,6 +144,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         provider_id: parent?.provider_id ?? null,
         workspace: parent?.workspace ?? null,
         workspaces: parent?.workspaces ?? null,
+        dataspace: parent?.dataspace ?? null,
         parent_id: data.session_id,
         active_group: null,
         created_at: Date.now(),
@@ -164,6 +166,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         provider_id: null,
         workspace: null,
         workspaces: null,
+        dataspace: null,
         parent_id: null,
         active_group: null,
         session_type: 'event',
@@ -198,11 +201,12 @@ export const useChatStore = create<ChatState>((set, get) => {
     })
 
     // Persistent streaming for non-active sessions
-    function isActiveNonEvent(sid: string): boolean {
+    function isHandledByTemporaryListener(data: RunEvent): boolean {
       const state = get()
-      if (sid !== state.activeSessionId) return false
-      const s = state.sessions.find(x => x.id === sid)
-      return s?.session_type !== 'event'
+      if (!state._currentCleanup || data.session_id !== state.activeSessionId) return false
+      const s = state.sessions.find(x => x.id === data.session_id)
+      if (s?.session_type === 'event') return false
+      return !data.run_id || data.run_id === state._activeRunId
     }
 
     function updateSessionMessage(sessionId: string, updater: (session: Session) => Session) {
@@ -213,7 +217,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     socket.off('message.delta')
     socket.on('message.delta', (data: RunEvent) => {
-      if (isActiveNonEvent(data.session_id)) return
+      if (isHandledByTemporaryListener(data)) return
       const state = get()
       const s = state.sessions.find(x => x.id === data.session_id)
       if (!s) return
@@ -239,7 +243,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     socket.off('tool.started')
     socket.on('tool.started', (data: RunEvent) => {
-      if (isActiveNonEvent(data.session_id)) return
+      if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: [...sess.messages, {
@@ -253,7 +257,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     socket.off('tool.completed')
     socket.on('tool.completed', (data: RunEvent) => {
-      if (isActiveNonEvent(data.session_id)) return
+      if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: sess.messages.map(m =>
@@ -266,12 +270,12 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     socket.off('tool.output')
     socket.on('tool.output', (data: RunEvent) => {
-      if (isActiveNonEvent(data.session_id)) return
+      if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: sess.messages.map(m =>
           m.role === 'tool' && m.tool_call_id === data.tool_call_id
-            ? { ...m, tool_output: (m.tool_output || '') + (data.tool_output || '') }
+            ? { ...m, tool_output: (m.tool_output || '') + (data.output || '') }
             : m
         ),
       }))
@@ -279,7 +283,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     socket.off('run.completed')
     socket.on('run.completed', (data: RunEvent) => {
-      if (isActiveNonEvent(data.session_id)) return
+      if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -300,7 +304,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     socket.off('run.failed')
     socket.on('run.failed', (data: RunEvent) => {
-      if (isActiveNonEvent(data.session_id)) return
+      if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: [...sess.messages, {
@@ -323,6 +327,11 @@ export const useChatStore = create<ChatState>((set, get) => {
         }))
       }
     })
+
+    socket.off('run.retrying')
+    socket.on('run.retrying', (data: RunEvent) => {
+      if (data.session_id === get().activeSessionId) set({ isStreaming: true })
+    })
   }
 
   // Initialize listeners on store creation
@@ -342,6 +351,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     evolutionNotification: null,
     attachments: [],
     _currentCleanup: null,
+    _activeRunId: null,
     _notificationTimer: null,
     _loadingSessions: false,
 
@@ -407,6 +417,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         provider_id: opts.provider_id || defs.provider_id || (providersStore.providers[0]?.id) || null,
         workspace: opts.workspace || defs.defaultWorkspace || DEFAULT_WORKSPACE,
         workspaces: opts.workspaces ? JSON.stringify(opts.workspaces) : (opts.workspace || defs.defaultWorkspace) ? JSON.stringify([opts.workspace || defs.defaultWorkspace]) : null,
+        dataspace: defs.defaultWorkspace || DEFAULT_WORKSPACE,
         parent_id: opts.parent_id || null,
         active_group: opts.active_group || null,
         session_type: opts.session_type,
@@ -428,6 +439,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           provider_id: session.provider_id,
           workspace: session.workspace,
           workspaces: session.workspaces,
+          dataspace: session.dataspace,
           parent_id: session.parent_id,
           active_group: session.active_group,
           session_type: session.session_type,
@@ -452,7 +464,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       // Cleanup previous session listeners
       if (state._currentCleanup) {
         state._currentCleanup()
-        set({ _currentCleanup: null, isStreaming: false })
+        set({ _currentCleanup: null, _activeRunId: null, isStreaming: false })
       }
 
       set({ activeSessionId: id })
@@ -584,12 +596,14 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const socket = connectSocket()
+      const runId = `run_${session.id}_${uid()}`
       const workspaces = session.workspaces
         ? (typeof session.workspaces === 'string' ? JSON.parse(session.workspaces) : session.workspaces)
         : undefined
 
       socket.emit('chat-run', {
         session_id: session.id,
+        run_id: runId,
         character_id: session.character_id,
         input,
         attachments: attachPayload,
@@ -597,6 +611,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         provider_id: session.provider_id || undefined,
         workspace: session.workspace || undefined,
         workspaces: workspaces || undefined,
+        dataspace: session.dataspace || undefined,
         active_group: session.active_group || undefined,
         session_type: session.session_type || undefined,
         event_id: session.event_id || undefined,
@@ -605,6 +620,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
 
       // ── Per-session temporary listeners ──
+      function belongsToRun(data: { run_id?: string }): boolean {
+        return !data.run_id || data.run_id === runId
+      }
+
       function findSession(sid: string): Session | null {
         const s = get().sessions
         if (sid === session!.id) return s.find(x => x.id === sid) || null
@@ -618,6 +637,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onRunStarted = (data: RunEvent & { context_window?: number }) => {
+        if (!belongsToRun(data)) return
         set({ tokenUsage: { input: 0, output: 0, total: 0 } })
         if (data.context_window) {
           const s = findSession(data.session_id)
@@ -632,6 +652,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onDelta = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
         const last = s.messages[s.messages.length - 1]
@@ -655,6 +676,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onToolStarted = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
         updateMsg(data.session_id, sess => ({
@@ -669,6 +691,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onToolCompleted = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
         updateMsg(data.session_id, sess => ({
@@ -682,13 +705,14 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onToolOutput = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
         updateMsg(data.session_id, sess => ({
           ...sess,
           messages: sess.messages.map(m =>
             m.role === 'tool' && m.tool_call_id === data.tool_call_id
-              ? { ...m, tool_output: (m.tool_output || '') + (data.tool_output || '') }
+              ? { ...m, tool_output: (m.tool_output || '') + (data.output || '') }
               : m
           ),
         }))
@@ -706,6 +730,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onApprovalRequested = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         if (data.session_id !== session!.id) return
         set({
           pendingApproval: {
@@ -716,13 +741,15 @@ export const useChatStore = create<ChatState>((set, get) => {
         })
       }
 
-      const onUsage = (data: { session_id: string; input_tokens: number; output_tokens: number }) => {
+      const onUsage = (data: { session_id: string; run_id?: string; input_tokens: number; output_tokens: number }) => {
+        if (!belongsToRun(data)) return
         if (data.session_id === session!.id) {
           set({ tokenUsage: { input: data.input_tokens, output: data.output_tokens, total: data.input_tokens + data.output_tokens } })
         }
       }
 
       const onCompleted = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
         updateMsg(data.session_id, sess => {
@@ -738,6 +765,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onCompacted = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (s) {
           set(state => ({
@@ -749,6 +777,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       const onFailed = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
         updateMsg(data.session_id, sess => ({
@@ -776,9 +805,15 @@ export const useChatStore = create<ChatState>((set, get) => {
         socket.off('run.completed', onCompleted)
         socket.off('usage', onUsage)
         socket.off('run.compacted', onCompacted)
+        socket.off('run.retrying', onRetrying)
         socket.off('run.failed', onFailed)
         const state = get()
-        if (state._currentCleanup === cleanup) set({ _currentCleanup: null })
+        if (state._currentCleanup === cleanup) set({ _currentCleanup: null, _activeRunId: null })
+      }
+
+      const onRetrying = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
+        if (data.session_id === session!.id) set({ isStreaming: true })
       }
 
       socket.on('strategy.updated', onStrategyUpdated)
@@ -791,9 +826,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       socket.on('run.completed', onCompleted)
       socket.on('usage', onUsage)
       socket.on('run.compacted', onCompacted)
+      socket.on('run.retrying', onRetrying)
       socket.on('run.failed', onFailed)
 
-      set({ _currentCleanup: cleanup })
+      set({ _currentCleanup: cleanup, _activeRunId: runId })
     },
 
     abortRun: () => {

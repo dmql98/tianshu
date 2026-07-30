@@ -1,3 +1,5 @@
+import { describeTransportError } from './errors.js'
+
 // Toggle streaming usage info. Some providers (proxies) may handle
 // include_usage differently and affect prefix caching. Disable to probe.
 const INCLUDE_USAGE = process.env.LLM_INCLUDE_USAGE !== 'false'
@@ -167,7 +169,11 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     }
   } catch (err: any) {
     if (err.name === 'AbortError' || signal?.aborted) return
-    yield { type: 'error', text: err.message }
+    const errorText = describeTransportError(err)
+    let host = 'unknown'
+    try { host = new URL(url).host } catch {}
+    console.error(`[llm] request failed host=${host}: ${errorText}`)
+    yield { type: 'error', text: errorText }
     return
   } finally {
     signal?.removeEventListener('abort', onAbort)

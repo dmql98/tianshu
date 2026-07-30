@@ -1,9 +1,1 @@
-{
-    "name": "character_manager",
-    "description": "Create a character with soul.md + character.json + user.md + memory.md. All files are written server-side to data/characters/<id>/ â€” workspace-independent. Returns the new character ID.",
-    "source": "builtin",
-    "dangerous": false,
-    "version": "1.0.0",
-    "tags": ["characters"],
-    "author": "Yi-Lin"
-}
+{    "name": "character_manager",    "description": "Create a character with soul.md + character.json + user.md + memory.md. All files are written server-side to data/characters/<id>/ â€?workspace-independent. Returns the new character ID.",    "source": "builtin",    "dangerous": false,    "version": "1.0.0",    "tags": ["characters"],    "author": "TianShu"}

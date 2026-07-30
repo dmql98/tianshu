@@ -108,6 +108,18 @@ export default function SessionPanel() {
     navigate(`/chat/${session.id}`)
   }
 
+  async function handleNewSessionInWorkspace(
+    event: React.MouseEvent<HTMLButtonElement>,
+    workspace: string,
+  ) {
+    event.stopPropagation()
+    if (collapsedWorkspaces.has(workspace)) {
+      toggleWorkspaceCollapse(workspace)
+    }
+    const session = await createSession(workspace === 'default' ? {} : { workspace })
+    navigate(`/chat/${session.id}`)
+  }
+
   function handleContextMenu(e: React.MouseEvent, session: Session) {
     e.preventDefault()
     e.stopPropagation()
@@ -226,6 +238,15 @@ export default function SessionPanel() {
             >
               <span className="project-icon">📁</span>
               <span className="project-name">{group.name === 'default' ? '默认' : group.name.split(/[/\\]/).pop() || group.name}</span>
+              <button
+                type="button"
+                className="project-add-btn"
+                title={`在「${group.name === 'default' ? '默认' : group.name.split(/[/\\]/).pop() || group.name}」中新建会话`}
+                aria-label={`在项目 ${group.name} 中新建会话`}
+                onClick={event => handleNewSessionInWorkspace(event, group.name)}
+              >
+                +
+              </button>
               <span className={`project-arrow ${!group.collapsed ? 'open' : ''}`}>▶</span>
             </div>
             {!group.collapsed && (

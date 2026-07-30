@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs'
 import { resolve } from 'path'
 import { randomUUID } from 'crypto'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 const MEDIA_DIR = resolve(DATA_DIR, 'media')
 
 export interface AttachmentMeta {

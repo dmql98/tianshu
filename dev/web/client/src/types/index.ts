@@ -7,6 +7,7 @@ export interface SessionSummary {
   provider_id: string | null
   workspace: string | null
   workspaces: string | null
+  dataspace: string | null
   parent_id: string | null
   active_group: string | null
   session_type?: 'chat' | 'event'
@@ -132,8 +133,10 @@ export interface Provider {
 // Socket 事件
 export interface RunEvent {
   session_id: string
+  run_id?: string
   delta?: string
   reasoning?: string
+  output?: string
   tool_name?: string
   tool_input?: string
   tool_output?: string
@@ -141,6 +144,10 @@ export interface RunEvent {
   tool_status?: string
   strategy?: string
   error?: string
+  attempt?: number
+  max_attempts?: number
+  delay_ms?: number
+  scope?: 'request' | 'run'
   cache?: { hitTokens: number; missTokens: number; hitRatio: string }
   context_window?: number
 }

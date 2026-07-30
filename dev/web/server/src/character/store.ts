@@ -1,8 +1,9 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs'
 import { resolve } from 'path'
 import { characterMetaStore } from '../db/characterStore.js'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 const CHAR_DIR = resolve(DATA_DIR, 'characters')
 
 function readMdOrLegacy(characterId: string, section: string, legacyKey: string): string {

@@ -17,7 +17,6 @@ import { setMCPStatus } from '../tools/mcp-status.js'
 import { preprocessContextReferences } from './context-references.js'
 import { eventService } from '../event/eventService.js'
 import { evolutionConfig } from '../evolution/evolutionConfig.js'
-import * as fs from 'fs'
 import * as path from 'path'
 import { streamChatCompletion, type LLMMessage } from '../llm/client.js'
 import { reconstructParts, lowerContentToProvider, textPart, resolveCapability, resolveProviderFormat, type ProviderCapability, type ProviderFormat } from './attachments.js'
@@ -28,12 +27,8 @@ import type { MCPClient } from '../tools/mcp-client.js'
 const DEFAULT_MAX_TURNS = 20
 const DEFAULT_CONTEXT_WINDOW = 200000
 
-const DEFAULT_WORKSPACE = 'C:\\.Yi'
-if (!fs.existsSync(DEFAULT_WORKSPACE)) {
-  try { fs.mkdirSync(DEFAULT_WORKSPACE, { recursive: true }) } catch {}
-}
 function resolveWorkspace(ws: string | null | undefined): string {
-  return ws || DEFAULT_WORKSPACE
+  return ws || getDataDir()
 }
 function resolveWorkspaces(session: { workspace?: string | null; workspaces?: string | null }): string[] {
   if (session.workspaces) {
@@ -41,6 +36,9 @@ function resolveWorkspaces(session: { workspace?: string | null; workspaces?: st
     catch { /* fall through */ }
   }
   return [resolveWorkspace(session.workspace)]
+}
+function resolveDataspace(ds: string | null | undefined): string | undefined {
+  return ds || undefined
 }
 const SOFT_COMPACT_RATIO = 0.5
 const SNIP_RATIO = 0.6
@@ -83,8 +81,9 @@ Rules:
 
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 const DEFAULT_PROMPT_FILE = resolve(DATA_DIR, 'prompts', 'default.md')
 
 function loadPromptTemplate(charId: string): string {
@@ -103,6 +102,7 @@ function assembleStaticPrompt(
   charContent: { soul: string; user: string },
   toolDefs: any[],
   workspace: string,
+  dataspace?: string,
 ): string {
   const parts: string[] = []
 
@@ -133,7 +133,10 @@ function assembleStaticPrompt(
     }
   }
 
-  parts.push(`## Workspace\nYou can access: ${workspace}\nCreate it if it does not exist.`)    
+  if (dataspace) {
+    parts.push(`## Data Space\nSystem configuration and data root: ${dataspace}`)
+  }
+  parts.push(`## Workspace\nProject workspace: ${workspace}\nCreate it if it does not exist.`)
 
   return parts.join('\n\n')
 }
@@ -452,23 +455,25 @@ export interface RunResult {
   totalCacheMissTokens: number
 }
 
-export async function sessionLoop(io: Server, socket: Socket, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string } = {}): Promise<RunResult> {
+export async function sessionLoop(io: Server, socket: Socket, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {}): Promise<RunResult> {
+  const runId = opts.run_id || `run_${sessionId}_${Date.now()}`
+  opts.run_id = runId
   const session = sessionStore.getById(sessionId)
-  if (!session) { socket.emit('run.failed', { session_id: sessionId, error: 'Session not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!session) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Session not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const charMeta = characterMetaStore.getById(session.character_id)
-  if (!charMeta) { socket.emit('run.failed', { session_id: sessionId, error: 'Character not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!charMeta) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Character not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const charContent = characterContentStore.get(session.character_id)
 
   const providerId = session.provider_id
-  if (!providerId) { socket.emit('run.failed', { session_id: sessionId, error: 'No provider configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!providerId) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'No provider configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const provider = providerStore.getById(providerId)
-  if (!provider) { socket.emit('run.failed', { session_id: sessionId, error: 'Provider not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!provider) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Provider not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const model = session.model || provider.models[0]?.id
-  if (!model) { socket.emit('run.failed', { session_id: sessionId, error: 'No model configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!model) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'No model configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const modelConfig = provider.models.find(m => m.id === model)
   const contextWindow = modelConfig?.context_window || DEFAULT_CONTEXT_WINDOW
@@ -478,6 +483,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
 
   const workspaces = resolveWorkspaces(session)
   const workspace = resolveWorkspace(session.workspace)
+  const dataspace = resolveDataspace(session.dataspace)
 
   const maxTurns = charMeta.maxSteps || DEFAULT_MAX_TURNS
 
@@ -569,7 +575,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     const comp = extractComponents(charMeta.id, normalizeTools(toolDefs), charMeta.skills, charContent.soul, charContent.user)
     const reasons = diagnoseMiss(charMeta.id, comp)
     console.log(`[system-cache] miss ${key}: ${reasons.join(', ')} (${toolDefs.length} tools, ${(charMeta.skills || []).length} skills)`)
-    systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace))
+    systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), resolveDataspace(session.dataspace))
     setCached(key, systemPrompt)
   }
 
@@ -666,7 +672,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   const composeCtx: ComposeContext = { systemAlerts: [] }
   let prevPrefixShape: PrefixShape | undefined
 
-  socket.emit('run.started', { session_id: sessionId, context_window: contextWindow })
+  socket.emit('run.started', { session_id: sessionId, run_id: runId, context_window: contextWindow })
 
   while (turn < maxTurns && !signal?.aborted) {
     turn++
@@ -700,7 +706,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     const result = await innerLoop(composedMsgs,
       tools, provider, model, session.character_id,
       workspace, io, socket, sessionId, signal, opts, turn,
-      mcpClients, workspaces, cap,
+      mcpClients, workspaces, cap, dataspace,
     )
 
     totalInputTokens += result.totalInputTokens
@@ -723,12 +729,12 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
               compaction_summary: result.summary!,
               compaction_until_id: result.compactedUntilId || null,
             })
-            socket.emit('run.compacted', { session_id: sessionId, message: 'Context overflow recovered via compaction' })
+            socket.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context overflow recovered via compaction' })
             continue
           }
         }
         console.log(`[session] ${sessionId} failed: context overflow (${turn} turns)`)
-        socket.emit('run.failed', { session_id: sessionId, error: `Context overflow: ${result.error}` })
+        socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: `Context overflow: ${result.error}` })
         for (const [, client] of mcpClients) {
           await disconnectMCPServer(client).catch(() => {})
         }
@@ -738,14 +744,24 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
       consecutiveErrors++
       if (consecutiveErrors >= 2) {
         console.log(`[session] ${sessionId} failed: 2 consecutive errors (${turn} turns)`)
-        socket.emit('run.failed', { session_id: sessionId, error: result.error })
+        socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: result.error })
         for (const [, client] of mcpClients) {
           await disconnectMCPServer(client).catch(() => {})
         }
         return { status: 'stop', sessionId, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
       }
-      // First non-context error — report via compose (turn tail), not system message
-      composeCtx.systemAlerts!.push(`[System Note] An API error occurred (${result.error}). This may be transient. Please retry your last action with a simpler approach or different strategy.`)
+      socket.emit('run.retrying', {
+        session_id: sessionId,
+        run_id: runId,
+        scope: 'run',
+        attempt: 2,
+        max_attempts: 2,
+        error: result.error,
+        delay_ms: 0,
+      })
+      // Keep the retry context at the turn tail without misclassifying an API
+      // transport failure as a tool failure.
+      composeCtx.systemAlerts!.push(`[System Note] The model API request failed transiently (${result.error}). Continue from the existing conversation and tool results; do not repeat completed work.`)
       continue
     }
     consecutiveErrors = 0
@@ -764,7 +780,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
         const subResult = await spawnAndRunSubAgent(
           req.task, req.target_character_id,
           session, provider, model,
-          req.sub_strategy, signal, 0, io, socket,
+          req.sub_strategy, signal, 0, io, socket, runId,
         )
         const summary = summarizeAndMerge([subResult])
         const delegateCall = result.toolCalls?.find(tc => tc.function.name === 'delegate_task')
@@ -784,7 +800,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
           tool_status: 'success',
         })
         socket.emit('tool.completed', {
-          session_id: sessionId, tool_call_id: toolCallId,
+          session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
           tool_name: 'delegate_task', tool_output: summaryContent,
           tool_status: 'success', duration_ms: 0,
         })
@@ -799,7 +815,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
           tool_output: errMsg, tool_status: 'error',
         })
         socket.emit('tool.completed', {
-          session_id: sessionId, tool_call_id: toolCallId,
+          session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
           tool_name: 'delegate_task', tool_output: errMsg,
           tool_status: 'error', duration_ms: 0,
         })
@@ -813,7 +829,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
       const summaryOutput = result.taskCompleteSummary || 'Task marked complete'
       // Emit summary as assistant delta so the client's streaming renders it
       if (socket && sessionId && summaryOutput) {
-        socket.emit('message.delta', { session_id: sessionId, delta: '\n\n' + summaryOutput })
+        socket.emit('message.delta', { session_id: sessionId, run_id: runId, delta: '\n\n' + summaryOutput })
       }
       // Update the last assistant message content with the summary for DB persistence
       if (summaryOutput && sessionId) {
@@ -838,7 +854,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
         tool_output: summaryOutput,
         tool_status: 'success',
       })
-      socket.emit('run.completed', { session_id: sessionId, status: 'task_complete' })
+      socket.emit('run.completed', { session_id: sessionId, run_id: runId, status: 'task_complete' })
       if (totalInputTokens > 0 || totalOutputTokens > 0) {
         const totalTk = totalCacheHitTokens + totalCacheMissTokens
         sessionStore.update(sessionId, {
@@ -879,7 +895,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
           compaction_summary: result.summary!,
           compaction_until_id: result.compactedUntilId || null,
         })
-        socket.emit('run.compacted', { session_id: sessionId, message: 'Context compacted to manage token usage' })
+        socket.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted to manage token usage' })
       }
     }
 
@@ -903,6 +919,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   console.log(`[cache] ${sessionId}: hit=${totalCacheHitTokens} miss=${totalCacheMissTokens} ratio=${hitRatio}% system=${finalShape?.systemHash?.slice(0,8)||'?'} tools=${finalShape?.toolsHash?.slice(0,8)||'?'}`)
   socket.emit('run.completed', {
     session_id: sessionId,
+    run_id: runId,
     status: completedStatus,
     usage: { input_tokens: totalInputTokens, output_tokens: totalOutputTokens },
     cache: { hitTokens: totalCacheHitTokens, missTokens: totalCacheMissTokens, hitRatio },

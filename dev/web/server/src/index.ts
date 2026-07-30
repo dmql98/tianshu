@@ -13,6 +13,7 @@ import workspaceRouter from './routes/workspace.js'
 import eventsRouter from './routes/events.js'
 import evolutionRouter from './routes/evolution.js'
 import promptsRouter from './routes/prompts.js'
+import configRouter from './routes/config.js'
 import { getDb } from './db/schema.js'
 import { init as initTools } from './tools/registry.js'
 import { startEventScheduler } from './event/index.js'
@@ -38,11 +39,12 @@ app.route('/api/workspace', workspaceRouter)
 app.route('/api/events', eventsRouter)
 app.route('/api/evolution-config', evolutionRouter)
 app.route('/api/prompts', promptsRouter)
+app.route('/api/config', configRouter)
 app.get('/health', (c) => c.json({ ok: true }))
 
-const port = Number(process.env.PORT) || 3001
+const port = Number(process.env.PORT) || 3456
 const httpServer = serve({ fetch: app.fetch, port }, () => {
-  console.log(`Yi-Lin server on :${port}`)
+  console.log(`TianShu server on :${port}`)
 })
 httpServer.on('error', (err: any) => {
   if (err.code === 'EADDRINUSE') {

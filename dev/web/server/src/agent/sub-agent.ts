@@ -72,6 +72,7 @@ export async function spawnAndRunSubAgent(
   depth = 0,
   io?: Server,
   socket?: Socket,
+  runId?: string,
 ): Promise<SubResult> {
   if (depth >= MAX_DEPTH) {
     throw new Error(`Sub-agent 递归深度 (${depth}) 超过 MAX_DEPTH (${MAX_DEPTH})`)
@@ -102,6 +103,7 @@ export async function spawnAndRunSubAgent(
   if (socket) {
     socket.emit('sub_agent.started', {
       session_id: parentSession.id,
+      run_id: runId,
       sub_session_id: subSessionId,
       target_character_id: targetCharacterId,
       task,
@@ -174,7 +176,7 @@ export async function spawnAndRunSubAgent(
     socket,
     subSessionId,
     signal,
-    {},
+    { run_id: runId },
     0,
     undefined,
     subWorkspaces,
@@ -192,6 +194,7 @@ export async function spawnAndRunSubAgent(
       depth + 1,
       io,
       socket,
+      runId,
     )
     return subSubResult
   }

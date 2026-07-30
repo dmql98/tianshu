@@ -1,8 +1,9 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import type { SkillDraft } from '../extractors/insightExtractor.js'
+import { getDataDir } from '../../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../../data')
+const DATA_DIR = getDataDir()
 const SKILLS_DIR = resolve(DATA_DIR, 'skills')
 
 export class SkillGenerator {

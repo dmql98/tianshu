@@ -1,8 +1,9 @@
 import { writeFileSync, mkdirSync, readdirSync, readFileSync } from 'fs'
 import { createHash } from 'crypto'
 import { resolve } from 'path'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 const DEBUG_DIR = resolve(DATA_DIR, 'debug')
 
 function systemPromptFingerprint(messages: unknown[]): string {

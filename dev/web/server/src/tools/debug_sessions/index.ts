@@ -2,8 +2,9 @@ import { readdirSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import type { ToolModule } from '../types.js'
 import { mergeOldDebugTurns } from '../../debug/merge-turns.js'
+import { getDataDir } from '../../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../../data')
+const DATA_DIR = getDataDir()
 const DEBUG_DIR = resolve(DATA_DIR, 'debug')
 
 export const tool: ToolModule = {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import { fetchEvents } from './api/events'
+import { fetchDataspace } from './api/config'
 import CharacterDetailPage from './pages/CharacterDetailPage'
 import CharactersPage from './pages/CharactersPage'
 import ChatPage from './pages/ChatPage'
@@ -27,6 +28,23 @@ const navItems = [
 export default function App() {
   const navigate = useNavigate()
   const [activeEventCount, setActiveEventCount] = useState(0)
+  const [setupDone, setSetupDone] = useState(true) // true = ok, false = need config
+
+  // Startup check: is dataspace configured?
+  useEffect(() => {
+    fetchDataspace()
+      .then(res => {
+        if (!res.configured) {
+          setSetupDone(false)
+          navigate('/settings')
+        }
+      })
+      .catch(() => {}) // server unreachable, let user proceed
+
+    function onConfigured() { setSetupDone(true) }
+    window.addEventListener('dataspace-configured', onConfigured)
+    return () => window.removeEventListener('dataspace-configured', onConfigured)
+  }, [])
 
   useEffect(() => {
     function load() {
@@ -94,6 +112,36 @@ export default function App() {
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
+
+      {/* Setup required overlay */}
+      {!setupDone && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(44,36,24,0.6)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', borderRadius: 16, padding: '32px 40px',
+            border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(44,36,24,0.3)',
+            textAlign: 'center', maxWidth: 400,
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-deep)', marginBottom: 8 }}>
+              需要配置系统路径
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.6, marginBottom: 20 }}>
+              首次使用需要在「设置 → 系统」中配置天枢的数据存储路径，所有系统数据将保存在该目录下。
+            </div>
+            <button
+              className="btn primary"
+              onClick={() => setSetupDone(true)}
+              style={{ padding: '10px 28px' }}
+            >
+              前往设置
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

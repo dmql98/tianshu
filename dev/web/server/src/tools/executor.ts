@@ -9,7 +9,7 @@ function parseMCPToolName(name: string): { serverName: string; toolName: string 
   return { serverName: m[1], toolName: m[2] }
 }
 
-export async function executeTool(name: string, args: Record<string, string>, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void, workspaces?: string[]): Promise<ToolResult> {
+export async function executeTool(name: string, args: Record<string, string>, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void, workspaces?: string[], dataspace?: string): Promise<ToolResult> {
   if (name.startsWith('mcp__') && mcpClients) {
     const parsed = parseMCPToolName(name)
     if (!parsed) return { output: '', error: `Invalid MCP tool name: ${name}` }
@@ -19,7 +19,11 @@ export async function executeTool(name: string, args: Record<string, string>, wo
   }
 
   try {
-    return await registryExecute(name, args, { workspace, workspaces, signal, allowedRoots, onOutput })
+    // Merge dataspace into workspaces so all tools can access it
+    const mergedWorkspaces = dataspace
+      ? [...(workspaces || []), dataspace].filter((v, i, a) => a.indexOf(v) === i)
+      : workspaces
+    return await registryExecute(name, args, { workspace, workspaces: mergedWorkspaces, dataspace, signal, allowedRoots, onOutput })
   } catch (err: any) {
     if (err instanceof PathEscapeError) {
       return { output: '', error: err.message, escaped: true }

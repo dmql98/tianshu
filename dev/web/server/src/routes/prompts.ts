@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 const DEFAULT_PROMPT_FILE = resolve(DATA_DIR, 'prompts', 'default.md')
 
 const router = new Hono()

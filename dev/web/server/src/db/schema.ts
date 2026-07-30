@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3'
 import { existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 
 let db: Database.Database | null = null
 
@@ -29,6 +30,7 @@ export function getDb(): Database.Database {
   try { db.exec('ALTER TABLE events ADD COLUMN provider_id TEXT') } catch { }
   try { db.exec('ALTER TABLE events ADD COLUMN workspace TEXT') } catch { }
   try { db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT') } catch { }
+  try { db.exec("ALTER TABLE sessions ADD COLUMN dataspace TEXT") } catch { }
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
@@ -38,6 +40,7 @@ export function getDb(): Database.Database {
       provider_id TEXT,
       workspace TEXT,
       workspaces TEXT,
+      dataspace TEXT,
       parent_id TEXT,
       active_group TEXT,
       session_type TEXT DEFAULT 'chat',

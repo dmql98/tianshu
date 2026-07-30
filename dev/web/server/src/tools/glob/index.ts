@@ -25,7 +25,10 @@ export const tool: ToolModule = {
       args, 'glob',
     )
 
-    const matches = globSync(input.pattern, { cwd: workspace, dot: true })
+    // Normalize Windows backslashes to forward slashes so glob v11
+    // does not treat \* as an escaped literal asterisk.
+    const normalized = input.pattern.replace(/\\/g, '/')
+    const matches = globSync(normalized, { cwd: workspace, dot: true })
     const limit = input.limit ? parseInt(input.limit) : MAX_RESULTS
     if (matches.length === 0) return { output: 'No files matched' }
     if (matches.length > limit) {

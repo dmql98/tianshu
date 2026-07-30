@@ -5,8 +5,9 @@ import { characterContentStore } from '../character/store.js'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { getDb } from '../db/schema.js'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 import { resolveCharacterTools } from '../tools/definitions.js'
 
 function mergeContent(meta: CharacterRecord, id: string) {

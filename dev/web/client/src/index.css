@@ -34,9 +34,11 @@ body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;backgro
 .project-header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.15s;font-size:13px;font-weight:500;color:var(--ink-mid)}
 .project-header:hover{background:var(--bg-hover)}
 .project-header.active{background:rgba(200,150,10,0.06);color:var(--gold)}
+.project-add-btn{margin-left:0;background:none;border:1px solid var(--border);border-radius:4px;padding:0 7px;cursor:pointer;font-size:14px;font-weight:700;color:var(--ink-mid);line-height:1.6;transition:all 0.15s}
+.project-add-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(200,150,10,0.06)}
 .project-icon{font-size:14px;opacity:0.7}
 .project-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.project-arrow{font-size:9px;color:var(--ink-faint);transition:transform 0.2s;opacity:0.5}
+.project-arrow{margin-left:auto;font-size:9px;color:var(--ink-faint);transition:transform 0.2s;opacity:0.5}
 .project-arrow.open{transform:rotate(90deg);opacity:1}
 .project-children{padding-left:12px;margin-top:2px}
 .session-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.15s;margin-bottom:2px;position:relative}

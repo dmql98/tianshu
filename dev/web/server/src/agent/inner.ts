@@ -15,6 +15,7 @@ import { saveAttachment } from './media-store.js'
 import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, type AttachmentRecord, type ContentPart } from './attachments.js'
 
 import { truncateToolOutput as truncate, truncateError } from '../tools/truncate.js'
+import { isTransientLLMError } from '../llm/errors.js'
 
 const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch'])
 
@@ -46,21 +47,6 @@ function matchToolCall(acc: ToolCall[], tc: ToolCall): ToolCall | undefined {
 
 function deepCloneToolCall(tc: ToolCall): ToolCall {
   return { id: tc.id, index: tc.index, type: 'function', function: { name: tc.function.name, arguments: tc.function.arguments } }
-}
-
-function isTransientError(errorText: string): boolean {
-  const msg = errorText.toLowerCase()
-  return msg.includes('rate limit') ||
-    msg.includes('429') ||
-    msg.includes('503') ||
-    msg.includes('timeout') ||
-    msg.includes('overloaded') ||
-    msg.includes('internal server error') ||
-    msg.includes('500') ||
-    msg.includes('502') ||
-    msg.includes('service unavailable') ||
-    msg.includes('temporarily') ||
-    msg.includes('try again')
 }
 
 function sleep(ms: number): Promise<void> {
@@ -114,7 +100,7 @@ export interface InnerResult {
   taskCompleteSummary?: string
 }
 
-async function streamWithRetry(
+export async function streamWithRetry(
   messages: LLMMessage[],
   tools: any[] | undefined,
   provider: { base_url: string; api_key: string },
@@ -122,6 +108,7 @@ async function streamWithRetry(
   signal?: AbortSignal,
   opts: { thinking?: boolean; reasoning_effort?: string } = {},
   onDelta?: (chunk: any) => void,
+  onRetry?: (data: { attempt: number; max_attempts: number; error: string; delay_ms: number }) => void,
 ): Promise<{ text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null }> {
   let fullText = ''
   let reasoningText = ''
@@ -182,11 +169,12 @@ async function streamWithRetry(
     if (signal?.aborted) break
     if (!errorText) break
 
-    if (!isTransientError(errorText) || attempt >= 2) {
+    if (!isTransientLLMError(errorText) || attempt >= 2) {
       throw new Error(errorText)
     }
 
     const delay = Math.min(1000 * Math.pow(2, attempt), 8000)
+    onRetry?.({ attempt: attempt + 2, max_attempts: 3, error: errorText, delay_ms: delay })
     await sleep(delay)
   }
 
@@ -204,11 +192,12 @@ export async function innerLoop(
   socket?: Socket,
   sessionId?: string,
   signal?: AbortSignal,
-  opts: { thinking?: boolean; reasoning_effort?: string } = {},
+  opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {},
   turn: number = 0,
   mcpClients?: Map<string, MCPClient>,
   workspaces?: string[],
   cap?: ProviderCapability,
+  dataspace?: string,
 ): Promise<InnerResult> {
   let totalInputTokens = 0
   let totalOutputTokens = 0
@@ -221,25 +210,31 @@ export async function innerLoop(
       messages, tools, provider, model, signal, opts,
       (chunk) => {
         if (chunk.reasoning && socket) {
-          socket.emit('message.delta', { session_id: sessionId, reasoning: chunk.reasoning })
+          socket.emit('message.delta', { session_id: sessionId, run_id: opts.run_id, reasoning: chunk.reasoning })
         }
         if (chunk.text && socket) {
-          socket.emit('message.delta', { session_id: sessionId, delta: chunk.text })
+          socket.emit('message.delta', { session_id: sessionId, run_id: opts.run_id, delta: chunk.text })
         }
         if (chunk.type === 'usage' && socket && sessionId) {
           socket.emit('usage', {
             session_id: sessionId,
+            run_id: opts.run_id,
             input_tokens: chunk.usage?.input_tokens || 0,
             output_tokens: chunk.usage?.output_tokens || 0,
             usage_type: chunk.usage_type || 'stream',
           })
         }
       },
+      (retry) => socket?.emit('run.retrying', {
+        session_id: sessionId,
+        run_id: opts.run_id,
+        scope: 'request',
+        ...retry,
+      }),
     )
   } catch (err: any) {
     const errorText = err.message || 'LLM error'
     logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: '', reasoning: '', toolCalls: [], usage: null }, errorText)
-    socket?.emit('run.failed', { session_id: sessionId, error: errorText })
     return { type: 'error', messages: [], fullText: '', reasoningText: '', toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, error: errorText }
   }
 
@@ -348,7 +343,7 @@ export async function innerLoop(
         // Ask sequentially — user approval is interactive, can't batch
         const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
           if (!socket || !sessionId) { resolve('reject'); return }
-          socket.emit('approval.requested', { session_id: sessionId, tool_call_id: tc.id, tool_name: `[Ask] ${name}`, tool_input: JSON.stringify(args) })
+          socket.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[Ask] ${name}`, tool_input: JSON.stringify(args) })
           const handler = (data: { tool_call_id: string; choice: 'once' | 'always' | 'reject' }) => {
             if (data.tool_call_id === tc.id) { socket.off('approval.respond', handler); resolve(data.choice) }
           }
@@ -371,7 +366,7 @@ export async function innerLoop(
   // Phase 2: emit started events for allowed tools
   const allowed = prechecked.filter(p => !p.skip)
   for (const p of allowed) {
-    socket?.emit('tool.started', { session_id: sessionId, tool_call_id: p.tc.id, tool_name: p.name, tool_input: p.argsStr })
+    socket?.emit('tool.started', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_input: p.argsStr })
   }
 
   // Phase 3: emit skip results immediately
@@ -383,7 +378,7 @@ export async function innerLoop(
       messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: p.skipReason!, tool_status: 'error' })
     }
     newMessages.push({ role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_call_id: p.tc.id })
-    socket?.emit('tool.completed', { session_id: sessionId, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
+    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
   }
 
   // Phase 4: execute allowed tools — parallel for read-only, serial for writes
@@ -404,8 +399,8 @@ export async function innerLoop(
     async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
       try {
         return await executeTool(p.name, p.args, workspace || process.cwd(), signal, mcpClients, extraRoots, (chunk) => {
-          socket?.emit('tool.output', { session_id: sessionId, tool_call_id: p.tc.id, output: chunk })
-        }, workspaces)
+          socket?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output: chunk })
+        }, workspaces, dataspace)
       } catch (err: any) {
         return { output: '', error: `${p.name}: ${err.message || String(err)}` }
       }
@@ -416,14 +411,15 @@ export async function innerLoop(
     if (result.escaped && sessionId && socket) {
       const escapedPath = result.error?.replace('Path escapes workspace: ', '') || ''
       const absEscapedPath = pathResolve(workspace || process.cwd(), escapedPath)
-      // Always approve the PARENT directory, not a specific file
-      const approvedDir = dirname(absEscapedPath)
+      // Approve the exact path that the tool tried to access
+      const approvedPath = absEscapedPath
       const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
         socket.emit('approval.requested', {
           session_id: sessionId,
+          run_id: opts.run_id,
           tool_call_id: p.tc.id,
           tool_name: `[Workspace] ${p.name}`,
-          tool_input: JSON.stringify({ ...p.args, _escaped_path: approvedDir }),
+          tool_input: JSON.stringify({ ...p.args, _escaped_path: approvedPath }),
         })
         const handler = (data: { tool_call_id: string; choice: 'once' | 'always' | 'reject' }) => {
           if (data.tool_call_id === p.tc.id) { socket.off('approval.respond', handler); resolve(data.choice) }
@@ -433,14 +429,13 @@ export async function innerLoop(
       })
       if (choice !== 'reject') {
         if (choice === 'always') {
-          // Add directory to session's workspaces in DB (persists across restarts)
           let updatedWorkspaces: string[] | undefined
           const dbSession = sessionStore.getById(sessionId)
           if (dbSession) {
             const ws: string[] = dbSession.workspaces ? JSON.parse(dbSession.workspaces) : []
-            const isCovered = ws.some((w: string) => !relative(w, approvedDir).startsWith('..'))
-            if (!isCovered && !ws.includes(approvedDir)) {
-              ws.push(approvedDir)
+            const isCovered = ws.some((w: string) => !relative(w, approvedPath).startsWith('..'))
+            if (!isCovered && !ws.includes(approvedPath)) {
+              ws.push(approvedPath)
               sessionStore.update(sessionId, { workspaces: JSON.stringify(ws) })
             }
             updatedWorkspaces = ws
@@ -449,8 +444,12 @@ export async function innerLoop(
             session_id: sessionId,
             workspaces: updatedWorkspaces,
           })
+          // Also update the in-memory workspaces so subsequent calls in this turn see it
+          if (workspaces && !workspaces.some(w => !relative(w, approvedPath).startsWith('..'))) {
+            workspaces.push(approvedPath)
+          }
         }
-        result = await execWithRoots([approvedDir])
+        result = await execWithRoots([approvedPath])
       }
     }
 
@@ -479,7 +478,7 @@ export async function innerLoop(
       messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ output: result.output, error: result.error }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: result.error || result.output, tool_status: toolStatus, attachments: storedAttachments ? JSON.stringify(storedAttachments) : null })
     }
     newMessages.push({ role: 'tool', content: toolContent, tool_call_id: p.tc.id })
-    socket?.emit('tool.completed', { session_id: sessionId, tool_call_id: p.tc.id, tool_name: p.name, tool_output: result.error || result.output, tool_status: toolStatus, duration_ms: duration })
+    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: result.error || result.output, tool_status: toolStatus, duration_ms: duration })
   }
 
   // Run all read-only tools in parallel, then writes sequentially

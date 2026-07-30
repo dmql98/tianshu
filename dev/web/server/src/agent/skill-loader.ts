@@ -1,8 +1,9 @@
 import { readFileSync, existsSync, readdirSync, writeFileSync } from 'fs'
 import { resolve, join } from 'path'
 import type { CharacterRecord } from '../db/characterStore.js'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 export const SKILLS_ROOT = resolve(DATA_DIR, 'skills')
 
 export interface SkillIndex {
@@ -92,8 +93,8 @@ export function skillDirFor(name: string): string | null {
   return findSkillDir(name)
 }
 
-function extractYilinArray(content: string, field: string): string[] {
-  const m = content.match(new RegExp(`metadata:\n\\s+yilin:\n[\\s\\S]*?\\b${field}:\\s*\\[([^\\]]*)\\]`))
+function extractTianshuArray(content: string, field: string): string[] {
+  const m = content.match(new RegExp(`metadata:\n\\s+tianshu:\n[\\s\\S]*?\\b${field}:\\s*\\[([^\\]]*)\\]`))
   if (!m) return []
   return m[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
 }
@@ -133,8 +134,8 @@ export function buildSkillIndex(character: CharacterRecord): SkillIndex[] {
     const description = fm.description || name
     const attachments = listFiles(dir).filter(f => f !== 'SKILL.md')
 
-    const prereqs = extractYilinArray(content, 'prerequisites')
-    const related = extractYilinArray(content, 'related_skills')
+    const prereqs = extractTianshuArray(content, 'prerequisites')
+    const related = extractTianshuArray(content, 'related_skills')
     let hint = ''
     if (prereqs.length) hint += ` (requires: ${prereqs.join(', ')})`
     if (related.length) hint += ` (next: ${related.join(', ')})`

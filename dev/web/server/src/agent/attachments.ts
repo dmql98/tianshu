@@ -30,7 +30,7 @@ export type ProviderContentBlock =
 
 export type ProviderFormat = 'openai' | 'anthropic' | 'gemini'
 
-// Yi-Lin's LLM client currently only speaks the OpenAI /chat/completions wire
+// TianShu's LLM client currently only speaks the OpenAI /chat/completions wire
 // format, so the effective format here is always 'openai'. This resolver and the
 // format branches below keep the lowering layer ready for native Anthropic /
 // Gemini clients (which would also need a matching transport in llm/client.ts).

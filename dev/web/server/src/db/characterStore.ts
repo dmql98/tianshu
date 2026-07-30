@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync } from 'fs'
 import { resolve } from 'path'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 const CHAR_DIR = resolve(DATA_DIR, 'characters')
 
 mkdirSync(CHAR_DIR, { recursive: true })

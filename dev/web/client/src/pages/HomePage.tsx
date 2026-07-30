@@ -6,7 +6,7 @@ export default function HomePage() {
   ]
 
   const recentProjects = [
-    { icon: '📁', name: 'Yi-Lin 开发', sessions: 12, lastActive: '10 分钟前' },
+    { icon: '📁', name: 'TianShu 开发', sessions: 12, lastActive: '10 分钟前' },
     { icon: '📁', name: 'LeAgent 研究', sessions: 5, lastActive: '昨天' },
     { icon: '📁', name: '日常杂务', sessions: 8, lastActive: '2 天前' },
   ]

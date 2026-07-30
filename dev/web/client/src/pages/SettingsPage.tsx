@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
+import { fetchDataspace, saveDataspace } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
 import type { Provider, Character } from '@/types'
@@ -52,6 +53,8 @@ export default function SettingsPage() {
     fetchDefaultPrompt().then(setDefaultPrompt).catch(() => {})
     fetchEvolutionConfig().then(setEvo).catch(() => {})
     fetchCharacters().then(setCharacters).catch(() => {})
+    // 从后端加载配置路径
+    fetchDataspace().then(res => { setWorkspace(res.dataDir); saveLs('defaultWorkspace', res.dataDir) }).catch(() => {})
     // 应用主题
     const t = ls('theme', 'light')
     applyTheme(t)
@@ -279,7 +282,7 @@ export default function SettingsPage() {
 
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">配置路径</span><span className="setting-hint">天枢系统配置与数据的根目录</span></div>
-              <div className="setting-control"><input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value) }} style={{width:280}}/></div>
+              <div className="setting-control"><input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataspace(e.target.value).then(() => { window.dispatchEvent(new Event('dataspace-configured')) }).catch(() => {}) }} style={{width:280}}/></div>
             </div>
           </div>
 

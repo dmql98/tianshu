@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync, renameSync } from 'fs'
 import { resolve, join } from 'path'
+import { getDataDir } from '../config.js'
 
-const DATA_DIR = process.env.DATA_DIR || resolve(import.meta.dirname, '../../../../data')
+const DATA_DIR = getDataDir()
 const MCP_DIR = resolve(DATA_DIR, 'mcpservers')
 const OLD_FILE = resolve(DATA_DIR, 'mcpservers.json')
 mkdirSync(MCP_DIR, { recursive: true })
