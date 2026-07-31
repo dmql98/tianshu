@@ -19,6 +19,13 @@ import { isTransientLLMError } from '../llm/errors.js'
 
 const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch'])
 
+function estimateTokenCount(text: string): number {
+  const cjk = (text.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length
+  const nonCjk = text.replace(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g, '')
+  const words = (nonCjk.match(/[A-Za-z0-9_]+|[^\sA-Za-z0-9_]/g) || []).length
+  return cjk + Math.ceil(words * 0.75)
+}
+
 export interface ToolCallRecord {
   toolName: string
   hasError: boolean
@@ -72,15 +79,15 @@ function checkToolBinding(characterId: string, toolName: string, args: Record<st
 
 function checkStrategy(toolName: string, strategy: Strategy): 'allow' | 'ask' | 'deny' {
   const dangerous = getDangerousTools().includes(toolName)
-  if (strategy === 'Plan' && dangerous) return 'deny'
-  if (strategy === 'Ask' && dangerous) return 'ask'
+  if (strategy === 'Read Only' && dangerous) return 'deny'
+  if (strategy === 'Ask Risky' && dangerous) return 'ask'
   return 'allow'
 }
 
 export interface SubAgentRequestData {
   task: string
   target_character_id: string
-  sub_strategy?: 'Plan' | 'Ask' | 'Bypass'
+  sub_strategy?: Strategy
   instances: number
 }
 
@@ -203,6 +210,17 @@ export async function innerLoop(
   let totalOutputTokens = 0
   let totalCacheHitTokens = 0
   let totalCacheMissTokens = 0
+  let firstOutputAt: number | null = null
+  let streamedOutput = ''
+
+  const liveTokenSpeed = (piece: string): number => {
+    if (!piece) return 0
+    const now = Date.now()
+    if (firstOutputAt == null) firstOutputAt = now
+    streamedOutput += piece
+    const elapsedSeconds = Math.max((now - firstOutputAt) / 1000, 0.25)
+    return estimateTokenCount(streamedOutput) / elapsedSeconds
+  }
 
   let result
   try {
@@ -210,10 +228,22 @@ export async function innerLoop(
       messages, tools, provider, model, signal, opts,
       (chunk) => {
         if (chunk.reasoning && socket) {
-          socket.emit('message.delta', { session_id: sessionId, run_id: opts.run_id, reasoning: chunk.reasoning })
+          socket.emit('message.delta', {
+            session_id: sessionId,
+            run_id: opts.run_id,
+            reasoning: chunk.reasoning,
+            token_speed: liveTokenSpeed(chunk.reasoning),
+            token_speed_estimated: true,
+          })
         }
         if (chunk.text && socket) {
-          socket.emit('message.delta', { session_id: sessionId, run_id: opts.run_id, delta: chunk.text })
+          socket.emit('message.delta', {
+            session_id: sessionId,
+            run_id: opts.run_id,
+            delta: chunk.text,
+            token_speed: liveTokenSpeed(chunk.text),
+            token_speed_estimated: true,
+          })
         }
         if (chunk.type === 'usage' && socket && sessionId) {
           socket.emit('usage', {
@@ -253,14 +283,30 @@ export async function innerLoop(
   logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage })
 
   const { text: fullText, reasoning: reasoningText, toolCalls: toolCallsAcc } = result
+  const streamSeconds = firstOutputAt == null ? 0 : Math.max((Date.now() - firstOutputAt) / 1000, 0.05)
+  const measuredOutputTokens = result.usage?.output || 0
+  const finalTokenSpeed = streamSeconds > 0
+    ? (measuredOutputTokens > 0 ? measuredOutputTokens : estimateTokenCount(streamedOutput)) / streamSeconds
+    : 0
+  const tokenSpeedEstimated = measuredOutputTokens <= 0
 
   const newMessages: LLMMessage[] = []
   if (fullText || toolCallsAcc.length > 0 || reasoningText) {
-    if (sessionId) messageStore.addMessage(sessionId, {
-      role: 'assistant', content: fullText,
-      reasoning_content: reasoningText || null,
-      tool_input: toolCallsAcc.length > 0 ? JSON.stringify(toolCallsAcc) : null,
-    })
+    if (sessionId) {
+      const storedMessage = messageStore.addMessage(sessionId, {
+        role: 'assistant', content: fullText,
+        reasoning_content: reasoningText || null,
+        tool_input: toolCallsAcc.length > 0 ? JSON.stringify(toolCallsAcc) : null,
+        token_speed: finalTokenSpeed || null,
+      })
+      socket?.emit('message.metrics', {
+        session_id: sessionId,
+        run_id: opts.run_id,
+        message_id: storedMessage.id,
+        token_speed: finalTokenSpeed,
+        token_speed_estimated: tokenSpeedEstimated,
+      })
+    }
     const msg: LLMMessage = {
       role: 'assistant', content: fullText || null,
       tool_calls: toolCallsAcc.length > 0 ? toolCallsAcc : undefined,
@@ -330,11 +376,11 @@ export async function innerLoop(
       continue
     }
 
-    const strategyState = sessionId ? getSessionState(sessionId) : { current_strategy: 'Bypass' as Strategy }
+    const strategyState = sessionId ? getSessionState(sessionId) : { current_strategy: 'Auto Approve' as Strategy }
     let strategyResult = checkStrategy(name, strategyState.current_strategy)
 
     if (strategyResult === 'deny') {
-      prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: `[Plan] ${name} is not allowed in Plan mode` })
+      prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: `[Read Only] ${name} is not allowed in read-only mode` })
       continue
     }
 
@@ -343,7 +389,7 @@ export async function innerLoop(
         // Ask sequentially — user approval is interactive, can't batch
         const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
           if (!socket || !sessionId) { resolve('reject'); return }
-          socket.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[Ask] ${name}`, tool_input: JSON.stringify(args) })
+          socket.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[Ask Risky] ${name}`, tool_input: JSON.stringify(args) })
           const handler = (data: { tool_call_id: string; choice: 'once' | 'always' | 'reject' }) => {
             if (data.tool_call_id === tc.id) { socket.off('approval.respond', handler); resolve(data.choice) }
           }

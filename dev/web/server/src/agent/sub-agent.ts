@@ -6,6 +6,7 @@ import { getCharacterToolDefinitions } from '../tools/definitions.js'
 import { buildSkillIndex } from './skill-loader.js'
 import type { LLMMessage } from '../llm/client.js'
 import type { Server, Socket } from 'socket.io'
+import { normalizeStrategy, type Strategy, type StrategyInput } from './strategy.js'
 
 const MAX_DEPTH = 3
 
@@ -67,7 +68,7 @@ export async function spawnAndRunSubAgent(
   parentSession: { id: string; character_id: string; workspace?: string | null; workspaces?: string | null; active_group?: string | null },
   provider: { base_url: string; api_key: string },
   model: string,
-  strategyOverride?: 'Plan' | 'Ask' | 'Bypass',
+  strategyOverride?: StrategyInput,
   signal?: AbortSignal,
   depth = 0,
   io?: Server,
@@ -84,7 +85,7 @@ export async function spawnAndRunSubAgent(
   validateSubAgentTarget(parentSession.active_group, targetChar, parentSession.character_id)
 
   const charContent = characterContentStore.get(targetCharacterId)
-  const subStrategy = strategyOverride || targetChar.default_strategy || 'Plan'
+  const subStrategy: Strategy = normalizeStrategy(strategyOverride || targetChar.default_strategy)
 
   const subSessionId = `sub_${parentSession.id}_${targetCharacterId}_${Date.now()}`
   const parentWorkspaces = parentSession.workspaces || (parentSession.workspace ? JSON.stringify([parentSession.workspace]) : null)

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Session, Message, RunEvent, WorkspaceGroup } from '@/types'
+import { normalizeStrategy, type Session, type Message, type RunEvent, type Strategy, type WorkspaceGroup } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { connectSocket, getSocket } from '@/api/socket'
 import { useProvidersStore } from './providersStore'
@@ -7,8 +7,6 @@ import { useProvidersStore } from './providersStore'
 
 const PERSIST_KEY = 'tianshu-chat-defaults'
 const DEFAULT_WORKSPACE = 'C:\\.Tianshu'
-
-type Strategy = 'Plan' | 'Ask' | 'Bypass'
 
 interface PendingApproval {
   tool_call_id: string
@@ -25,6 +23,21 @@ interface Attachment {
 
 function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+}
+
+function toMessage(message: any): Message {
+  return {
+    id: String(message.id),
+    role: message.role as Message['role'],
+    content: message.content,
+    reasoning: message.reasoning_content || undefined,
+    tool_name: message.tool_name || undefined,
+    tool_input: message.tool_input || undefined,
+    tool_output: message.tool_output || undefined,
+    tool_status: (message.tool_status as Message['tool_status']) || undefined,
+    token_speed: typeof message.token_speed === 'number' ? message.token_speed : undefined,
+    timestamp: message.created_at,
+  }
 }
 
 function loadPersistedDefaults(): Record<string, string | undefined> {
@@ -90,6 +103,8 @@ interface ChatState {
 
   // Messages
   sendMessage: (input: string) => Promise<void>
+  editMessage: (messageId: string, content: string) => Promise<void>
+  forkFromMessage: (messageId: string) => Promise<Session>
   abortRun: () => void
   setStrategy: (strategy: Strategy) => void
   respondApproval: (choice: 'once' | 'always' | 'reject') => void
@@ -125,7 +140,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       set(state => ({
         sessions: state.sessions.map(s =>
           s.id === data.session_id && data.strategy
-            ? { ...s, current_strategy: data.strategy as Strategy }
+            ? { ...s, current_strategy: normalizeStrategy(data.strategy) }
             : s
         ),
       }))
@@ -227,7 +242,13 @@ export const useChatStore = create<ChatState>((set, get) => {
         updateSessionMessage(data.session_id, sess => ({
           ...sess,
           messages: sess.messages.map((m, i) => i === sess.messages.length - 1
-            ? { ...m, content: m.content + (data.delta || ''), reasoning: (m.reasoning || '') + (data.reasoning || '') }
+            ? {
+              ...m,
+              content: m.content + (data.delta || ''),
+              reasoning: (m.reasoning || '') + (data.reasoning || ''),
+              token_speed: data.token_speed ?? m.token_speed,
+              token_speed_estimated: data.token_speed_estimated ?? m.token_speed_estimated,
+            }
             : m
           ),
         }))
@@ -236,10 +257,35 @@ export const useChatStore = create<ChatState>((set, get) => {
           ...sess,
           messages: [...sess.messages, {
             id: uid(), role: 'assistant' as const, content: data.delta || '',
-            reasoning: data.reasoning || '', is_streaming: true, timestamp: Date.now(),
+            reasoning: data.reasoning || '', is_streaming: true,
+            token_speed: data.token_speed,
+            token_speed_estimated: data.token_speed_estimated,
+            timestamp: Date.now(),
           }],
         }))
       }
+    })
+
+    socket.off('message.metrics')
+    socket.on('message.metrics', (data: RunEvent) => {
+      if (isHandledByTemporaryListener(data)) return
+      updateSessionMessage(data.session_id, sess => {
+        let updated = false
+        const messages = [...sess.messages]
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role !== 'assistant') continue
+          messages[i] = {
+            ...messages[i],
+            id: data.message_id != null ? String(data.message_id) : messages[i].id,
+            token_speed: data.token_speed,
+            token_speed_estimated: data.token_speed_estimated,
+            is_streaming: false,
+          }
+          updated = true
+          break
+        }
+        return updated ? { ...sess, messages } : sess
+      })
     })
 
     socket.off('tool.started')
@@ -370,6 +416,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           const existing = currentSessions.find(x => x.id === s.id)
           return {
             ...s,
+            current_strategy: normalizeStrategy(s.current_strategy),
             messages: existing?.messages || [],
             workspaces: s.workspaces ? JSON.parse(s.workspaces as string) : undefined,
           }
@@ -403,11 +450,11 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       let currentStrategy: Strategy | undefined
       if (opts.session_type === 'event') {
-        currentStrategy = 'Bypass'
+        currentStrategy = 'Auto Approve'
       } else {
-        // Try to get default strategy from character (if loaded)
-        // For now, default to Ask
-        currentStrategy = 'Ask'
+        // Try to get default approval mode from character (if loaded)
+        // For now, default to Ask Risky
+        currentStrategy = 'Ask Risky'
       }
 
       const session: Session = {
@@ -476,17 +523,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       try {
         const data = await sessionsApi.fetchSessionMessages(id)
-        const messages: Message[] = data.messages.map(m => ({
-          id: String(m.id),
-          role: m.role as Message['role'],
-          content: m.content,
-          reasoning: m.reasoning_content || undefined,
-          tool_name: m.tool_name || undefined,
-          tool_input: m.tool_input || undefined,
-          tool_output: m.tool_output || undefined,
-          tool_status: (m.tool_status as Message['tool_status']) || undefined,
-          timestamp: m.created_at,
-        }))
+        const messages: Message[] = data.messages.map(toMessage)
         set(state => ({
           sessions: state.sessions.map(s =>
             s.id === id ? { ...s, messages } : s
@@ -548,6 +585,56 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     // ── Message Actions ──
+
+    editMessage: async (messageId: string, content: string) => {
+      const nextContent = content.trim()
+      if (!nextContent) return
+      const state = get()
+      if (state.isStreaming) throw new Error('请先停止当前运行')
+      const session = state.sessions.find(s => s.id === state.activeSessionId)
+      if (!session) throw new Error('当前会话不存在')
+      const index = session.messages.findIndex(message => message.id === messageId)
+      if (index < 0 || session.messages[index].role !== 'user') throw new Error('只能编辑用户消息')
+
+      await sessionsApi.keepMessages(session.id, index)
+      set(current => ({
+        sessions: current.sessions.map(item =>
+          item.id === session.id ? { ...item, messages: item.messages.slice(0, index) } : item
+        ),
+        attachments: [],
+      }))
+      await get().sendMessage(nextContent)
+    },
+
+    forkFromMessage: async (messageId: string) => {
+      const state = get()
+      const source = state.sessions.find(s => s.id === state.activeSessionId)
+      if (!source) throw new Error('当前会话不存在')
+      const index = source.messages.findIndex(message => message.id === messageId)
+      if (index < 0 || source.messages[index].role !== 'assistant') throw new Error('只能从 Agent 消息创建分支')
+      if (source.messages[index].is_streaming) throw new Error('请等待 Agent 回复完成')
+
+      const numericMessageId = /^\d+$/.test(messageId) ? Number(messageId) : undefined
+      const result = await sessionsApi.forkSession(source.id, {
+        id: uid(),
+        message_id: numericMessageId,
+        message_count: index + 1,
+      })
+      const forked: Session = {
+        ...result.session,
+        workspaces: result.session.workspaces
+          ? JSON.parse(result.session.workspaces as string)
+          : undefined,
+        messages: result.messages.map(toMessage),
+      }
+      set(current => ({
+        sessions: [forked, ...current.sessions.filter(item => item.id !== forked.id)],
+        activeSessionId: forked.id,
+        isStreaming: false,
+      }))
+      savePersistedDefaults({ activeSessionId: forked.id })
+      return forked
+    },
 
     sendMessage: async (input: string) => {
       const state = get()
@@ -629,6 +716,20 @@ export const useChatStore = create<ChatState>((set, get) => {
         event_id: session.event_id || undefined,
         thinking: session.thinking || undefined,
         reasoning_effort: session.reasoning_effort || undefined,
+      }, (response: { user_message_id?: number }) => {
+        if (response?.user_message_id == null) return
+        set(current => ({
+          sessions: current.sessions.map(item =>
+            item.id === session!.id
+              ? {
+                ...item,
+                messages: item.messages.map(message =>
+                  message.id === userMsg.id ? { ...message, id: String(response.user_message_id) } : message
+                ),
+              }
+              : item
+          ),
+        }))
       })
 
       // ── Per-session temporary listeners ──
@@ -672,7 +773,13 @@ export const useChatStore = create<ChatState>((set, get) => {
           updateMsg(data.session_id, sess => ({
             ...sess,
             messages: sess.messages.map((m, i) => i === sess.messages.length - 1
-              ? { ...m, content: m.content + (data.delta || ''), reasoning: (m.reasoning || '') + (data.reasoning || '') }
+              ? {
+                ...m,
+                content: m.content + (data.delta || ''),
+                reasoning: (m.reasoning || '') + (data.reasoning || ''),
+                token_speed: data.token_speed ?? m.token_speed,
+                token_speed_estimated: data.token_speed_estimated ?? m.token_speed_estimated,
+              }
               : m
             ),
           }))
@@ -681,10 +788,34 @@ export const useChatStore = create<ChatState>((set, get) => {
             ...sess,
             messages: [...sess.messages, {
               id: uid(), role: 'assistant' as const, content: data.delta || '',
-              reasoning: data.reasoning || '', is_streaming: true, timestamp: Date.now(),
+              reasoning: data.reasoning || '', is_streaming: true,
+              token_speed: data.token_speed,
+              token_speed_estimated: data.token_speed_estimated,
+              timestamp: Date.now(),
             }],
           }))
         }
+      }
+
+      const onMessageMetrics = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
+        const s = findSession(data.session_id)
+        if (!s) return
+        updateMsg(data.session_id, sess => {
+          const messages = [...sess.messages]
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role !== 'assistant') continue
+            messages[i] = {
+              ...messages[i],
+              id: data.message_id != null ? String(data.message_id) : messages[i].id,
+              token_speed: data.token_speed,
+              token_speed_estimated: data.token_speed_estimated,
+              is_streaming: false,
+            }
+            break
+          }
+          return { ...sess, messages }
+        })
       }
 
       const onToolStarted = (data: RunEvent) => {
@@ -735,7 +866,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (s && data.strategy) {
           set(state => ({
             sessions: state.sessions.map(x =>
-              x.id === data.session_id ? { ...x, current_strategy: data.strategy as Strategy } : x
+              x.id === data.session_id ? { ...x, current_strategy: normalizeStrategy(data.strategy) } : x
             ),
           }))
         }
@@ -809,6 +940,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       function cleanup() {
         socket.off('strategy.updated', onStrategyUpdated)
         socket.off('message.delta', onDelta)
+        socket.off('message.metrics', onMessageMetrics)
         socket.off('tool.started', onToolStarted)
         socket.off('tool.completed', onToolCompleted)
         socket.off('tool.output', onToolOutput)
@@ -830,6 +962,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       socket.on('strategy.updated', onStrategyUpdated)
       socket.on('message.delta', onDelta)
+      socket.on('message.metrics', onMessageMetrics)
       socket.on('tool.started', onToolStarted)
       socket.on('tool.completed', onToolCompleted)
       socket.on('tool.output', onToolOutput)

@@ -87,6 +87,21 @@ body{font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;backgro
 .msg-group.user .msg-bubble{background:var(--gold);color:#fff;border-bottom-right-radius:4px}
 .msg-time{font-size:10px;color:var(--ink-faint);padding:0 4px}
 .compact .msg-time{display:none}
+.msg-token-speed{font-size:11px;color:var(--gold);font-variant-numeric:tabular-nums;padding:0 4px}
+.msg-meta{display:flex;align-items:center;gap:8px;width:100%;padding:0 2px}
+.msg-group.user .msg-meta{justify-content:flex-end}
+.msg-actions{display:flex;align-items:center;gap:2px;opacity:0;transition:opacity .15s ease}
+.msg-group:hover .msg-actions,.msg-actions:focus-within{opacity:1}
+.msg-actions button,.msg-edit-actions button{border:0;background:transparent;color:var(--ink-light);font:inherit;font-size:11px;padding:2px 5px;border-radius:5px;cursor:pointer}
+.msg-actions button:hover,.msg-edit-actions button:hover{background:var(--bg-hover);color:var(--ink-deep)}
+.msg-actions button:disabled{cursor:not-allowed;opacity:.45;background:transparent}
+.msg-edit-panel{width:min(560px,70vw);padding:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px}
+.msg-edit-input{display:block;width:100%;min-height:88px;resize:vertical;border:1px solid var(--border);border-radius:8px;background:var(--bg-main);color:var(--ink-deep);font:inherit;font-size:14px;line-height:1.6;padding:10px;outline:none}
+.msg-edit-input:focus{border-color:var(--gold)}
+.msg-edit-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.msg-edit-actions button.primary{background:var(--gold);color:#fff;padding-inline:10px}
+.msg-action-error{font-size:11px;color:#c84c4c;padding:0 4px}
+@media (hover:none){.msg-actions{opacity:1}}
 
 .thinking-block{margin-bottom:8px;padding:8px 12px;background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.12);border-left:3px solid var(--star-tianxuan);border-radius:8px;font-size:12px;color:var(--ink-mid)}
 .compact .thinking-block{margin-bottom:4px;padding:4px 8px;font-size:11px}

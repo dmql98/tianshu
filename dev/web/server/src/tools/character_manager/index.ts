@@ -1,6 +1,7 @@
 import type { ToolModule } from '../types.js'
 import { characterMetaStore } from '../../db/characterStore.js'
 import { characterContentStore } from '../../character/store.js'
+import { normalizeStrategy } from '../../agent/strategy.js'
 
 export const tool: ToolModule = {
   name: 'character_manager',
@@ -60,8 +61,8 @@ export const tool: ToolModule = {
       },
       default_strategy: {
         type: 'string',
-        enum: ['Plan', 'Ask', 'Bypass'],
-        description: 'Default tool-use strategy (default: "Ask").',
+        enum: ['Read Only', 'Ask Risky', 'Auto Approve'],
+        description: 'Default tool-use approval mode (default: "Ask Risky").',
       },
       maxSteps: {
         type: 'string',
@@ -119,7 +120,7 @@ export const tool: ToolModule = {
         skills,
         groups,
         maxSteps,
-        default_strategy: (args.default_strategy as 'Plan' | 'Ask' | 'Bypass') || 'Ask',
+        default_strategy: normalizeStrategy(args.default_strategy, 'Ask Risky'),
         enabled: true,
       })
 
@@ -149,7 +150,7 @@ export const tool: ToolModule = {
       if (args.description !== undefined) patch.description = args.description || undefined
       if (args.color !== undefined) patch.color = args.color || undefined
       if (args.role !== undefined) patch.role = args.role
-      if (args.default_strategy !== undefined) patch.default_strategy = args.default_strategy
+      if (args.default_strategy !== undefined) patch.default_strategy = normalizeStrategy(args.default_strategy, 'Ask Risky')
       if (args.maxSteps !== undefined) patch.maxSteps = parseInt(args.maxSteps) || 10
       if (args.tools !== undefined) {
         patch.tools = args.tools.split(',').map((t: string) => t.trim()).filter(Boolean).map((name: string) => ({ name }))

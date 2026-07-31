@@ -5,9 +5,7 @@ import { useProvidersStore } from '@/stores/providersStore'
 import { fetchCharacters } from '@/api/characters'
 import { updateSession } from '@/api/sessions'
 import CharacterPicker from './CharacterPicker'
-import type { Character } from '@/types'
-
-type Strategy = 'Plan' | 'Ask' | 'Bypass'
+import type { Character, Strategy } from '@/types'
 
 export default function RightPanel() {
   const { sessions, activeSessionId, addWorkspace, removeWorkspace, setStrategy, tokenUsage } = useChatStore()
@@ -227,15 +225,15 @@ export default function RightPanel() {
             </select>
           </div>
           <div className="rp-row">
-            <span className="label">策略</span>
+            <span className="label">审批模式</span>
             <select
-              value={session.current_strategy || 'Ask'}
+              value={session.current_strategy || 'Ask Risky'}
               onChange={e => handleStrategyChange(e.target.value as Strategy)}
               style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
             >
-              <option value="Plan">Plan</option>
-              <option value="Ask">Ask</option>
-              <option value="Bypass">Bypass</option>
+              <option value="Read Only">Read Only</option>
+              <option value="Ask Risky">Ask Risky</option>
+              <option value="Auto Approve">Auto Approve</option>
             </select>
           </div>
           <div className="rp-row"><span className="label">角色类型</span><span className="value">{character?.role === 'both' ? '主/子 Agent' : character?.role === 'main' ? '主 Agent' : character?.role === 'sub' ? '子 Agent' : '--'}</span></div>
@@ -291,7 +289,7 @@ export default function RightPanel() {
               {session.cacheStats?.hitRatio || session.cache_hit_ratio || '--'}
             </span>
           </div>
-          <div className="rp-row"><span className="label">当前策略</span><span className="value">{session.current_strategy || 'Ask'}</span></div>
+          <div className="rp-row"><span className="label">当前审批模式</span><span className="value">{session.current_strategy || 'Ask Risky'}</span></div>
           {session.compacted && (
             <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 4 }}>⚠ 会话已压缩</div>
           )}

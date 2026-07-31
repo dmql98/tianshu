@@ -878,32 +878,41 @@ idle / blink / breathe                    优先级 10</code></pre>
       <section id="events">
         <h2>10. Agent 运行事件联动</h2>
 
-        <p>动画状态来源必须统一，不允许各组件通过 DOM 或文本猜测 Agent 状态。建议在聊天 Store 中增加视觉状态选择器。</p>
+        <p>动画状态来源必须统一，不允许各组件通过 DOM 或文本猜测 Agent 状态。与《11-会话与 Agent 运行系统统一架构设计》对齐：
+          服务端持久化 RunEvent，CharacterPresenceProjector 将运行语义、用户交互和本地自动行为归并为角色表现，
+          聊天区与独立桌面窗口消费同一 Presence 投影。</p>
 
         <div class="table-wrap">
           <table>
             <thead><tr><th>系统事件</th><th>角色动作</th><th>结束条件</th></tr></thead>
             <tbody>
               <tr><td>输入框聚焦 / 用户输入</td><td><code>listening</code></td><td>失焦或发送</td></tr>
-              <tr><td><code>chat-run</code> 已发送，等待首个响应</td><td><code>thinking</code></td><td>出现文本或工具事件</td></tr>
-              <tr><td>推理增量</td><td><code>thinking</code></td><td>状态切换</td></tr>
-              <tr><td>工具开始</td><td><code>toolCalling</code></td><td>进入执行或完成</td></tr>
-              <tr><td>工具运行中</td><td><code>working</code></td><td>工具结果</td></tr>
-              <tr><td>回复文本增量</td><td><code>speaking</code></td><td>流结束</td></tr>
-              <tr><td>运行成功</td><td><code>success</code></td><td>播放一次后回 idle</td></tr>
-              <tr><td>运行异常</td><td><code>error</code></td><td>播放一次后回 idle</td></tr>
-              <tr><td>请求用户审批</td><td><code>listening</code> 或扩展 <code>request</code></td><td>用户决定</td></tr>
+              <tr><td><code>run.started / run.phase:model</code></td><td><code>thinking</code></td><td>出现文本或工具事件</td></tr>
+              <tr><td><code>run.reasoning_delta</code></td><td><code>thinking</code></td><td>状态切换</td></tr>
+              <tr><td><code>tool.started</code></td><td><code>toolCalling</code></td><td>进入执行或完成</td></tr>
+              <tr><td><code>run.phase:tools</code></td><td><code>working</code></td><td>工具结果</td></tr>
+              <tr><td><code>message.delta</code></td><td><code>speaking</code></td><td>流结束</td></tr>
+              <tr><td><code>run.completed</code></td><td><code>success</code></td><td>播放一次后回 idle</td></tr>
+              <tr><td><code>run.failed</code></td><td><code>error</code></td><td>播放一次后回 idle</td></tr>
+              <tr><td><code>approval.requested / run.awaiting_input</code></td><td><code>listening</code> 或扩展 <code>request</code></td><td>用户决定</td></tr>
             </tbody>
           </table>
         </div>
 
         <pre><code>type CharacterRuntimeVisualState = {
+  characterId: string
+  characterRevisionId: string
+  sessionId?: string
+  runId?: string
   motion: CharacterMotion
   source: 'agent' | 'interaction' | 'autopilot'
   priority: number
   since: number
   interruptible: boolean
 }</code></pre>
+        <p>角色 revision 发布后不可变；Run 创建时固定实际 revision。角色资产由角色系统归档和延迟回收，
+          但历史 Run、事件 Occurrence 或固定 Session 的引用会阻止物理删除。视觉资源不可用时按动画 → 立绘 → 名称降级，
+          不影响 Run 的业务终态。</p>
       </section>
 
       <section id="desktop">

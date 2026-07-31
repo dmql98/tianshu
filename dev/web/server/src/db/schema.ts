@@ -17,7 +17,7 @@ export function getDb(): Database.Database {
   try { db.exec('ALTER TABLE sessions ADD COLUMN active_group TEXT') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN session_type TEXT DEFAULT 'chat'") } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN event_id TEXT') } catch { }
-  try { db.exec("ALTER TABLE sessions ADD COLUMN current_strategy TEXT DEFAULT 'Plan'") } catch { }
+  try { db.exec("ALTER TABLE sessions ADD COLUMN current_strategy TEXT DEFAULT 'Read Only'") } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN context_window INTEGER') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN workspaces TEXT") } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN compaction_summary TEXT') } catch { }
@@ -30,6 +30,7 @@ export function getDb(): Database.Database {
   try { db.exec('ALTER TABLE events ADD COLUMN provider_id TEXT') } catch { }
   try { db.exec('ALTER TABLE events ADD COLUMN workspace TEXT') } catch { }
   try { db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT') } catch { }
+  try { db.exec('ALTER TABLE messages ADD COLUMN token_speed REAL') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN dataspace TEXT") } catch { }
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -45,7 +46,7 @@ export function getDb(): Database.Database {
       active_group TEXT,
       session_type TEXT DEFAULT 'chat',
       event_id TEXT,
-      current_strategy TEXT DEFAULT 'Plan',
+      current_strategy TEXT DEFAULT 'Read Only',
       context_window INTEGER,
       input_tokens INTEGER DEFAULT 0,
       output_tokens INTEGER DEFAULT 0,
@@ -62,6 +63,7 @@ export function getDb(): Database.Database {
       tool_input TEXT,
       tool_output TEXT,
       tool_status TEXT,
+      token_speed REAL,
       created_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS events (
@@ -101,6 +103,15 @@ export function getDb(): Database.Database {
       success_rate REAL,
       created_at INTEGER NOT NULL
     );
+  `)
+  db.exec(`
+    UPDATE sessions SET current_strategy = CASE current_strategy
+      WHEN 'Plan' THEN 'Read Only'
+      WHEN 'Ask' THEN 'Ask Risky'
+      WHEN 'Bypass' THEN 'Auto Approve'
+      ELSE current_strategy
+    END
+    WHERE current_strategy IN ('Plan', 'Ask', 'Bypass')
   `)
   // Rebuild events table if old CHECK constraint still exists (prevents new status values)
   try {

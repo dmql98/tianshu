@@ -1,1 +1,42 @@
-{    "dangerous":  true,    "version":  "1.0.0",    "signal":  true,    "tags":  [                 "system"             ],    "name":  "delegate_task",    "source":  "builtin",    "description":  "Î¯ÍĞ×ÓÈÎÎñ¸øÍ¬×é sub ½ÇÉ«",    "author": "TianShu",    "parameters":  {                       "properties":  {                                          "sub_strategy":  {                                                               "enum":  [                                                                            "Plan",                                                                            "Ask",                                                                            "Bypass"                                                                        ],                                                               "description":  "×ÓÈÎÎñ²ßÂÔ£¨¿ÉÑ¡£¬Ä¬ÈÏ¼Ì³Ğ£©",                                                               "type":  "string"                                                           },                                          "task":  {                                                       "type":  "string",                                                       "description":  "×ÓÈÎÎñÃèÊö"                                                   },                                          "target_character_id":  {                                                                      "type":  "string",                                                                      "description":  "Ä¿±ê½ÇÉ« ID"                                                                  },                                          "instances":  {                                                            "type":  "number",                                                            "description":  "²¢·¢ÊµÀıÊı£¨¿ÉÑ¡£¬Ä¬ÈÏ 1£©"                                                        }                                      },                       "type":  "object",                       "required":  [                                        "task",                                        "target_character_id"                                    ]                   }}
+{
+  "name": "delegate_task",
+  "source": "builtin",
+  "version": "1.0.0",
+  "author": "TianShu",
+  "description": "å§”æ‰˜å­ä»»åŠ¡ç»™åŒç»„å­ Agent",
+  "dangerous": true,
+  "signal": true,
+  "tags": [
+    "system"
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "task": {
+        "type": "string",
+        "description": "å­ä»»åŠ¡æè¿°"
+      },
+      "target_character_id": {
+        "type": "string",
+        "description": "ç›®æ ‡è§’è‰² ID"
+      },
+      "sub_strategy": {
+        "type": "string",
+        "enum": [
+          "Read Only",
+          "Ask Risky",
+          "Auto Approve"
+        ],
+        "description": "å­ä»»åŠ¡å®¡æ‰¹æ¨¡å¼ï¼ˆå¯é€‰ï¼Œé»˜è®¤ç»§æ‰¿ï¼‰"
+      },
+      "instances": {
+        "type": "number",
+        "description": "å¹¶å‘å®ä¾‹æ•°ï¼ˆå¯é€‰ï¼Œé»˜è®¤ 1ï¼‰"
+      }
+    },
+    "required": [
+      "task",
+      "target_character_id"
+    ]
+  }
+}

@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { Message } from '@/types'
+import { useChatStore } from '@/stores/chatStore'
 import ThinkingBlock from './ThinkingBlock'
 import ToolCall from './ToolCall'
 
@@ -9,8 +11,15 @@ interface Props {
 }
 
 export default function MessageItem({ message }: Props) {
+  const { editMessage, forkFromMessage, isStreaming } = useChatStore()
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(message.content)
+  const [copied, setCopied] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [isForking, setIsForking] = useState(false)
   const isUser = message.role === 'user'
   const isTool = message.role === 'tool'
+  const hasVisibleContent = message.content.trim().length > 0
   const time = new Date(message.timestamp).toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -20,8 +29,61 @@ export default function MessageItem({ message }: Props) {
     return <ToolCall message={message} />
   }
 
+  const copyMessage = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(message.content)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = message.content
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        const copied = document.execCommand('copy')
+        textarea.remove()
+        if (!copied) throw new Error('copy failed')
+      }
+      setCopied(true)
+      setActionError('')
+      window.setTimeout(() => setCopied(false), 1200)
+    } catch {
+      setActionError('复制失败')
+    }
+  }
+
+  const saveEdit = async () => {
+    if (!editContent.trim() || editContent.trim() === message.content.trim()) {
+      setIsEditing(false)
+      setEditContent(message.content)
+      return
+    }
+    try {
+      setActionError('')
+      await editMessage(message.id, editContent)
+      setIsEditing(false)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '编辑失败')
+    }
+  }
+
+  const createFork = async () => {
+    try {
+      setIsForking(true)
+      setActionError('')
+      await forkFromMessage(message.id)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '创建分支失败')
+    } finally {
+      setIsForking(false)
+    }
+  }
+
   return (
     <div className={`msg-group ${isUser ? 'user' : 'star'}`}>
+      {!isUser && message.token_speed != null && message.token_speed > 0 && (
+        <div className="msg-token-speed">{message.token_speed.toFixed(1)} token/s</div>
+      )}
       {!isUser && message.reasoning && (
         <ThinkingBlock
           content={message.reasoning}
@@ -29,15 +91,72 @@ export default function MessageItem({ message }: Props) {
           defaultExpanded={showReasoning()}
         />
       )}
-      <div className="msg-bubble">
-        {message.content.split('\n').map((line, i) => (
-          <span key={i}>
-            {line}
-            {i < message.content.split('\n').length - 1 && <br />}
-          </span>
-        ))}
-      </div>
-      <div className="msg-time">{time}</div>
+      {isEditing ? (
+        <div className="msg-edit-panel">
+          <textarea
+            className="msg-edit-input"
+            value={editContent}
+            onChange={event => setEditContent(event.target.value)}
+            onKeyDown={event => {
+              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') void saveEdit()
+              if (event.key === 'Escape') {
+                setIsEditing(false)
+                setEditContent(message.content)
+              }
+            }}
+            autoFocus
+          />
+          <div className="msg-edit-actions">
+            <button type="button" onClick={() => {
+              setIsEditing(false)
+              setEditContent(message.content)
+              setActionError('')
+            }}>取消</button>
+            <button type="button" className="primary" onClick={() => void saveEdit()}>保存并重新发送</button>
+          </div>
+        </div>
+      ) : hasVisibleContent ? (
+        <div className="msg-bubble">
+          {message.content.split('\n').map((line, i) => (
+            <span key={i}>
+              {line}
+              {i < message.content.split('\n').length - 1 && <br />}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {(hasVisibleContent || isEditing) && (
+        <>
+          <div className="msg-meta">
+            <span className="msg-time">{time}</span>
+            {!isEditing && (
+              <div className="msg-actions">
+                <button type="button" onClick={() => void copyMessage()}>{copied ? '已复制' : '复制'}</button>
+                {isUser ? (
+                  <button
+                    type="button"
+                    disabled={isStreaming}
+                    title={isStreaming ? '请先停止当前运行' : '编辑这条消息'}
+                    onClick={() => {
+                      setEditContent(message.content)
+                      setIsEditing(true)
+                      setActionError('')
+                    }}
+                  >编辑</button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={message.is_streaming || isForking}
+                    title={message.is_streaming ? '请等待 Agent 回复完成' : '从这条回复创建新会话'}
+                    onClick={() => void createFork()}
+                  >{isForking ? '创建中…' : '分支'}</button>
+                )}
+              </div>
+            )}
+          </div>
+          {actionError && <div className="msg-action-error">{actionError}</div>}
+        </>
+      )}
     </div>
   )
 }

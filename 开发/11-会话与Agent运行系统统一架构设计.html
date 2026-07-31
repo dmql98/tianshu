@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>天枢：会话与 Agent 运行系统统一架构设计</title>
+  <style>
+    :root{
+      --bg:#07111f;--panel:#0d1a2c;--panel2:#11223a;--line:#263a55;
+      --text:#e8f0fb;--muted:#9db0c8;--cyan:#58d8ff;--blue:#73a7ff;
+      --green:#69e6b1;--yellow:#ffd36a;--red:#ff7b8a;--violet:#be9cff;
+      --shadow:0 18px 50px rgba(0,0,0,.28);--radius:18px
+    }
+    *{box-sizing:border-box}html{scroll-behavior:smooth}
+    body{margin:0;background:
+      radial-gradient(circle at 12% 5%,rgba(88,216,255,.12),transparent 28rem),
+      radial-gradient(circle at 92% 18%,rgba(190,156,255,.1),transparent 30rem),
+      var(--bg);color:var(--text);font:15px/1.75 "Segoe UI","Microsoft YaHei",sans-serif}
+    a{color:var(--cyan);text-decoration:none}a:hover{text-decoration:underline}
+    code{font-family:Consolas,monospace;color:#bdeeff;background:#071421;padding:.12rem .38rem;border-radius:5px}
+    .layout{display:grid;grid-template-columns:286px minmax(0,1fr);max-width:1560px;margin:auto}
+    aside{position:sticky;top:0;height:100vh;padding:30px 20px;border-right:1px solid var(--line);
+      background:rgba(7,17,31,.88);backdrop-filter:blur(14px);overflow:auto}
+    .brand{font-size:19px;font-weight:750;letter-spacing:.04em;margin-bottom:5px}
+    .sub{color:var(--muted);font-size:12px;margin-bottom:22px}
+    nav a{display:block;color:#aebed3;padding:7px 10px;border-radius:8px;font-size:13px}
+    nav a:hover{background:#13243a;color:white;text-decoration:none}
+    main{min-width:0;padding:54px clamp(24px,5vw,74px) 90px}
+    .hero{padding:38px;border:1px solid #294663;border-radius:26px;background:
+      linear-gradient(135deg,rgba(18,43,66,.96),rgba(13,25,44,.88));box-shadow:var(--shadow)}
+    .eyebrow{color:var(--cyan);font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+    h1{font-size:clamp(30px,4vw,52px);line-height:1.14;margin:12px 0 18px;letter-spacing:-.03em}
+    h2{font-size:27px;margin:66px 0 18px;scroll-margin-top:20px}
+    h3{font-size:18px;margin:29px 0 10px;color:#f3f8ff}
+    p{margin:8px 0;color:#c8d5e5}.lead{max-width:1040px;font-size:17px;color:#d6e4f3}
+    .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+    .tag{border:1px solid #31506f;background:#10233a;color:#c9e9ff;padding:5px 10px;border-radius:999px;font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:17px 0}
+    .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .card{background:linear-gradient(150deg,rgba(17,34,58,.95),rgba(11,24,42,.95));
+      border:1px solid var(--line);border-radius:var(--radius);padding:21px;box-shadow:0 9px 26px rgba(0,0,0,.13)}
+    .card h3{margin-top:0}.card p:last-child{margin-bottom:0}
+    .callout{border-left:4px solid var(--cyan);background:#0b2033;padding:17px 20px;border-radius:0 12px 12px 0;margin:18px 0}
+    .callout.warn{border-color:var(--yellow);background:#241f16}
+    .callout.good{border-color:var(--green);background:#10251f}
+    .callout.bad{border-color:var(--red);background:#28171e}
+    ul,ol{color:#c8d5e5;padding-left:22px}li{margin:5px 0}
+    table{width:100%;border-collapse:separate;border-spacing:0;background:#0b1829;border:1px solid var(--line);
+      border-radius:14px;overflow:hidden;margin:17px 0;font-size:14px}
+    th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #20344d}
+    th{background:#12243b;color:#dcecff}tr:last-child td{border-bottom:0}
+    .state{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;border:1px solid #36506e;color:#bfd0e4;white-space:nowrap}
+    .state.g{border-color:#287356;color:#72e3b1}.state.y{border-color:#806b2d;color:#ffe18c}
+    .state.r{border-color:#823c4a;color:#ff9baa}.state.v{border-color:#674d96;color:#d2b8ff}
+    .flow{display:flex;align-items:stretch;gap:8px;overflow:auto;padding:7px 0 13px}
+    .flow div{min-width:145px;background:#10223a;border:1px solid #2a4563;border-radius:12px;padding:13px;text-align:center}
+    .flow b{display:block;color:#eef7ff}.flow span{font-size:12px;color:var(--muted)}
+    .arrow{min-width:auto!important;background:none!important;border:0!important;padding:20px 2px!important;color:var(--cyan)}
+    pre{background:#06111e;border:1px solid #243a54;border-radius:13px;padding:16px;overflow:auto;color:#c4e8ff;line-height:1.6}
+    .phase{display:grid;grid-template-columns:76px 1fr;gap:16px;padding:17px 0;border-bottom:1px solid #20334b}
+    .phase:last-child{border-bottom:0}.phase-no{width:60px;height:52px;display:grid;place-items:center;border-radius:16px;
+      background:#142e4b;color:var(--cyan);font-weight:800}
+    .small{font-size:12px;color:var(--muted)}.accent{color:var(--cyan)}.goodtext{color:var(--green)}
+    footer{margin-top:65px;padding-top:20px;border-top:1px solid var(--line);color:#8094ac;font-size:12px}
+    @media(max-width:980px){.layout{display:block}aside{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+      nav{display:none}main{padding-top:28px}.grid,.grid.three{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">天枢 / TianShu</div>
+    <div class="sub">会话、Agent 运行与角色协同架构 · v1.1</div>
+    <nav>
+      <a href="#decision">01. 统一结论</a>
+      <a href="#documents">02. 文档关系</a>
+      <a href="#principles">03. 第一性原则</a>
+      <a href="#objects">04. 统一对象模型</a>
+      <a href="#character">04A. 角色系统集成</a>
+      <a href="#session">05. 会话、编辑与分支</a>
+      <a href="#loop">06. 一个 Loop，多种策略</a>
+      <a href="#control">07. 控制决策</a>
+      <a href="#run">08. Run 状态与可靠性</a>
+      <a href="#plan-goal">09. Plan 与 Goal</a>
+      <a href="#subagent">10. 一级子 Agent</a>
+      <a href="#event">11. 事件触发系统</a>
+      <a href="#context">12. 上下文与 Checkpoint</a>
+      <a href="#frontend">13. 前端信息架构</a>
+      <a href="#data">14. 数据模型</a>
+      <a href="#api">15. API 与事件</a>
+      <a href="#files">16. 工程边界</a>
+      <a href="#phases">17. 开发顺序</a>
+      <a href="#tests">18. 验收标准</a>
+      <a href="#non-goals">19. 明确不做</a>
+    </nav>
+  </aside>
+  <main>
+    <section class="hero" id="decision">
+      <div class="eyebrow">Unified Architecture Decision</div>
+      <h1>Session 承载关系，Run 记录执行，<br>Character 赋予系统主体</h1>
+      <p class="lead">
+        本文统一《09-会话交互与Agent执行系统优化设计》和《10-Loop工程审计与执行模式前置重构设计》。
+        09 中正确的产品能力继续保留，10 中基于当前源码得出的工程约束作为实现边界。
+        最终系统不再为聊天、事件、子 Agent、Plan 和 Goal 各写一套 Loop，而是让它们通过不同入口和 Policy
+        驱动同一个可持久化、可恢复的 Run 状态机。
+      </p>
+      <div class="meta">
+        <span class="tag">08 + 09 + 10 全局协同</span><span class="tag">角色领域独立、系统生命周期贯通</span>
+        <span class="tag">开发期干净重构</span><span class="tag">一个 Loop，多种 Policy</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>01. 统一结论</h2>
+      <div class="grid three">
+        <article class="card"><h3>用户只理解 Session</h3><p>普通聊天、事件执行和子 Agent 都表现为会话。Agent 回复“分支”直接创建新 Session，不引入 Thread 内 Branch DAG。</p></article>
+        <article class="card"><h3>执行只相信 Run</h3><p>排队、阶段、取消、重试、审批、用量、终态、事件序列和恢复都归 Run；Socket 和 Session 列表只是投影。</p></article>
+        <article class="card"><h3>模式只改变 Policy</h3><p>Direct、Plan-first、Goal 共用 LoopEngine。权限审批仍由 Read Only、Ask Risky、Auto Approve 独立控制。</p></article>
+      </div>
+      <div class="callout good">
+        <strong>总架构：</strong>Chat、Event Occurrence、Goal Wakeup 和一级子 Agent 都先创建或定位 Session，
+        再创建 Run，进入 <code>RunCoordinator → LoopEngine → LoopPolicy</code>。
+      </div>
+    </section>
+
+    <section id="documents">
+      <h2>02. 三份文档的关系</h2>
+      <table>
+        <thead><tr><th>文档</th><th>定位</th><th>后续使用方式</th></tr></thead>
+        <tbody>
+          <tr><td>08 角色视觉与动画系统</td><td>角色定义、视觉资源版本、立绘、动画、头像降级、用户导入与角色运行时。</td><td><span class="state g">领域自治、全局集成</span>：拥有自己的资源生命周期，同时通过稳定角色引用、版本快照、语义事件和运行时投影贯穿 Session、Run、Event 与子 Agent。</td></tr>
+          <tr><td>09 会话交互与 Agent 执行优化</td><td>消息交互、分支、Plan、Goal、子 Agent 和前端体验的产品蓝图。</td><td><span class="state y">作为需求来源</span>，其中 Branch DAG、递归 AgentTask、兼容迁移不再采用。</td></tr>
+          <tr><td>10 Loop 工程审计</td><td>当前源码调用链、正确性缺陷、Run/Event/Checkpoint 前置重构。</td><td><span class="state y">作为审计依据</span>，具体实现以本文统一边界为准。</td></tr>
+          <tr><td><strong>11 本文</strong></td><td>产品对象和运行工程的统一架构。</td><td><span class="state g">后续实现主文档</span>。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="principles">
+      <h2>03. 第一性原则</h2>
+      <ol>
+        <li><strong>容器与执行分离：</strong>Session 保存可阅读历史；Run 保存一次执行生命周期。Session 不能承担 running/failed 的唯一真相。</li>
+        <li><strong>模型提出，状态机裁决：</strong>模型可以请求工具、委托、提交结果或询问用户，但不能直接修改系统终态。</li>
+        <li><strong>数据库先于广播：</strong>状态和事件先落 SQLite，再推送 Socket；重连按 seq 重放。</li>
+        <li><strong>一个控制动作一个语义：</strong>普通工具可批量；委托、提交结果、询问用户必须独占决策，不能靠优先级静默跳过其他调用。</li>
+        <li><strong>完成必须可验证：</strong>Direct 的最终回答、Plan 步骤、Goal 条件和子任务结果分别由 Policy 验证。</li>
+        <li><strong>权限不因模式扩大：</strong>执行模式、事件触发和子 Agent 都不能绕过 Approval Mode 与工作区限制。</li>
+        <li><strong>所有循环有边界：</strong>每个 Run 有 turn、token、工具、时间上限；Goal 续跑创建新 Run，不使用无限 while。</li>
+        <li><strong>领域自治不等于系统隔离：</strong>角色系统拥有角色与视觉资源，执行系统拥有 Run；二者通过不可变版本引用和领域事件协作，不能互相复制状态，也不能只靠 UI 临时拼接。</li>
+      </ol>
+    </section>
+
+    <section id="objects">
+      <h2>04. 统一对象模型</h2>
+      <div class="flow">
+        <div><b>Session</b><span>用户可见会话<br>chat / event</span></div><div class="arrow">→</div>
+        <div><b>Turn</b><span>一次用户或触发意图</span></div><div class="arrow">→</div>
+        <div><b>Run</b><span>一次实际执行</span></div><div class="arrow">→</div>
+        <div><b>RunEvent</b><span>可回放事实序列</span></div>
+      </div>
+      <table>
+        <thead><tr><th>对象</th><th>职责</th><th>不是</th></tr></thead>
+        <tbody>
+          <tr><td>Session</td><td>角色、项目、Group、消息历史、会话来源和用户导航。</td><td>不是执行状态机。</td></tr>
+          <tr><td>Turn</td><td>以用户消息、事件指令或 Goal 续跑指令为边界组织消息。</td><td>不是模型的一次请求。</td></tr>
+          <tr><td>Run</td><td>排队、阶段、策略快照、用量、取消、暂停、终态和恢复。</td><td>不是一条 Assistant 消息。</td></tr>
+          <tr><td>RunEvent</td><td>append-only 的状态、delta、工具和控制事件。</td><td>不是仅供 Socket 使用的临时包。</td></tr>
+          <tr><td>Checkpoint</td><td>恢复所需的消息游标、上下文版本、Policy 状态和等待项。</td><td>不是完整数据库备份。</td></tr>
+          <tr><td>Goal / Plan</td><td>跨 Run 的完成条件，以及当前版本的步骤与证据。</td><td>不是审批模式，也不是 Prompt 文本。</td></tr>
+          <tr><td>AgentTask</td><td>母 Run 与一个一级子 Session/Run 的生命周期绑定。</td><td>不是递归任务树。</td></tr>
+          <tr><td>EventDefinition</td><td>何时触发、目标角色、Group 和运行配置。</td><td>不是某次执行。</td></tr>
+          <tr><td>EventOccurrence</td><td>事件定义在某个时间点的一次实际触发。</td><td>不是 Cron 规则本身。</td></tr>
+          <tr><td>CharacterDefinition</td><td>Agent 的稳定身份、人格、能力和当前发布版本。</td><td>不是一张头像，也不是某个 Session 的临时配置。</td></tr>
+          <tr><td>CharacterRevision</td><td>一次不可变的行为配置与视觉清单版本，供 Session/Run/Event 固定引用。</td><td>不是可被历史执行原地修改的目录。</td></tr>
+          <tr><td>CharacterPresence</td><td>把 RunEvent、用户交互和桌面窗口状态归并为某个表面的当前角色表现。</td><td>不是 Run 的第二套状态机。</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <strong>不创建 Branch 表。</strong>用户在 Agent 回复下点击“分支”时，直接创建一个新 Session，
+        记录 <code>forked_from_session_id</code> 和 <code>forked_from_message_id</code>，复制该消息之前的有效历史。
+        这与用户要求的“会话 xxx-分支 x”一致，也比 Thread 内部 DAG 更适合当前产品。
+      </div>
+    </section>
+
+    <section id="character">
+      <h2>04A. 角色系统不是附属 UI：全局集成模型</h2>
+      <p>08 可以保持独立的领域边界，但角色是聊天、事件和子 Agent 的执行主体，不能只在渲染时读取一个
+        <code>character_id</code>。统一架构采用“<strong>角色拥有定义与资源，Session 建立关系，Run 固化执行快照，
+        RunEvent 输出语义，CharacterRuntime 负责表现</strong>”的闭环。</p>
+      <div class="flow">
+        <div><b>CharacterDefinition</b><span>稳定身份</span></div><div class="arrow">→</div>
+        <div><b>CharacterRevision</b><span>行为 + 视觉清单</span></div><div class="arrow">→</div>
+        <div><b>SessionBinding</b><span>会话中的角色关系</span></div><div class="arrow">→</div>
+        <div><b>RunSnapshot</b><span>可复现执行配置</span></div><div class="arrow">→</div>
+        <div><b>RunEvent</b><span>语义事实</span></div><div class="arrow">→</div>
+        <div><b>CharacterPresence</b><span>动画 / 立绘 / 名称</span></div>
+      </div>
+      <table>
+        <thead><tr><th>系统阶段</th><th>角色如何参与</th><th>必须持久化的关联</th></tr></thead>
+        <tbody>
+          <tr><td>创建 Session</td><td>选择母角色，并决定跟随最新发布版本还是固定版本；会话列表和消息头像都从同一绑定解析。</td><td><code>character_id</code>、<code>character_binding_mode</code>、可选 <code>pinned_character_revision_id</code></td></tr>
+          <tr><td>创建 Run</td><td>解析当次实际使用的人格、模型配置、能力、工具、视觉语义表和 Group，形成不可变快照；运行中修改角色不影响当前 Run。</td><td><code>character_revision_id</code>、<code>character_snapshot_hash</code></td></tr>
+          <tr><td>流式执行</td><td>Run 只发布 thinking、tool.started、message.delta、awaiting_approval、completed、failed 等语义事实；角色投影器将它们映射为动作。</td><td>原始 <code>RunEvent</code>；显式表情指令另记 <code>character.cue</code></td></tr>
+          <tr><td>一级子 Agent</td><td>目标 Agent 就是目标角色。子 Session 绑定该角色，子 Run 固定其 revision；母角色与子角色可以同时拥有独立 Presence。</td><td><code>AgentTask.target_character_id</code> 与子 Run 的 revision</td></tr>
+          <tr><td>事件触发</td><td>EventDefinition 指定角色及版本解析策略；Occurrence 在触发时保存实际版本，重试继续使用同一版本，保证结果可复现。</td><td><code>character_id</code>、<code>revision_policy</code>、Occurrence 的 <code>resolved_revision_id</code></td></tr>
+          <tr><td>Plan / Goal</td><td>跨 Run 续跑默认仍由同一角色承担；若用户明确换角色，应创建新的执行绑定并留下审计事件。</td><td>Goal owner character 与每个 Run 的 revision</td></tr>
+          <tr><td>桌面角色窗口</td><td>订阅 CharacterPresence，而不是直接监听某一个 Socket。多个会话同时运行时，由前台会话、用户关注和状态优先级仲裁展示。</td><td>窗口绑定的 <code>character_id</code>、surface 与 focus session</td></tr>
+        </tbody>
+      </table>
+      <h3>资源生命周期与引用安全</h3>
+      <ul>
+        <li><strong>角色资源不塞入 runs/sessions：</strong>图片、视频、Sprite Sheet 和 manifest 仍由 CharacterAssetStore 管理；Session/Run 保存的是稳定 revision 引用和快照哈希，不复制二进制资源。</li>
+        <li><strong>Revision 发布后不可变：</strong>编辑角色生成新 revision。当前 Run 永不漂移；跟随最新版本的 Session 在下一次 Run 创建时解析新 revision。</li>
+        <li><strong>删除采用归档与延迟回收：</strong>角色或 revision 被历史 Run、事件 Occurrence、固定 Session、导出任务引用时只能 archived；资源在引用归零、保留期结束且无活动播放器后才可 GC。</li>
+        <li><strong>视觉缺失不阻断执行：</strong>CharacterRuntime 按动画 → 立绘 → 名称降级；人格或执行配置缺失则 Run 创建失败并给出结构化错误，二者不能混为一类。</li>
+        <li><strong>动作是投影，不是执行真相：</strong>刷新、断线和桌面窗口重开后，从持久化 RunEvent 重建 Presence；随机眨眼等本地自动行为无需写入 RunEvent。</li>
+      </ul>
+      <div class="callout good">
+        <strong>边界结论：</strong>不把动画文件生命周期塞进 Run/Session 表，并不意味着 08 与执行系统隔离。
+        Run/Session 必须保存足以解析角色和复现执行的稳定引用；角色系统必须消费统一运行事件，并对历史引用负责。
+      </div>
+    </section>
+
+    <section id="session">
+      <h2>05. 会话、消息编辑与分支</h2>
+      <table>
+        <thead><tr><th>操作</th><th>用户语义</th><th>持久化语义</th></tr></thead>
+        <tbody>
+          <tr><td>用户消息复制</td><td>复制原文。</td><td>不修改状态。</td></tr>
+          <tr><td>用户消息编辑</td><td>从修改后的意图重新执行当前会话。</td><td>创建 MessageRevision；后续 Turn 标记 superseded，不物理删除；创建新 Run。</td></tr>
+          <tr><td>Agent 消息复制</td><td>复制最终可见回答。</td><td>不修改状态。</td></tr>
+          <tr><td>Agent 消息分支</td><td>从这里开始另一个会话。</td><td>创建新 Session，复制截止该消息的有效上下文，保存 fork 来源。</td></tr>
+        </tbody>
+      </table>
+      <p>会话名由服务端原子生成：<code>原会话名-分支1</code>、<code>原会话名-分支2</code>。分支 Session 与子 Agent Session 是不同关系：
+        前者使用 <code>forked_from_session_id</code>，后者使用 <code>parent_session_id</code>。</p>
+      <p>消息继续支持 token/s：流式阶段显示估算值，Run 完成后以服务端统计覆盖，并归属具体 Assistant message 和 Run。</p>
+    </section>
+
+    <section id="loop">
+      <h2>06. 一个 Loop，多种入口与策略</h2>
+      <pre>Chat message / EventOccurrence / Goal wakeup / AgentTask
+                         │
+                         ▼
+RunCoordinator
+  创建 Run → 持久排队 → 同 Session 互斥 → 取消/租约/唯一终态
+                         │
+                         ▼
+LoopEngine
+  1. ContextBuilder
+  2. ModelExecutor
+  3. DecisionParser
+  4. ControlRouter / ToolCoordinator
+  5. CompletionEvaluator
+  6. CheckpointService
+                         │
+                         ▼
+LoopPolicy: Direct | PlanFirst | Goal</pre>
+      <table>
+        <thead><tr><th>入口</th><th>Session</th><th>Run 来源</th><th>特殊约束</th></tr></thead>
+        <tbody>
+          <tr><td>用户消息</td><td>已有或新建 chat Session</td><td>chat</td><td>同会话串行；允许用户 steer。</td></tr>
+          <tr><td>事件触发</td><td>每个 Occurrence 创建一个顶层 event Session</td><td>event</td><td>配置快照固定；支持持久审批。</td></tr>
+          <tr><td>Goal 续跑</td><td>Goal 所属 Session</td><td>goal</td><td>每次续跑是新 Run，跨 Run 累计预算。</td></tr>
+          <tr><td>子 Agent</td><td>新建一级子 Session</td><td>agent_task</td><td>不能再委托；运行完整 Loop。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="control">
+      <h2>07. 模型决策与控制动作</h2>
+      <pre>type AgentDecision =
+  | { type: 'respond'; content: string }
+  | { type: 'call_tools'; calls: ToolCall[] }
+  | { type: 'delegate_to_agent'; request: DelegateRequest }
+  | { type: 'submit_result'; result: ResultSubmission }
+  | { type: 'ask_user'; request: QuestionRequest }</pre>
+      <p><code>delegate_task</code> 和 <code>task_complete</code> 的旧特殊工具实现直接删除。新的
+        <code>delegate_to_agent</code>、<code>submit_result</code>、<code>ask_user</code> 属于 ControlRegistry，
+        不进入普通 ToolRegistry。</p>
+      <table>
+        <thead><tr><th>决策</th><th>服务端裁决</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>call_tools</td><td>绑定、权限、工作区、并发组、超时与幂等检查。</td><td>执行工具并进入下一轮。</td></tr>
+          <tr><td>delegate_to_agent</td><td>调用者必须是顶层 Session；Group、角色能力和权限不得升级。</td><td>原子创建 AgentTask + 一级子 Session + 子 Run。</td></tr>
+          <tr><td>submit_result</td><td>CompletionEvaluator 检查 Plan/Goal/子任务/验证要求。</td><td>接受后完成；拒绝时返回未满足条件并继续。</td></tr>
+          <tr><td>ask_user</td><td>保存问题和 Checkpoint。</td><td>Run 进入 awaiting_input，释放运行资源。</td></tr>
+          <tr><td>respond</td><td>Direct 可完成；Plan/Goal 由 Policy 判断是否只是中间说明。</td><td>完成或继续。</td></tr>
+        </tbody>
+      </table>
+      <div class="callout bad">
+        控制动作必须独占一轮。控制动作与普通工具混用、或多个控制动作同时出现时，整批不执行并返回协议错误；
+        禁止“某个控制工具优先，其余调用静默跳过”。
+      </div>
+    </section>
+
+    <section id="run">
+      <h2>08. Run 状态、阶段与可靠性</h2>
+      <pre>queued → preparing → running
+                       ├─ awaiting_approval → queued
+                       ├─ awaiting_input    → queued
+                       ├─ paused            → queued
+                       └─ completed | failed | cancelled
+                          max_turns | budget_exhausted | interrupted</pre>
+      <p>Run 的 <strong>status</strong> 表示生命周期；<strong>phase</strong> 表示当前正在做什么：</p>
+      <div class="flow">
+        <div><b>context</b><span>历史与压缩</span></div><div class="arrow">→</div>
+        <div><b>model</b><span>请求与流式</span></div><div class="arrow">→</div>
+        <div><b>tools</b><span>工具批次</span></div><div class="arrow">→</div>
+        <div><b>delegate</b><span>子任务</span></div><div class="arrow">→</div>
+        <div><b>verify</b><span>完成验证</span></div><div class="arrow">→</div>
+        <div><b>finalize</b><span>结果与清理</span></div>
+      </div>
+      <ul>
+        <li>每个 Run 只有一个终态事件，使用条件更新保证 exactly-once。</li>
+        <li>取消先进入 cancelling；旧 Run 的 Promise、工具和资源真正退出前，不释放同 Session 互斥。</li>
+        <li>模型请求的瞬时重试使用独立 attempt 缓冲，不能拼接上一 attempt 的 delta/tool calls。</li>
+        <li>MCP 和临时资源统一由 RunResourceScope 在 finally 中关闭。</li>
+        <li>意外异常由 Run boundary 统一记录 failed，Runner 不得吞掉错误。</li>
+        <li>RunEvent 使用单调 seq；数据库提交后再广播，客户端通过 after_seq 重放。</li>
+      </ul>
+    </section>
+
+    <section id="plan-goal">
+      <h2>09. Plan-first 与 Goal</h2>
+      <table>
+        <thead><tr><th>模式</th><th>Policy</th><th>完成条件</th></tr></thead>
+        <tbody>
+          <tr><td>Direct</td><td>允许直接模型/工具迭代，不要求计划。</td><td>最终 respond，且无未完成控制动作。</td></tr>
+          <tr><td>Plan-first</td><td>写操作前必须存在有效 Plan；步骤状态持久化，支持 replan。</td><td>必要步骤和验证完成后接受 submit_result。</td></tr>
+          <tr><td>Goal</td><td>跨 Run 管理 outcome、constraints、verification、budget 和 wake condition。</td><td>GoalEvaluator 验证证据，不接受模型自称完成。</td></tr>
+        </tbody>
+      </table>
+      <pre>Plan
+  id, session_id, goal_id?, version, status
+
+PlanStep
+  id, plan_id, ordinal, title
+  status: pending | in_progress | blocked | completed | skipped | failed
+  depends_on, verification, evidence_artifact_ids</pre>
+      <p>前端“第 1/4 步”直接读取 PlanStep。没有 Plan 时只展示 Run phase，不伪造步骤进度。
+        Plan 的事实状态在数据库；如需项目内可读文件，可投影到 <code>.tianshu/plans/*.md</code>，文件不是状态真源。</p>
+      <p>Goal 的自动续跑每次创建新 Run。达到预算、需要用户决定或等待外部条件时，Goal 进入 paused/awaiting_input/blocked；
+        不在一个 Run 中无限循环。</p>
+    </section>
+
+    <section id="subagent">
+      <h2>10. 一级子 Agent</h2>
+      <div class="callout good">
+        <strong>唯一允许的结构：</strong><br>
+        母 Session<br>
+        ├─ 子 Session 1<br>
+        └─ 子 Session 2
+      </div>
+      <ol>
+        <li>只有 <code>parent_session_id = null</code> 的顶层 Session 能收到 <code>delegate_to_agent</code> 控制能力。</li>
+        <li>有 active_group 时，只能调用组内且角色为 sub/both 的 Agent；无 Group 时只能调用自己。</li>
+        <li>子 Session 的 ControlRegistry 不包含 delegate；服务端创建接口也拒绝以子 Session 为父。</li>
+        <li>每次委托创建一个 AgentTask、一个子 Session 和一个子 Run；不提供 instances 参数。</li>
+        <li>子 Agent 调用完整 LoopEngine，而不是只执行一次 innerLoop。</li>
+        <li>子权限不得高于母会话；Provider、模型、工作区、active_group 和 Approval Mode 使用明确快照。</li>
+        <li>前台模式由母 Run 等待；后台模式完成后写收件箱事件，在母 Run 安全边界注入结果。</li>
+      </ol>
+      <pre>AgentTask
+  id, parent_run_id
+  child_session_id, child_run_id
+  target_agent_id, task, expected_output
+  mode: foreground | background
+  status, result_artifact_id, error
+
+// 不存在 parent_task_id，也不允许 child AgentTask</pre>
+    </section>
+
+    <section id="event">
+      <h2>11. 事件：定义与一次执行分离</h2>
+      <div class="flow">
+        <div><b>EventDefinition</b><span>once / cron<br>长期规则</span></div><div class="arrow">→</div>
+        <div><b>Occurrence</b><span>某一次触发</span></div><div class="arrow">→</div>
+        <div><b>Event Session</b><span>顶层可见会话</span></div><div class="arrow">→</div>
+        <div><b>Run</b><span>统一执行</span></div>
+      </div>
+      <ul>
+        <li>Cron 使用真实解析器和 timezone 计算 next_fire_at；不复制 Event 并立即再执行。</li>
+        <li>同一 definition + scheduled_for 唯一，调度抢占使用事务条件更新。</li>
+        <li>手动运行创建 manual Occurrence，不允许前端直接 PATCH running。</li>
+        <li>每个 Occurrence 只创建一个顶层事件 Session；失败重试在同 Session 创建新 Run。</li>
+        <li>Occurrence 结果直接来自 Run 结构化结果，不扫描消息猜测。</li>
+        <li>assigned_group 写入 Session.active_group；事件母 Agent 可创建一级子 Session。</li>
+        <li>Approval Mode 在定义中明确保存；Ask Risky 进入持久 awaiting_approval，不使用 Fake Socket。</li>
+        <li>默认 overlap_policy=skip；可选 queue，首版不开放 parallel。</li>
+      </ul>
+    </section>
+
+    <section id="context">
+      <h2>12. 上下文、压缩与 Checkpoint</h2>
+      <table>
+        <thead><tr><th>组件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td>ContextBuilder</td><td>根据有效 Turn、附件、记忆、压缩版本和动态提醒构造请求视图，不修改持久消息原文。</td></tr>
+          <tr><td>CompactionService</td><td>裁剪旧工具结果、生成摘要、保存 summary version 与 message cursor；摘要和 cutoff 原子更新。</td></tr>
+          <tr><td>CheckpointService</td><td>在 awaiting、暂停、预算边界和可恢复中断时保存上下文版本、Policy 状态、用量和等待项。</td></tr>
+          <tr><td>ModelExecutor</td><td>请求级 retry、attempt 隔离、usage 和 delta；首个 attempt 残片不能污染成功结果。</td></tr>
+          <tr><td>ToolCoordinator</td><td>普通工具校验、审批、并发组、超时、幂等和结构化结果。</td></tr>
+        </tbody>
+      </table>
+      <p>孤儿 tool call 不再只在内存静默注入 <code>[reconstructed]</code>。ContextBuilder 可以临时修复请求，
+        但必须记录 integrity event，并由数据修复任务处理根因。</p>
+    </section>
+
+    <section id="frontend">
+      <h2>13. 前端统一信息架构</h2>
+      <div class="grid">
+        <article class="card"><h3>左侧 Session</h3><p>项目下显示普通会话；事件会话单独分区。母会话下最多显示一级子会话。分支是独立顶层会话，并显示来源标识。</p></article>
+        <article class="card"><h3>消息主区</h3><p>用户消息：复制、编辑。Agent 消息：复制、分支。Assistant 顶部显示最终 token/s；工具与控制卡片按 RunEvent 投影。</p></article>
+        <article class="card"><h3>右侧运行面板</h3><p>角色、协作组、可调用成员、Approval Mode、Execution Mode、当前 Run phase、Plan 步骤、Goal、子 Agent 和事件来源。</p></article>
+        <article class="card"><h3>事件中心</h3><p>管理 EventDefinition；展开查看 Occurrence 历史、下一次时间、重试、结果和打开会话。</p></article>
+      </div>
+      <p>协作组选择器候选项取母角色所属 Group。无组显示“仅可调用自己”；只有一个 Group 时新会话可默认选中，
+        多个 Group 必须由用户选择。前端 Store 只根据 durable event 更新 Run 状态，刷新后按 seq 恢复。</p>
+    </section>
+
+    <section id="data">
+      <h2>14. 推荐数据模型</h2>
+      <pre>sessions
+  id, type(chat|event), character_id, title
+  character_binding_mode(follow_latest|pinned), pinned_character_revision_id
+  parent_session_id                       // 仅一级子 Agent
+  forked_from_session_id, forked_from_message_id
+  event_occurrence_id
+  active_group, provider_id, model, workspace
+  approval_mode, execution_mode
+
+turns
+  id, session_id, ordinal, trigger_type
+  user_message_id, status(active|superseded)
+
+messages
+  id, session_id, turn_id, run_id
+  role, content, status, supersedes_message_id
+  token_speed, created_at
+
+runs
+  id, session_id, turn_id, parent_run_id, resumed_from_run_id
+  character_id, character_revision_id, character_snapshot_hash
+  source(chat|event|goal|agent_task)
+  status, phase, approval_mode, execution_mode
+  turn_no, max_turns, usage, error, timestamps
+
+run_events
+  run_id, seq, type, payload, created_at
+
+checkpoints
+  id, run_id, reason, message_cursor, context_version
+  policy_state, usage_snapshot, pending_request
+
+goals
+plans
+plan_steps
+
+agent_tasks
+  id, parent_run_id, child_session_id, child_run_id
+  target_character_id, mode, status, result, error
+
+event_definitions
+event_occurrences
+
+character_definitions
+  id, current_revision_id, status(active|archived)
+
+character_revisions
+  id, character_id, revision_no, manifest_hash, created_at
+
+character_asset_refs
+  owner_type, owner_id, revision_id, retention_until
+
+artifacts
+  id, kind, path, mime, hash, metadata</pre>
+      <div class="callout warn">
+        当前处于开发阶段：直接重建开发数据库和 API，不增加旧 strategy、旧 Event 表、旧控制工具、递归子会话或 Branch DAG 的兼容层。
+      </div>
+    </section>
+
+    <section id="api">
+      <h2>15. API 与实时事件</h2>
+      <pre>POST   /sessions
+POST   /sessions/:id/fork
+POST   /messages/:id/revise
+
+POST   /runs
+POST   /runs/:id/cancel
+POST   /runs/:id/pause
+POST   /runs/:id/resume
+POST   /runs/:id/inputs
+GET    /runs/:id/events?after_seq=
+
+POST   /goals
+PATCH  /goals/:id
+POST   /goals/:id/pause
+POST   /goals/:id/resume
+
+POST   /event-definitions
+PATCH  /event-definitions/:id
+POST   /event-definitions/:id/fire
+GET    /event-definitions/:id/occurrences
+POST   /event-occurrences/:id/cancel
+POST   /event-occurrences/:id/retry
+
+GET    /characters/:id/revisions
+POST   /characters/:id/revisions
+POST   /characters/:id/archive
+GET    /characters/:id/presence</pre>
+      <pre>{
+  "event_id": "ulid",
+  "session_id": "ses_...",
+  "run_id": "run_...",
+  "seq": 184,
+  "type": "tool.completed",
+  "occurred_at": 1785420000000,
+  "payload": {}
+}</pre>
+      <p>事件类型统一覆盖 <code>run.* / message.* / tool.* / control.* / approval.* / plan.* /
+        goal.* / agent_task.* / event_occurrence.* / character.cue / character.revision_published /
+        character.archived</code>。客户端不得通过通用 PATCH 任意修改领域状态。动画播放器消费这些语义事件的投影，
+        不通过解析消息文本或 DOM 猜测状态。</p>
+    </section>
+
+    <section id="files">
+      <h2>16. 推荐工程边界</h2>
+      <pre>server/src/agent/runtime/
+  run-coordinator.ts
+  run-store.ts
+  run-event-store.ts
+  checkpoint-store.ts
+  resource-scope.ts
+
+server/src/agent/loop/
+  loop-engine.ts
+  loop-policy.ts
+  decision-parser.ts
+  control-router.ts
+  context-builder.ts
+  compaction-service.ts
+  model-executor.ts
+  tool-coordinator.ts
+  completion-evaluator.ts
+
+server/src/agent/tasks/
+  agent-task-coordinator.ts
+  agent-task-store.ts
+
+server/src/event/
+  definition-store.ts
+  occurrence-store.ts
+  scheduler.ts
+  event-run-adapter.ts
+
+server/src/character/
+  character-store.ts
+  character-revision-store.ts
+  character-asset-store.ts
+  character-binding-resolver.ts
+  character-presence-projector.ts
+  character-resource-gc.ts
+
+server/src/ws/
+  run-projector.ts
+
+client/src/features/
+  sessions/
+  run/
+  plan/
+  goal/
+  agent-tasks/
+  events/
+  characters/
+  character-presence/</pre>
+    </section>
+
+    <section id="phases">
+      <h2>17. 推荐开发顺序</h2>
+      <div class="phase"><div class="phase-no">P0</div><div><h3>修复正确性</h3><p>流式 retry attempt 隔离；Abort cancelling；异常唯一终态；MCP finally；事件触发/结果读取临时止血；补故障测试。</p></div></div>
+      <div class="phase"><div class="phase-no">P1</div><div><h3>Run、角色版本引用与事件序列</h3><p>重建 runs/run_events/checkpoints；建立 CharacterRevision 与绑定解析；RunCoordinator 接管 chat 和 event；数据库先于 Socket；支持 after_seq 重放。</p></div></div>
+      <div class="phase"><div class="phase-no">P2</div><div><h3>Loop 组件化与控制决策</h3><p>拆 Context/Model/Tool/Control/Completion；删除旧 delegate_task/task_complete；接入 delegate_to_agent/submit_result/ask_user。</p></div></div>
+      <div class="phase"><div class="phase-no">P3</div><div><h3>会话语义、角色 Presence 和一级子 Agent</h3><p>MessageRevision、分支来源、角色绑定、CharacterPresence、active_group UI；完整子 Loop；后端与前端共同限制只有一级。</p></div></div>
+      <div class="phase"><div class="phase-no">P4</div><div><h3>事件定义与 Occurrence</h3><p>重建事件表、Cron/时区、原子抢占、重叠策略、重试和事件中心历史。</p></div></div>
+      <div class="phase"><div class="phase-no">P5</div><div><h3>Plan-first</h3><p>Plan/Step/证据、步骤进度 UI、Policy 强制和项目文件投影。</p></div></div>
+      <div class="phase"><div class="phase-no">P6</div><div><h3>Goal</h3><p>预算、验证、跨 Run 续跑、Wake Condition、暂停/恢复和完成证据。</p></div></div>
+    </section>
+
+    <section id="tests">
+      <h2>18. 关键验收标准</h2>
+      <ul>
+        <li>流式输出一半后失败重试，最终文本和工具参数不重复。</li>
+        <li>Abort 后立即发送新消息，同 Session 永远不会出现两个并行 Run。</li>
+        <li>任意异常路径都有且只有一个 terminal RunEvent，资源全部关闭。</li>
+        <li>刷新或断线后能从 after_seq 恢复消息、工具、阶段、Plan 和审批。</li>
+        <li>用户编辑消息保留旧 revision；Agent 分支产生独立新 Session 和正确命名。</li>
+        <li>子 Agent 能完成多轮工具 Loop，但无法获得或伪造 delegate_to_agent，数据库不存在孙会话。</li>
+        <li>控制动作与普通工具混用时整批拒绝，不产生部分副作用。</li>
+        <li>submit_result 未满足 Plan/Goal 条件时被拒绝，并返回可执行的未满足项。</li>
+        <li>Cron 在正确时区和时间触发；同一 scheduled_for 只产生一个 Occurrence。</li>
+        <li>事件手动运行、自动触发、失败重试各自只创建一个 Session；结果摘要来自 Run 结果。</li>
+        <li>Ask Risky 在事件或断线场景中可持久等待并恢复，不依赖当前 Socket。</li>
+        <li>Run 中途发布新角色 revision 不改变当前执行；下一次 follow_latest Run 使用新版本，pinned Session 保持旧版本。</li>
+        <li>RunEvent 能稳定投影 thinking、working、speaking、success、error；无动画或无立绘时分别降级且不影响执行。</li>
+        <li>被历史 Run、Occurrence 或固定 Session 引用的角色 revision 无法物理删除；归档后历史会话仍可解析或明确降级。</li>
+        <li>事件重试使用首次 Occurrence 已解析的角色 revision；子 Agent Session 使用目标角色自己的 revision。</li>
+      </ul>
+    </section>
+
+    <section id="non-goals">
+      <h2>19. 本轮明确不做</h2>
+      <ul>
+        <li>不在 Run/Session 表中复制角色动画二进制或维护第二套资源状态；它们必须保存稳定角色 revision 引用，并参与角色资源的引用保护。</li>
+        <li>不实现 Thread 内多 Branch DAG；分支就是新 Session。</li>
+        <li>不允许递归子 Agent、孙会话或 child AgentTask。</li>
+        <li>不为旧数据库、旧控制工具、旧策略名和旧事件 API 写兼容层。</li>
+        <li>不让 EventExecutor、子 Agent 或 Goal 各自复制一套 Loop。</li>
+        <li>不允许模型直接宣告系统完成，也不允许客户端任意 PATCH 领域状态。</li>
+        <li>不在 Run 基础设施稳定前实现 Plan-first/Goal 的模式切换。</li>
+      </ul>
+      <div class="callout good">
+        <strong>最终实施判断：</strong>先修 Run 正确性，再统一所有入口，然后增加 Plan/Goal。
+        这能让消息交互、一级子 Agent、事件和执行模式共用同一套可靠基础，而不是继续在现有函数上叠加特殊分支。
+      </div>
+    </section>
+
+    <footer>
+      文档：天枢会话与 Agent 运行系统统一架构设计 · v1.0 · 2026-07-31<br>
+      本文整合 09 产品设计与 10 Loop 工程审计；08 角色视觉与动画系统保持独立。
+    </footer>
+  </main>
+</div>
+</body>
+</html>

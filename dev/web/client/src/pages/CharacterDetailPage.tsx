@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, deleteCharacter } from '@/api/characters'
 import { fetchTools } from '@/api/tools'
 import { fetchSkills } from '@/api/skills'
-import type { Character, CharacterStats } from '@/types'
+import { normalizeStrategy, STRATEGIES, type Character, type CharacterStats, type Strategy } from '@/types'
 import type { ToolMeta } from '@/api/tools'
 import type { SkillMeta } from '@/api/skills'
 
@@ -31,7 +31,7 @@ export default function CharacterDetailPage() {
   const [color, setColor] = useState('#6366f1')
   const [enabled, setEnabled] = useState(true)
   const [role, setRole] = useState<Character['role']>('both')
-  const [strategy, setStrategy] = useState<'Plan' | 'Ask' | 'Bypass'>('Ask')
+  const [strategy, setStrategy] = useState<Strategy>('Ask Risky')
   const [stepsEnabled, setStepsEnabled] = useState(false)
   const [maxSteps, setMaxSteps] = useState(10)
   const [groups, setGroups] = useState<string[]>([])
@@ -108,7 +108,7 @@ export default function CharacterDetailPage() {
       setColor(c.color || '#6366f1')
       setEnabled(c.enabled ?? true)
       setRole(c.role || 'both')
-      setStrategy(c.default_strategy || 'Ask')
+      setStrategy(normalizeStrategy(c.default_strategy))
       setStepsEnabled(!!c.maxSteps && c.maxSteps < 999)
       setMaxSteps(c.maxSteps && c.maxSteps < 999 ? c.maxSteps : 10)
       setGroups(c.groups ? [...c.groups] : [])
@@ -339,9 +339,9 @@ export default function CharacterDetailPage() {
                     </select>
                   </div>
                   <div className="info-item" style={{ flex: 1 }}>
-                    <div className="info-item-label">默认策略</div>
+                    <div className="info-item-label">默认审批模式</div>
                     <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                      {(['Plan', 'Ask', 'Bypass'] as const).map(s => (
+                      {STRATEGIES.map(s => (
                         <span key={s} className={`strategy-btn ${strategy === s ? 'active' : ''}`} onClick={() => { setStrategy(s); autoSave({ default_strategy: s }) }}>{s}</span>
                       ))}
                     </div>

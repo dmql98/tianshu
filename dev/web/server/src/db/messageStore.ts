@@ -6,6 +6,7 @@ export interface MessageRow {
   tool_name: string | null; tool_input: string | null
   tool_output: string | null; tool_status: string | null
   attachments: string | null
+  token_speed: number | null
   created_at: number
 }
 
@@ -18,6 +19,10 @@ export const messageStore = {
     return r.c
   },
   keepFirst(sessionId: string, count: number) {
+    if (count === 0) {
+      getDb().prepare('DELETE FROM messages WHERE session_id = ?').run(sessionId)
+      return
+    }
     const ids = getDb().prepare('SELECT id FROM messages WHERE session_id = ? ORDER BY id ASC LIMIT ?').all(sessionId, count) as { id: number }[]
     if (ids.length < count) return
     getDb().prepare('DELETE FROM messages WHERE session_id = ? AND id > ?').run(sessionId, ids[ids.length - 1].id)
@@ -33,11 +38,29 @@ export const messageStore = {
       tool_name: data.tool_name || null, tool_input: data.tool_input || null,
       tool_output: data.tool_output || null, tool_status: data.tool_status || null,
       attachments: data.attachments || null,
+      token_speed: data.token_speed ?? null,
       created_at: now,
     }
-    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @created_at)`).run(row)
+    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @created_at)`).run(row)
     row.id = Number(result.lastInsertRowid)
     getDb().prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(now, sessionId)
     return row
+  },
+  copyFirst(sourceSessionId: string, targetSessionId: string, count: number): number {
+    if (count <= 0) return 0
+    const result = getDb().prepare(`
+      INSERT INTO messages (
+        session_id, role, content, reasoning_content, tool_name, tool_input,
+        tool_output, tool_status, attachments, token_speed, created_at
+      )
+      SELECT ?, role, content, reasoning_content, tool_name, tool_input,
+        tool_output, tool_status, attachments, token_speed, created_at
+      FROM messages
+      WHERE session_id = ?
+      ORDER BY id ASC
+      LIMIT ?
+    `).run(targetSessionId, sourceSessionId, count)
+    getDb().prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(Date.now(), targetSessionId)
+    return result.changes
   },
 }

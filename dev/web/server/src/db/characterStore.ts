@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync } from 'fs'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
+import { normalizeStrategy, type Strategy, type StrategyInput } from '../agent/strategy.js'
 
 const DATA_DIR = getDataDir()
 const CHAR_DIR = resolve(DATA_DIR, 'characters')
@@ -31,7 +32,7 @@ export interface CharacterRecord {
   maxSteps?: number
   role?: 'main' | 'sub' | 'both'
   groups?: string[]
-  default_strategy?: 'Plan' | 'Ask' | 'Bypass'
+  default_strategy?: Strategy
   skills?: string[]
   enabled?: boolean
   hidden?: boolean
@@ -43,6 +44,15 @@ function pathFor(id: string): string {
   return resolve(CHAR_DIR, id, 'character.json')
 }
 
+function normalizeRecord(record: CharacterRecord & { default_strategy?: StrategyInput }): CharacterRecord {
+  return {
+    ...record,
+    ...(record.default_strategy
+      ? { default_strategy: normalizeStrategy(record.default_strategy, 'Ask Risky') }
+      : {}),
+  }
+}
+
 function readAll(): CharacterRecord[] {
   if (!existsSync(CHAR_DIR)) return []
   const items: CharacterRecord[] = []
@@ -52,7 +62,7 @@ function readAll(): CharacterRecord[] {
       if (!entry.isDirectory()) continue
       const f = pathFor(entry.name)
       if (!existsSync(f)) continue
-      try { items.push(JSON.parse(readFileSync(f, 'utf-8'))) } catch { /* skip corrupt */ }
+      try { items.push(normalizeRecord(JSON.parse(readFileSync(f, 'utf-8')))) } catch { /* skip corrupt */ }
     }
   } catch { /* dir not found */ }
   return items
@@ -82,7 +92,7 @@ export const characterMetaStore = {
   getById: (id: string) => {
     const f = pathFor(id)
     if (!existsSync(f)) return null
-    try { return JSON.parse(readFileSync(f, 'utf-8')) } catch { return null }
+    try { return normalizeRecord(JSON.parse(readFileSync(f, 'utf-8'))) } catch { return null }
   },
 
   create: (data: Omit<CharacterRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
@@ -93,7 +103,7 @@ export const characterMetaStore = {
       throw new Error(`Character ID "${id}" already exists`)
     }
     const { id: _, ...rest } = data
-    const record: CharacterRecord = { ...rest, id, createdAt: now, updatedAt: now }
+    const record: CharacterRecord = normalizeRecord({ ...rest, id, createdAt: now, updatedAt: now })
     writeSingle(record)
     return record
   },
@@ -101,7 +111,7 @@ export const characterMetaStore = {
   update: (id: string, data: Partial<CharacterRecord>) => {
     const record = characterMetaStore.getById(id)
     if (!record) return null
-    const updated: CharacterRecord = { ...record, ...data, id, updatedAt: Date.now() }
+    const updated: CharacterRecord = normalizeRecord({ ...record, ...data, id, updatedAt: Date.now() })
     writeSingle(updated)
     return updated
   },

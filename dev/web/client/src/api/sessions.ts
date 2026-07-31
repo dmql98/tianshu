@@ -21,5 +21,10 @@ export const fetchSessionMessages = (id: string) =>
 export const keepMessages = (sessionId: string, count: number) =>
   apiDelete(`/api/sessions/${sessionId}/messages?keep=${count}`)
 
+export const forkSession = (
+  sessionId: string,
+  data: { id: string; message_id?: number; message_count: number },
+) => apiPost<{ session: SessionSummary; messages: any[] }>(`/api/sessions/${sessionId}/fork`, data)
+
 export const fetchChildSessions = (id: string) =>
   apiGet<SessionSummary[]>(`/api/sessions/${id}/children`)

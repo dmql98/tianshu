@@ -1,4 +1,15 @@
 // 会话相关
+export const STRATEGIES = ['Read Only', 'Ask Risky', 'Auto Approve'] as const
+export type Strategy = typeof STRATEGIES[number]
+
+export function normalizeStrategy(value: unknown, fallback: Strategy = 'Ask Risky'): Strategy {
+  if (STRATEGIES.includes(value as Strategy)) return value as Strategy
+  if (value === 'Plan') return 'Read Only'
+  if (value === 'Ask') return 'Ask Risky'
+  if (value === 'Bypass') return 'Auto Approve'
+  return fallback
+}
+
 export interface SessionSummary {
   id: string
   character_id: string
@@ -12,7 +23,7 @@ export interface SessionSummary {
   active_group: string | null
   session_type?: 'chat' | 'event'
   event_id?: string | null
-  current_strategy?: 'Plan' | 'Ask' | 'Bypass'
+  current_strategy?: Strategy
   context_window?: number | null
   reasoning_effort?: string
   input_tokens?: number
@@ -48,6 +59,8 @@ export interface Message {
   is_streaming?: boolean
   reasoning?: string
   reasoning_duration?: number
+  token_speed?: number
+  token_speed_estimated?: boolean
   timestamp: number
 }
 
@@ -60,7 +73,7 @@ export interface Character {
   color: string
   role: 'main' | 'sub' | 'both'
   groups: string[]
-  default_strategy: 'Plan' | 'Ask' | 'Bypass'
+  default_strategy: Strategy
   provider: string
   model: string
   maxSteps: number
@@ -150,6 +163,10 @@ export interface RunEvent {
   scope?: 'request' | 'run'
   cache?: { hitTokens: number; missTokens: number; hitRatio: string }
   context_window?: number
+  message_id?: number
+  user_message_id?: number
+  token_speed?: number
+  token_speed_estimated?: boolean
 }
 
 // 工作区

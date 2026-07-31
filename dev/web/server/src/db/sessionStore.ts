@@ -1,4 +1,5 @@
 import { getDb } from './schema.js'
+import { normalizeStrategy } from '../agent/strategy.js'
 
 export interface SessionRow {
   id: string; character_id: string; title: string
@@ -29,6 +30,18 @@ export const sessionStore = {
   getChildren(parentId: string): SessionRow[] {
     return getDb().prepare('SELECT * FROM sessions WHERE parent_id = ? ORDER BY created_at ASC').all(parentId) as SessionRow[]
   },
+  nextForkTitle(sourceTitle: string): string {
+    const base = (sourceTitle || '新会话').trim() || '新会话'
+    const rows = getDb().prepare('SELECT title FROM sessions WHERE title LIKE ?').all(`${base}-分支%`) as { title: string }[]
+    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const pattern = new RegExp(`^${escaped}-分支(\\d+)$`)
+    let max = 0
+    for (const row of rows) {
+      const match = pattern.exec(row.title)
+      if (match) max = Math.max(max, Number(match[1]))
+    }
+    return `${base}-分支${max + 1}`
+  },
   create(data: Partial<SessionRow> & { id: string }): SessionRow {
     const now = Date.now()
     const workspaces = data.workspaces || (data.workspace ? JSON.stringify([data.workspace]) : null)
@@ -40,7 +53,7 @@ export const sessionStore = {
       dataspace: data.dataspace || null,
       parent_id: data.parent_id || null, active_group: data.active_group || null,
       session_type: data.session_type || 'chat', event_id: data.event_id || null,
-      current_strategy: data.current_strategy ?? null,
+      current_strategy: data.current_strategy ? normalizeStrategy(data.current_strategy) : null,
       reasoning_effort: data.reasoning_effort ?? null,
       context_window: data.context_window ?? null,
       input_tokens: data.input_tokens || 0, output_tokens: data.output_tokens || 0,
@@ -56,6 +69,7 @@ export const sessionStore = {
   update(id: string, patch: Partial<SessionRow>): SessionRow | null {
     const existing = this.getById(id)
     if (!existing) return null
+    if (patch.current_strategy) patch.current_strategy = normalizeStrategy(patch.current_strategy)
     if (patch.workspaces || (patch.workspace && !patch.workspaces)) {
       patch.workspaces = patch.workspaces || JSON.stringify([patch.workspace!])
     }

@@ -7,12 +7,14 @@ import { setSessionStrategy, removeSessionState, getSessionState } from '../agen
 import { enqueueRun, abortSession, getRunState, getQueueLength } from '../agent/session-runner.js'
 import { saveAttachment, type AttachmentMeta } from '../agent/media-store.js'
 import type { Strategy } from '../agent/session.js'
+import { isStrategyInput, normalizeStrategy, type StrategyInput } from '../agent/strategy.js'
 
 export function registerChatSocket(io: Server, socket: Socket) {
-  socket.on('strategy.set', (data: { session_id: string; strategy: Strategy }, ack?: (resp: unknown) => void) => {
-    const { session_id, strategy } = data
+  socket.on('strategy.set', (data: { session_id: string; strategy: StrategyInput }, ack?: (resp: unknown) => void) => {
+    const { session_id } = data
     if (!session_id) { ack?.({ error: 'No session_id' }); return }
-    if (!['Plan', 'Ask', 'Bypass'].includes(strategy)) { ack?.({ error: 'Invalid strategy' }); return }
+    if (!isStrategyInput(data.strategy)) { ack?.({ error: 'Invalid strategy' }); return }
+    const strategy: Strategy = normalizeStrategy(data.strategy)
     setSessionStrategy(session_id, strategy, 'user')
     sessionStore.update(session_id, { current_strategy: strategy })
     console.log(`[strategy.set] session=${session_id} strategy=${strategy}`)
@@ -72,9 +74,9 @@ export function registerChatSocket(io: Server, socket: Socket) {
       }
       if (metas.length > 0) attachmentsJson = JSON.stringify(metas)
     }
-    if (input.trim() || attachmentsJson) {
-      messageStore.addMessage(sessionId, { role: 'user', content: input, attachments: attachmentsJson })
-    }
+    const userMessage = input.trim() || attachmentsJson
+      ? messageStore.addMessage(sessionId, { role: 'user', content: input, attachments: attachmentsJson })
+      : null
 
     enqueueRun(sessionId, async (signal) => {
       await sessionLoop(io, socket, sessionId, signal, {
@@ -89,6 +91,7 @@ export function registerChatSocket(io: Server, socket: Socket) {
       run_id: runId,
       status: queueLen > 0 ? 'queued' : 'started',
       queue_length: queueLen,
+      user_message_id: userMessage?.id,
     })
   })
 

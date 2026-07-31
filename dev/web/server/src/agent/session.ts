@@ -1,6 +1,7 @@
 import { sessionStore } from '../db/sessionStore.js'
+import { normalizeStrategy, type Strategy } from './strategy.js'
 
-export type Strategy = 'Plan' | 'Ask' | 'Bypass'
+export type { Strategy } from './strategy.js'
 
 export interface SessionState {
   current_strategy: Strategy
@@ -15,7 +16,7 @@ export function getSessionState(sessionId: string): SessionState {
   if (!state) {
     const db = sessionStore.getById(sessionId)
     state = {
-      current_strategy: (db?.current_strategy as Strategy) || 'Plan',
+      current_strategy: normalizeStrategy(db?.current_strategy),
       strategy_modified_by: 'system',
       approved_tools: new Set(),
     }
