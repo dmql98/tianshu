@@ -10,14 +10,18 @@ import charactersRouter from './routes/characters.js'
 import skillsRouter from './routes/skills.js'
 import toolsRouter from './routes/tools.js'
 import workspaceRouter from './routes/workspace.js'
-import eventsRouter from './routes/events.js'
 import evolutionRouter from './routes/evolution.js'
 import promptsRouter from './routes/prompts.js'
 import configRouter from './routes/config.js'
+import messagesRouter from './routes/messages.js'
+import eventDefinitionsRouter from './routes/event-definitions.js'
+import goalsRouter, { setGoalRuntime } from './routes/goals.js'
+import runsRouter, { setRunsRuntime } from './routes/runs.js'
+import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb } from './db/schema.js'
 import { init as initTools } from './tools/registry.js'
-import { startEventScheduler } from './event/index.js'
-import { startCronRegistry } from './scheduler/cronRegistry.js'
+import { startEventScheduler } from './event/event-scheduler.js'
+import { startAssetGC } from './character/asset-gc.js'
 
 process.on('uncaughtException', (err) => { console.error('[FATAL]', err) })
 process.on('unhandledRejection', (err) => { console.error('[FATAL]', err) })
@@ -36,10 +40,13 @@ app.route('/api/characters', charactersRouter)
 app.route('/api/skills', skillsRouter)
 app.route('/api/tools', toolsRouter)
 app.route('/api/workspace', workspaceRouter)
-app.route('/api/events', eventsRouter)
 app.route('/api/evolution-config', evolutionRouter)
 app.route('/api/prompts', promptsRouter)
 app.route('/api/config', configRouter)
+app.route('/api/runs', runsRouter)
+app.route('/api/messages', messagesRouter)
+app.route('/api/event-definitions', eventDefinitionsRouter)
+app.route('/api/goals', goalsRouter)
 app.get('/health', (c) => c.json({ ok: true }))
 
 const port = Number(process.env.PORT) || 3456
@@ -61,6 +68,9 @@ const io = new Server(httpServer, {
   // A 5 MB photo → ~7 MB base64; accommodate multi-image batches.
   maxHttpBufferSize: 50 * 1024 * 1024,
 })
+setEventDefinitionRuntime(io)
+setGoalRuntime(io)
+setRunsRuntime(io)
 io.on('connection', (socket) => registerChatSocket(io, socket))
 startEventScheduler(io)
-startCronRegistry()
+startAssetGC()

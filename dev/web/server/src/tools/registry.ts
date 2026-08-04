@@ -40,19 +40,6 @@ export async function init(): Promise<void> {
       console.error(`[registry] Failed to load tool from ${dir.name}: ${err.message}`)
     }
   }
-
-  byName.set('task_complete', {
-    name: 'task_complete',
-    description: '标记当前任务已完成，结束本轮会话循环。调用时附带最终结果的摘要说明。',
-    parameters: {
-      type: 'object',
-      properties: {
-        summary: { type: 'string', description: '任务完成摘要' },
-      },
-      required: ['summary'],
-    },
-    execute: async () => ({ output: '', error: 'task_complete is handled at loop level' }),
-  })
 }
 
 export function getAll(): ToolModule[] {

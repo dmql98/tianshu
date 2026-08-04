@@ -1,4 +1,4 @@
-import type { TrajectoryRow } from '../../event/types.js'
+import type { TrajectoryRow } from '../storage/trajectoryStore.js'
 
 export interface ToolCallSummary {
   name: string

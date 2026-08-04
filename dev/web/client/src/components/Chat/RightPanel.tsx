@@ -5,6 +5,8 @@ import { useProvidersStore } from '@/stores/providersStore'
 import { fetchCharacters } from '@/api/characters'
 import { updateSession } from '@/api/sessions'
 import CharacterPicker from './CharacterPicker'
+import GoalPanel from './GoalPanel'
+import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import type { Character, Strategy } from '@/types'
 
 export default function RightPanel() {
@@ -105,6 +107,17 @@ export default function RightPanel() {
     }
   }
 
+  function handleExecutionModeChange(mode: 'direct' | 'plan_first' | 'goal') {
+    if (activeSessionId) {
+      updateSession(activeSessionId, { execution_mode: mode }).catch(() => {})
+      useChatStore.setState(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === activeSessionId ? { ...s, execution_mode: mode } : s
+        ),
+      }))
+    }
+  }
+
   function handleReasoningEffortChange(effort: string) {
     if (activeSessionId) {
       updateSession(activeSessionId, { reasoning_effort: effort }).catch(() => {})
@@ -144,11 +157,14 @@ export default function RightPanel() {
         {/* Character art or add button */}
         {character ? (
           <div className="rp-art-card">
-            <div className="rp-art" style={{ background: `linear-gradient(135deg, ${starColor}15, ${starColor}08)`, cursor: 'pointer' }} onClick={() => setShowPicker(true)}>
-              {character.avatar
-                ? <img src={character.avatar} alt={starName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 64 }}>{starName[0]}</span>
-              }
+            <div className="rp-art" style={{ background: `linear-gradient(135deg, ${starColor}15, ${starColor}08)` }}>
+              <CharacterRenderer
+                characterId={character.id}
+                name={starName}
+                legacyAvatar={character.avatar}
+                mode="portrait"
+                className="character-renderer-right-panel"
+              />
             </div>
             <div className="rp-art-info">
               <div className="rp-art-name">{starName}</div>
@@ -159,9 +175,8 @@ export default function RightPanel() {
           <div
             style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              padding: 24, cursor: 'pointer', gap: 8,
+              padding: 24, gap: 8,
             }}
-            onClick={() => setShowPicker(true)}
           >
             <div style={{
               width: 64, height: 64, borderRadius: 16, border: '2px dashed var(--border)',
@@ -169,12 +184,16 @@ export default function RightPanel() {
               fontSize: 28, color: 'var(--ink-faint)', background: 'var(--bg-input)',
               transition: 'all 0.15s',
             }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-faint)' }}
             >+</div>
-            <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>选择角色</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>尚未选择角色</span>
           </div>
         )}
+
+        <div className="rp-character-actions">
+          <button className="btn rp-switch-character" onClick={() => setShowPicker(true)}>
+            {character ? '切换人物' : '选择人物'}
+          </button>
+        </div>
 
         {/* Character picker modal */}
         {showPicker && activeSessionId && (
@@ -222,6 +241,18 @@ export default function RightPanel() {
               <option value="medium">中</option>
               <option value="high">高</option>
               <option value="max">最高</option>
+            </select>
+          </div>
+          <div className="rp-row">
+            <span className="label">执行模式</span>
+            <select
+              value={(session as any).execution_mode || 'direct'}
+              onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
+              style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
+            >
+              <option value="direct">Direct（直接执行）</option>
+              <option value="plan_first">Plan-first（先计划后执行）</option>
+              <option value="goal">Goal（目标驱动）</option>
             </select>
           </div>
           <div className="rp-row">
@@ -294,6 +325,9 @@ export default function RightPanel() {
             <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 4 }}>⚠ 会话已压缩</div>
           )}
         </div>
+
+        {/* Goal / Plan */}
+        <GoalPanel sessionId={session.id} mode={(session as any).execution_mode || 'direct'} />
 
         {/* Capabilities */}
         {character && (

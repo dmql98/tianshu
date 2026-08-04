@@ -1,111 +1,132 @@
 import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { fetchCharacters } from '@/api/characters'
-import { fetchEvents, createEvent, updateEventStatus, deleteEvent, archiveEvent, type EventRecord, type CreateEventInput } from '@/api/events'
 import type { Character } from '@/types'
-
-const statusColors: Record<string, string> = {
-  pending: 'var(--gold)', running: 'var(--blue)',
-  completed: 'var(--jade)', failed: 'var(--cinnabar)', archived: 'var(--ink-faint)',
-}
+import {
+  fetchEventDefinitions, createEventDefinition, fetchEventOccurrences,
+  fireEventDefinition, retryEventOccurrence, deleteEventDefinition,
+  archiveEventDefinition, restoreEventDefinition,
+  type EventDefinition, type EventOccurrence,
+} from '@/api/eventDefinitions'
 
 const statusLabels: Record<string, string> = {
-  pending: '待处理', running: '运行中', completed: '已完成', failed: '失败', archived: '已归档',
+  pending: '待执行', running: '运行中', completed: '已完成', failed: '失败',
+  cancelled: '已取消', skipped: '已跳过',
 }
 
-const statusIcons: Record<string, string> = {
-  pending: '⏳', running: '▶', completed: '✓', failed: '✗', archived: '📦',
+const statusColors: Record<string, string> = {
+  pending: 'var(--gold)', running: 'var(--blue)', completed: 'var(--jade)',
+  failed: 'var(--cinnabar)', cancelled: 'var(--ink-faint)', skipped: 'var(--ink-light)',
 }
 
-const sourceColors: Record<string, string> = {
-  user: 'var(--blue)', agent: 'var(--purple)', system: 'var(--ink-faint)',
+type EventLane = 'pending' | 'running' | 'completed' | 'failed' | 'archived'
+
+const eventLanes: Array<{ id: EventLane; label: string; icon: string }> = [
+  { id: 'pending', label: '等待', icon: '⏳' },
+  { id: 'running', label: '运行中', icon: '▶' },
+  { id: 'completed', label: '成功', icon: '✓' },
+  { id: 'failed', label: '失败', icon: '✗' },
+  { id: 'archived', label: '归档', icon: '📦' },
+]
+
+function timeAgo(ts: number | null): string {
+  if (!ts) return '-'
+  const diff = Date.now() - ts
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins}分钟前`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}小时前`
+  return `${Math.floor(hours / 24)}天前`
 }
 
-const sourceLabels: Record<string, string> = {
-  user: '用户', agent: 'Agent', system: '系统',
-}
-
-const typeLabels: Record<string, string> = {
-  once: '一次性', cron: '定时',
+function nextFireLabel(def: EventDefinition): string {
+  if (def.status !== 'active' || def.next_fire_at === null) return '-'
+  if (def.next_fire_at === 0) return '已结束'
+  return new Date(def.next_fire_at).toLocaleString('zh-CN', { hour12: false })
 }
 
 export default function EventsPage() {
   const { providers, load: loadProviders } = useProvidersStore()
-  const [events, setEvents] = useState<EventRecord[]>([])
+  const [definitions, setDefinitions] = useState<EventDefinition[]>([])
+  const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [filterStatus, setFilterStatus] = useState('')
-  const [characters, setCharacters] = useState<Character[]>([])
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [occurrences, setOccurrences] = useState<Record<string, EventOccurrence[]>>({})
+  const [occurrencesLoading, setOccurrencesLoading] = useState<Set<string>>(new Set())
 
-  const [form, setForm] = useState<CreateEventInput & { model?: string; provider_id?: string; workspace?: string; assigned_group_id?: string; once_mode?: string; scheduled_at_str?: string }>({
-    assigned_agent_id: '',
-    type: 'once',
-    payload: { instruction: '' },
-    cron_expr: '',
-    source_type: 'user',
-    model: '',
-    provider_id: '',
-    workspace: '',
-    assigned_group_id: '',
-    once_mode: 'immediate',
-    scheduled_at_str: '',
+  const [form, setForm] = useState<{
+    name: string; type: 'once' | 'cron'; cron_expr: string; timezone: string;
+    instruction: string; character_id: string; overlap_policy: 'skip' | 'queue';
+    provider_id: string; model: string; workspace: string; assigned_group: string;
+  }>({
+    name: '', type: 'once', cron_expr: '', timezone: 'Asia/Shanghai', instruction: '',
+    character_id: '', overlap_policy: 'skip', provider_id: '', model: '', workspace: '',
+    assigned_group: '',
   })
+
+  const loadDefinitions = async (showSpinner = true) => {
+    if (showSpinner) setLoading(true)
+    try {
+      const nextDefinitions = await fetchEventDefinitions()
+      const occurrenceEntries = await Promise.all(nextDefinitions.map(async definition => {
+        try {
+          return [definition.id, await fetchEventOccurrences(definition.id)] as const
+        } catch {
+          return [definition.id, [] as EventOccurrence[]] as const
+        }
+      }))
+      setDefinitions(nextDefinitions)
+      setOccurrences(Object.fromEntries(occurrenceEntries))
+    } catch (err) {
+      console.error('Failed to load event definitions:', err)
+    } finally {
+      if (showSpinner) setLoading(false)
+    }
+  }
 
   useEffect(() => {
     loadProviders()
     fetchCharacters().then(setCharacters).catch(() => {})
-    loadEvents()
+    void loadDefinitions()
+    const refreshTimer = window.setInterval(() => void loadDefinitions(false), 5000)
+    return () => window.clearInterval(refreshTimer)
   }, [])
 
-  const loadEvents = async () => {
-    setLoading(true)
-    try {
-      const data = await fetchEvents(filterStatus ? { status: filterStatus } : undefined)
-      setEvents(data)
-    } catch (err) {
-      console.error('Failed to load events:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const selectedCharGroups = form.assigned_agent_id
-    ? characters.find(c => c.id === form.assigned_agent_id)?.groups?.filter(g => g.trim()) || []
+  const selectedCharGroups = form.character_id
+    ? characters.find(c => c.id === form.character_id)?.groups?.filter(g => g.trim()) || []
     : []
-
   const selectedProviderModels = form.provider_id
     ? providers.find(p => p.id === form.provider_id)?.models?.filter((m: any) => m.enabled !== false) || []
     : []
 
   const handleCreate = async () => {
     setCreateError('')
-    if (!form.assigned_agent_id) { setCreateError('请选择执行角色'); return }
-    if (!form.payload.instruction.trim()) { setCreateError('请输入指令'); return }
-    if (form.type === 'cron' && !form.cron_expr?.trim()) { setCreateError('请输入 Cron 表达式'); return }
-
+    if (!form.name.trim()) { setCreateError('请输入事件名称'); return }
+    if (!form.character_id) { setCreateError('请选择执行角色'); return }
+    if (!form.instruction.trim()) { setCreateError('请输入指令'); return }
+    if (form.type === 'cron' && !form.cron_expr.trim()) { setCreateError('请输入 Cron 表达式'); return }
     setCreating(true)
     try {
-      const scheduled_at = form.type === 'once' && form.once_mode === 'custom' && form.scheduled_at_str
-        ? new Date(form.scheduled_at_str).getTime()
-        : Date.now()
-
-      const evt = await createEvent({
-        assigned_agent_id: form.assigned_agent_id,
-        assigned_group_id: form.assigned_group_id || undefined,
-        model: form.model || undefined,
-        provider_id: form.provider_id || undefined,
-        workspace: form.workspace || undefined,
+      const created = await createEventDefinition({
+        name: form.name.trim(),
         type: form.type,
-        cron_expr: form.cron_expr || undefined,
-        source_type: 'user',
-        payload: { instruction: form.payload.instruction.trim() },
-        scheduled_at,
+        cron_expr: form.type === 'cron' ? form.cron_expr.trim() : undefined,
+        timezone: form.timezone,
+        instruction: form.instruction.trim(),
+        character_id: form.character_id,
+        overlap_policy: form.overlap_policy,
+        assigned_group: form.assigned_group || null,
+        provider_id: form.provider_id || null,
+        model: form.model || null,
+        workspace: form.workspace || null,
       })
-      setEvents(prev => [evt, ...prev])
+      setDefinitions(prev => [created, ...prev])
       setShowCreate(false)
-      resetForm()
+      setForm({ name: '', type: 'once', cron_expr: '', timezone: 'Asia/Shanghai', instruction: '', character_id: '', overlap_policy: 'skip', provider_id: '', model: '', workspace: '', assigned_group: '' })
     } catch (err: any) {
       setCreateError(err.message || '创建失败')
     } finally {
@@ -113,204 +134,186 @@ export default function EventsPage() {
     }
   }
 
-  const resetForm = () => {
-    setForm({
-      assigned_agent_id: '', type: 'once', payload: { instruction: '' }, cron_expr: '',
-      source_type: 'user', model: '', provider_id: '', workspace: '', assigned_group_id: '',
-      once_mode: 'immediate', scheduled_at_str: '',
-    })
-    setCreateError('')
-  }
-
-  const handleTrigger = async (evt: EventRecord) => {
+  const handleFire = async (def: EventDefinition) => {
     try {
-      await updateEventStatus(evt.id, 'running')
-      setEvents(prev => prev.map(e => e.id === evt.id ? { ...e, status: 'running' } : e))
-    } catch (err) {
-      console.error('Failed to trigger event:', err)
+      const occ = await fireEventDefinition(def.id)
+      setOccurrences(prev => ({ ...prev, [def.id]: [occ, ...(prev[def.id] || []).filter(item => item.id !== occ.id)] }))
+    } catch (err: any) {
+      console.error('Failed to fire:', err)
+      alert(err.message || '触发失败')
     }
   }
 
-  const handleDelete = async (evt: EventRecord) => {
+  const handleRetry = async (defId: string, occurrenceId: string) => {
     try {
-      await deleteEvent(evt.id)
-      setEvents(prev => prev.filter(e => e.id !== evt.id))
-    } catch (err) {
-      console.error('Failed to delete event:', err)
+      const updated = await retryEventOccurrence(occurrenceId)
+      setOccurrences(prev => ({
+        ...prev,
+        [defId]: (prev[defId] || []).map(o => o.id === updated.id ? updated : o),
+      }))
+    } catch (err: any) {
+      console.error('Failed to retry:', err)
     }
   }
 
-  const handleRetry = async (evt: EventRecord) => {
+  const handleDelete = async (def: EventDefinition) => {
+    if (!window.confirm(`删除事件「${def.name}」？\n将同时删除其全部执行记录，不可恢复。`)) return
     try {
-      const updated = await updateEventStatus(evt.id, 'pending', { scheduled_at: Date.now() })
-      setEvents(prev => prev.map(e => e.id === evt.id ? updated : e))
-    } catch (err) {
-      console.error('Failed to retry event:', err)
+      await deleteEventDefinition(def.id)
+      setDefinitions(prev => prev.filter(d => d.id !== def.id))
+      setOccurrences(prev => {
+        const next = { ...prev }
+        delete next[def.id]
+        return next
+      })
+      if (expandedId === def.id) setExpandedId(null)
+    } catch (err: any) {
+      console.error('Failed to delete:', err)
+      alert(err.message || '删除失败')
     }
   }
 
-  const handleArchive = async (evt: EventRecord) => {
+  const handleArchive = async (def: EventDefinition) => {
     try {
-      await archiveEvent(evt.id)
-      setEvents(prev => prev.map(e => e.id === evt.id ? { ...e, status: 'archived' } : e))
-    } catch (err) {
-      console.error('Failed to archive event:', err)
+      const updated = await archiveEventDefinition(def.id)
+      setDefinitions(prev => prev.map(item => item.id === def.id ? updated : item))
+    } catch (err: any) {
+      alert(err.message || '归档失败')
     }
   }
 
-  const payloadPreview = (payload: string): string => {
+  const handleRestore = async (def: EventDefinition) => {
     try {
-      const p = JSON.parse(payload)
-      return p.instruction?.slice(0, 80) || payload.slice(0, 80)
-    } catch {
-      return payload.slice(0, 80)
+      const updated = await restoreEventDefinition(def.id)
+      setDefinitions(prev => prev.map(item => item.id === def.id ? updated : item))
+    } catch (err: any) {
+      alert(err.message || '恢复失败')
     }
   }
 
-  const fullPayload = (payload: string): string => {
-    try {
-      const p = JSON.parse(payload)
-      return p.instruction || payload
-    } catch {
-      return payload
+  const toggleExpand = async (def: EventDefinition) => {
+    if (expandedId === def.id) {
+      setExpandedId(null)
+      return
+    }
+    setExpandedId(def.id)
+    if (!occurrences[def.id]) {
+      setOccurrencesLoading(prev => new Set(prev).add(def.id))
+      try {
+        const occs = await fetchEventOccurrences(def.id)
+        setOccurrences(prev => ({ ...prev, [def.id]: occs }))
+      } catch {
+        setOccurrences(prev => ({ ...prev, [def.id]: [] }))
+      } finally {
+        setOccurrencesLoading(prev => {
+          const next = new Set(prev)
+          next.delete(def.id)
+          return next
+        })
+      }
     }
   }
 
-  const timeAgo = (ts: number | null): string => {
-    if (!ts) return '-'
-    const diff = Date.now() - ts
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return '刚刚'
-    if (mins < 60) return `${mins}分钟前`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}小时前`
-    const days = Math.floor(hours / 24)
-    return `${days}天前`
+  const charName = (id: string) => characters.find(c => c.id === id)?.name || id
+
+  const latestOccurrence = (definitionId: string) => occurrences[definitionId]?.[0]
+  const laneFor = (definition: EventDefinition): EventLane => {
+    if (definition.status === 'archived') return 'archived'
+    const latest = latestOccurrence(definition.id)
+    if (!latest || latest.status === 'pending') return 'pending'
+    if (latest.status === 'running') return 'running'
+    if (latest.status === 'completed') return 'completed'
+    if (latest.status === 'failed') return 'failed'
+    return 'archived'
   }
 
-  const copyId = (id: string) => {
-    navigator.clipboard.writeText(id)
-  }
-
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
-
-  const toggleExpand = (id: string) => {
-    setExpandedCards(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const statusColumns = ['pending', 'running', 'completed', 'failed', 'archived']
-
-  const groupedByStatus = statusColumns.reduce((acc, status) => {
-    acc[status] = events.filter(e => e.status === status)
-    return acc
-  }, {} as Record<string, EventRecord[]>)
+  const groupedDefinitions = eventLanes.reduce((groups, lane) => {
+    groups[lane.id] = definitions.filter(definition => laneFor(definition) === lane.id)
+    return groups
+  }, {} as Record<EventLane, EventDefinition[]>)
 
   return (
     <main className="main">
       <div className="page-header">
         <div className="page-header-left">
           <span className="page-title">事件中心</span>
-          <span className="page-desc">{events.length} 个事件 · {events.filter(e => e.status === 'running').length} 个正在执行</span>
+          <span className="page-desc">{definitions.length} 个事件定义 · {definitions.filter(d => d.status === 'active').length} 个启用</span>
         </div>
         <div className="header-actions">
-          <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); loadEvents() }} style={{padding:'6px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:12,background:'var(--bg-input)',color:'var(--ink-deep)'}}>
-            <option value="">全部状态</option>
-            <option value="pending">待处理</option>
-            <option value="running">运行中</option>
-            <option value="completed">完成</option>
-            <option value="failed">失败</option>
-            <option value="archived">已归档</option>
-          </select>
           <button className="btn primary" onClick={() => setShowCreate(true)}>+ 新建事件</button>
         </div>
       </div>
 
       <div className="content">
         {loading ? (
-          <div style={{textAlign:'center',padding:'60px 0',color:'var(--ink-faint)'}}>加载中...</div>
-        ) : events.length === 0 ? (
-          <div style={{textAlign:'center',padding:'60px 0',color:'var(--ink-faint)'}}>暂无事件</div>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-faint)' }}>加载中...</div>
+        ) : definitions.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-faint)' }}>暂无事件定义</div>
         ) : (
           <div className="event-lanes">
-            {statusColumns.map(status => (
-              <div key={status} className={`lane ${status}`}>
+            {eventLanes.map(lane => (
+              <section key={lane.id} className={`lane ${lane.id}`}>
                 <div className="lane-header">
-                  {statusIcons[status]} {statusLabels[status]} ({groupedByStatus[status]?.length || 0})
+                  <span>{lane.icon}</span>
+                  <span>{lane.label}</span>
+                  <span className="lane-count">{groupedDefinitions[lane.id].length}</span>
                 </div>
                 <div className="lane-body">
-                  {groupedByStatus[status]?.length === 0 ? (
-                    <div style={{textAlign:'center',padding:'24px 0',fontSize:12,color:'var(--ink-faint)'}}>暂无</div>
-                  ) : (
-                    groupedByStatus[status]?.map(evt => {
-                      const isExpanded = expandedCards.has(evt.id)
-                      return (
-                        <div key={evt.id} className={`event-card ${isExpanded ? 'expanded' : ''}`}>
-                          <div className="card-header">
-                            <span className="source-tag" style={{background: sourceColors[evt.source_type] || 'var(--ink-faint)'}}>
-                              {sourceLabels[evt.source_type] || evt.source_type}
-                            </span>
-                            <span className="type-tag">{typeLabels[evt.type] || evt.type}</span>
-                            <button className="btn-expand" onClick={() => toggleExpand(evt.id)}>
-                              {isExpanded ? '收起' : '展开'}
-                            </button>
-                          </div>
-                          <div className="event-card-agent">
-                            {(() => {
-                              const char = characters.find(c => c.id === evt.assigned_agent_id)
-                              return (
-                                <>
-                                  <span className="agent-icon">{char?.icon || '👤'}</span>
-                                  <span className="agent-name">{char?.name || evt.assigned_agent_id}</span>
-                                </>
-                              )
-                            })()}
-                          </div>
-                          <div className={`card-payload ${isExpanded ? 'card-payload-expanded' : ''}`}>
-                            {isExpanded ? fullPayload(evt.payload) : payloadPreview(evt.payload)}
-                          </div>
-                          <div className="card-meta">
-                            <span className="time-cell">{timeAgo(evt.created_at)}</span>
-                            <button className="btn-copy-id" onClick={() => copyId(evt.id)} title="复制事件 ID">复制 ID</button>
-                          </div>
-                          {evt.result_summary && evt.status !== 'failed' && (
-                            <div className="card-summary">
-                              {isExpanded ? evt.result_summary : evt.result_summary.slice(0, 60)}
-                            </div>
-                          )}
-                          {evt.status === 'failed' && evt.error_log && (
-                            <div className="card-error">
-                              {isExpanded ? evt.error_log : evt.error_log.slice(0, 120)}
-                            </div>
-                          )}
-                          {evt.cron_expr && <div className="event-cron">cron: {evt.cron_expr}</div>}
-                          <div className="card-actions">
-                            {evt.status === 'pending' && (
-                              <>
-                                <button className="btn sm primary" onClick={() => handleTrigger(evt)}>▶ 触发</button>
-                                <button className="btn sm danger" onClick={() => handleDelete(evt)}>放弃</button>
-                              </>
-                            )}
-                            {evt.status === 'failed' && (
-                              <button className="btn sm" onClick={() => handleRetry(evt)}>重试</button>
-                            )}
-                            {evt.status === 'running' && (
-                              <button className="btn sm" onClick={() => {}}>查看</button>
-                            )}
-                            {(evt.status === 'completed' || evt.status === 'failed') && (
-                              <button className="btn sm" onClick={() => handleArchive(evt)}>归档</button>
-                            )}
-                          </div>
+                  {groupedDefinitions[lane.id].length === 0 ? (
+                    <div className="lane-empty">暂无</div>
+                  ) : groupedDefinitions[lane.id].map(def => {
+                    const latest = latestOccurrence(def.id)
+                    const occs = occurrences[def.id] || []
+                    const isExpanded = expandedId === def.id
+                    return (
+                      <article key={def.id} className={`event-card ${isExpanded ? 'expanded' : ''}`}>
+                        <div className="card-header">
+                          <span className="type-tag">{def.type === 'cron' ? '⏱ 定时' : '一次性'}</span>
+                          <button className="btn-expand" onClick={() => void toggleExpand(def)}>
+                            {isExpanded ? '收起' : '展开'}
+                          </button>
                         </div>
-                      )
-                    })
-                  )}
+                        <div className="event-card-title">{def.name}</div>
+                        <div className="event-card-agent">
+                          <span className="agent-icon">{charName(def.character_id)[0] || '👤'}</span>
+                          <span className="agent-name">{charName(def.character_id)}</span>
+                        </div>
+                        <div className={`card-payload ${isExpanded ? 'card-payload-expanded' : ''}`}>{def.instruction}</div>
+                        <div className="event-card-meta">
+                          <span>{latest ? timeAgo(latest.updated_at) : '尚未执行'}</span>
+                          <span>{def.type === 'cron' ? `下次 ${nextFireLabel(def)}` : ''}</span>
+                        </div>
+                        {latest?.status === 'failed' && latest.error && (
+                          <div className="card-error">{latest.error}</div>
+                        )}
+                        {isExpanded && occs.length > 0 && (
+                          <div className="event-occurrence-history">
+                            {occs.map(occ => (
+                              <div key={occ.id} className="event-occurrence-row">
+                                <span style={{ color: statusColors[occ.status] }}>{statusLabels[occ.status] || occ.status}</span>
+                                <span>{timeAgo(occ.scheduled_for)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="card-actions">
+                          {lane.id === 'pending' && <button className="btn sm primary" onClick={() => void handleFire(def)}>▶ 触发</button>}
+                          {lane.id === 'failed' && latest && <button className="btn sm" onClick={() => void handleRetry(def.id, latest.id)}>重试</button>}
+                          {(lane.id === 'completed' || lane.id === 'failed' || lane.id === 'pending') && (
+                            <button className="btn sm" onClick={() => void handleArchive(def)}>归档</button>
+                          )}
+                          {lane.id === 'archived' && (
+                            <>
+                              <button className="btn sm" onClick={() => void handleRestore(def)}>恢复</button>
+                              <button className="btn sm danger" onClick={() => void handleDelete(def)}>删除</button>
+                            </>
+                          )}
+                        </div>
+                      </article>
+                    )
+                  })}
                 </div>
-              </div>
+              </section>
             ))}
           </div>
         )}
@@ -319,80 +322,86 @@ export default function EventsPage() {
       {/* 创建事件弹窗 */}
       {showCreate && (
         <div className="approval-overlay" onClick={() => setShowCreate(false)}>
-          <div className="approval-dialog" style={{maxWidth:560,width:'100%'}} onClick={e => e.stopPropagation()}>
-            <h2 style={{fontSize:18,fontWeight:600,marginBottom:16}}>新建事件</h2>
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div className="approval-dialog" style={{ maxWidth: 560, width: '100%' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>新建事件</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>事件名称 *</label>
+                <input type="text" value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="例如：每日巡检" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>执行角色 *</label>
-                  <select value={form.assigned_agent_id} onChange={e => setForm(prev => ({...prev, assigned_agent_id: e.target.value}))} style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)'}}>
+                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>执行角色 *</label>
+                  <select value={form.character_id} onChange={e => setForm(prev => ({ ...prev, character_id: e.target.value, assigned_group: '' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                     <option value="">请选择...</option>
                     {characters.map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>分组</label>
-                  <select value={form.assigned_group_id || ''} onChange={e => setForm(prev => ({...prev, assigned_group_id: e.target.value}))} disabled={selectedCharGroups.length === 0} style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)',opacity:selectedCharGroups.length === 0 ? 0.5 : 1}}>
+                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>分组</label>
+                  <select value={form.assigned_group} onChange={e => setForm(prev => ({ ...prev, assigned_group: e.target.value }))} disabled={selectedCharGroups.length === 0} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', opacity: selectedCharGroups.length === 0 ? 0.5 : 1 }}>
                     <option value="">无</option>
                     {selectedCharGroups.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>提供商</label>
-                  <select value={form.provider_id || ''} onChange={e => setForm(prev => ({...prev, provider_id: e.target.value, model: ''}))} style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)'}}>
+                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>提供商</label>
+                  <select value={form.provider_id} onChange={e => setForm(prev => ({ ...prev, provider_id: e.target.value, model: '' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                     <option value="">默认</option>
                     {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>模型</label>
-                  <select value={form.model || ''} onChange={e => setForm(prev => ({...prev, model: e.target.value}))} disabled={!form.provider_id} style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)',opacity:!form.provider_id ? 0.5 : 1}}>
+                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>模型</label>
+                  <select value={form.model} onChange={e => setForm(prev => ({ ...prev, model: e.target.value }))} disabled={!form.provider_id} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', opacity: !form.provider_id ? 0.5 : 1 }}>
                     <option value="">默认</option>
                     {selectedProviderModels.map(m => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>工作区</label>
-                <input type="text" value={form.workspace || ''} onChange={e => setForm(prev => ({...prev, workspace: e.target.value}))} placeholder="工作目录路径" style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)'}} />
+                <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>工作区</label>
+                <input type="text" value={form.workspace} onChange={e => setForm(prev => ({ ...prev, workspace: e.target.value }))} placeholder="工作目录路径" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }} />
               </div>
               <div>
-                <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>指令 *</label>
-                <textarea value={form.payload.instruction} onChange={e => setForm(prev => ({...prev, payload: { instruction: e.target.value }}))} rows={4} placeholder="描述要执行的任务..." style={{width:'100%',padding:'8px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)',resize:'vertical',fontFamily:'inherit'}} />
+                <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>指令 *</label>
+                <textarea value={form.instruction} onChange={e => setForm(prev => ({ ...prev, instruction: e.target.value }))} rows={4} placeholder="描述要执行的任务..." style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
-              <div style={{display:'flex',gap:12,alignItems:'flex-end'}}>
-                <div style={{flex:1}}>
-                  <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>类型</label>
-                  <select value={form.type} onChange={e => setForm(prev => ({...prev, type: e.target.value as 'once' | 'cron' }))} style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)'}}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>类型</label>
+                  <select value={form.type} onChange={e => setForm(prev => ({ ...prev, type: e.target.value as 'once' | 'cron' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                     <option value="once">一次性</option>
                     <option value="cron">定时 (Cron)</option>
                   </select>
                 </div>
-                {form.type === 'once' && (
-                  <div>
-                    <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>执行时间</label>
-                    <div style={{display:'flex',gap:8}}>
-                      <button className={`btn sm ${form.once_mode === 'immediate' ? 'primary' : ''}`} onClick={() => setForm(prev => ({...prev, once_mode: 'immediate'}))}>立即</button>
-                      <button className={`btn sm ${form.once_mode === 'custom' ? 'primary' : ''}`} onClick={() => setForm(prev => ({...prev, once_mode: 'custom'}))}>定制</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {form.type === 'once' && form.once_mode === 'custom' && (
-                <div>
-                  <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>预约时间</label>
-                  <input type="datetime-local" value={form.scheduled_at_str || ''} onChange={e => setForm(prev => ({...prev, scheduled_at_str: e.target.value}))} style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)'}} />
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>重叠策略</label>
+                  <select value={form.overlap_policy} onChange={e => setForm(prev => ({ ...prev, overlap_policy: e.target.value as 'skip' | 'queue' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
+                    <option value="skip">跳过 (skip)</option>
+                    <option value="queue">排队 (queue)</option>
+                  </select>
                 </div>
-              )}
+              </div>
               {form.type === 'cron' && (
-                <div>
-                  <label style={{fontSize:12,color:'var(--ink-light)',marginBottom:4,display:'block'}}>Cron 表达式</label>
-                  <input type="text" value={form.cron_expr || ''} onChange={e => setForm(prev => ({...prev, cron_expr: e.target.value}))} placeholder="0 */4 * * *" style={{width:'100%',padding:'7px 10px',border:'1px solid var(--border)',borderRadius:6,fontSize:13,background:'var(--bg-input)',color:'var(--ink-deep)',fontFamily:'monospace'}} />
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 2 }}>
+                    <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>Cron 表达式</label>
+                    <input type="text" value={form.cron_expr} onChange={e => setForm(prev => ({ ...prev, cron_expr: e.target.value }))} placeholder="0 */4 * * *" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontFamily: 'monospace' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>时区</label>
+                    <select value={form.timezone} onChange={e => setForm(prev => ({ ...prev, timezone: e.target.value }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
+                      <option value="Asia/Shanghai">Asia/Shanghai</option>
+                      <option value="UTC">UTC</option>
+                      <option value="America/New_York">America/New_York</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </div>
-            {createError && <p style={{color:'var(--cinnabar)',fontSize:12,margin:'8px 0'}}>{createError}</p>}
-            <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
+            {createError && <p style={{ color: 'var(--cinnabar)', fontSize: 12, margin: '8px 0' }}>{createError}</p>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
               <button className="btn" onClick={() => setShowCreate(false)}>取消</button>
               <button className="btn primary" onClick={handleCreate} disabled={creating}>{creating ? '创建中...' : '创建'}</button>
             </div>

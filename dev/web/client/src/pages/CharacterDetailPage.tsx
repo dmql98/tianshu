@@ -1,18 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, deleteCharacter } from '@/api/characters'
 import { fetchTools } from '@/api/tools'
 import { fetchSkills } from '@/api/skills'
 import { normalizeStrategy, STRATEGIES, type Character, type CharacterStats, type Strategy } from '@/types'
 import type { ToolMeta } from '@/api/tools'
 import type { SkillMeta } from '@/api/skills'
+import CharacterVisualEditor from '@/features/characters/CharacterVisualEditor'
+import CharacterRenderer from '@/features/characters/CharacterRenderer'
 
 const roleLabels: Record<string, string> = { main: '主 Agent', sub: '子 Agent', both: '主 / 子 Agent' }
 
 export default function CharacterDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
+  // `/characters/new` is a static route, so useParams has no `id`; detect it
+  // from the pathname instead.
+  const isNew = location.pathname.endsWith('/characters/new')
   const navigate = useNavigate()
-  const isNew = id === 'new'
 
   const [char, setChar] = useState<Character | null>(null)
   const [loading, setLoading] = useState(!isNew)
@@ -168,6 +173,7 @@ export default function CharacterDetailPage() {
     ? [{ id: 'basic', label: '基础' }]
     : [
         { id: 'basic', label: '基础' },
+        { id: 'visual', label: '视觉与动画' },
         { id: 'memory', label: '记忆' },
         { id: 'tools', label: '工具' },
         { id: 'skills', label: '技能' },
@@ -281,10 +287,13 @@ export default function CharacterDetailPage() {
       <div className="detail-body">
         <div className="detail-art">
           <div className="detail-art-img">
-            {avatar
-              ? <img src={avatar} alt={name} />
-              : <span style={{ fontSize: 64 }}>{name?.[0] || '?'}</span>
-            }
+            <CharacterRenderer
+              characterId={currentId}
+              name={name}
+              legacyAvatar={avatar}
+              mode="portrait"
+              className="character-renderer-detail"
+            />
           </div>
           <div className="detail-actions">
             {!isNew && <button className="detail-btn primary" onClick={() => navigate('/chat')}>开始对话</button>}
@@ -425,6 +434,17 @@ export default function CharacterDetailPage() {
                 <div className="md-box" style={{ color: 'var(--ink-faint)' }}>(未设置，将使用默认系统提示词)</div>
               )}
             </div>
+          </div>
+
+          {/* 记忆 */}
+          <div className={`tab-page ${activeTab === 'visual' ? 'active' : ''}`}>
+            {char && (
+              <CharacterVisualEditor
+                characterId={char.id}
+                name={char.name}
+                legacyAvatar={char.avatar}
+              />
+            )}
           </div>
 
           {/* 记忆 */}

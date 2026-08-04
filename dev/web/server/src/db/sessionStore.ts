@@ -7,6 +7,13 @@ export interface SessionRow {
   workspaces: string | null; dataspace: string | null
   parent_id: string | null; active_group: string | null
   session_type: 'chat' | 'event'; event_id: string | null
+  character_binding_mode: 'follow_latest' | 'pinned'
+  pinned_character_revision_id: string | null
+  forked_from_session_id: string | null
+  forked_from_message_id: number | null
+  event_occurrence_id: string | null
+  approval_mode: string
+  execution_mode: string
   current_strategy: string | null
   reasoning_effort: string | null
   context_window: number | null
@@ -16,9 +23,9 @@ export interface SessionRow {
   created_at: number; updated_at: number
 }
 
-const INSERT_COLS = 'id, character_id, title, model, provider_id, workspace, workspaces, dataspace, parent_id, active_group, session_type, event_id, current_strategy, reasoning_effort, context_window, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, created_at, updated_at'
-const INSERT_PARAMS = '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @dataspace, @parent_id, @active_group, @session_type, @event_id, @current_strategy, @reasoning_effort, @context_window, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @created_at, @updated_at'
-const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, dataspace=@dataspace, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, updated_at=@updated_at'
+const INSERT_COLS = 'id, character_id, title, model, provider_id, workspace, workspaces, dataspace, parent_id, active_group, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, created_at, updated_at'
+const INSERT_PARAMS = '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @dataspace, @parent_id, @active_group, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @created_at, @updated_at'
+const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, dataspace=@dataspace, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, updated_at=@updated_at'
 
 export const sessionStore = {
   list(limit = 50): SessionRow[] {
@@ -53,6 +60,13 @@ export const sessionStore = {
       dataspace: data.dataspace || null,
       parent_id: data.parent_id || null, active_group: data.active_group || null,
       session_type: data.session_type || 'chat', event_id: data.event_id || null,
+      character_binding_mode: data.character_binding_mode || 'follow_latest',
+      pinned_character_revision_id: data.pinned_character_revision_id || null,
+      forked_from_session_id: data.forked_from_session_id || null,
+      forked_from_message_id: data.forked_from_message_id ?? null,
+      event_occurrence_id: data.event_occurrence_id || null,
+      approval_mode: data.approval_mode || data.current_strategy || 'Ask Risky',
+      execution_mode: data.execution_mode || 'direct',
       current_strategy: data.current_strategy ? normalizeStrategy(data.current_strategy) : null,
       reasoning_effort: data.reasoning_effort ?? null,
       context_window: data.context_window ?? null,
@@ -78,7 +92,34 @@ export const sessionStore = {
     return updated
   },
   delete(id: string): boolean {
-    getDb().prepare('DELETE FROM messages WHERE session_id = ?').run(id)
-    return getDb().prepare('DELETE FROM sessions WHERE id = ?').run(id).changes > 0
+    const db = getDb()
+    return db.transaction(() => {
+      // Cascade through every table that references the session (FK is ON).
+      const runs = db.prepare('SELECT id FROM runs WHERE session_id = ?').all(id) as { id: string }[]
+      const runIds = runs.map(r => r.id)
+      // Break run self-references first so any delete order stays valid.
+      db.prepare('UPDATE runs SET parent_run_id = NULL, resumed_from_run_id = NULL WHERE session_id = ?').run(id)
+      for (const run of runs) {
+        db.prepare('DELETE FROM run_events WHERE run_id = ?').run(run.id)
+        db.prepare('DELETE FROM checkpoints WHERE run_id = ?').run(run.id)
+      }
+      // agent_tasks reference runs by parent_run_id and sessions by child_session_id.
+      if (runIds.length > 0) {
+        const ph = runIds.map(() => '?').join(',')
+        db.prepare(`DELETE FROM agent_tasks WHERE parent_run_id IN (${ph})`).run(...runIds)
+      }
+      db.prepare('DELETE FROM agent_tasks WHERE child_session_id = ?').run(id)
+      db.prepare('DELETE FROM runs WHERE session_id = ?').run(id)
+      db.prepare('DELETE FROM turns WHERE session_id = ?').run(id)
+      db.prepare('DELETE FROM goals WHERE session_id = ?').run(id)
+      const plans = db.prepare('SELECT id FROM plans WHERE session_id = ?').all(id) as { id: string }[]
+      for (const plan of plans) {
+        db.prepare('DELETE FROM plan_steps WHERE plan_id = ?').run(plan.id)
+      }
+      db.prepare('DELETE FROM plans WHERE session_id = ?').run(id)
+      db.prepare('DELETE FROM trajectories WHERE session_id = ?').run(id)
+      db.prepare('DELETE FROM messages WHERE session_id = ?').run(id)
+      return db.prepare('DELETE FROM sessions WHERE id = ?').run(id).changes > 0
+    })()
   },
 }

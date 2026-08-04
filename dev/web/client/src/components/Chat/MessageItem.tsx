@@ -8,9 +8,11 @@ const showReasoning = () => localStorage.getItem('tianshu:showReasoning') !== 'f
 
 interface Props {
   message: Message
+  characterId?: string
+  sessionId?: string
 }
 
-export default function MessageItem({ message }: Props) {
+export default function MessageItem({ message, characterId, sessionId }: Props) {
   const { editMessage, forkFromMessage, isStreaming } = useChatStore()
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)

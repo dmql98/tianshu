@@ -20,3 +20,7 @@ export function browseDirectory(path?: string) {
 export function resolvePath(name: string) {
   return apiPost<{ path: string | null }>('/api/workspace/resolve', { name })
 }
+
+export function openInFileManager(dirPath: string) {
+  return apiPost<{ ok: boolean }>('/api/workspace/open', { path: dirPath })
+}

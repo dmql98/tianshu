@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { fetchEvents } from './api/events'
+import { fetchEventDefinitions } from './api/eventDefinitions'
 import { fetchDataspace } from './api/config'
 import CharacterDetailPage from './pages/CharacterDetailPage'
 import CharactersPage from './pages/CharactersPage'
@@ -48,10 +48,9 @@ export default function App() {
 
   useEffect(() => {
     function load() {
-      fetchEvents()
-        .then(events => {
-          const count = events.filter(e => e.status === 'pending' || e.status === 'running').length
-          setActiveEventCount(count)
+      fetchEventDefinitions()
+        .then(defs => {
+          setActiveEventCount(defs.filter(d => d.status === 'active').length)
         })
         .catch(() => {})
     }

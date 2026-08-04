@@ -28,3 +28,9 @@ export const forkSession = (
 
 export const fetchChildSessions = (id: string) =>
   apiGet<SessionSummary[]>(`/api/sessions/${id}/children`)
+
+export const reviseMessage = (messageId: number, content: string) =>
+  apiPost<{ session_id: string; supersedes_message_id: number; content: string }>(
+    `/api/messages/${messageId}/revise`,
+    { content },
+  )

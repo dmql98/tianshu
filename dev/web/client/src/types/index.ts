@@ -26,6 +26,7 @@ export interface SessionSummary {
   current_strategy?: Strategy
   context_window?: number | null
   reasoning_effort?: string
+  execution_mode?: string
   input_tokens?: number
   output_tokens?: number
   cache_hit_tokens?: number
@@ -145,8 +146,12 @@ export interface Provider {
 
 // Socket 事件
 export interface RunEvent {
+  event_id?: string
   session_id: string
   run_id?: string
+  seq?: number
+  type?: string
+  occurred_at?: number
   delta?: string
   reasoning?: string
   output?: string
@@ -167,6 +172,7 @@ export interface RunEvent {
   user_message_id?: number
   token_speed?: number
   token_speed_estimated?: boolean
+  question?: string
 }
 
 // 工作区

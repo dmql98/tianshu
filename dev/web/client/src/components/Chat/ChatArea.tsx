@@ -3,9 +3,10 @@ import { useUIStore } from '@/stores/uiStore'
 import MessageList from './MessageList'
 import ChatInput from './ChatInput'
 import ApprovalDialog from './ApprovalDialog'
+import AskUserDialog from './AskUserDialog'
 
 export default function ChatArea() {
-  const { sessions, activeSessionId, pendingApproval } = useChatStore()
+  const { sessions, activeSessionId, pendingApproval, pendingAskUser } = useChatStore()
   const { toggleSidebar, toggleRightPanel, toggleFilePanel } = useUIStore()
   const session = sessions.find(s => s.id === activeSessionId)
 
@@ -28,6 +29,7 @@ export default function ChatArea() {
         <ChatInput />
       </div>
       {pendingApproval && <ApprovalDialog />}
+      {pendingAskUser && <AskUserDialog />}
     </div>
   )
 }

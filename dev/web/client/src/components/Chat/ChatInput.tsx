@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { fetchCharacters } from '@/api/characters'
 import type { Character } from '@/types'
+import CharacterRenderer from '@/features/characters/CharacterRenderer'
+import { useCharacterPresence } from '@/features/character-presence/useCharacterPresence'
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = ''
@@ -33,10 +35,13 @@ function mimeFromExt(name: string): string | null {
 export default function ChatInput() {
   const [input, setInput] = useState('')
   const [character, setCharacter] = useState<Character | null>(null)
+  const [isFocused, setIsFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment } = useChatStore()
   const session = sessions.find(s => s.id === activeSessionId)
+  const presence = useCharacterPresence(session?.character_id ?? '', activeSessionId ?? undefined)
+  const inputMotion = isFocused && presence === 'idle' ? 'listening' : undefined
 
   // Load current character
   useEffect(() => {
@@ -103,10 +108,15 @@ export default function ChatInput() {
           title={character ? `${character.name} · ${character.description}` : '当前星官'}
           style={{ '--star-color': starColor } as React.CSSProperties}
         >
-          {character?.avatar
-            ? <img src={character.avatar} alt={starName} />
-            : <span style={{ fontSize: 48 }}>{starName[0]}</span>
-          }
+          <CharacterRenderer
+            characterId={session?.character_id ?? ''}
+            name={character?.name || ''}
+            legacyAvatar={character?.avatar}
+            mode="stage"
+            motion={inputMotion}
+            sessionId={activeSessionId ?? undefined}
+            className="character-renderer-input"
+          />
         </div>
         <div className="input-box">
           {/* Attachment previews */}
@@ -137,9 +147,11 @@ export default function ChatInput() {
             ref={textareaRef}
             className="chat-textarea"
             rows={1}
-            placeholder={`与${starName}聊点什么...`}
+            placeholder={character ? `与${starName}聊点什么...` : '添加角色以开始会话'}
             value={input}
             onChange={e => setInput(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
           />
           <div className="input-bottom">

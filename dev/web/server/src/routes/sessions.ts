@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
-import { eventService } from '../event/eventService.js'
 import { getDb } from '../db/schema.js'
 
 const router = new Hono()
@@ -22,10 +21,6 @@ router.delete('/:id', (c) => {
   const id = c.req.param('id')
   const session = sessionStore.getById(id)
   if (!session) return c.json({ error: 'Not found' }, 404)
-  if (session.event_id) {
-    eventService.delete(session.event_id)
-    console.log('[cascade] deleted event %s with session %s', session.event_id, id)
-  }
   sessionStore.delete(id)
   return c.json({ ok: true })
 })
@@ -74,10 +69,16 @@ router.post('/:id/fork', async (c) => {
       workspaces: source.workspaces,
       dataspace: source.dataspace,
       parent_id: null,
+      character_binding_mode: source.character_binding_mode,
+      pinned_character_revision_id: source.pinned_character_revision_id,
+      forked_from_session_id: source.id,
+      forked_from_message_id: messages[throughIndex].id,
       active_group: source.active_group,
       session_type: 'chat',
       event_id: null,
       current_strategy: source.current_strategy,
+      approval_mode: source.approval_mode,
+      execution_mode: source.execution_mode,
       reasoning_effort: source.reasoning_effort,
       context_window: source.context_window,
     })
@@ -91,7 +92,7 @@ router.get('/:id/messages', (c) => {
   const id = c.req.param('id')
   const session = sessionStore.getById(id)
   if (!session) return c.json({ error: 'Not found' }, 404)
-  const messages = messageStore.getMessages(id)
+  const messages = messageStore.getMessages(id, 100000)
   return c.json({ session, messages, total: messages.length })
 })
 

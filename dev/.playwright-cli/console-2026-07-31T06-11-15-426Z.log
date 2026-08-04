@@ -1,0 +1,17 @@
+[    5311ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3457/node_modules/.vite/deps/chunk-KDCVS43I.js?v=873850e0:21608
+[    5430ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3457/node_modules/.vite/deps/react-router-dom.js?v=873850e0:4426
+[    5430ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3457/node_modules/.vite/deps/react-router-dom.js?v=873850e0:4426
+[  326749ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326749ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326750ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326750ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326764ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326764ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326775ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326775ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326784ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[  326784ms] [LOG] [debug-char] id = undefined @ http://localhost:3457/src/pages/CharacterDetailPage.tsx?t=1785478601966:28
+[14666753ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:3457/@vite/client:963
+[14666754ms] [LOG] [Socket] disconnected @ http://localhost:3457/src/api/socket.ts:12
+[14668777ms] [ERROR] WebSocket connection to 'ws://localhost:3457/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3457/@vite/client:1034
+[14670810ms] [ERROR] WebSocket connection to 'ws://localhost:3457/socket.io/?EIO=4&transport=websocket' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3457/node_modules/.vite/deps/socket__io-client.js?v=873850e0:1062

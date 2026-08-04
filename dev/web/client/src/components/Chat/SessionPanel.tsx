@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
+import { openInFileManager } from '@/api/workspace'
 import FolderPicker from './FolderPicker'
 import type { Session } from '@/types'
 
@@ -21,9 +22,16 @@ interface ContextMenu {
   session: Session
 }
 
+interface ProjectContextMenu {
+  x: number
+  y: number
+  workspace: string
+}
+
 export default function SessionPanel() {
   const [search, setSearch] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
+  const [projectMenu, setProjectMenu] = useState<ProjectContextMenu | null>(null)
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const navigate = useNavigate()
   const menuRef = useRef<HTMLDivElement>(null)
@@ -31,17 +39,18 @@ export default function SessionPanel() {
     sessions, activeSessionId,
     collapsedWorkspaces, toggleWorkspaceCollapse,
     createSession, deleteSession, renameSession, toggleSessionStar,
+    deleteProject,
     isBatchMode, selectedSessionIds, toggleBatchMode, toggleSessionSelection,
   } = useChatStore()
 
-  // Close context menu on outside click
+  // Close context menus on outside click
   useEffect(() => {
-    function handleClick() { setContextMenu(null) }
-    if (contextMenu) {
+    function handleClick() { setContextMenu(null); setProjectMenu(null) }
+    if (contextMenu || projectMenu) {
       document.addEventListener('click', handleClick)
       return () => document.removeEventListener('click', handleClick)
     }
-  }, [contextMenu])
+  }, [contextMenu, projectMenu])
 
   // Separate parent sessions and event sessions
   const parentSessions = useMemo(() =>
@@ -124,6 +133,30 @@ export default function SessionPanel() {
     e.preventDefault()
     e.stopPropagation()
     setContextMenu({ x: e.clientX, y: e.clientY, session })
+  }
+
+  function handleProjectContextMenu(e: React.MouseEvent, workspace: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    setProjectMenu({ x: e.clientX, y: e.clientY, workspace })
+  }
+
+  function handleOpenProjectFolder(workspace: string) {
+    openInFileManager(workspace).catch(err => {
+      console.error('Failed to open folder:', err)
+    })
+    setProjectMenu(null)
+  }
+
+  function handleDeleteProject(workspace: string) {
+    const count = sessions.filter(s => !s.parent_id && (s.workspace || 'default') === workspace).length
+    const label = workspace === 'default' ? '默认' : workspace.split(/[/\\]/).pop() || workspace
+    if (!window.confirm(`删除项目「${label}」？\n将删除该项目下的 ${count} 个会话（含子会话），不可恢复。`)) return
+    deleteProject(workspace)
+    if (activeSessionId && sessions.find(s => s.id === activeSessionId && (s.workspace || 'default') === workspace)) {
+      navigate('/chat')
+    }
+    setProjectMenu(null)
   }
 
   function handleRename(session: Session) {
@@ -233,6 +266,7 @@ export default function SessionPanel() {
             <div
               className={`project-header ${!group.collapsed ? 'active' : ''}`}
               onClick={() => toggleWorkspaceCollapse(group.name)}
+              onContextMenu={e => handleProjectContextMenu(e, group.name)}
             >
               <span className="project-icon">📁</span>
               <span className="project-name">{group.name === 'default' ? '默认' : group.name.split(/[/\\]/).pop() || group.name}</span>
@@ -300,6 +334,39 @@ export default function SessionPanel() {
           <ContextMenuItem icon="📤" label="导出" onClick={() => handleExport(contextMenu.session)} />
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
           <ContextMenuItem icon="🗑️" label="删除" danger onClick={() => handleDelete(contextMenu.session)} />
+        </div>
+      )}
+
+      {/* Project Context Menu */}
+      {projectMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            left: projectMenu.x,
+            top: projectMenu.y,
+            zIndex: 1000,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '4px 0',
+            minWidth: 150,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {projectMenu.workspace !== 'default' && (
+            <ContextMenuItem
+              icon="📂"
+              label="打开所在文件夹"
+              onClick={() => handleOpenProjectFolder(projectMenu.workspace)}
+            />
+          )}
+          <ContextMenuItem
+            icon="🗑️"
+            label="删除项目"
+            danger
+            onClick={() => handleDeleteProject(projectMenu.workspace)}
+          />
         </div>
       )}
 

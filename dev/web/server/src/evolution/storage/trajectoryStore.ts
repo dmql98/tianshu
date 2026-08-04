@@ -1,5 +1,25 @@
 import { getDb } from '../../db/schema.js'
-import type { TrajectoryRow, CreateTrajectoryInput } from '../../event/types.js'
+
+export interface TrajectoryRow {
+  id: string
+  session_id: string
+  agent_id: string
+  user_goal: string | null
+  tool_calls: string | null
+  summary: string | null
+  success_rate: number | null
+  created_at: number
+}
+
+export interface CreateTrajectoryInput {
+  id: string
+  session_id: string
+  agent_id: string
+  user_goal?: string | null
+  tool_calls?: string | null
+  summary?: string | null
+  success_rate?: number | null
+}
 
 export const trajectoryStore = {
   getRecent(days = 7): TrajectoryRow[] {

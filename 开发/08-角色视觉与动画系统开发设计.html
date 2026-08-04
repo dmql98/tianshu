@@ -376,7 +376,6 @@
         <li><a href="#storage">存储与接口</a></li>
         <li><a href="#frontend">前端功能设计</a></li>
         <li><a href="#events">Agent 事件联动</a></li>
-        <li><a href="#desktop">桌面角色窗口</a></li>
         <li><a href="#generation">角色生成能力</a></li>
         <li><a href="#security">安全与性能</a></li>
         <li><a href="#roadmap">实施计划</a></li>
@@ -422,7 +421,7 @@
         </div>
 
         <div class="callout warning">
-          <strong>重要现状：</strong>天枢当前由批处理启动服务端和 Vite，并直接打开浏览器，尚不存在正式 Electron 桌面壳。因此“应用内动画”和“独立透明桌面角色窗口”必须分阶段建设。
+          <strong>重要现状：</strong>天枢当前由批处理启动服务端和 Vite，并直接打开浏览器，不提供独立桌面角色窗口。应用内角色动画按浏览器渲染能力建设。
         </div>
 
         <h3>Demo 方案不直接进入生产的原因</h3>
@@ -444,7 +443,6 @@
           <li>通过统一状态机响应监听、思考、说话、工具调用、完成和错误事件。</li>
           <li>允许用户导入、导出完整角色包，并在不同设备之间迁移。</li>
           <li>为 AI 生成角色设定、立绘及动作素材提供统一产物格式。</li>
-          <li>未来 Electron 独立角色窗口复用同一渲染器和角色包。</li>
         </ul>
 
         <h3>2.2 第一阶段不做</h3>
@@ -474,7 +472,7 @@
           <div class="flow-arrow">→</div>
           <div class="flow-box">资源服务与状态机<small>校验、解析、动作选择</small></div>
           <div class="flow-arrow">→</div>
-          <div class="flow-box">CharacterRenderer<small>聊天 / 详情 / 桌面窗口</small></div>
+          <div class="flow-box">CharacterRenderer<small>聊天 / 详情 / 角色卡</small></div>
         </div>
 
         <h3>3.1 分层职责</h3>
@@ -488,7 +486,7 @@
               <tr><td>资源领域层</td><td>角色包、文件元数据、动作绑定、格式版本</td><td><code>characterVisual.ts</code></td></tr>
               <tr><td>状态控制层</td><td>将 Agent 事件、用户交互和自动行为转换为动作</td><td><code>useCharacterMotionController</code></td></tr>
               <tr><td>渲染适配层</td><td>按资源类型选择图片、视频、Sprite 等渲染器</td><td><code>CharacterRenderer</code></td></tr>
-              <tr><td>展示面</td><td>聊天、详情页、角色卡、未来桌面窗口</td><td><code>surface</code> 参数</td></tr>
+              <tr><td>展示面</td><td>聊天、详情页、角色卡</td><td><code>surface</code> 参数</td></tr>
             </tbody>
           </table>
         </div>
@@ -668,13 +666,13 @@ idle / blink / breathe                    优先级 10</code></pre>
         </ul>
 
         <h3>5.4 自动行为</h3>
-        <p>应用内默认只执行轻量的眨眼、呼吸和偶发招手；移动、跳跃等空间行为只在尺寸允许的舞台或桌面角色窗口开启。系统检测到 <code>prefers-reduced-motion</code> 时关闭随机动作和位移动画。</p>
+        <p>应用内默认只执行轻量的眨眼、呼吸和偶发招手；空间行为仅在尺寸允许的舞台开启。系统检测到 <code>prefers-reduced-motion</code> 时关闭随机动作和位移动画。</p>
       </section>
 
       <section id="renderer">
         <h2>6. 统一 CharacterRenderer</h2>
 
-        <p>所有展示面必须使用同一个渲染入口，禁止聊天页、详情页和桌面窗口分别解析资源。</p>
+        <p>所有展示面必须使用同一个渲染入口，禁止聊天页、详情页和角色卡分别解析资源。</p>
 
         <pre><code>&lt;CharacterRenderer
   character={character}
@@ -691,7 +689,7 @@ idle / blink / breathe                    优先级 10</code></pre>
             <tbody>
               <tr><td><code>character</code></td><td>角色业务数据与 visual 配置。</td></tr>
               <tr><td><code>motion</code></td><td>当前语义动作；为空时由控制器选择。</td></tr>
-              <tr><td><code>surface</code></td><td><code>chat-input</code>、<code>detail-preview</code>、<code>card</code>、<code>desktop</code>。</td></tr>
+              <tr><td><code>surface</code></td><td><code>chat-input</code>、<code>detail-preview</code>、<code>card</code>。</td></tr>
               <tr><td><code>interactive</code></td><td>是否接收点击、双击、悬停等互动。</td></tr>
               <tr><td><code>quality</code></td><td><code>low</code>、<code>normal</code>、<code>high</code>，用于资源选择和帧率控制。</td></tr>
             </tbody>
@@ -705,7 +703,7 @@ idle / blink / breathe                    优先级 10</code></pre>
   3. portraitAssetId 存在        → 显示静态立绘
   4. avatarAssetId / 旧 avatar   → 显示兼容头像
   5. 以上都不存在                → 显示名称首字</code></pre>
-        <p>同一决策函数供聊天区、角色列表、详情页和未来桌面窗口复用。小尺寸 <code>surface</code> 在第 3 步使用立绘裁切视图，大尺寸 <code>surface</code> 显示完整立绘。</p>
+        <p>同一决策函数供聊天区、角色列表和详情页复用。小尺寸 <code>surface</code> 在第 3 步使用立绘裁切视图，大尺寸 <code>surface</code> 显示完整立绘。</p>
 
         <h3>6.3 渲染适配器</h3>
         <ul>
@@ -880,7 +878,7 @@ idle / blink / breathe                    优先级 10</code></pre>
 
         <p>动画状态来源必须统一，不允许各组件通过 DOM 或文本猜测 Agent 状态。与《11-会话与 Agent 运行系统统一架构设计》对齐：
           服务端持久化 RunEvent，CharacterPresenceProjector 将运行语义、用户交互和本地自动行为归并为角色表现，
-          聊天区与独立桌面窗口消费同一 Presence 投影。</p>
+          聊天区与角色卡消费同一 Presence 投影。</p>
 
         <div class="table-wrap">
           <table>
@@ -913,35 +911,6 @@ idle / blink / breathe                    优先级 10</code></pre>
         <p>角色 revision 发布后不可变；Run 创建时固定实际 revision。角色资产由角色系统归档和延迟回收，
           但历史 Run、事件 Occurrence 或固定 Session 的引用会阻止物理删除。视觉资源不可用时按动画 → 立绘 → 名称降级，
           不影响 Run 的业务终态。</p>
-      </section>
-
-      <section id="desktop">
-        <h2>11. 未来独立桌面角色窗口</h2>
-
-        <p>独立角色窗口属于 Electron 桌面层能力。它不应复制动画逻辑，而是加载一个精简 React 页面并复用 <code>CharacterRenderer</code>。</p>
-
-        <h3>11.1 Electron 窗口要求</h3>
-        <ul>
-          <li>透明、无边框、可选置顶、不出现在任务栏。</li>
-          <li>支持拖动、缩放、锁定位置、显示器切换和位置恢复。</li>
-          <li>可切换点击穿透；角色可交互区域仍能接收点击。</li>
-          <li>主窗口关闭后可按用户设置继续驻留或一同退出。</li>
-          <li>窗口状态通过受限 preload bridge 通信，不暴露 Node.js。</li>
-        </ul>
-
-        <h3>11.2 建议 IPC</h3>
-        <pre><code>characterWindow.open(characterId)
-characterWindow.close()
-characterWindow.setAlwaysOnTop(enabled)
-characterWindow.setClickThrough(enabled)
-characterWindow.setScale(scale)
-characterWindow.setPosition(position)
-characterWindow.onRuntimeState(callback)</code></pre>
-
-        <h3>11.3 复用边界</h3>
-        <div class="callout">
-          <strong>渲染与窗口分离：</strong>React 负责角色资源、动作与交互；Electron 只负责系统窗口、坐标、鼠标穿透、托盘与生命周期。这样浏览器版不会依赖 Electron，桌面版也不会拥有第二套动作系统。
-        </div>
       </section>
 
       <section id="generation">
@@ -1037,20 +1006,13 @@ characterWindow.onRuntimeState(callback)</code></pre>
         <div class="phase">
           <div class="phase-no">P4</div>
           <div>
-            <h3>Electron 独立角色窗口</h3>
-            <p>接入正式桌面壳，增加透明置顶窗口、拖动、点击穿透、托盘和位置恢复，复用现有 CharacterRenderer。</p>
-          </div>
-        </div>
-        <div class="phase">
-          <div class="phase-no">P5</div>
-          <div>
             <h3>角色生成与高级运行时</h3>
             <p>生成角色设定、立绘和动作素材；按产品需求评估 Live2D、Spine、Rive 或 3D 适配器。</p>
           </div>
         </div>
 
         <h3>推荐优先级</h3>
-        <p><strong>P1 → P2 → P3</strong> 应连续完成，形成完整的应用内角色体验。P4 依赖桌面壳总体建设，不应阻塞前三阶段。</p>
+        <p><strong>P1 → P2 → P3</strong> 应连续完成，形成完整的应用内角色体验。P4 在应用内体验稳定后推进。</p>
       </section>
 
       <section id="testing">
@@ -1106,14 +1068,13 @@ characterWindow.onRuntimeState(callback)</code></pre>
               <tr><td>第一版格式</td><td>图片、动画图片、视频、Sprite Sheet</td><td>覆盖面广、实现风险低、用户制作门槛可控。</td></tr>
               <tr><td>序列帧 Demo</td><td>兼容但不作为默认格式</td><td>资源和解码成本过高。</td></tr>
               <tr><td>角色包</td><td>版本化 ZIP，无代码</td><td>便于生态交换，同时降低安全风险。</td></tr>
-              <tr><td>桌面窗口</td><td>Electron 层独立建设</td><td>当前项目仍是浏览器应用，窗口能力不可由 React 单独提供。</td></tr>
               <tr><td>角色生成</td><td>输出标准角色包</td><td>复用导入、预览、校验和安装链路。</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="callout success">
-          <strong>最终建议：</strong>第一轮开发从领域模型、资源 API 和 CharacterRenderer 开始，再接入聊天页。不要先在聊天页复制 Demo 的 <code>setInterval + JPEG</code> 逻辑，否则后续多动作、角色导入和桌面窗口都会重复返工。
+          <strong>最终建议：</strong>第一轮开发从领域模型、资源 API 和 CharacterRenderer 开始，再接入聊天页。不要先在聊天页复制 Demo 的 <code>setInterval + JPEG</code> 逻辑，否则后续多动作、角色导入都会重复返工。
         </div>
       </section>
 

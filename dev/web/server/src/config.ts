@@ -15,7 +15,14 @@ let explicitlySet = false
 
 function loadConfig(): Config {
   if (cached) return cached
-  // Priority: config.json > env var > default
+  // Priority: env var > config.json > default. Env first so tests and
+  // container deploys can override a machine-local config.json.
+  const envDir = process.env.TIANSHU_DATA_DIR || process.env.DATA_DIR
+  if (envDir) {
+    cached = { dataDir: envDir }
+    explicitlySet = true
+    return cached
+  }
   if (existsSync(CONFIG_FILE)) {
     try {
       const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'))
@@ -25,12 +32,6 @@ function loadConfig(): Config {
         return cached
       }
     } catch { /* fall through */ }
-  }
-  const envDir = process.env.TIANSHU_DATA_DIR || process.env.DATA_DIR
-  if (envDir) {
-    cached = { dataDir: envDir }
-    explicitlySet = true
-    return cached
   }
   cached = { dataDir: DEFAULT_DATA_DIR }
   return cached

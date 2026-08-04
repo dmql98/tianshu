@@ -386,7 +386,7 @@ export default function SettingsPage() {
                   </select>
                 </div>
               </div>
-              {evo?.character_id && characters.find(c => c.id === evo.character_id)?.groups?.length > 0 && (
+              {evo?.character_id && (characters.find(c => c.id === evo.character_id)?.groups?.length ?? 0) > 0 && (
                 <div className="setting-row">
                   <div className="setting-info"><span className="setting-label">进化分组</span><span className="setting-hint">用于技能生成的分组</span></div>
                   <div className="setting-control">

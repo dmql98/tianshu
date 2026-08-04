@@ -1,12 +1,23 @@
 import { create } from 'zustand'
 import { normalizeStrategy, type Session, type Message, type RunEvent, type Strategy, type WorkspaceGroup } from '@/types'
 import * as sessionsApi from '@/api/sessions'
+import { fetchRecentRuns, fetchRunEvents, cancelRun } from '@/api/runs'
 import { connectSocket, getSocket } from '@/api/socket'
 import { useProvidersStore } from './providersStore'
 
 
 const PERSIST_KEY = 'tianshu-chat-defaults'
 const DEFAULT_WORKSPACE = 'C:\\.Tianshu'
+
+const TERMINAL_RUN_STATUS = new Set([
+  'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
+])
+const TERMINAL_EVENT_TYPES = new Set([
+  'run.completed', 'run.failed', 'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
+])
+
+// Highest persisted event seq seen per run (survives reconnects to resume replay)
+const runSeqByRunId = new Map<string, number>()
 
 interface PendingApproval {
   tool_call_id: string
@@ -65,6 +76,7 @@ interface ChatState {
   activeSessionId: string | null
   isStreaming: boolean
   pendingApproval: PendingApproval | null
+  pendingAskUser: { run_id: string; session_id: string; question: string } | null
 
   // UI state
   collapsedWorkspaces: Set<string>
@@ -108,6 +120,8 @@ interface ChatState {
   abortRun: () => void
   setStrategy: (strategy: Strategy) => void
   respondApproval: (choice: 'once' | 'always' | 'reject') => void
+  clearAskUser: () => void
+  resumeActiveRun: (sessionId: string) => Promise<void>
 
   // Attachments
   addAttachment: (name: string, mime: string, data: string, dataUrl?: string) => void
@@ -122,8 +136,8 @@ interface ChatState {
   // Batch ops
   toggleBatchMode: () => void
   toggleSessionSelection: (sessionId: string) => void
-  selectAllSessions: () => void
   batchDeleteSessions: () => Promise<void>
+  deleteProject: (workspace: string) => Promise<void>
 
   // UI
   toggleAllTools: () => void
@@ -131,9 +145,43 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
+  let pendingSupersedesMessageId: number | null = null
   // ── Persistent socket listeners (registered once) ──
   function initPersistentListeners() {
     const socket = connectSocket()
+
+    // Track the highest seq seen per run so reconnects can resume replay.
+    const TRACKED_EVENTS = [
+      'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
+      'run.interrupted', 'run.max_turns', 'message.delta', 'message.metrics',
+      'tool.started', 'tool.completed', 'tool.output', 'approval.requested', 'usage',
+      'ask_user',
+    ]
+    for (const type of TRACKED_EVENTS) {
+      socket.on(type, (data: RunEvent) => {
+        if (data.run_id && typeof data.seq === 'number') {
+          const prev = runSeqByRunId.get(data.run_id) || 0
+          if (data.seq > prev) runSeqByRunId.set(data.run_id, data.seq)
+        }
+      })
+    }
+
+    // After a socket reconnect, replay anything the active run emitted while away.
+    socket.off('connect')
+    socket.on('connect', () => {
+      const state = get()
+      const runId = state._activeRunId
+      const sessionId = state.activeSessionId
+      if (!runId || !sessionId) return
+      const afterSeq = runSeqByRunId.get(runId) || 0
+      fetchRunEvents(runId, afterSeq)
+        .then(events => {
+          if (events.length === 0) return
+          applyRunEvents(sessionId, events)
+          runSeqByRunId.set(runId, events[events.length - 1].seq ?? afterSeq)
+        })
+        .catch(() => {})
+    })
 
     socket.off('strategy.updated')
     socket.on('strategy.updated', (data: RunEvent) => {
@@ -225,12 +273,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       return !data.run_id || data.run_id === state._activeRunId
     }
 
-    function updateSessionMessage(sessionId: string, updater: (session: Session) => Session) {
-      set(state => ({
-        sessions: state.sessions.map(s => s.id === sessionId ? updater(s) : s),
-      }))
-    }
-
+    
     socket.off('message.delta')
     socket.on('message.delta', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
@@ -338,6 +381,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
       })
       if (data.session_id === get().activeSessionId) set({ isStreaming: false })
+      if (data.run_id && data.run_id === get()._activeRunId) set({ _activeRunId: null })
     })
 
     socket.off('run.compacted')
@@ -361,6 +405,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         }],
       }))
       if (data.session_id === get().activeSessionId) set({ isStreaming: false })
+      if (data.run_id && data.run_id === get()._activeRunId) set({ _activeRunId: null })
     })
 
     socket.off('run.started')
@@ -379,10 +424,142 @@ export const useChatStore = create<ChatState>((set, get) => {
     socket.on('run.retrying', (data: RunEvent) => {
       if (data.session_id === get().activeSessionId) set({ isStreaming: true })
     })
+
+    // Approval prompts for sessions without a temporary listener (e.g. after
+    // the page refreshed and resumeActiveRun is tracking the run).
+    socket.off('approval.requested')
+    socket.on('approval.requested', (data: RunEvent) => {
+      if (isHandledByTemporaryListener(data)) return
+      if (!data.session_id || !data.tool_call_id) return
+      set({
+        pendingApproval: {
+          tool_call_id: data.tool_call_id,
+          tool_name: data.tool_name || 'tool',
+          description: data.tool_input || '',
+        },
+      })
+    })
+
+    // ask_user prompts (persisted checkpoint; answered via /runs/:id/inputs).
+    socket.off('ask_user')
+    socket.on('ask_user', (data: { session_id?: string; run_id?: string; question?: string }) => {
+      if (!data.run_id || !data.question) return
+      if (data.session_id && data.session_id !== get().activeSessionId) return
+      set({
+        pendingAskUser: {
+          run_id: data.run_id,
+          session_id: data.session_id || '',
+          question: data.question,
+        },
+      })
+    })
   }
 
   // Initialize listeners on store creation
   initPersistentListeners()
+
+  function updateSessionMessage(sessionId: string, updater: (session: Session) => Session) {
+    set(state => ({
+      sessions: state.sessions.map(s => s.id === sessionId ? updater(s) : s),
+    }))
+  }
+
+  // Replay persisted RunEvents (from /api/runs/:id/events) into the session
+  // message list. Mirrors the persistent socket handlers, but batch-applies
+  // events in seq order instead of streaming.
+  function applyRunEvents(sessionId: string, events: RunEvent[]) {
+    const lastType = events.length > 0 ? events[events.length - 1].type : undefined
+    const pendingApprovalEvent = events.find(e => e.type === 'approval.requested')
+    const askUserEvent = events.find(e => e.type === 'ask_user')
+    updateSessionMessage(sessionId, sess => {
+      const messages = [...sess.messages]
+      for (const e of events) {
+        if (e.type === 'message.delta') {
+          const last = messages[messages.length - 1]
+          if (last?.role === 'assistant' && last.is_streaming) {
+            messages[messages.length - 1] = {
+              ...last,
+              content: last.content + (e.delta || ''),
+              reasoning: (last.reasoning || '') + (e.reasoning || ''),
+            }
+          } else {
+            messages.push({
+              id: uid(), role: 'assistant' as const,
+              content: e.delta || '', reasoning: e.reasoning || '',
+              is_streaming: true, timestamp: Date.now(),
+            })
+          }
+        } else if (e.type === 'message.metrics') {
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role !== 'assistant') continue
+            messages[i] = {
+              ...messages[i],
+              id: e.message_id != null ? String(e.message_id) : messages[i].id,
+              is_streaming: false,
+              token_speed: e.token_speed,
+              token_speed_estimated: e.token_speed_estimated,
+            }
+            break
+          }
+        } else if (e.type === 'tool.started') {
+          messages.push({
+            id: uid(), role: 'tool' as const, content: '',
+            tool_name: e.tool_name, tool_input: e.tool_input,
+            tool_status: 'running' as const, timestamp: Date.now(),
+            tool_call_id: e.tool_call_id,
+          })
+        } else if (e.type === 'tool.completed') {
+          const idx = messages.findIndex(m => m.role === 'tool' && m.tool_call_id === e.tool_call_id)
+          if (idx >= 0) {
+            messages[idx] = {
+              ...messages[idx],
+              tool_status: (e.tool_status as Message['tool_status']) || 'success',
+              tool_output: e.tool_output,
+            }
+          }
+        } else if (e.type === 'tool.output') {
+          const idx = messages.findIndex(m => m.role === 'tool' && m.tool_call_id === e.tool_call_id)
+          if (idx >= 0) {
+            messages[idx] = {
+              ...messages[idx],
+              tool_output: (messages[idx].tool_output || '') + (e.output || ''),
+            }
+          }
+        } else if (e.type === 'run.failed') {
+          messages.push({
+            id: uid(), role: 'assistant' as const,
+            content: `Error: ${e.error || 'Unknown'}`,
+            timestamp: Date.now(),
+          })
+        } else if (TERMINAL_EVENT_TYPES.has(e.type || '')) {
+          const last = messages[messages.length - 1]
+          if (last?.is_streaming) messages[messages.length - 1] = { ...last, is_streaming: false }
+        }
+      }
+      return { ...sess, messages }
+    })
+    if (pendingApprovalEvent?.tool_call_id) {
+      set({
+        pendingApproval: {
+          tool_call_id: pendingApprovalEvent.tool_call_id,
+          tool_name: pendingApprovalEvent.tool_name || 'tool',
+          description: pendingApprovalEvent.tool_input || '',
+        },
+      })
+    }
+    if (askUserEvent?.run_id && askUserEvent.question) {
+      set({
+        pendingAskUser: {
+          run_id: askUserEvent.run_id,
+          session_id: sessionId,
+          question: askUserEvent.question,
+        },
+      })
+    }
+    if (lastType) {
+      set({ isStreaming: !TERMINAL_EVENT_TYPES.has(lastType) })
+    }
+  }
 
   return {
     // ── State ──
@@ -390,6 +567,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     activeSessionId: null,
     isStreaming: false,
     pendingApproval: null,
+    pendingAskUser: null,
     collapsedWorkspaces: new Set<string>(),
     toolExpandAll: false,
     isBatchMode: false,
@@ -529,6 +707,8 @@ export const useChatStore = create<ChatState>((set, get) => {
             s.id === id ? { ...s, messages } : s
           ),
         }))
+        // Resume a run that was in flight when this view was last open.
+        get().resumeActiveRun(id)
       } catch { /* new session */ }
     },
 
@@ -596,14 +776,20 @@ export const useChatStore = create<ChatState>((set, get) => {
       const index = session.messages.findIndex(message => message.id === messageId)
       if (index < 0 || session.messages[index].role !== 'user') throw new Error('只能编辑用户消息')
 
-      await sessionsApi.keepMessages(session.id, index)
+      if (!/^\d+$/.test(messageId)) throw new Error('消息尚未完成持久化，请稍后重试')
+      const revision = await sessionsApi.reviseMessage(Number(messageId), nextContent)
       set(current => ({
         sessions: current.sessions.map(item =>
           item.id === session.id ? { ...item, messages: item.messages.slice(0, index) } : item
         ),
         attachments: [],
       }))
-      await get().sendMessage(nextContent)
+      pendingSupersedesMessageId = revision.supersedes_message_id
+      try {
+        await get().sendMessage(nextContent)
+      } finally {
+        pendingSupersedesMessageId = null
+      }
     },
 
     forkFromMessage: async (messageId: string) => {
@@ -716,6 +902,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         event_id: session.event_id || undefined,
         thinking: session.thinking || undefined,
         reasoning_effort: session.reasoning_effort || undefined,
+        supersedes_message_id: pendingSupersedesMessageId,
       }, (response: { user_message_id?: number }) => {
         if (response?.user_message_id == null) return
         set(current => ({
@@ -977,11 +1164,52 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ _currentCleanup: cleanup, _activeRunId: runId })
     },
 
+    resumeActiveRun: async (sessionId: string) => {
+      const state = get()
+      // A live run is already being tracked by the temporary listeners.
+      if (state._currentCleanup) return
+      let runs: import('@/api/runs').RunRow[]
+      try {
+        runs = await fetchRecentRuns(sessionId, 5)
+      } catch {
+        return
+      }
+      const active = runs.find(r => !TERMINAL_RUN_STATUS.has(r.status))
+      if (!active) return
+
+      const afterSeq = runSeqByRunId.get(active.id) || 0
+      let events: RunEvent[] = []
+      try {
+        events = await fetchRunEvents(active.id, afterSeq)
+      } catch {
+        return
+      }
+      if (events.length > 0) {
+        applyRunEvents(sessionId, events)
+        runSeqByRunId.set(active.id, events[events.length - 1].seq ?? afterSeq)
+        if (TERMINAL_EVENT_TYPES.has(events[events.length - 1].type || '')) return
+      }
+      // Re-check once: the run may have finished between the two fetches.
+      let tail: RunEvent[] = []
+      try {
+        tail = await fetchRunEvents(active.id, runSeqByRunId.get(active.id) || 0)
+      } catch { /* keep last seq */ }
+      if (tail.length > 0) {
+        applyRunEvents(sessionId, tail)
+        runSeqByRunId.set(active.id, tail[tail.length - 1].seq ?? (runSeqByRunId.get(active.id) || 0))
+        if (TERMINAL_EVENT_TYPES.has(tail[tail.length - 1].type || '')) return
+      }
+      // Live streaming continues through the persistent listeners.
+      set({ _activeRunId: active.id, isStreaming: true })
+    },
+
     abortRun: () => {
       const socket = getSocket()
       const state = get()
       if (socket?.connected && state.activeSessionId) {
         socket.emit('abort', { session_id: state.activeSessionId })
+      } else if (state._activeRunId) {
+        void cancelRun(state._activeRunId).catch(() => {})
       }
     },
 
@@ -1011,6 +1239,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
       set({ pendingApproval: null })
     },
+
+    clearAskUser: () => set({ pendingAskUser: null }),
 
     // ── Attachment Actions ──
 
@@ -1129,6 +1359,23 @@ export const useChatStore = create<ChatState>((set, get) => {
         activeSessionId: allIds.has(state.activeSessionId || '') ? null : state.activeSessionId,
         selectedSessionIds: new Set(),
         isBatchMode: false,
+      }))
+    },
+
+    deleteProject: async (workspace: string) => {
+      const state = get()
+      const ids = state.sessions
+        .filter(s => !s.parent_id && (s.workspace || 'default') === workspace)
+        .map(s => s.id)
+      const removed = new Set<string>(ids)
+      // Children follow their parents
+      for (const s of state.sessions) {
+        if (s.parent_id && removed.has(s.parent_id)) removed.add(s.id)
+      }
+      await Promise.all(ids.map(id => sessionsApi.deleteSession(id).catch(() => {})))
+      set(state => ({
+        sessions: state.sessions.filter(s => !removed.has(s.id)),
+        activeSessionId: removed.has(state.activeSessionId || '') ? null : state.activeSessionId,
       }))
     },
 

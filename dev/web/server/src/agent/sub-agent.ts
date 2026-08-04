@@ -7,8 +7,15 @@ import { buildSkillIndex } from './skill-loader.js'
 import type { LLMMessage } from '../llm/client.js'
 import type { Server, Socket } from 'socket.io'
 import { normalizeStrategy, type Strategy, type StrategyInput } from './strategy.js'
+import { randomUUID } from 'crypto'
+import { getDb } from '../db/schema.js'
+import { messageStore } from '../db/messageStore.js'
+import { turnStore } from '../db/turnStore.js'
+import { runStore } from './runtime/run-store.js'
+import { createDurableSocket, publishRunEvent, unwrapDurableSocket } from './runtime/run-event-store.js'
+import { enqueueRun } from './session-runner.js'
 
-const MAX_DEPTH = 3
+const MAX_DEPTH = 1
 
 export interface SubResult {
   summary: string
@@ -65,7 +72,7 @@ export function summarizeAndMerge(results: SubResult[], maxTokens = 2000): SubSu
 export async function spawnAndRunSubAgent(
   task: string,
   targetCharacterId: string,
-  parentSession: { id: string; character_id: string; workspace?: string | null; workspaces?: string | null; active_group?: string | null },
+  parentSession: { id: string; character_id: string; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; current_strategy?: string | null; approval_mode?: string | null },
   provider: { base_url: string; api_key: string },
   model: string,
   strategyOverride?: StrategyInput,
@@ -78,6 +85,7 @@ export async function spawnAndRunSubAgent(
   if (depth >= MAX_DEPTH) {
     throw new Error(`Sub-agent 递归深度 (${depth}) 超过 MAX_DEPTH (${MAX_DEPTH})`)
   }
+  if (!runId) throw new Error('Sub-agent delegation requires a persisted parent Run')
 
   const targetChar = characterMetaStore.getById(targetCharacterId)
   if (!targetChar) throw new Error(`Target character not found: ${targetCharacterId}`)
@@ -89,17 +97,42 @@ export async function spawnAndRunSubAgent(
 
   const subSessionId = `sub_${parentSession.id}_${targetCharacterId}_${Date.now()}`
   const parentWorkspaces = parentSession.workspaces || (parentSession.workspace ? JSON.stringify([parentSession.workspace]) : null)
-  sessionStore.create({
+  const childSession = sessionStore.create({
     id: subSessionId,
     character_id: targetCharacterId,
     title: `Sub: ${task.slice(0, 80)}`,
     model,
-    provider_id: provider.base_url,
+    provider_id: parentSession.provider_id || undefined,
     workspace: parentSession.workspace || undefined,
     workspaces: parentWorkspaces,
     parent_id: parentSession.id,
     active_group: parentSession.active_group || undefined,
+    current_strategy: subStrategy,
+    approval_mode: parentSession.approval_mode || parentSession.current_strategy || subStrategy,
   })
+
+  const turn = turnStore.create(subSessionId, 'agent_task')
+  const childRun = runStore.create(childSession, {
+    parentRunId: runId || null,
+    turnId: turn.id,
+    source: 'agent_task',
+    maxTurns: targetChar.maxSteps,
+  })
+  const userMessage = messageStore.addMessage(subSessionId, {
+    role: 'user',
+    content: task,
+    turn_id: turn.id,
+    run_id: childRun.id,
+  })
+  turnStore.attachUserMessage(turn.id, userMessage.id)
+  const taskId = `atask_${randomUUID()}`
+  const now = Date.now()
+  getDb().prepare(`
+    INSERT INTO agent_tasks (
+      id, parent_run_id, child_session_id, child_run_id, target_character_id,
+      task, expected_output, mode, status, result, error, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, NULL, 'foreground', 'queued', NULL, NULL, ?, ?)
+  `).run(taskId, runId, subSessionId, childRun.id, targetCharacterId, task, now, now)
 
   if (socket) {
     socket.emit('sub_agent.started', {
@@ -111,8 +144,11 @@ export async function spawnAndRunSubAgent(
     })
   }
 
+  // Child sessions never receive delegation capability, so grandchildren are
+  // impossible even if the model fabricates the control call.
   const toolDefs = getCharacterToolDefinitions(targetChar.tools)
-  const hasTools = toolDefs.length > 0 && !(depth >= 1 && toolDefs.every(t => t.function.name === 'delegate_task'))
+    .filter(tool => tool.function.name !== 'delegate_to_agent')
+  const hasTools = toolDefs.length > 0
 
   const systemParts: string[] = []
   if (charContent.soul) systemParts.push(`## Character\n${charContent.soul}`)
@@ -137,22 +173,6 @@ export async function spawnAndRunSubAgent(
       "Before finalizing: verify correctness and back claims with tool output."
     )
   }
-  if (depth < MAX_DEPTH - 1) {
-    const allChars = characterMetaStore.getAll()
-    const delegateTargets = allChars.filter(c => {
-      if (c.role !== 'sub' && c.role !== 'both') return false
-      if (c.id === targetCharacterId) return true
-      if (!parentSession.active_group) return false
-      if (!c.groups || c.groups.length === 0) return false
-      return c.groups.includes(parentSession.active_group)
-    })
-    if (delegateTargets.length > 0) {
-      const groupLabel = parentSession.active_group ? `group "${parentSession.active_group}"` : 'no group (self only)'
-      systemParts.push(`## Available Delegates\nYou can delegate sub-tasks using \`delegate_task\`. Available targets (${groupLabel}):\n${
-        delegateTargets.map(c => `- id: "${c.id}" (${c.name})${c.id === targetCharacterId ? ' [self]' : ''} — ${c.description || ''}`).join('\n')
-      }\nOnly use \`target_character_id\` from the list above.`)
-    }
-  }
   const systemPrompt = systemParts.join('\n\n')
 
   const messages: LLMMessage[] = [
@@ -160,48 +180,80 @@ export async function spawnAndRunSubAgent(
     { role: 'user', content: task },
   ]
 
-  let effectiveTools = toolDefs
-  if (depth >= 1) {
-    effectiveTools = toolDefs.filter(t => t.function.name !== 'delegate_task')
-  }
+  const effectiveTools = toolDefs
 
   const subWorkspaces = parentSession.workspaces ? (() => { try { return JSON.parse(parentSession.workspaces) as string[] } catch { return undefined } })() : undefined
-  const innerResult: InnerResult = await innerLoop(
-    messages,
-    effectiveTools.length > 0 ? effectiveTools : undefined,
-    provider,
-    model,
-    targetCharacterId,
-    parentSession.workspace || undefined,
-    io,
-    socket,
-    subSessionId,
-    signal,
-    { run_id: runId },
-    0,
-    undefined,
-    subWorkspaces,
-  )
+  const rawSocket = socket ? unwrapDurableSocket(socket) : undefined
+  if (!rawSocket) throw new Error('Sub-agent requires an active event channel')
+  publishRunEvent(rawSocket, childRun.id, 'run.queued', {
+    session_id: subSessionId,
+    run_id: childRun.id,
+    character_id: targetCharacterId,
+    character_revision_id: childRun.character_revision_id,
+    parent_run_id: runId,
+  })
+  const childSocket = createDurableSocket(rawSocket, childRun.id)
 
-  if (innerResult.type === 'sub_agent_request') {
-      const subSubResult = await spawnAndRunSubAgent(
-        innerResult.subAgentRequest!.task,
-        innerResult.subAgentRequest!.target_character_id,
-        { id: subSessionId, character_id: targetCharacterId, workspace: parentSession.workspace, workspaces: parentSession.workspaces },
-      provider,
-      model,
-      innerResult.subAgentRequest!.sub_strategy,
-      signal,
-      depth + 1,
-      io,
-      socket,
-      runId,
-    )
-    return subSubResult
-  }
+  const innerResult = await new Promise<InnerResult>((resolve, reject) => {
+    enqueueRun(subSessionId, childRun.id, async childSignal => {
+      try {
+        getDb().prepare("UPDATE agent_tasks SET status = 'running', updated_at = ? WHERE id = ?")
+          .run(Date.now(), taskId)
+        childSocket.emit('run.started', {
+          session_id: subSessionId,
+          run_id: childRun.id,
+          context_window: 0,
+        })
+        let last: InnerResult | null = null
+        const maxTurns = Math.max(1, targetChar.maxSteps || 20)
+        for (let childTurn = 1; childTurn <= maxTurns && !childSignal.aborted; childTurn++) {
+          last = await innerLoop(
+            messages,
+            effectiveTools.length > 0 ? effectiveTools : undefined,
+            provider,
+            model,
+            targetCharacterId,
+            parentSession.workspace || undefined,
+            io,
+            childSocket,
+            subSessionId,
+            childSignal,
+            { run_id: childRun.id },
+            childTurn,
+            undefined,
+            subWorkspaces,
+          )
+          messages.push(...last.messages)
+          if (last.type === 'final_answer' || last.type === 'submit_result' || last.type === 'error' || last.type === 'aborted') break
+          if (last.type === 'sub_agent_request') {
+            throw new Error('Child agents cannot delegate another agent')
+          }
+        }
+        if (!last) throw new Error('Child run produced no result')
+        if (last.type === 'error') throw new Error(last.error || 'Child run failed')
+        const terminalStatus = childSignal.aborted ? 'cancelled' : 'completed'
+        childSocket.emit('run.completed', {
+          session_id: subSessionId,
+          run_id: childRun.id,
+          status: terminalStatus,
+        })
+        resolve(last)
+      } catch (error: any) {
+        childSocket.emit('run.failed', {
+          session_id: subSessionId,
+          run_id: childRun.id,
+          error: error.message || String(error),
+        })
+        reject(error)
+      }
+    })
+  })
 
   const summary = innerResult.fullText || innerResult.error || 'No output'
   const hasError = !!innerResult.error
+  getDb().prepare(`
+    UPDATE agent_tasks SET status = ?, result = ?, error = ?, updated_at = ? WHERE id = ?
+  `).run(hasError ? 'failed' : 'completed', hasError ? null : summary, innerResult.error || null, Date.now(), taskId)
 
   return {
     summary,

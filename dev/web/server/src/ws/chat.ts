@@ -5,6 +5,11 @@ import { providerStore } from '../db/providerStore.js'
 import { sessionLoop } from '../agent/loop.js'
 import { setSessionStrategy, removeSessionState, getSessionState } from '../agent/session.js'
 import { enqueueRun, abortSession, getRunState, getQueueLength } from '../agent/session-runner.js'
+import { turnStore } from '../db/turnStore.js'
+import { runStore } from '../agent/runtime/run-store.js'
+import { createDurableSocket, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { approvalRegistry, type ApprovalChoice } from '../agent/runtime/approval-registry.js'
+import { checkpointStore } from '../agent/runtime/checkpoint-store.js'
 import { saveAttachment, type AttachmentMeta } from '../agent/media-store.js'
 import type { Strategy } from '../agent/session.js'
 import { isStrategyInput, normalizeStrategy, type StrategyInput } from '../agent/strategy.js'
@@ -25,7 +30,7 @@ export function registerChatSocket(io: Server, socket: Socket) {
     const sessionId = data.session_id as string
     if (!sessionId) { ack?.({ error: 'No session_id' }); return }
     const requestedRunId = typeof data.run_id === 'string' ? data.run_id.trim() : ''
-    const runId = requestedRunId || `run_${sessionId}_${crypto.randomUUID()}`
+    const runId = requestedRunId || `run_${crypto.randomUUID()}`
 
     let session = sessionStore.getById(sessionId)
     if (!session) {
@@ -74,28 +79,95 @@ export function registerChatSocket(io: Server, socket: Socket) {
       }
       if (metas.length > 0) attachmentsJson = JSON.stringify(metas)
     }
+    if (runStore.get(runId)) {
+      ack?.({ error: 'Run id already exists', run_id: runId })
+      return
+    }
+    const turn = turnStore.create(sessionId, 'user')
     const userMessage = input.trim() || attachmentsJson
-      ? messageStore.addMessage(sessionId, { role: 'user', content: input, attachments: attachmentsJson })
+      ? messageStore.addMessage(sessionId, {
+          role: 'user',
+          content: input,
+          attachments: attachmentsJson,
+          turn_id: turn.id,
+          run_id: runId,
+          supersedes_message_id: typeof data.supersedes_message_id === 'number'
+            ? data.supersedes_message_id
+            : null,
+        })
       : null
+    if (userMessage) turnStore.attachUserMessage(turn.id, userMessage.id)
 
-    enqueueRun(sessionId, async (signal) => {
-      await sessionLoop(io, socket, sessionId, signal, {
-        thinking: !!data.thinking,
-        reasoning_effort: data.reasoning_effort as string | undefined,
+    let run
+    try {
+      run = runStore.create(session, {
+        id: runId,
+        turnId: turn.id,
+        source: session.session_type === 'event' ? 'event' : 'chat',
+      })
+    } catch (error: any) {
+      ack?.({ error: error.message || String(error), run_id: runId })
+      return
+    }
+    publishRunEvent(socket, runId, 'run.queued', {
+      session_id: sessionId,
+      run_id: runId,
+      character_id: run.character_id,
+      character_revision_id: run.character_revision_id,
+    })
+    const durableSocket = createDurableSocket(socket, runId)
+    const enqueueResult = enqueueRun(sessionId, runId, async (signal) => {
+      try {
+        await sessionLoop(io, durableSocket, sessionId, signal, {
+          thinking: !!data.thinking,
+          reasoning_effort: data.reasoning_effort as string | undefined,
+          run_id: runId,
+        })
+      } catch (error: any) {
+        publishRunEvent(socket, runId, 'run.failed', {
+          session_id: sessionId,
+          run_id: runId,
+          error: error.message || String(error),
+        })
+        throw error
+      }
+    }, () => {
+      publishRunEvent(socket, runId, 'run.cancelled', {
+        session_id: sessionId,
         run_id: runId,
+        status: 'cancelled',
+        reason: 'queue_cleared',
       })
     })
 
-    const queueLen = getQueueLength(sessionId)
     ack?.({
       run_id: runId,
-      status: queueLen > 0 ? 'queued' : 'started',
-      queue_length: queueLen,
+      status: enqueueResult.queued ? 'queued' : 'started',
+      queue_length: enqueueResult.queueLength,
       user_message_id: userMessage?.id,
     })
   })
 
   socket.on('abort', (data: { session_id?: string }) => {
-    if (data.session_id) abortSession(data.session_id)
+    if (data.session_id) {
+      approvalRegistry.cancelSession(data.session_id)
+      abortSession(data.session_id)
+    }
+  })
+
+  // Central approval responses: route to the waiting run via the registry
+  // (survives the client socket reconnecting) and clear the persisted
+  // checkpoint so a fresh page can tell the approval was already answered.
+  socket.on('approval.respond', (
+    data: { session_id?: string; tool_call_id?: string; choice?: string },
+    ack?: (resp: unknown) => void,
+  ) => {
+    const sessionId = data.session_id
+    const toolCallId = data.tool_call_id
+    if (!sessionId || !toolCallId) { ack?.({ error: 'Missing session_id or tool_call_id' }); return }
+    const choice: ApprovalChoice = data.choice === 'once' || data.choice === 'always' ? data.choice : 'reject'
+    const { accepted, runId } = approvalRegistry.respond(sessionId, toolCallId, choice)
+    if (runId) checkpointStore.clearForRun(runId, 'approval.requested')
+    ack?.({ status: accepted ? 'ok' : 'no_pending' })
   })
 }

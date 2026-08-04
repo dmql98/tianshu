@@ -19,7 +19,12 @@ export default function MessageList() {
   return (
     <div className={`chat-scroll${isCompact() ? ' compact' : ''}`} ref={scrollRef}>
       {messages.map(msg => (
-        <MessageItem key={msg.id} message={msg} />
+        <MessageItem
+          key={msg.id}
+          message={msg}
+          characterId={session?.character_id}
+          sessionId={session?.id}
+        />
       ))}
     </div>
   )

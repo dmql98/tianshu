@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCharacters } from '@/api/characters'
+import { fetchCharacters, type CharacterMotion } from '@/api/characters'
 import type { Character } from '@/types'
+import CharacterRenderer from '@/features/characters/CharacterRenderer'
 
 const roleLabels: Record<string, string> = {
   main: '主 Agent',
   sub: '子 Agent',
   both: '主/子',
 }
+
+const previewMotions: Array<{ id: CharacterMotion; label: string }> = [
+  { id: 'idle', label: '待机' },
+  { id: 'thinking', label: '思考' },
+  { id: 'working', label: '工作' },
+  { id: 'speaking', label: '说话' },
+  { id: 'success', label: '完成' },
+  { id: 'error', label: '出错' },
+]
 
 function timeAgo(ts: number | undefined): string {
   if (!ts) return ''
@@ -26,6 +36,8 @@ export default function CharactersPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [previewCharacter, setPreviewCharacter] = useState<Character | null>(null)
+  const [previewMotion, setPreviewMotion] = useState<CharacterMotion>('idle')
 
   useEffect(() => {
     fetchCharacters()
@@ -68,19 +80,26 @@ export default function CharactersPage() {
               <div className="star-grid">
                 {chars.map(char => (
                   <div key={char.id} className="star-card" onClick={() => navigate(`/characters/${char.id}`)}>
-                    <div className="star-art" style={{
-                      background: char.color
-                        ? `linear-gradient(135deg, ${char.color}15, ${char.color}08)`
-                        : 'linear-gradient(135deg, rgba(200,150,10,0.08), rgba(200,150,10,0.03))'
-                    }}>
-                      {char.avatar
-                        ? <img src={char.avatar} alt={char.name} />
-                        : <span style={{ fontSize: 56 }}>{char.name[0]}</span>
-                      }
+                    <div className="star-card-header">
+                      <div className="star-avatar" style={{
+                        background: char.color
+                          ? `linear-gradient(135deg, ${char.color}20, ${char.color}08)`
+                          : 'linear-gradient(135deg, rgba(200,150,10,0.12), rgba(200,150,10,0.04))'
+                      }}>
+                        <CharacterRenderer
+                          characterId={char.id}
+                          name={char.name}
+                          legacyAvatar={char.avatar}
+                          mode="avatar"
+                          className="character-renderer-card"
+                        />
+                      </div>
+                      <div className="star-card-heading">
+                        <div className="star-name">{char.name}</div>
+                        <div className="star-desc">{char.description || '暂无角色简介'}</div>
+                      </div>
                     </div>
                     <div className="star-info">
-                      <div className="star-name">{char.name}</div>
-                      <div className="star-desc">{char.description}</div>
                       <div className="star-tags">
                         {char.enabled !== false && <span className="star-tag jade">已启用</span>}
                         <span className="star-tag blue">{roleLabels[char.role] || char.role}</span>
@@ -104,6 +123,30 @@ export default function CharactersPage() {
                       {char.updatedAt && (
                         <div className="star-foot">
                           <span className="star-active">{timeAgo(char.updatedAt)}</span>
+                          <button
+                            className="btn sm star-preview-btn"
+                            onClick={event => {
+                              event.stopPropagation()
+                              setPreviewMotion('idle')
+                              setPreviewCharacter(char)
+                            }}
+                          >
+                            预览动画
+                          </button>
+                        </div>
+                      )}
+                      {!char.updatedAt && (
+                        <div className="star-foot star-foot-actions">
+                          <button
+                            className="btn sm star-preview-btn"
+                            onClick={event => {
+                              event.stopPropagation()
+                              setPreviewMotion('idle')
+                              setPreviewCharacter(char)
+                            }}
+                          >
+                            预览动画
+                          </button>
                         </div>
                       )}
                     </div>
@@ -114,6 +157,45 @@ export default function CharactersPage() {
           ))
         )}
       </div>
+      {previewCharacter && (
+        <div className="approval-overlay character-preview-overlay" onClick={() => setPreviewCharacter(null)}>
+          <div
+            className="approval-dialog character-preview-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${previewCharacter.name} 动画预览`}
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="character-preview-header">
+              <div>
+                <div className="character-preview-title">{previewCharacter.name} · 动画预览</div>
+                <div className="character-preview-subtitle">未配置的动作会自动使用待机动画或立绘</div>
+              </div>
+              <button className="btn sm" onClick={() => setPreviewCharacter(null)}>关闭</button>
+            </div>
+            <CharacterRenderer
+              key={`${previewCharacter.id}-${previewMotion}`}
+              characterId={previewCharacter.id}
+              name={previewCharacter.name}
+              legacyAvatar={previewCharacter.avatar}
+              mode="stage"
+              motion={previewMotion}
+              className="character-renderer-preview"
+            />
+            <div className="character-preview-motions" role="group" aria-label="选择预览动作">
+              {previewMotions.map(item => (
+                <button
+                  key={item.id}
+                  className={`btn sm ${previewMotion === item.id ? 'primary' : ''}`}
+                  onClick={() => setPreviewMotion(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

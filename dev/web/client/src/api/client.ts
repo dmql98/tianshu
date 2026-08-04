@@ -1,5 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path}`
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text().catch(() => '')}`)

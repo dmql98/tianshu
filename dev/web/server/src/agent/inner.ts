@@ -16,6 +16,8 @@ import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, t
 
 import { truncateToolOutput as truncate, truncateError } from '../tools/truncate.js'
 import { isTransientLLMError } from '../llm/errors.js'
+import { approvalRegistry } from './runtime/approval-registry.js'
+import { CONTROL_TOOL_SET } from './loop/control-registry.js'
 
 const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch'])
 
@@ -33,18 +35,7 @@ export interface ToolCallRecord {
   args?: string
 }
 
-export function detectDoomLoop(toolCallHistory: ToolCallRecord[]): boolean {
-  if (toolCallHistory.length < 6) return false
-  const recent = toolCallHistory.slice(-6)
-  return recent.every(r => r.hasError) || hasRepeatingPattern(recent)
-}
-
-function hasRepeatingPattern(recent: ToolCallRecord[]): boolean {
-  if (recent.length < 2) return false
-  const names = recent.map(r => r.toolName)
-  const first = names[0]
-  return names.every(n => n === first)
-}
+export { detectDoomLoop } from './loop/completion-evaluator.js'
 
 function matchToolCall(acc: ToolCall[], tc: ToolCall): ToolCall | undefined {
   if (tc.id) return acc.find(t => t.id === tc.id)
@@ -92,7 +83,7 @@ export interface SubAgentRequestData {
 }
 
 export interface InnerResult {
-  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'task_complete'
+  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'submit_result' | 'ask_user' | 'create_plan'
   messages: LLMMessage[]
   fullText: string
   reasoningText: string
@@ -105,6 +96,9 @@ export interface InnerResult {
   toolCallRecords?: ToolCallRecord[]
   subAgentRequest?: SubAgentRequestData
   taskCompleteSummary?: string
+  evidence?: string[]
+  question?: string
+  planRequest?: { goal?: string; steps: Array<{ title: string; depends_on?: string; verification?: string }>; verification?: string }
 }
 
 export async function streamWithRetry(
@@ -270,7 +264,19 @@ export async function innerLoop(
 
   if (signal?.aborted) {
     logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage }, 'aborted')
-    return { type: 'aborted', messages: [], fullText: result.text, reasoningText: result.reasoning, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
+    const newMessages: LLMMessage[] = []
+    if (result.text) {
+      if (sessionId) {
+        messageStore.addMessage(sessionId, {
+          role: 'assistant', content: result.text,
+          reasoning_content: result.reasoning || null,
+        })
+      }
+      const msg: LLMMessage = { role: 'assistant', content: result.text }
+      if (result.reasoning) msg.reasoning_content = result.reasoning
+      newMessages.push(msg)
+    }
+    return { type: 'aborted', messages: newMessages, fullText: result.text, reasoningText: result.reasoning, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
   }
 
   if (result.usage) {
@@ -319,15 +325,50 @@ export async function innerLoop(
     return { type: 'final_answer', messages: newMessages, fullText, reasoningText, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
   }
 
-  const delegateCall = toolCallsAcc.find(tc => tc.function.name === 'delegate_task')
+  const delegateCall = toolCallsAcc.find(tc => tc.function.name === 'delegate_to_agent')
+  const controlCalls = toolCallsAcc.filter(tc => CONTROL_TOOL_SET.has(tc.function.name))
+  if (controlCalls.length > 0 && toolCallsAcc.length !== 1) {
+    const error = 'Protocol error: control actions must be the only tool call in a model turn'
+    for (const tc of toolCallsAcc) {
+      newMessages.push({ role: 'tool', content: JSON.stringify({ error }), tool_call_id: tc.id })
+      if (sessionId) {
+        messageStore.addMessage(sessionId, {
+          role: 'tool',
+          content: JSON.stringify({ error }),
+          tool_name: tc.function.name,
+          tool_input: JSON.stringify({ call_id: tc.id, args: tc.function.arguments }),
+          tool_output: error,
+          tool_status: 'error',
+        })
+      }
+      socket?.emit('control.rejected', {
+        session_id: sessionId,
+        run_id: opts.run_id,
+        tool_call_id: tc.id,
+        reason: error,
+      })
+    }
+    return {
+      type: 'tool_calls_executed',
+      messages: newMessages,
+      fullText,
+      reasoningText,
+      toolCalls: toolCallsAcc,
+      totalInputTokens,
+      totalOutputTokens,
+      totalCacheHitTokens,
+      totalCacheMissTokens,
+      toolCallRecords: toolCallsAcc.map(tc => ({
+        toolName: tc.function.name,
+        hasError: true,
+        error,
+        args: tc.function.arguments,
+      })),
+    }
+  }
   if (delegateCall) {
     let args: Record<string, string> = {}
     try { args = JSON.parse(delegateCall.function.arguments) } catch { args = {} }
-    // Add stub results for non-signal tools so every tool_call_id has a match
-    for (const tc of toolCallsAcc) {
-      if (tc.function.name === 'delegate_task') continue
-      newMessages.push({ role: 'tool', content: JSON.stringify({ output: '', error: 'Skipped: delegate_task takes priority' }), tool_call_id: tc.id })
-    }
     return {
       type: 'sub_agent_request',
       messages: newMessages, fullText, reasoningText,
@@ -341,22 +382,60 @@ export async function innerLoop(
     }
   }
 
-  const completeCall = toolCallsAcc.find(tc => tc.function.name === 'task_complete')
-  if (completeCall) {
-    let args: Record<string, string> = {}
-    try { args = JSON.parse(completeCall.function.arguments) } catch { args = {} }
-    const summary = args.summary || ''
-    // Add stub results for non-signal tools so every tool_call_id has a match
-    for (const tc of toolCallsAcc) {
-      if (tc.function.name === 'task_complete') continue
-      newMessages.push({ role: 'tool', content: JSON.stringify({ output: '', error: 'Skipped: task_complete takes priority' }), tool_call_id: tc.id })
-    }
+  const submitCall = toolCallsAcc.find(tc => tc.function.name === 'submit_result')
+  if (submitCall) {
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(submitCall.function.arguments) } catch { args = {} }
+    const summary = typeof args.summary === 'string' ? args.summary : ''
+    const evidence = Array.isArray(args.evidence)
+      ? (args.evidence as unknown[]).filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
+      : []
     return {
-      type: 'task_complete',
+      type: 'submit_result',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
       toolCallRecords: [],
       taskCompleteSummary: summary,
+      evidence,
+    }
+  }
+
+  const askUserCall = toolCallsAcc.find(tc => tc.function.name === 'ask_user')
+  if (askUserCall) {
+    let args: Record<string, string> = {}
+    try { args = JSON.parse(askUserCall.function.arguments) } catch { args = {} }
+    return {
+      type: 'ask_user',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCallRecords: [],
+      question: args.question || '',
+    }
+  }
+
+  const planCall = toolCallsAcc.find(tc => tc.function.name === 'create_plan')
+  if (planCall) {
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(planCall.function.arguments) } catch { args = {} }
+    const steps = Array.isArray(args.steps)
+      ? (args.steps as Array<Record<string, unknown>>)
+        .filter(s => typeof s?.title === 'string' && s.title.trim())
+        .map(s => ({
+          title: String(s.title).trim(),
+          depends_on: typeof s.depends_on === 'string' ? s.depends_on : undefined,
+          verification: typeof s.verification === 'string' ? s.verification : undefined,
+        }))
+      : []
+    return {
+      type: 'create_plan',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCallRecords: [],
+      planRequest: {
+        goal: typeof args.goal === 'string' ? args.goal : undefined,
+        verification: typeof args.verification === 'string' ? args.verification : undefined,
+        steps,
+      },
     }
   }
 
@@ -390,11 +469,7 @@ export async function innerLoop(
         const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
           if (!socket || !sessionId) { resolve('reject'); return }
           socket.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[Ask Risky] ${name}`, tool_input: JSON.stringify(args) })
-          const handler = (data: { tool_call_id: string; choice: 'once' | 'always' | 'reject' }) => {
-            if (data.tool_call_id === tc.id) { socket.off('approval.respond', handler); resolve(data.choice) }
-          }
-          socket.on('approval.respond', handler)
-          setTimeout(() => { socket.off('approval.respond', handler); resolve('reject') }, 60000)
+          approvalRegistry.register(sessionId, tc.id, opts.run_id, resolve)
         })
         if (choice === 'reject') {
           prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: `${name} denied` })
@@ -467,11 +542,7 @@ export async function innerLoop(
           tool_name: `[Workspace] ${p.name}`,
           tool_input: JSON.stringify({ ...p.args, _escaped_path: approvedPath }),
         })
-        const handler = (data: { tool_call_id: string; choice: 'once' | 'always' | 'reject' }) => {
-          if (data.tool_call_id === p.tc.id) { socket.off('approval.respond', handler); resolve(data.choice) }
-        }
-        socket.on('approval.respond', handler)
-        setTimeout(() => { socket.off('approval.respond', handler); resolve('reject') }, 60000)
+        approvalRegistry.register(sessionId, p.tc.id, opts.run_id, resolve)
       })
       if (choice !== 'reject') {
         if (choice === 'always') {
