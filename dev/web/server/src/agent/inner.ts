@@ -84,7 +84,7 @@ export interface SubAgentRequestData {
 }
 
 export interface InnerResult {
-  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'submit_result' | 'ask_user' | 'create_plan'
+  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'submit_result' | 'ask_user' | 'create_plan' | 'update_plan_step'
   messages: LLMMessage[]
   fullText: string
   reasoningText: string
@@ -100,6 +100,7 @@ export interface InnerResult {
   evidence?: string[]
   question?: string
   planRequest?: { goal?: string; steps: Array<{ title: string; depends_on?: string; verification?: string }>; verification?: string }
+  planStepUpdate?: { ordinal: number; status: 'pending' | 'in_progress' | 'blocked' | 'completed' | 'skipped' | 'failed'; evidence?: string }
 }
 
 export async function streamWithRetry(
@@ -437,6 +438,26 @@ export async function innerLoop(
         goal: typeof args.goal === 'string' ? args.goal : undefined,
         verification: typeof args.verification === 'string' ? args.verification : undefined,
         steps,
+      },
+    }
+  }
+
+  const updatePlanStepCall = toolCallsAcc.find(tc => tc.function.name === 'update_plan_step')
+  if (updatePlanStepCall) {
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(updatePlanStepCall.function.arguments) } catch { args = {} }
+    const allowedStatuses = new Set(['pending', 'in_progress', 'blocked', 'completed', 'skipped', 'failed'])
+    const ordinal = typeof args.ordinal === 'number' ? Math.trunc(args.ordinal) : Number(args.ordinal)
+    const status = typeof args.status === 'string' && allowedStatuses.has(args.status) ? args.status : 'pending'
+    return {
+      type: 'update_plan_step',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCallRecords: [],
+      planStepUpdate: {
+        ordinal,
+        status: status as NonNullable<InnerResult['planStepUpdate']>['status'],
+        evidence: typeof args.evidence === 'string' ? args.evidence.trim() : undefined,
       },
     }
   }

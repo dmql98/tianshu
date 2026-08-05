@@ -10,7 +10,7 @@ import { innerLoop, detectDoomLoop, type ToolCallRecord } from '../inner.js'
 import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-cache.js'
 import { estimateTokens, shouldSnip, shouldCompact, trimToolResults } from './loop-policy.js'
 import { selectAndSummarize } from './context-compactor.js'
-import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan } from './control-router.js'
+import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
 
@@ -93,7 +93,10 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   let prevPrefixShape: PrefixShape | undefined
 
   const policy = executionMode === 'direct' ? 'Direct' : executionMode === 'plan_first' ? 'Plan-first' : 'Goal'
-  const currentPlan = () => planStore.getActive(sessionId)
+  // Pin the plan to this Run. Once its last step completes its DB status is no
+  // longer "active", but submit_result must still validate that same plan.
+  let currentPlanId = planStore.getActive(sessionId)?.id || null
+  const currentPlan = () => currentPlanId ? planStore.get(currentPlanId) : null
   const currentGoal = () => goal ? goalStore.get(goal.id) : null
   if (goal) goalStore.update(goal.id, { current_run_id: runId })
 
@@ -114,11 +117,21 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     // Compose dynamic context into last user message (turn tail)
     // Execution-policy guardrails: Plan-first / Goal must operate against a
     // persisted plan; Goal mode re-anchors the model to the outcome.
-    if (policy !== 'Direct') {
-      const plan = currentPlan()
-      if (!plan) {
+    const plan = currentPlan()
+    if (!plan) {
+      if (policy !== 'Direct') {
         composeCtx.systemAlerts!.push(`[Policy ${policy}] 当前没有有效计划。先调用 create_plan 把任务拆成有序步骤并注明验证方式，再执行步骤。`)
       }
+    } else {
+      const steps = planStore.steps(plan.id)
+      const planRule = policy === 'Direct'
+        ? '\n这是可选计划：可以继续按计划推进，也可以直接完成任务；若推进计划，请用 update_plan_step 同步状态。'
+        : '\n开始步骤前调用 update_plan_step 标记 in_progress；验证完成后调用 update_plan_step 标记 completed 并附 evidence。'
+      composeCtx.systemAlerts!.push(
+        `[Policy ${policy}] 当前计划 v${plan.version}：\n` +
+        steps.map(step => `${step.ordinal}. [${step.status}] ${step.title}${step.verification ? `（验证：${step.verification}）` : ''}`).join('\n') +
+        planRule,
+      )
     }
     if (executionMode === 'goal') {
       const g = currentGoal()
@@ -295,6 +308,13 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         socket,
         goalId: executionMode === 'goal' ? goal?.id || null : null,
       })
+      if (outcome.planId) currentPlanId = outcome.planId
+      messages.push(...outcome.messages)
+      continue
+    }
+
+    if (result.type === 'update_plan_step') {
+      const outcome = await handleUpdatePlanStep({ result, sessionId, runId, socket })
       messages.push(...outcome.messages)
       continue
     }

@@ -14,12 +14,32 @@ export interface ControlToolDefinition {
   }
 }
 
-export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'submit_result', 'ask_user', 'create_plan'] as const
+export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step'] as const
 
 export const CONTROL_TOOL_SET: ReadonlySet<string> = new Set<string>(CONTROL_TOOL_NAMES)
 
 export function getControlToolDefinitions(): ControlToolDefinition[] {
   return [
+    {
+      type: 'function',
+      function: {
+        name: 'update_plan_step',
+        description: '更新当前执行计划中的一个步骤。开始执行时标记 in_progress；完成验证后标记 completed 并附 evidence。Plan-first / Goal 模式必须用它推进计划，不能用 create_plan 冒充进度更新。',
+        parameters: {
+          type: 'object',
+          properties: {
+            ordinal: { type: 'number', description: '当前有效计划中的步骤序号（从 1 开始）' },
+            status: {
+              type: 'string',
+              enum: ['pending', 'in_progress', 'blocked', 'completed', 'skipped', 'failed'],
+              description: '步骤的新状态',
+            },
+            evidence: { type: 'string', description: '完成证据、验证结果或阻塞原因' },
+          },
+          required: ['ordinal', 'status'],
+        },
+      },
+    },
     {
       type: 'function',
       function: {

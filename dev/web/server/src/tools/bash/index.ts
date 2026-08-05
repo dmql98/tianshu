@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process'
+import { spawn, spawnSync, execSync } from 'child_process'
 import { writeFileSync, appendFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve as pathResolve } from 'path'
 import type { ToolModule } from '../types.js'
@@ -120,13 +120,39 @@ function getShellCandidates(): ShellInfo[] {
   return candidates
 }
 
-function twoStageKill(child: import('child_process').ChildProcess, signal: NodeJS.Signals = 'SIGTERM') {
-  if (child.killed) return
-  child.kill(signal)
-  if (FORCE_KILL_MS > 0) {
-    setTimeout(() => {
-      if (!child.killed) child.kill('SIGKILL')
-    }, FORCE_KILL_MS)
+function isProcessRunning(child: import('child_process').ChildProcess): boolean {
+  return child.exitCode === null && child.signalCode === null
+}
+
+function killProcessTree(child: import('child_process').ChildProcess, force = false) {
+  if (!isProcessRunning(child) || !child.pid) return
+  if (process.platform === 'win32') {
+    // child.kill() only signals the shell on Windows. taskkill /T is required
+    // to terminate programs launched by Git Bash/cmd/PowerShell as well.
+    try {
+      const killed = spawnSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore',
+        timeout: 5000,
+      })
+      if (killed.status !== 0 && isProcessRunning(child)) child.kill()
+    } catch {
+      try { child.kill() } catch { /* already exited */ }
+    }
+    return
+  }
+  try {
+    // POSIX shells are spawned as process-group leaders below.
+    process.kill(-child.pid, force ? 'SIGKILL' : 'SIGTERM')
+  } catch {
+    try { child.kill(force ? 'SIGKILL' : 'SIGTERM') } catch { /* already exited */ }
+  }
+}
+
+function twoStageKill(child: import('child_process').ChildProcess) {
+  killProcessTree(child, false)
+  if (process.platform !== 'win32' && FORCE_KILL_MS > 0) {
+    setTimeout(() => killProcessTree(child, true), FORCE_KILL_MS)
   }
 }
 
@@ -136,6 +162,7 @@ function trySpawn(shell: ShellInfo, cmd: string, workspace: string, windowsHide:
       const child = spawn(shell.path, [...shell.args, cmd], {
         cwd: workspace,
         windowsHide,
+        detached: process.platform !== 'win32',
         windowsVerbatimArguments: shell.windowsVerbatimArguments ?? false,
         stdio: ['ignore', 'pipe', 'pipe'],
       })
@@ -215,7 +242,7 @@ export const tool: ToolModule = {
             twoStageKill(child)
             // Force resolve even if child process doesn't die
             setTimeout(() => {
-              if (!child.killed) child.kill('SIGKILL')
+              killProcessTree(child, true)
               const combined = (fullStdout || stdout) + (stderr ? `\n${stderr}` : '')
               resolvePromise({ output: combined.trim(), error: stderr.trim() || 'Aborted' })
             }, FORCE_KILL_MS + 1000)

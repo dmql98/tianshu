@@ -14,6 +14,7 @@ export interface CharacterPresence {
 }
 
 const MOTIONS: Array<[RegExp, CharacterMotion, number]> = [
+  [/^run\.cancelled$/, 'idle', 110],
   [/^run\.failed$|^run\.interrupted$/, 'error', 100],
   [/^run\.completed$/, 'success', 90],
   [/^tool\.started$|^tool\.output$/, 'working', 80],
@@ -74,4 +75,3 @@ export const characterPresenceProjector = {
     }
   },
 }
-

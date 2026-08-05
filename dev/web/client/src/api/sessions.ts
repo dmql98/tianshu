@@ -12,6 +12,9 @@ export const updateSession = (id: string, data: Partial<SessionSummary>) =>
 export const renameSession = (id: string, title: string) =>
   apiPut<SessionSummary>(`/api/sessions/${id}`, { title })
 
+export const generateSessionTitle = (id: string, content: string) =>
+  apiPost<{ title: string; applied: boolean }>(`/api/sessions/${id}/generate-title`, { content })
+
 export const deleteSession = (id: string) =>
   apiDelete(`/api/sessions/${id}`)
 

@@ -31,7 +31,7 @@ router.get('/:sessionId', (c) => {
 })
 
 router.get('/plan/:sessionId', (c) => {
-  const plan = planStore.getActive(c.req.param('sessionId'))
+  const plan = planStore.getDisplayPlan(c.req.param('sessionId'))
   if (!plan) return c.json(null)
   return c.json({ ...plan, steps: planStore.steps(plan.id) })
 })

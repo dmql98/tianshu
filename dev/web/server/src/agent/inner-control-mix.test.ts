@@ -161,6 +161,23 @@ try {
     console.log('  OK lone create_plan routes to plan request')
   }
 
+  // ---- lone update_plan_step routes to a plan transition ---------------------
+  {
+    globalThis.fetch = (async () => sse(
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"update_plan_step","arguments":"{\\"ordinal\\":2,\\"status\\":\\"completed\\",\\"evidence\\":\\"tests passed\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
+    )) as typeof fetch
+
+    const { socket, emitted } = makeSocket()
+    const result = await innerLoop(...makeArgs(socket as any)) as any
+
+    assert(result.type === 'update_plan_step', 'lone update_plan_step routes to plan transition')
+    assert(result.planStepUpdate?.ordinal === 2, 'step ordinal parsed')
+    assert(result.planStepUpdate?.status === 'completed', 'step status parsed')
+    assert(result.planStepUpdate?.evidence === 'tests passed', 'step evidence parsed')
+    assert(!emitted.some(e => e.type === 'control.rejected'), 'lone update_plan_step not rejected')
+    console.log('  OK lone update_plan_step routes to plan transition')
+  }
+
   // ---- lone ordinary tool still executes normally (no false positive) ------
   {
     globalThis.fetch = (async () => sse(

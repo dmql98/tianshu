@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { getDb } from '../db/schema.js'
+import { providerStore } from '../db/providerStore.js'
+import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-title.js'
 
 const router = new Hono()
 
@@ -10,6 +12,31 @@ router.post('/', async (c) => {
   const body = await c.req.json()
   const session = sessionStore.create({ id: body.id, ...body })
   return c.json(session, 201)
+})
+router.post('/:id/generate-title', async (c) => {
+  const id = c.req.param('id')
+  const session = sessionStore.getById(id)
+  if (!session) return c.json({ error: 'Not found' }, 404)
+  const body = await c.req.json()
+  const content = typeof body.content === 'string' ? body.content.trim() : ''
+  if (!content) return c.json({ error: 'content is required' }, 400)
+
+  const provider = session.provider_id ? providerStore.getById(session.provider_id) : null
+  const model = session.model || provider?.models[0]?.id
+  const title = provider && model
+    ? await generateSessionTitle({
+      content,
+      provider,
+      model,
+      signal: AbortSignal.timeout(20_000),
+    })
+    : fallbackSessionTitle(content)
+
+  // Do not overwrite a manual rename that happened while generation was running.
+  const latest = sessionStore.getById(id)
+  const applied = !!latest && !latest.title
+  if (applied) sessionStore.update(id, { title })
+  return c.json({ title, applied })
 })
 router.put('/:id', async (c) => {
   const body = await c.req.json()

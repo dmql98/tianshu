@@ -13,7 +13,7 @@ export interface MCPToolDef {
 export interface MCPClient {
   serverName: string
   tools: MCPToolDef[]
-  executeTool(toolName: string, args: Record<string, unknown>): Promise<ToolResult>
+  executeTool(toolName: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<ToolResult>
   disconnect(): Promise<void>
 }
 
@@ -103,12 +103,12 @@ export async function connectMCPServer(config: MCPServerConfig, workspace?: stri
   return {
     serverName: config.name,
     tools,
-    async executeTool(toolName: string, args: Record<string, unknown>): Promise<ToolResult> {
+    async executeTool(toolName: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<ToolResult> {
       try {
         const result = await client.callTool(
           { name: toolName, arguments: args },
           CallToolResultSchema,
-          { timeout: 300_000 }
+          { timeout: 300_000, signal }
         )
         const content = (result.content as Array<{ type: string; text?: string }>) || []
         if (result.isError) {

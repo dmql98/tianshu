@@ -272,10 +272,12 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   const finalShape = prevPrefixShape
   console.log(`[session] ${sessionId} completed: ${detail} (${turn} turns, ${toolCallHistory.length} tool calls)`)
   console.log(`[cache] ${sessionId}: hit=${totalCacheHitTokens} miss=${totalCacheMissTokens} ratio=${hitRatio}% system=${finalShape?.systemHash?.slice(0,8)||'?'} tools=${finalShape?.toolsHash?.slice(0,8)||'?'}`)
-  socket.emit('run.completed', {
+  const terminalEvent = completedStatus === 'cancelled' ? 'run.cancelled' : 'run.completed'
+  socket.emit(terminalEvent, {
     session_id: sessionId,
     run_id: runId,
     status: completedStatus,
+    ...(completedStatus === 'cancelled' ? { reason: 'user_requested' } : {}),
     usage: { input_tokens: totalInputTokens, output_tokens: totalOutputTokens },
     cache: { hitTokens: totalCacheHitTokens, missTokens: totalCacheMissTokens, hitRatio },
   })

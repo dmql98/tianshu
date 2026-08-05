@@ -152,6 +152,73 @@ export interface CreatePlanOutcome {
   kind: 'continue'
   messages: LLMMessage[]
   planCreated: boolean
+  planId?: string
+}
+
+export interface UpdatePlanStepOutcome {
+  kind: 'continue'
+  messages: LLMMessage[]
+  updated: boolean
+}
+
+/** Persist a step transition before broadcasting its durable RunEvent. */
+export async function handleUpdatePlanStep(input: {
+  result: InnerResult
+  sessionId: string
+  runId: string
+  socket?: Socket
+}): Promise<UpdatePlanStepOutcome> {
+  const { result, sessionId, runId, socket } = input
+  const updateCall = result.toolCalls?.find(tc => tc.function.name === 'update_plan_step')
+  const toolCallId = updateCall?.id || `plan_step_${Date.now()}`
+  const req = result.planStepUpdate
+  const activePlan = planStore.getActive(sessionId)
+  const step = activePlan && Number.isInteger(req?.ordinal) && (req?.ordinal || 0) > 0
+    ? planStore.steps(activePlan.id).find(item => item.ordinal === req!.ordinal)
+    : null
+
+  let error: string | null = null
+  if (!activePlan) error = 'update_plan_step rejected: no active plan'
+  else if (!req || !Number.isInteger(req.ordinal) || req.ordinal < 1) error = 'update_plan_step rejected: ordinal must be a positive integer'
+  else if (!step) error = `update_plan_step rejected: step ${req.ordinal} does not belong to the active plan`
+  else if (req.status === 'completed' && step.depends_on) {
+    const dependency = planStore.steps(activePlan.id).find(item => item.title === step.depends_on)
+    if (dependency && dependency.status !== 'completed' && dependency.status !== 'skipped') {
+      error = `update_plan_step rejected: dependency "${dependency.title}" is not completed`
+    }
+  }
+
+  if (error || !activePlan || !step || !req) {
+    const message = error || 'update_plan_step rejected'
+    const toolMessage: LLMMessage = { role: 'tool', content: JSON.stringify({ error: message }), tool_call_id: toolCallId }
+    messageStore.addMessage(sessionId, {
+      role: 'tool', content: JSON.stringify({ error: message }), tool_name: 'update_plan_step',
+      tool_input: JSON.stringify({ call_id: toolCallId, args: req || {} }), tool_output: message, tool_status: 'error',
+    })
+    socket?.emit('tool.completed', {
+      session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
+      tool_name: 'update_plan_step', tool_output: message, tool_status: 'error', duration_ms: 0,
+    })
+    return { kind: 'continue', messages: [toolMessage], updated: false }
+  }
+
+  const updated = planStore.setStepStatus(step.id, req.status, req.evidence || null)!
+  const plan = planStore.get(activePlan.id)!
+  const output = `计划步骤 ${updated.ordinal} 已更新为 ${updated.status}${updated.evidence ? `：${updated.evidence}` : ''}`
+  const toolMessage: LLMMessage = { role: 'tool', content: JSON.stringify({ output }), tool_call_id: toolCallId }
+  messageStore.addMessage(sessionId, {
+    role: 'tool', content: JSON.stringify({ output }), tool_name: 'update_plan_step',
+    tool_input: JSON.stringify({ call_id: toolCallId, args: req }), tool_output: output, tool_status: 'success',
+  })
+  socket?.emit('tool.completed', {
+    session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
+    tool_name: 'update_plan_step', tool_output: output, tool_status: 'success', duration_ms: 0,
+  })
+  socket?.emit('plan.step.updated', {
+    session_id: sessionId, run_id: runId, plan_id: activePlan.id,
+    plan_status: plan.status, step: updated,
+  })
+  return { kind: 'continue', messages: [toolMessage], updated: true }
 }
 
 /**
@@ -205,7 +272,7 @@ export async function handleCreatePlan(input: {
     session_id: sessionId, run_id: runId, plan_id: plan.id, version: plan.version,
     steps: req.steps.map((s, i) => ({ ordinal: i + 1, title: s.title, status: 'pending' })),
   })
-  return { kind: 'continue', messages: [toolMessage], planCreated: true }
+  return { kind: 'continue', messages: [toolMessage], planCreated: true, planId: plan.id }
 }
 
 export interface SubmitResultOutcome {

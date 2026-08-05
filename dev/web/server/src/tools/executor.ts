@@ -15,7 +15,7 @@ export async function executeTool(name: string, args: Record<string, string>, wo
     if (!parsed) return { output: '', error: `Invalid MCP tool name: ${name}` }
     const client = mcpClients.get(parsed.serverName)
     if (!client) return { output: '', error: `MCP server "${parsed.serverName}" not connected` }
-    return client.executeTool(parsed.toolName, args)
+    return client.executeTool(parsed.toolName, args, signal)
   }
 
   try {

@@ -124,6 +124,12 @@ export const planStore = {
       "SELECT * FROM plans WHERE session_id = ? AND status = 'active' ORDER BY version DESC LIMIT 1",
     ).get(sessionId) as PlanRow | null
   },
+  /** Active plan, or the latest completed plan for read-only UI display. */
+  getDisplayPlan(sessionId: string): PlanRow | null {
+    return getDb().prepare(
+      "SELECT * FROM plans WHERE session_id = ? AND status IN ('active', 'completed') ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, version DESC LIMIT 1",
+    ).get(sessionId) as PlanRow | null
+  },
   steps(planId: string): PlanStepRow[] {
     return getDb().prepare(
       'SELECT * FROM plan_steps WHERE plan_id = ? ORDER BY ordinal ASC',

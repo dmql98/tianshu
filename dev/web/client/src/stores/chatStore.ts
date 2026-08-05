@@ -384,6 +384,19 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (data.run_id && data.run_id === get()._activeRunId) set({ _activeRunId: null })
     })
 
+    socket.off('run.cancelled')
+    socket.on('run.cancelled', (data: RunEvent) => {
+      if (isHandledByTemporaryListener(data)) return
+      updateSessionMessage(data.session_id, sess => {
+        const messages = [...sess.messages]
+        const last = messages[messages.length - 1]
+        if (last?.is_streaming) messages[messages.length - 1] = { ...last, is_streaming: false }
+        return { ...sess, messages }
+      })
+      if (data.session_id === get().activeSessionId) set({ isStreaming: false })
+      if (data.run_id && data.run_id === get()._activeRunId) set({ _activeRunId: null })
+    })
+
     socket.off('run.compacted')
     socket.on('run.compacted', (data: RunEvent) => {
       set(state => ({
@@ -855,15 +868,29 @@ export const useChatStore = create<ChatState>((set, get) => {
         tokenUsage: { input: 0, output: 0, total: 0 },
       }))
 
-      // Auto-generate session title from first message
+      // Generate a semantic title from the first message without delaying the Run.
       if (!session.title && input.trim()) {
-        const title = input.replace(/\n+/g, ' ').trim().slice(0, 60)
         set(state => ({
           sessions: state.sessions.map(s =>
-            s.id === session!.id ? { ...s, title } : s
+            s.id === session!.id ? { ...s, title: '生成标题中…' } : s
           ),
         }))
-        sessionsApi.updateSession(session.id, { title }).catch(() => {})
+        sessionsApi.generateSessionTitle(session.id, input)
+          .then(({ title, applied }) => {
+            if (!applied) return
+            set(state => ({
+              sessions: state.sessions.map(s =>
+                s.id === session!.id && s.title === '生成标题中…' ? { ...s, title } : s
+              ),
+            }))
+          })
+          .catch(() => {
+            set(state => ({
+              sessions: state.sessions.map(s =>
+                s.id === session!.id && s.title === '生成标题中…' ? { ...s, title: '' } : s
+              ),
+            }))
+          })
       }
 
       // Ensure provider
@@ -1134,6 +1161,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         socket.off('approval.requested', onApprovalRequested)
         socket.off('run.started', onRunStarted)
         socket.off('run.completed', onCompleted)
+        socket.off('run.cancelled', onCompleted)
         socket.off('usage', onUsage)
         socket.off('run.compacted', onCompacted)
         socket.off('run.retrying', onRetrying)
@@ -1156,6 +1184,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       socket.on('approval.requested', onApprovalRequested)
       socket.on('run.started', onRunStarted)
       socket.on('run.completed', onCompleted)
+      socket.on('run.cancelled', onCompleted)
       socket.on('usage', onUsage)
       socket.on('run.compacted', onCompacted)
       socket.on('run.retrying', onRetrying)

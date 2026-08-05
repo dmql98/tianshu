@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchGoals, createGoal, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
+import { getSocket } from '@/api/socket'
+import PlanDialog from './PlanDialog'
 
 const goalStatusLabels: Record<string, string> = {
   active: '进行中', paused: '已暂停', completed: '已完成', failed: '失败', cancelled: '已取消',
@@ -12,6 +14,7 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
   const [verification, setVerification] = useState('')
   const [budget, setBudget] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showPlan, setShowPlan] = useState(false)
 
   const reload = async () => {
     try {
@@ -21,9 +24,31 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
     } catch { /* server may be down */ }
   }
 
-  useEffect(() => { void reload() }, [sessionId])
+  useEffect(() => {
+    setShowPlan(false)
+    void reload()
+  }, [sessionId])
 
-  const activeGoal = goals.find(g => g.status === 'active' || g.status === 'paused')
+  useEffect(() => {
+    const socket = getSocket()
+    if (!socket) return
+    const onPlanChange = (event: { session_id?: string }) => {
+      if (event.session_id === sessionId) void reload()
+    }
+    const onReconnect = () => { void reload() }
+    socket.on('plan.created', onPlanChange)
+    socket.on('plan.step.updated', onPlanChange)
+    socket.on('connect', onReconnect)
+    return () => {
+      socket.off('plan.created', onPlanChange)
+      socket.off('plan.step.updated', onPlanChange)
+      socket.off('connect', onReconnect)
+    }
+  }, [sessionId])
+
+  const activeGoal = mode === 'goal'
+    ? goals.find(g => g.status === 'active' || g.status === 'paused')
+    : undefined
 
   const handleCreate = async () => {
     if (!outcome.trim()) return
@@ -67,7 +92,12 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
 
   return (
     <div className="rp-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div className="rp-section-title">目标与计划 {mode !== 'goal' && <span style={{ fontWeight: 400, fontSize: 10 }}>(当前执行模式不生效)</span>}</div>
+      <div className="rp-section-title">
+        目标与计划
+        {mode === 'goal' && <span style={{ fontWeight: 400, fontSize: 10 }}>（Goal · 持续执行）</span>}
+        {mode === 'plan_first' && <span style={{ fontWeight: 400, fontSize: 10 }}>（Plan-first · 强制计划）</span>}
+        {mode === 'direct' && <span style={{ fontWeight: 400, fontSize: 10 }}>（Direct · 计划可选）</span>}
+      </div>
 
       {activeGoal ? (
         <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -116,25 +146,25 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
           />
           <button className="btn sm primary" disabled={busy || !outcome.trim()} onClick={() => void handleCreate()}>创建目标</button>
         </div>
+      ) : mode === 'plan_first' ? (
+        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Agent 必须先创建计划，再按步骤执行。</div>
       ) : (
-        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>切到 Goal 模式后可为会话创建目标</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Agent 可以直接执行，也可以按需要创建计划。</div>
       )}
 
-      {plan && plan.steps.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-          <div style={{ fontSize: 11, color: 'var(--ink-light)' }}>计划 v{plan.version}（{plan.steps.filter(s => s.status === 'completed').length}/{plan.steps.length} 步）</div>
-          {plan.steps.map(step => (
-            <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-              <span style={{ color: step.status === 'completed' ? 'var(--jade)' : step.status === 'failed' || step.status === 'blocked' ? 'var(--cinnabar)' : step.status === 'in_progress' ? 'var(--gold)' : 'var(--ink-faint)' }}>
-                {step.status === 'completed' ? '✓' : step.status === 'in_progress' ? '▶' : step.status === 'failed' ? '✗' : step.status === 'blocked' ? '⛔' : '○'}
-              </span>
-              <span style={{ color: 'var(--ink-mid)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {step.ordinal}. {step.title}
-              </span>
-            </div>
-          ))}
+      {plan && plan.steps.length > 0 ? (
+        <div className="plan-summary-card">
+          <div className="plan-summary-info">
+            <span>计划 v{plan.version}</span>
+            <strong>{plan.steps.filter(s => s.status === 'completed' || s.status === 'skipped').length}/{plan.steps.length} 步</strong>
+          </div>
+          <button className="btn sm" type="button" onClick={() => setShowPlan(true)}>查看完整计划</button>
         </div>
+      ) : (
+        <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>当前暂无计划</div>
       )}
+
+      {showPlan && plan && <PlanDialog plan={plan} onClose={() => setShowPlan(false)} />}
     </div>
   )
 }

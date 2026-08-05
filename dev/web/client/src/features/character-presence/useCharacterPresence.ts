@@ -9,6 +9,7 @@ interface SemanticEvent {
 }
 
 function eventMotion(type: string): CharacterMotion | null {
+  if (type === 'run.cancelled') return 'idle'
   if (type === 'run.failed' || type === 'run.interrupted') return 'error'
   if (type === 'run.completed') return 'success'
   if (type.startsWith('tool.')) return 'working'
@@ -20,7 +21,7 @@ function eventMotion(type: string): CharacterMotion | null {
 
 const EVENT_TYPES = [
   'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
-  'run.interrupted', 'message.delta', 'tool.started', 'tool.output',
+  'run.cancelled', 'run.interrupted', 'message.delta', 'tool.started', 'tool.output',
   'tool.completed', 'approval.requested',
 ]
 
