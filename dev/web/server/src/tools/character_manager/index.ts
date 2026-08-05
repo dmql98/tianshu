@@ -1,7 +1,8 @@
-import type { ToolModule } from '../types.js'
+import type { ToolBinding, ToolModule } from '../types.js'
 import { characterMetaStore } from '../../db/characterStore.js'
 import { characterContentStore } from '../../character/store.js'
 import { normalizeStrategy } from '../../agent/strategy.js'
+import { parseSkillNames, updateNamedBindings, updateSkillNames } from './skills.js'
 
 export const tool: ToolModule = {
   name: 'character_manager',
@@ -49,7 +50,45 @@ export const tool: ToolModule = {
       },
       skills: {
         type: 'string',
-        description: 'Comma-separated skill names to attach.',
+        description: 'Comma-separated skills for create. For update this is a full replacement and requires skills_mode="replace"; normally use skills_add/skills_remove.',
+      },
+      tools_json: {
+        type: 'string',
+        description: 'JSON array of structured tool bindings, including constraints. Use for create/update when constraints must be preserved.',
+      },
+      tools_add: {
+        type: 'string',
+        description: 'Comma-separated tool names to add without removing existing tool bindings or constraints.',
+      },
+      tools_remove: {
+        type: 'string',
+        description: 'Comma-separated tool names to remove without changing other tool bindings.',
+      },
+      tools_mode: {
+        type: 'string',
+        enum: ['replace'],
+        description: 'Required with tools/tools_json during update to confirm full replacement.',
+      },
+      skills_add: {
+        type: 'string',
+        description: 'Comma-separated skills to add without removing existing skills. Preferred for update.',
+      },
+      skill_packages_add: {
+        type: 'string',
+        description: 'Comma-separated skill package IDs to bind atomically without changing existing bindings.',
+      },
+      skill_packages_remove: {
+        type: 'string',
+        description: 'Comma-separated skill package IDs to unbind atomically without changing other bindings.',
+      },
+      skills_remove: {
+        type: 'string',
+        description: 'Comma-separated skills to remove without changing other skills.',
+      },
+      skills_mode: {
+        type: 'string',
+        enum: ['replace'],
+        description: 'Required with skills during update to explicitly confirm full replacement.',
       },
       color: {
         type: 'string',
@@ -67,6 +106,14 @@ export const tool: ToolModule = {
       maxSteps: {
         type: 'string',
         description: 'Maximum turns per session (default: "10").',
+      },
+      provider: {
+        type: 'string',
+        description: 'Provider ID assigned to the character.',
+      },
+      model: {
+        type: 'string',
+        description: 'Model ID assigned to the character.',
       },
     },
     required: ['action'],
@@ -100,12 +147,19 @@ export const tool: ToolModule = {
     if (action === 'create') {
       if (!args.name) return { output: '', error: 'name is required when action="create"' }
 
-      const tools = args.tools
-        ? args.tools.split(',').map(t => t.trim()).filter(Boolean).map(name => ({ name }))
-        : undefined
-      const skills = args.skills
-        ? args.skills.split(',').map(s => s.trim()).filter(Boolean)
-        : undefined
+      let tools: ToolBinding[] | undefined = undefined
+      if (args.tools_json) {
+        try {
+          const parsed = JSON.parse(args.tools_json)
+          if (!Array.isArray(parsed) || parsed.some(item => !item || typeof item.name !== 'string')) throw new Error('expected an array of tool bindings')
+          tools = parsed as ToolBinding[]
+        } catch (error: any) {
+          return { output: '', error: `Invalid tools_json: ${error.message}` }
+        }
+      } else {
+        tools = args.tools ? args.tools.split(',').map(t => t.trim()).filter(Boolean).map(name => ({ name })) : undefined
+      }
+      const skills = args.skills ? parseSkillNames(args.skills) : undefined
       const groups = args.groups
         ? args.groups.split(',').map(g => g.trim()).filter(Boolean)
         : undefined
@@ -116,8 +170,11 @@ export const tool: ToolModule = {
         description: args.description || undefined,
         color: args.color || '#6366f1',
         role: (args.role as 'main' | 'sub' | 'both') || 'both',
+        provider: args.provider || undefined,
+        model: args.model || undefined,
         tools,
         skills,
+        skillBindings: skills?.map(packageId => ({ packageId, enabled: true, preloadSkills: [] })),
         groups,
         maxSteps,
         default_strategy: normalizeStrategy(args.default_strategy, 'Ask Risky'),
@@ -152,17 +209,52 @@ export const tool: ToolModule = {
       if (args.role !== undefined) patch.role = args.role
       if (args.default_strategy !== undefined) patch.default_strategy = normalizeStrategy(args.default_strategy, 'Ask Risky')
       if (args.maxSteps !== undefined) patch.maxSteps = parseInt(args.maxSteps) || 10
-      if (args.tools !== undefined) {
+      if (args.provider !== undefined) patch.provider = args.provider || undefined
+      if (args.model !== undefined) patch.model = args.model || undefined
+      if ((args.tools !== undefined || args.tools_json !== undefined) && args.tools_mode !== 'replace') {
+        return { output: '', error: 'Updating tools/tools_json replaces the entire tool list. Use tools_add/tools_remove, or set tools_mode="replace".' }
+      }
+      if (args.tools_json !== undefined) {
+        try {
+          const parsed = JSON.parse(args.tools_json)
+          if (!Array.isArray(parsed) || parsed.some((item: any) => !item || typeof item.name !== 'string')) throw new Error('expected an array of tool bindings')
+          patch.tools = parsed
+        } catch (error: any) {
+          return { output: '', error: `Invalid tools_json: ${error.message}` }
+        }
+      } else if (args.tools !== undefined) {
         patch.tools = args.tools.split(',').map((t: string) => t.trim()).filter(Boolean).map((name: string) => ({ name }))
+      } else if (args.tools_add !== undefined || args.tools_remove !== undefined) {
+        patch.tools = updateNamedBindings(existing.tools, parseSkillNames(args.tools_add), parseSkillNames(args.tools_remove))
+      }
+      if (args.skills !== undefined && args.skills_mode !== 'replace') {
+        return {
+          output: '',
+          error: 'Updating "skills" replaces the entire list. Use skills_add/skills_remove, or set skills_mode="replace" for an intentional full replacement.',
+        }
       }
       if (args.skills !== undefined) {
-        patch.skills = args.skills.split(',').map((s: string) => s.trim()).filter(Boolean)
+        const packageIds = parseSkillNames(args.skills)
+        patch.skills = packageIds
+        patch.skillBindings = packageIds.map(packageId => ({ packageId, enabled: true, preloadSkills: [] }))
+      } else if (args.skills_add !== undefined || args.skills_remove !== undefined || args.skill_packages_add !== undefined || args.skill_packages_remove !== undefined) {
+        patch.skills = updateSkillNames(
+          existing.skills,
+          parseSkillNames(args.skill_packages_add ?? args.skills_add),
+          parseSkillNames(args.skill_packages_remove ?? args.skills_remove),
+        )
+        const existingBindings = existing.skillBindings || []
+        const byId = new Map(existingBindings.map(binding => [binding.packageId, binding]))
+        for (const packageId of parseSkillNames(args.skill_packages_remove ?? args.skills_remove)) byId.delete(packageId)
+        for (const packageId of parseSkillNames(args.skill_packages_add ?? args.skills_add)) {
+          if (!byId.has(packageId)) byId.set(packageId, { packageId, enabled: true, preloadSkills: [] })
+        }
+        patch.skillBindings = [...byId.values()]
       }
       if (args.groups !== undefined) {
         patch.groups = args.groups.split(',').map((g: string) => g.trim()).filter(Boolean)
       }
 
-      characterMetaStore.update(id, patch)
       if (args.soul !== undefined || args.user_profile !== undefined || args.memory !== undefined) {
         characterContentStore.save(id, {
           soul: args.soul,
@@ -170,7 +262,10 @@ export const tool: ToolModule = {
           memory: args.memory,
         })
       }
-      return { output: `Character "${id}" updated` }
+      const updated = characterMetaStore.update(id, patch)
+      if (!updated) return { output: '', error: `Character "${id}" not found` }
+      const skillSummary = patch.skills ? `\n  Skills: ${updated.skills?.join(', ') || '(none)'}` : ''
+      return { output: `Character "${id}" updated${skillSummary}` }
     }
 
     if (action === 'delete') {

@@ -1,1 +1,9 @@
-{    "name": "skill_manager",    "description": "List available skills or read a skill's full SKILL.md content. Skills are discovered server-side (workspace-independent).",    "source": "builtin",    "dangerous": false,    "version": "1.0.0",    "tags": ["skills"],    "author": "TianShu"}
+{
+  "name": "skill_manager",
+  "description": "Discover skill packages and lazily activate package child skills for the current session.",
+  "source": "builtin",
+  "dangerous": false,
+  "version": "2.0.0",
+  "tags": ["skills", "packages", "lazy-loading"],
+  "author": "TianShu"
+}

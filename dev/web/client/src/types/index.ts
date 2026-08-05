@@ -80,6 +80,7 @@ export interface Character {
   maxSteps: number
   tools: { name: string }[]
   skills: string[]
+  skillBindings?: SkillBinding[]
   enabled: boolean
   hidden?: boolean
   soul?: string
@@ -89,6 +90,13 @@ export interface Character {
   memory?: { enabled: boolean; selfEvolution: boolean; charLimit: number }
   createdAt?: number
   updatedAt?: number
+}
+
+export interface SkillBinding {
+  packageId: string
+  enabled?: boolean
+  preloadSkills?: string[]
+  disabledSkills?: string[]
 }
 
 export interface CharacterStats {

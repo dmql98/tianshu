@@ -33,6 +33,7 @@ export interface ToolResult {
 }
 
 export interface ToolContext {
+  sessionId?: string
   workspace: string
   workspaces?: string[]
   dataspace?: string

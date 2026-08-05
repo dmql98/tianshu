@@ -19,6 +19,13 @@ import type { ToolBinding, ToolConstraint } from '../tools/types.js'
 
 export type { ToolBinding, ToolConstraint }
 
+export interface SkillBinding {
+  packageId: string
+  enabled?: boolean
+  preloadSkills?: string[]
+  disabledSkills?: string[]
+}
+
 export interface CharacterRecord {
   id: string
   name: string
@@ -34,6 +41,7 @@ export interface CharacterRecord {
   groups?: string[]
   default_strategy?: Strategy
   skills?: string[]
+  skillBindings?: SkillBinding[]
   enabled?: boolean
   hidden?: boolean
   createdAt?: number
@@ -45,8 +53,11 @@ function pathFor(id: string): string {
 }
 
 function normalizeRecord(record: CharacterRecord & { default_strategy?: StrategyInput }): CharacterRecord {
+  const skillBindings = record.skillBindings || []
   return {
     ...record,
+    skills: skillBindings.map(binding => binding.packageId),
+    skillBindings,
     ...(record.default_strategy
       ? { default_strategy: normalizeStrategy(record.default_strategy, 'Ask Risky') }
       : {}),

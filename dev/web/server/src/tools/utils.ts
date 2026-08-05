@@ -1,8 +1,21 @@
-import { resolve, relative } from 'path'
+import { resolve, relative, isAbsolute } from 'path'
 import { realpathSync } from 'fs'
 
 export class PathEscapeError extends Error {
   constructor(msg: string) { super(msg); this.name = 'PathEscapeError' }
+}
+
+export function normalizePathForPlatform(p: string): string {
+  if (process.platform !== 'win32') return p
+  const gitBashDrive = p.match(/^\/([A-Za-z])(?:\/(.*))?$/)
+  if (!gitBashDrive) return p
+  const suffix = (gitBashDrive[2] || '').replace(/\//g, '\\')
+  return `${gitBashDrive[1].toUpperCase()}:\\${suffix}`
+}
+
+export function isPathWithin(root: string, target: string): boolean {
+  const rel = relative(resolve(root), resolve(target))
+  return rel === '' || (!isAbsolute(rel) && rel !== '..' && !rel.startsWith(`..\\`) && !rel.startsWith('../'))
 }
 
 function realRoot(root: string): string {
@@ -27,10 +40,10 @@ function resolvedSafe(p: string, root: string): boolean {
   try { target = realpathSync(full) } catch {
     const parent = resolve(full, '..')
     try { target = realpathSync(parent) } catch { return false }
-    if (relative(base, target).startsWith('..')) return false
-    return relative(base, full).startsWith('..') === false
+    if (!isPathWithin(base, target)) return false
+    return isPathWithin(base, full)
   }
-  return !relative(base, target).startsWith('..')
+  return isPathWithin(base, target)
 }
 
 export function assertPathSafe(p: string, workspaces: string[], allowedRoots?: string[]): void {
@@ -38,8 +51,9 @@ export function assertPathSafe(p: string, workspaces: string[], allowedRoots?: s
   // checks (including allowedRoots) use the correct absolute path.
   // p may be relative to workspace (e.g. "../../outside/file.txt"),
   // so resolving against allowedRoot would give wrong results.
+  const normalizedPath = normalizePathForPlatform(p)
   const ws = workspaces[0]
-  const absP = resolve(ws, p)
+  const absP = resolve(ws, normalizedPath)
 
   for (const w of workspaces) {
     if (resolvedSafe(absP, w)) return
@@ -49,7 +63,7 @@ export function assertPathSafe(p: string, workspaces: string[], allowedRoots?: s
       if (resolvedSafe(absP, root)) return
     }
   }
-  throw new PathEscapeError(`Path escapes workspace: ${p}`)
+  throw new PathEscapeError(`Path escapes workspace: ${normalizedPath}`)
 }
 
 export function assertPathSafeLegacy(p: string, workspace: string, allowedRoots?: string[]): void {

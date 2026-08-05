@@ -108,6 +108,17 @@ export function getDb(): Database.Database {
       success_rate REAL,
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS session_skill_activations (
+      session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      package_id TEXT NOT NULL,
+      skill_id TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      activated_at INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      PRIMARY KEY(session_id, package_id, skill_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_session_skill_activations_active
+      ON session_skill_activations(session_id, status);
   `)
   // Run/character architecture. Development data is upgraded in place so an
   // existing desktop profile can keep its conversations while the new domain

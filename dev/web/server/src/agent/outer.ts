@@ -32,6 +32,7 @@ import { selectAndSummarize } from './loop/context-compactor.js'
 import { runLoopEngine } from './loop/loop-engine.js'
 import { getControlToolDefinitions } from './loop/control-registry.js'
 import { goalStore } from './plan/plan-store.js'
+import { sessionSkillStore } from './session-skill-store.js'
 
 function persistComposeChanges(master: LLMMessage[], composed: LLMMessage[]): void {
   if (master.length !== composed.length) return
@@ -197,6 +198,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     providerBaseUrl: provider.base_url,
     cap,
     workspace: resolveWorkspace(session.workspace),
+    activeSkills: sessionSkillStore.bodies(sessionId),
   })
 
   // ── #4 Cold resume: session untouched > 24h → compact ──

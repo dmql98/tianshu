@@ -84,6 +84,18 @@ const TEMP_DIR = getOutputDir()
 interface ShellInfo {
   path: string
   args: string[]
+  windowsVerbatimArguments?: boolean
+}
+
+function gitBashPaths(): string[] {
+  if (process.platform !== 'win32') return []
+  const candidates = [
+    process.env.GIT_BASH,
+    process.env.ProgramFiles ? pathResolve(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe') : undefined,
+    process.env['ProgramFiles(x86)'] ? pathResolve(process.env['ProgramFiles(x86)'], 'Git', 'bin', 'bash.exe') : undefined,
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+  ].filter((p): p is string => !!p)
+  return [...new Set(candidates)].filter(p => existsSync(p))
 }
 
 function getShellCandidates(): ShellInfo[] {
@@ -93,14 +105,17 @@ function getShellCandidates(): ShellInfo[] {
   }
 
   const candidates: ShellInfo[] = []
+  for (const bash of gitBashPaths()) {
+    candidates.push({ path: bash, args: ['-lc'], windowsVerbatimArguments: false })
+  }
   const comspec = process.env.ComSpec
-  if (comspec) candidates.push({ path: comspec, args: ['/d', '/s', '/c'] })
+  if (comspec) candidates.push({ path: comspec, args: ['/d', '/s', '/c'], windowsVerbatimArguments: true })
   candidates.push(
-    { path: 'cmd.exe', args: ['/d', '/s', '/c'] },
-    { path: 'C:\\Windows\\System32\\cmd.exe', args: ['/d', '/s', '/c'] },
-    { path: 'C:\\Windows\\Sysnative\\cmd.exe', args: ['/d', '/s', '/c'] },
-    { path: 'powershell.exe', args: ['-NoProfile', '-Command'] },
-    { path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', args: ['-NoProfile', '-Command'] },
+    { path: 'cmd.exe', args: ['/d', '/s', '/c'], windowsVerbatimArguments: true },
+    { path: 'C:\\Windows\\System32\\cmd.exe', args: ['/d', '/s', '/c'], windowsVerbatimArguments: true },
+    { path: 'C:\\Windows\\Sysnative\\cmd.exe', args: ['/d', '/s', '/c'], windowsVerbatimArguments: true },
+    { path: 'powershell.exe', args: ['-NoProfile', '-Command'], windowsVerbatimArguments: false },
+    { path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', args: ['-NoProfile', '-Command'], windowsVerbatimArguments: false },
   )
   return candidates
 }
@@ -121,7 +136,7 @@ function trySpawn(shell: ShellInfo, cmd: string, workspace: string, windowsHide:
       const child = spawn(shell.path, [...shell.args, cmd], {
         cwd: workspace,
         windowsHide,
-        windowsVerbatimArguments: process.platform === 'win32',
+        windowsVerbatimArguments: shell.windowsVerbatimArguments ?? false,
         stdio: ['ignore', 'pipe', 'pipe'],
       })
       let settled = false
@@ -142,7 +157,9 @@ function trySpawn(shell: ShellInfo, cmd: string, workspace: string, windowsHide:
 
 export const tool: ToolModule = {
   name: 'bash',
-  description: 'Execute a shell command in the workspace directory',
+  description: process.platform === 'win32' && gitBashPaths().length === 0
+    ? 'Execute a Windows cmd.exe command in the workspace directory. Use cmd syntax; do not use pwd, ls, head, tail, or /c/... paths.'
+    : 'Execute a Bash command in the workspace directory. On Windows, Git Bash is used when available and supports /c/... paths.',
   parameters: {
     type: 'object',
     properties: { command: { type: 'string', description: 'Shell command to execute' } },

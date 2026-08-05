@@ -13,6 +13,9 @@ export const createCharacter = (data: Partial<Character> & { id?: string }) =>
 export const updateCharacter = (id: string, data: Partial<Character>) =>
   apiPut<Character>(`/api/characters/${id}`, data)
 
+export const updateCharacterSkillBinding = (id: string, action: 'bind' | 'unbind', packageId: string) =>
+  apiPost<Character>(`/api/characters/${encodeURIComponent(id)}/skill-bindings`, { action, packageId })
+
 export const deleteCharacter = (id: string) =>
   apiDelete(`/api/characters/${id}`)
 

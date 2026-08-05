@@ -55,6 +55,20 @@ export interface LLMOptions {
   onChunk?: (chunk: LLMChunk) => void
 }
 
+function parseUsage(raw: any): LLMUsage {
+  const usage: LLMUsage = {
+    input_tokens: raw?.prompt_tokens || raw?.input_tokens || 0,
+    output_tokens: raw?.completion_tokens || raw?.output_tokens || 0,
+  }
+  if (typeof raw?.prompt_cache_hit_tokens === 'number') usage.cache_hit_tokens = raw.prompt_cache_hit_tokens
+  if (typeof raw?.prompt_cache_miss_tokens === 'number') usage.cache_miss_tokens = raw.prompt_cache_miss_tokens
+  if (raw?.prompt_tokens_details?.cached_tokens != null) usage.cache_hit_tokens = raw.prompt_tokens_details.cached_tokens
+  if (usage.cache_hit_tokens !== undefined && usage.cache_miss_tokens === undefined) {
+    usage.cache_miss_tokens = Math.max(0, usage.input_tokens - usage.cache_hit_tokens)
+  }
+  return usage
+}
+
 export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LLMChunk> {
   const { baseUrl, apiKey, model, messages, tools, thinking, reasoning_effort, signal } = opts
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`
@@ -69,6 +83,8 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
   }
 
   let reader: any = null
+  let finishReason: string | undefined
+  let latestUsage: LLMUsage | undefined
   const onAbort = () => { reader?.cancel().catch(() => {}) }
   signal?.addEventListener('abort', onAbort, { once: true })
 
@@ -93,7 +109,6 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     if (!reader) { yield { type: 'error', text: 'No response body' }; return }
     const decoder = new TextDecoder()
     let buffer = ''
-
     while (true) {
       if (signal?.aborted) return
       const { done, value } = await reader.read()
@@ -107,7 +122,10 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
         const trimmed = line.trim()
         if (!trimmed || !trimmed.startsWith('data: ')) continue
         const data = trimmed.slice(6)
-        if (data === '[DONE]') { yield { type: 'done' }; return }
+        if (data === '[DONE]') {
+          yield { type: 'done', finish_reason: finishReason, usage: latestUsage }
+          return
+        }
 
         try {
           const parsed = JSON.parse(data)
@@ -117,15 +135,8 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
 
           // Usage-only chunks (streaming intermediate usage info)
           if (parsed.usage && !hasDelta) {
-            const u = parsed.usage
-            const usage: LLMUsage = {
-              input_tokens: u.prompt_tokens || u.input_tokens || 0,
-              output_tokens: u.completion_tokens || u.output_tokens || 0,
-            }
-            if (typeof u.prompt_cache_hit_tokens === 'number') usage.cache_hit_tokens = u.prompt_cache_hit_tokens
-            if (typeof u.prompt_cache_miss_tokens === 'number') usage.cache_miss_tokens = u.prompt_cache_miss_tokens
-            if (u.prompt_tokens_details?.cached_tokens != null) usage.cache_hit_tokens = u.prompt_tokens_details.cached_tokens
-            yield { type: 'usage', usage, usage_type: finish ? 'final' : 'stream' }
+            latestUsage = parseUsage(parsed.usage)
+            yield { type: 'usage', usage: latestUsage, usage_type: finishReason || finish ? 'final' : 'stream' }
           }
 
           const delta = hasDelta || {}
@@ -144,25 +155,8 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
             }))}
           }
           if (finish) {
-            const u = parsed.usage
-            let usage: LLMUsage | undefined
-            if (u) {
-              usage = {
-                input_tokens: u.prompt_tokens || u.input_tokens || 0,
-                output_tokens: u.completion_tokens || u.output_tokens || 0,
-              }
-              if (typeof u.prompt_cache_hit_tokens === 'number') {
-                usage.cache_hit_tokens = u.prompt_cache_hit_tokens
-              }
-              if (typeof u.prompt_cache_miss_tokens === 'number') {
-                usage.cache_miss_tokens = u.prompt_cache_miss_tokens
-              }
-              if (u.prompt_tokens_details?.cached_tokens != null) {
-                usage.cache_hit_tokens = u.prompt_tokens_details.cached_tokens
-              }
-            }
-            yield { type: 'done', finish_reason: finish, usage }
-            return
+            finishReason = finish
+            if (parsed.usage) latestUsage = parseUsage(parsed.usage)
           }
         } catch { /* skip malformed SSE lines */ }
       }
@@ -178,5 +172,5 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
   } finally {
     signal?.removeEventListener('abort', onAbort)
   }
-  yield { type: 'done' }
+  yield { type: 'done', finish_reason: finishReason, usage: latestUsage }
 }

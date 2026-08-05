@@ -130,7 +130,10 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         )
       }
     }
-    const composedMsgs = composeMessages(messages, composeCtx)
+    const composedMsgs = composeMessages(messages, {
+      ...composeCtx,
+      preserveReasoning: opts.thinking === true,
+    })
     // Persist compose content changes to master array so prefix stays stable across turns
     persistComposeChanges(messages, composedMsgs)
 

@@ -2,6 +2,7 @@ import type { LLMMessage } from '../llm/client.js'
 
 export interface ComposeContext {
   systemAlerts?: string[]
+  preserveReasoning?: boolean
 }
 
 function lastUserIdx(messages: LLMMessage[]): number {
@@ -15,12 +16,13 @@ export function composeMessages(
   messages: LLMMessage[],
   ctx: ComposeContext,
 ): LLMMessage[] {
-  if (!ctx.systemAlerts?.length) return messages.map(stripReasoning)
+  const prepare = ctx.preserveReasoning ? cloneMessage : stripReasoning
+  if (!ctx.systemAlerts?.length) return messages.map(prepare)
 
   const prefix = ctx.systemAlerts.join('\n')
-  if (!prefix) return messages.map(stripReasoning)
+  if (!prefix) return messages.map(prepare)
 
-  const result = messages.map(stripReasoning)
+  const result = messages.map(prepare)
   const idx = lastUserIdx(result)
   if (idx < 0) return result
 
@@ -35,6 +37,10 @@ export function composeMessages(
   }
   result[idx] = userMsg
   return result
+}
+
+function cloneMessage(m: LLMMessage): LLMMessage {
+  return { ...m }
 }
 
 function stripReasoning(m: LLMMessage): LLMMessage {

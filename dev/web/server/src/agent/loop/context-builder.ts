@@ -74,12 +74,7 @@ export function assembleStaticPrompt(
   const skillIndex = buildSkillIndex(charMeta)
   if (skillIndex.length > 0) {
     const skillList = skillIndex.map(s => s.listing).join('\n')
-    parts.push(`## Available Skills\n${skillList}\nUse \`skill_manager\` with action="read" to view a skill's full SKILL.md content.`)
-    const hints = skillIndex.filter(s => s.attachments.length > 0)
-      .map(s => `  ${s.name}: ${s.attachments.join(', ')}`)
-    if (hints.length) {
-      parts.push(`## Skill Attachments\n${hints.join('\n')}`)
-    }
+    parts.push(`## Available Skill Packages\n${skillList}\nUse \`skill_manager\` action="describe_package" to inspect a package and action="activate" to load only the child skill needed for this task. Do not replace the character's full skill list.`)
   }
 
   if (dataspace) {
@@ -186,12 +181,19 @@ export interface SessionContextInput {
   providerBaseUrl: string
   cap: ProviderCapability
   workspace: string
+  activeSkills?: Array<{ ref: string; body: string }>
 }
 
 /** Build the initial provider message list from a session. */
 export async function buildInitialMessages(input: SessionContextInput): Promise<LLMMessage[]> {
   const format = resolveProviderFormat(input.providerBaseUrl)
   const messages: LLMMessage[] = [{ role: 'system', content: input.systemPrompt }]
+  if (input.activeSkills?.length) {
+    messages.push({
+      role: 'system',
+      content: `## Active Session Skills\n${input.activeSkills.map(skill => `### ${skill.ref}\n${skill.body}`).join('\n\n')}`,
+    })
+  }
   if (input.memory) {
     messages.push({ role: 'system', content: `## Memory\n${input.memory}` })
   }

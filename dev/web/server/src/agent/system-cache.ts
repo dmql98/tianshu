@@ -152,6 +152,7 @@ export interface PrefixShape {
   systemHash: string
   toolsHash: string
   historyHash: string
+  historyItems: string[]
 }
 
 function flatContent(content: LLMMessage['content']): string {
@@ -169,14 +170,15 @@ export function capturePrefixShape(
     .map(m => flatContent(m.content))
     .join('\n')
   const toolsText = JSON.stringify(tools ?? [])
-  const historyText = messages
+  const historyItems = messages
     .filter(m => m.role !== 'system')
     .map(m => `${m.role}:${flatContent(m.content).slice(0, 200)}`)
-    .join('|')
+  const historyText = historyItems.join('|')
   return {
     systemHash: shortHash(sysText),
     toolsHash: shortHash(toolsText),
     historyHash: shortHash(historyText),
+    historyItems,
   }
 }
 
@@ -184,7 +186,11 @@ export function compareShapes(prev: PrefixShape, cur: PrefixShape): string[] {
   const changes: string[] = []
   if (prev.systemHash !== cur.systemHash) changes.push('system prompt changed')
   if (prev.toolsHash !== cur.toolsHash) changes.push('tools schema changed')
-  if (prev.historyHash !== cur.historyHash) changes.push('history changed')
+  if (prev.historyHash !== cur.historyHash) {
+    const appendOnly = cur.historyItems.length >= prev.historyItems.length
+      && prev.historyItems.every((item, index) => cur.historyItems[index] === item)
+    if (!appendOnly) changes.push('history rewritten')
+  }
   return changes
 }
 

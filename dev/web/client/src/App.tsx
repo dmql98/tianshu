@@ -6,7 +6,8 @@ import CharacterDetailPage from './pages/CharacterDetailPage'
 import CharactersPage from './pages/CharactersPage'
 import ChatPage from './pages/ChatPage'
 import SkillsPage from './pages/SkillsPage'
-import SkillDetailPage from './pages/SkillDetailPage'
+import SkillPackageDetailPage from './pages/SkillPackageDetailPage'
+import NewSkillPackagePage from './pages/NewSkillPackagePage'
 import ToolsPage from './pages/ToolsPage'
 import McpPage from './pages/McpPage'
 import KnowledgePage from './pages/KnowledgePage'
@@ -103,7 +104,9 @@ export default function App() {
         <Route path="/characters/new" element={<CharacterDetailPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
         <Route path="/skills" element={<SkillsPage />} />
-        <Route path="/skills/:category/:name" element={<SkillDetailPage />} />
+        <Route path="/skills/new" element={<NewSkillPackagePage />} />
+        <Route path="/skills/packages/:category/:packageId" element={<SkillPackageDetailPage />} />
+        <Route path="/skills/packages/:category/:packageId/skills/:skillId" element={<SkillPackageDetailPage />} />
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/market" element={<MarketPage />} />

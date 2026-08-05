@@ -92,7 +92,7 @@ TianShu/dev/web/
 | `/characters/new` | CharacterDetailPage（新建模式） |
 | `/characters/:id` | CharacterDetailPage（编辑模式，自动保存） |
 | `/skills` | SkillsPage |
-| `/skills/:category/:name` | SkillDetailPage |
+| `/skills/packages/:category/:packageId` | SkillPackageDetailPage |
 | `/tools`, `/mcp`, `/events`, `/market`, `/knowledge`, `/settings` | 对应页面 |
 
 ---
@@ -122,8 +122,8 @@ TianShu/dev/web/
 | PUT | `/api/providers/:id` | 更新服务商 |
 | DELETE | `/api/providers/:id` | 删除服务商 |
 | GET | `/api/providers/:id/models` | 获取服务商的模型列表 |
-| GET | `/api/skills` | 获取技能列表 |
-| GET | `/api/skills/:category/:skill/files` | 获取技能详情 |
+| GET | `/api/skills/packages` | 获取技能包列表 |
+| GET | `/api/skills/packages/:category/:packageId` | 获取技能包详情 |
 | GET | `/api/tools` | 获取工具列表（内置 + MCP） |
 | POST | `/api/tools/mcp` | 创建 MCP 服务器 |
 | PUT | `/api/tools/mcp/:id` | 更新 MCP 服务器 |

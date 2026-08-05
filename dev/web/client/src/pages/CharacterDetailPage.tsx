@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, deleteCharacter } from '@/api/characters'
+import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, updateCharacterSkillBinding, deleteCharacter } from '@/api/characters'
 import { fetchTools } from '@/api/tools'
-import { fetchSkills } from '@/api/skills'
+import { fetchSkillPackages } from '@/api/skills'
 import { normalizeStrategy, STRATEGIES, type Character, type CharacterStats, type Strategy } from '@/types'
 import type { ToolMeta } from '@/api/tools'
-import type { SkillMeta } from '@/api/skills'
+import type { SkillPackageMeta } from '@/api/skills'
 import CharacterVisualEditor from '@/features/characters/CharacterVisualEditor'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 
@@ -24,7 +24,7 @@ export default function CharacterDetailPage() {
   const [activeTab, setActiveTab] = useState('basic')
   const [stats, setStats] = useState<CharacterStats | null>(null)
   const [allTools, setAllTools] = useState<ToolMeta[]>([])
-  const [allSkills, setAllSkills] = useState<SkillMeta[]>([])
+  const [allSkills, setAllSkills] = useState<SkillPackageMeta[]>([])
   const [allChars, setAllChars] = useState<Character[]>([])
 
   // Basic fields
@@ -126,21 +126,21 @@ export default function CharacterDetailPage() {
       setMemoryEnabled(c.memory?.enabled ?? false)
       setCharLimit(c.memory?.charLimit ?? 2000)
       setBoundTools(c.tools || [])
-      setBoundSkills(c.skills || [])
+      setBoundSkills(c.skillBindings?.map(binding => binding.packageId) || c.skills || [])
     }).catch(() => setChar(null)).finally(() => setLoading(false))
   }, [id, isNew])
 
   // Load stats, tools, skills, characters list
   useEffect(() => {
     fetchTools().then(d => setAllTools(d.tools)).catch(() => {})
-    fetchSkills().then(d => setAllSkills(d.skills)).catch(() => {})
+    fetchSkillPackages().then(d => setAllSkills(d.packages)).catch(() => {})
     fetchCharacters().then(setAllChars).catch(() => {})
     if (id && !isNew) fetchCharacterStats(id).then(setStats).catch(() => {})
   }, [id, isNew])
 
   const boundToolNames = new Set(boundTools.map(t => t.name))
   const unboundTools = allTools.filter(t => !boundToolNames.has(t.name))
-  const unboundSkills = allSkills.filter(s => !boundSkills.includes(s.name))
+  const unboundSkills = allSkills.filter(s => !boundSkills.includes(s.id))
 
   // Collect all existing groups from all characters
   const allGroups = (() => {
@@ -199,6 +199,7 @@ export default function CharacterDetailPage() {
       customPrompt: customPromptEnabled ? customPrompt : '',
       tools: boundTools,
       skills: boundSkills,
+      skillBindings: boundSkills.map(packageId => ({ packageId, enabled: true, preloadSkills: [] })),
     }
     return base
   }
@@ -251,10 +252,19 @@ export default function CharacterDetailPage() {
     setShowNewGroupInput(false)
   }
 
-  function toggleSkill(name: string) {
-    const next = boundSkills.includes(name) ? boundSkills.filter(s => s !== name) : [...boundSkills, name]
+  async function toggleSkill(name: string) {
+    const isBound = boundSkills.includes(name)
+    const next = isBound ? boundSkills.filter(s => s !== name) : [...boundSkills, name]
     setBoundSkills(next)
-    autoSave({ skills: next })
+    const cid = currentIdRef.current
+    if (cid && cid !== 'new') {
+      try {
+        await updateCharacterSkillBinding(cid, isBound ? 'unbind' : 'bind', name)
+      } catch {
+        setBoundSkills(boundSkills)
+        alert('技能包绑定更新失败')
+      }
+    }
   }
 
   function addTool(name: string, source?: string) {
@@ -521,45 +531,50 @@ export default function CharacterDetailPage() {
           <div className={`tab-page ${activeTab === 'skills' ? 'active' : ''}`}>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">已激活技能 ({boundSkills.length})</div>
+                <div className="detail-section-title">已绑定技能包 ({boundSkills.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {boundSkills.map(name => {
-                    const meta = allSkills.find(s => s.name === name)
+                    const meta = allSkills.find(s => s.id === name)
                     return (
                       <div key={name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{name}</div>
+                            <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{meta?.name || name}</div>
                             {meta && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{meta.category}</span>}
                           </div>
                           <button onClick={() => toggleSkill(name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                         </div>
-                        {meta && <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>}
+                        {meta && <>
+                          <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>
+                          {meta.children.length > 0 && <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {meta.children.map(child => <div key={child.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span>↳ {child.name}</span><span style={{ color: 'var(--jade)' }}>{child.preload ? '预加载' : '按需加载'}</span></div>)}
+                          </div>}
+                        </>}
                       </div>
                     )
                   })}
                   {boundSkills.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>暂无已激活技能</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>暂无已绑定技能包</div>
                   )}
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">未激活技能 ({unboundSkills.length})</div>
+                <div className="detail-section-title">可绑定技能包 ({unboundSkills.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {unboundSkills.slice(0, 20).map(s => (
-                    <div key={s.name} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
+                    <div key={s.id} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                           <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{s.name}</div>
                           <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{s.category}</span>
                         </div>
-                        <button onClick={() => toggleSkill(s.name)} title="激活" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
+                        <button onClick={() => toggleSkill(s.id)} title="绑定技能包" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{s.description}</div>
                     </div>
                   ))}
                   {unboundSkills.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>所有技能已激活</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>所有技能包均已绑定</div>
                   )}
                 </div>
               </div>

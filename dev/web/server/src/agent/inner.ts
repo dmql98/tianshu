@@ -9,7 +9,8 @@ import { logLLMCall } from '../debug/llm-logger.js'
 import type { Strategy } from './session.js'
 import type { Server, Socket } from 'socket.io'
 import type { MCPClient } from '../tools/mcp-client.js'
-import { resolve as pathResolve, dirname, relative } from 'path'
+import { resolve as pathResolve, dirname } from 'path'
+import { isPathWithin } from '../tools/utils.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { saveAttachment } from './media-store.js'
 import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, type AttachmentRecord, type ContentPart } from './attachments.js'
@@ -149,15 +150,16 @@ export async function streamWithRetry(
             }
           }
         }
-        onDelta?.(chunk)
       }
+
+      if (chunk.type === 'delta' || chunk.type === 'usage') onDelta?.(chunk)
 
       if (chunk.type === 'error') {
         errorText = chunk.text || 'LLM error'
         break
       }
 
-      if (chunk.type === 'done' && chunk.usage) {
+      if ((chunk.type === 'usage' || chunk.type === 'done') && chunk.usage) {
         usage = {
           input: chunk.usage.input_tokens,
           output: chunk.usage.output_tokens,
@@ -282,8 +284,8 @@ export async function innerLoop(
   if (result.usage) {
     totalInputTokens += result.usage.input
     totalOutputTokens += result.usage.output
-    if (result.usage.cacheHit) totalCacheHitTokens += result.usage.cacheHit
-    if (result.usage.cacheMiss) totalCacheMissTokens += result.usage.cacheMiss
+    if (result.usage.cacheHit !== undefined) totalCacheHitTokens += result.usage.cacheHit
+    if (result.usage.cacheMiss !== undefined) totalCacheMissTokens += result.usage.cacheMiss
   }
 
   logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage })
@@ -521,7 +523,7 @@ export async function innerLoop(
       try {
         return await executeTool(p.name, p.args, workspace || process.cwd(), signal, mcpClients, extraRoots, (chunk) => {
           socket?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output: chunk })
-        }, workspaces, dataspace)
+        }, workspaces, dataspace, sessionId)
       } catch (err: any) {
         return { output: '', error: `${p.name}: ${err.message || String(err)}` }
       }
@@ -550,7 +552,7 @@ export async function innerLoop(
           const dbSession = sessionStore.getById(sessionId)
           if (dbSession) {
             const ws: string[] = dbSession.workspaces ? JSON.parse(dbSession.workspaces) : []
-            const isCovered = ws.some((w: string) => !relative(w, approvedPath).startsWith('..'))
+            const isCovered = ws.some((w: string) => isPathWithin(w, approvedPath))
             if (!isCovered && !ws.includes(approvedPath)) {
               ws.push(approvedPath)
               sessionStore.update(sessionId, { workspaces: JSON.stringify(ws) })
@@ -562,7 +564,7 @@ export async function innerLoop(
             workspaces: updatedWorkspaces,
           })
           // Also update the in-memory workspaces so subsequent calls in this turn see it
-          if (workspaces && !workspaces.some(w => !relative(w, approvedPath).startsWith('..'))) {
+          if (workspaces && !workspaces.some(w => isPathWithin(w, approvedPath))) {
             workspaces.push(approvedPath)
           }
         }

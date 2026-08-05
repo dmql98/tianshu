@@ -6,6 +6,7 @@ import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { getDb } from '../db/schema.js'
 import { getDataDir } from '../config.js'
+import { findSkillPackage } from '../agent/skill-catalog.js'
 
 const DATA_DIR = getDataDir()
 import { resolveCharacterTools } from '../tools/definitions.js'
@@ -279,6 +280,24 @@ router.post('/', async (c) => {
     prompt: customPrompt as string | undefined,
   })
   return c.json({ ...meta, soul: soul || '', userProfile: userProfile || '', memoryContent: memoryContent || '', customPrompt: customPrompt || '' }, 201)
+})
+router.post('/:id/skill-bindings', async (c) => {
+  const id = c.req.param('id')
+  const record = characterMetaStore.getById(id)
+  if (!record) return c.json({ error: 'Not found' }, 404)
+  const body = await c.req.json() as { action?: 'bind' | 'unbind'; packageId?: string }
+  if (!body.packageId || !['bind', 'unbind'].includes(body.action || '')) {
+    return c.json({ error: 'action (bind/unbind) and packageId are required' }, 400)
+  }
+  if (body.action === 'bind' && !findSkillPackage(body.packageId)) {
+    return c.json({ error: `Skill package "${body.packageId}" not found` }, 404)
+  }
+  const current = record.skillBindings || []
+  const next = body.action === 'bind'
+    ? current.some(binding => binding.packageId === body.packageId) ? current : [...current, { packageId: body.packageId, enabled: true, preloadSkills: [] }]
+    : current.filter(binding => binding.packageId !== body.packageId)
+  const updated = characterMetaStore.update(id, { skillBindings: next, skills: next.map(binding => binding.packageId) })
+  return c.json(updated)
 })
 router.put('/:id', async (c) => {
   const body = await c.req.json() as any

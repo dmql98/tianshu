@@ -17,7 +17,9 @@ globalThis.fetch = (async () => {
   }
 
   const body = [
-    'data: {"choices":[{"delta":{"content":"recovered"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":1}}',
+    'data: {"choices":[{"delta":{"content":"recovered"},"finish_reason":"stop"}]}',
+    'data: {"choices":[],"usage":{"prompt_tokens":30,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":20}}}',
+    'data: [DONE]',
     '',
     '',
   ].join('\n')
@@ -45,6 +47,12 @@ try {
     throw new Error(`unexpected retry metadata: ${JSON.stringify(retries[0])}`)
   }
   if (result.text !== 'recovered') throw new Error(`unexpected result: ${JSON.stringify(result)}`)
+  if (result.usage?.input !== 30 || result.usage?.output !== 4) {
+    throw new Error(`trailing usage chunk was not captured: ${JSON.stringify(result.usage)}`)
+  }
+  if (result.usage.cacheHit !== 20 || result.usage.cacheMiss !== 10) {
+    throw new Error(`cache usage was not captured: ${JSON.stringify(result.usage)}`)
+  }
   console.log('  OK transient fetch failure retries and recovers')
 } finally {
   globalThis.fetch = originalFetch
