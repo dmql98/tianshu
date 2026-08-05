@@ -75,14 +75,13 @@ export default function SkillView() {
                         {pkg.children.map(child => (
                           <div key={child.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 2px', fontSize: 12 }}>
                             <span><b>{child.name}</b><span style={{ color: 'var(--ink-faint)' }}> · {child.description}</span></span>
-                            <span style={{ color: 'var(--jade)', whiteSpace: 'nowrap' }}>{child.preload ? '预加载' : '按需加载'}</span>
                           </div>
                         ))}
                       </div>
                     )}
                     <div className="skill-foot" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                       {pkg.childCount > 0 && <button className="detail-btn" onClick={() => setExpanded(old => ({ ...old, [pkg.id]: !isOpen }))}>{isOpen ? '收起' : '展开'}</button>}
-                      <button className="detail-btn primary" onClick={() => navigate(`/skills/packages/${encodeURIComponent(category)}/${encodeURIComponent(pkg.id)}`)}>进入技能包</button>
+                      <button className="detail-btn primary" onClick={() => navigate(`/skills/packages/${encodeURIComponent(category)}/${encodeURIComponent(pkg.id)}`)}>详情</button>
                     </div>
                   </div>
                 )

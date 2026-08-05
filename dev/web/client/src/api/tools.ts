@@ -35,6 +35,32 @@ export interface MCPTestResult {
   error?: string
 }
 
+export interface DiscoveredMCPServer {
+  name: string
+  command: string
+  args: string[]
+  env: Record<string, string>
+  cwd?: string
+  timeout?: number
+  source: 'opencode' | 'claude' | 'cursor'
+  sourceFile: string
+  transport: 'stdio' | 'sse' | 'http' | 'unknown'
+  url?: string
+  enabled?: boolean
+  importable: boolean
+  alreadyExists?: boolean
+}
+
+export interface DiscoverResult {
+  servers: DiscoveredMCPServer[]
+}
+
+export interface ImportMCPResult {
+  imported: string[]
+  skipped: { name: string; reason: string }[]
+  errors: { name: string; error: string }[]
+}
+
 export interface ToolsData {
   tools: ToolMeta[]
   mcpServers: MCPServer[]
@@ -57,3 +83,9 @@ export const deleteMCPServer = (id: string): Promise<void> =>
 
 export const testMCPConnection = (id: string): Promise<MCPTestResult> =>
   apiPost(`/api/tools/mcp/${id}/test`, {})
+
+export const discoverMCPServers = (): Promise<DiscoverResult> =>
+  apiGet('/api/tools/mcp/discover')
+
+export const importMCPServers = (names: string[]): Promise<ImportMCPResult> =>
+  apiPost('/api/tools/mcp/import', { names })

@@ -547,7 +547,7 @@ export default function CharacterDetailPage() {
                         {meta && <>
                           <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>
                           {meta.children.length > 0 && <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {meta.children.map(child => <div key={child.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span>↳ {child.name}</span><span style={{ color: 'var(--jade)' }}>{child.preload ? '预加载' : '按需加载'}</span></div>)}
+                            {meta.children.map(child => <div key={child.id} style={{ fontSize: 11 }}>↳ {child.name}</div>)}
                           </div>}
                         </>}
                       </div>

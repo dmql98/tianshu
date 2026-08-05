@@ -4,6 +4,7 @@ import { resolve } from 'path'
 import { mcpServerStore } from '../db/toolStore.js'
 import { connectMCPServer, disconnectMCPServer } from '../tools/mcp-client.js'
 import { getAllMCPStatuses } from '../tools/mcp-status.js'
+import { discoverMCPServers } from '../tools/mcp_discovery.js'
 
 const TOOLS_DIR = resolve(import.meta.dirname, '../tools')
 
@@ -76,6 +77,60 @@ router.post('/mcp/:id/test', async (c) => {
   } catch (err: any) {
     return c.json({ ok: false, error: err.message || String(err) }, 200)
   }
+})
+
+router.get('/mcp/discover', (c) => {
+  const discovered = discoverMCPServers()
+  const existing = new Set(mcpServerStore.getAll().map(s => s.name))
+  return c.json({
+    servers: discovered.map(s => ({ ...s, alreadyExists: existing.has(s.name) })),
+  })
+})
+
+router.post('/mcp/import', async (c) => {
+  const body = await c.req.json()
+  const names = body.names
+  if (!Array.isArray(names) || names.length === 0) {
+    return c.json({ error: 'names (array) is required' }, 400)
+  }
+  const discovered = discoverMCPServers()
+  const byName = new Map(discovered.map(s => [s.name, s]))
+  const existing = mcpServerStore.getAll()
+
+  const imported: string[] = []
+  const skipped: Array<{ name: string; reason: string }> = []
+  const errors: Array<{ name: string; error: string }> = []
+
+  for (const rawName of names) {
+    const name = String(rawName)
+    const server = byName.get(name)
+    if (!server) {
+      skipped.push({ name, reason: 'not found in discovery' })
+      continue
+    }
+    if (!server.importable) {
+      skipped.push({ name, reason: `transport ${server.transport} not supported (stdio only)` })
+      continue
+    }
+    if (existing.some(s => s.name === name)) {
+      skipped.push({ name, reason: 'already exists' })
+      continue
+    }
+    try {
+      mcpServerStore.create({
+        name: server.name,
+        command: server.command,
+        args: server.args,
+        env: server.env,
+        cwd: server.cwd,
+        timeout: server.timeout,
+      })
+      imported.push(name)
+    } catch (err: any) {
+      errors.push({ name, error: err.message || String(err) })
+    }
+  }
+  return c.json({ imported, skipped, errors })
 })
 
 export default router

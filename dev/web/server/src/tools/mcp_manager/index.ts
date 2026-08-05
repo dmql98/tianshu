@@ -1,6 +1,7 @@
 import type { ToolModule } from '../types.js'
 import { mcpServerStore } from '../../db/toolStore.js'
 import { connectMCPServer, disconnectMCPServer } from '../mcp-client.js'
+import { discoverMCPServers } from '../mcp_discovery.js'
 
 export const tool: ToolModule = {
   name: 'mcp_manager',
@@ -10,12 +11,16 @@ export const tool: ToolModule = {
     properties: {
       action: {
         type: 'string',
-        enum: ['list', 'read', 'create', 'update', 'delete', 'test'],
-        description: '"list" returns all MCP servers; "read" returns a server\'s config; "create" creates a new server; "update" modifies an existing one; "delete" removes a server; "test" tests the connection.',
+        enum: ['list', 'read', 'create', 'update', 'delete', 'test', 'discover', 'import'],
+        description: '"list" returns all MCP servers; "read" returns a server\'s config; "create" creates a new server; "update" modifies an existing one; "delete" removes a server; "test" tests the connection; "discover" scans opencode/claude/cursor configs for MCP servers on this machine; "import" imports discovered servers by name.',
       },
       name: {
         type: 'string',
-        description: 'Required for read/create/update/delete. The MCP server name.',
+        description: 'Required for read/create/update/delete/import. The MCP server name.',
+      },
+      names: {
+        type: 'string',
+        description: 'Comma-separated server names to import (required when action="import").',
       },
       command: {
         type: 'string',
@@ -155,6 +160,56 @@ export const tool: ToolModule = {
       }
     }
 
-    return { output: '', error: `Invalid action: ${action}. Valid actions: list, read, create, update, delete, test` }
+    if (action === 'discover') {
+      const discovered = discoverMCPServers()
+      if (discovered.length === 0) return { output: 'No MCP servers found in opencode/claude/cursor configs' }
+      const existing = new Set(mcpServerStore.getAll().map(s => s.name))
+      const lines = discovered.map(s => {
+        const cmd = s.importable ? `${s.command} ${s.args.join(' ')}`.trim() : `[${s.transport}] ${s.url || ''}`
+        const flags = [
+          s.source,
+          s.importable ? 'stdio' : s.transport,
+          s.enabled === false ? 'disabled' : '',
+          existing.has(s.name) ? 'already-imported' : 'new',
+        ].filter(Boolean).join(', ')
+        return `- ${s.name} (${flags}): ${cmd}`
+      })
+      return { output: `Discovered MCP servers:\n${lines.join('\n')}` }
+    }
+
+    if (action === 'import') {
+      const names = (args.names || '')
+        .split(',')
+        .map(n => n.trim())
+        .filter(Boolean)
+      if (names.length === 0) return { output: '', error: 'names is required when action="import" (comma-separated)' }
+      const discovered = discoverMCPServers()
+      const byName = new Map(discovered.map(s => [s.name, s]))
+      const imported: string[] = []
+      const skipped: string[] = []
+      for (const name of names) {
+        const server = byName.get(name)
+        if (!server) { skipped.push(`${name} (not found)`); continue }
+        if (!server.importable) { skipped.push(`${name} (transport ${server.transport} not supported)`); continue }
+        if (mcpServerStore.getByName(name)) { skipped.push(`${name} (already exists)`); continue }
+        mcpServerStore.create({
+          name: server.name,
+          command: server.command,
+          args: server.args,
+          env: server.env,
+          cwd: server.cwd,
+          timeout: server.timeout,
+        })
+        imported.push(name)
+      }
+      return {
+        output: [
+          `Imported: ${imported.join(', ') || '(none)'}`,
+          skipped.length > 0 ? `Skipped: ${skipped.join(', ')}` : '',
+        ].filter(Boolean).join('\n'),
+      }
+    }
+
+    return { output: '', error: `Invalid action: ${action}. Valid actions: list, read, create, update, delete, test, discover, import` }
   },
 }

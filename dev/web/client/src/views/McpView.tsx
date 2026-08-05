@@ -5,9 +5,12 @@ import {
   updateMCPServer,
   deleteMCPServer,
   testMCPConnection,
+  discoverMCPServers,
+  importMCPServers,
   type MCPServer,
   type MCPTestResult,
   type MCPConnectionStatus,
+  type DiscoveredMCPServer,
 } from '@/api/tools'
 
 export default function McpView() {
@@ -31,6 +34,13 @@ export default function McpView() {
 
   const [testingMap, setTestingMap] = useState<Record<string, boolean>>({})
   const [testResults, setTestResults] = useState<Record<string, MCPTestResult>>({})
+
+  const [discoverOpen, setDiscoverOpen] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
+  const [discovered, setDiscovered] = useState<DiscoveredMCPServer[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [importing, setImporting] = useState(false)
+  const [importSummary, setImportSummary] = useState('')
 
   async function load() {
     try {
@@ -133,11 +143,63 @@ export default function McpView() {
     }
   }
 
+  async function handleDiscover() {
+    setDiscovering(true)
+    setImportSummary('')
+    setDiscovered([])
+    setSelected(new Set())
+    try {
+      const data = await discoverMCPServers()
+      setDiscovered(data.servers)
+      const auto = new Set(data.servers.filter(s => s.importable && !s.alreadyExists).map(s => s.name))
+      setSelected(auto)
+    } catch (err: any) {
+      setImportSummary(`检测失败: ${err.message || err}`)
+    } finally {
+      setDiscovering(false)
+      setDiscoverOpen(true)
+    }
+  }
+
+  function toggleSelected(name: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  async function handleBulkImport() {
+    setImporting(true)
+    setImportSummary('')
+    try {
+      const names = Array.from(selected)
+      if (names.length === 0) {
+        setImportSummary('未选择任何服务')
+        return
+      }
+      const result = await importMCPServers(names)
+      const parts: string[] = []
+      if (result.imported.length > 0) parts.push(`成功导入: ${result.imported.join(', ')}`)
+      if (result.skipped.length > 0) parts.push(`跳过: ${result.skipped.map(s => `${s.name}（${s.reason}）`).join(', ')}`)
+      if (result.errors.length > 0) parts.push(`失败: ${result.errors.map(e => `${e.name}（${e.error}）`).join(', ')}`)
+      setImportSummary(parts.join('\n') || '无结果')
+      setDiscoverOpen(false)
+      load()
+    } catch (err: any) {
+      setImportSummary(`导入失败: ${err.message || err}`)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="main">
       <div className="page-header">
         <span className="page-title">MCP 服务</span>
         <div className="header-actions">
+          <button className="btn" onClick={handleDiscover}>检测本机 MCP</button>
           <button className="btn" onClick={() => setShowImport(true)}>导入 JSON</button>
           <button className="btn primary" onClick={openNew}>+ 添加服务</button>
         </div>
@@ -206,6 +268,100 @@ export default function McpView() {
           )}
         </div>
       </div>
+
+      {/* Discover & import modal */}
+      {discoverOpen && (
+        <div className="approval-overlay" onClick={() => { if (!importing) setDiscoverOpen(false) }}>
+          <div className="approval-dialog" onClick={e => e.stopPropagation()} style={{ width: 620 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>检测本机 MCP 服务</div>
+            <p style={{ fontSize: 12, color: 'var(--ink-light)', margin: '-4px 0 12px' }}>
+              扫描 opencode / Claude / Cursor 配置中发现的 MCP 服务，勾选后一键导入：
+            </p>
+            {discovering ? (
+              <div className="empty-state">检测中...</div>
+            ) : discovered.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-title">未发现其他 MCP 服务</div>
+                <div className="empty-hint">没有在 opencode / Claude / Cursor 配置中找到可导入的 MCP 服务</div>
+              </div>
+            ) : (
+              <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {discovered.map(s => {
+                  const disabled = !s.importable || s.alreadyExists
+                  return (
+                    <label
+                      key={`${s.source}:${s.name}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        padding: '8px 10px',
+                        border: `1px solid ${s.alreadyExists ? 'var(--border)' : 'var(--border)'}`,
+                        borderRadius: 6,
+                        background: 'var(--bg-hover)',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        opacity: disabled ? 0.6 : 1,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        style={{ marginTop: 3 }}
+                        checked={selected.has(s.name)}
+                        disabled={disabled}
+                        onChange={() => toggleSelected(s.name)}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-deep)' }}>{s.name}</span>
+                          <span className={`mcp-status ${s.importable ? 'connected' : 'failed'}`}>
+                            {s.alreadyExists ? '已导入' : s.importable ? 'stdio' : s.transport}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-light)', marginTop: 2, wordBreak: 'break-all' }}>
+                          {s.importable
+                            ? `${s.command} ${s.args.join(' ')}`.trim()
+                            : `远程服务（${s.transport}）: ${s.url || '无 URL'}`}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>
+                          来源: {s.source} · {s.sourceFile}
+                        </div>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            {importSummary && (
+              <pre style={{
+                fontSize: 12,
+                whiteSpace: 'pre-wrap',
+                color: importSummary.includes('失败') || importSummary.includes('检测失败') ? 'var(--cinnabar)' : 'var(--jade)',
+                background: 'var(--bg-hover)',
+                padding: 8,
+                borderRadius: 6,
+                margin: '10px 0 0',
+                maxHeight: 120,
+                overflowY: 'auto',
+              }}>{importSummary}</pre>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--ink-light)' }}>
+                已选 {selected.size} 个
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => setDiscoverOpen(false)}>取消</button>
+                <button
+                  className="btn primary"
+                  disabled={importing || selected.size === 0}
+                  onClick={handleBulkImport}
+                >
+                  {importing ? '导入中...' : '一键导入'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Import modal */}
       {showImport && (

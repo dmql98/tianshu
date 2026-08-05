@@ -79,8 +79,6 @@ export default function SkillPackageDetailPage() {
             <div className="detail-section"><div className="detail-section-title">包信息</div><div className="info-grid">
               <div className="info-item"><div className="info-item-label">包 ID</div><div className="info-item-value">{detail.id}</div></div>
               <div className="info-item"><div className="info-item-label">版本</div><div className="info-item-value">{detail.version || '--'}</div></div>
-              <div className="info-item"><div className="info-item-label">加载模式</div><div className="info-item-value">根技能索引 + 子技能按需加载</div></div>
-              <div className="info-item"><div className="info-item-label">包结构</div><div className="info-item-value">{detail.childCount > 0 ? '根技能 + 子技能' : '仅根技能'}</div></div>
             </div></div>
           </div>}
 
@@ -89,7 +87,6 @@ export default function SkillPackageDetailPage() {
               {detail.children.length === 0 ? <div className="empty-state" style={{ padding: 20 }}>该技能包只有根技能，无需额外激活子技能</div> : <div className="tool-list">
                 {detail.children.map(item => <div key={item.id} className="tool-item" style={{ cursor: 'pointer', background: child?.id === item.id ? 'rgba(42,157,92,0.06)' : undefined }} onClick={() => openChild(item.id)}>
                   <span>⚡</span><div style={{ flex: 1 }}><div className="tool-name">{item.name}</div><div style={{ fontSize: 11, color: 'var(--ink-light)' }}>{item.description}</div></div>
-                  <span style={{ fontSize: 11, color: 'var(--jade)' }}>{item.preload ? '预加载' : '按需加载'}</span>
                 </div>)}
               </div>}
             </div>
