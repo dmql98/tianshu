@@ -25,9 +25,11 @@ export const characterContentStore = {
   save(characterId: string, data: { soul?: string; user?: string; memory?: string; prompt?: string }) {
     const dir = resolve(CHAR_DIR, characterId)
     mkdirSync(dir, { recursive: true })
-    writeFileSync(resolve(dir, 'soul.md'), data.soul ?? '', 'utf-8')
-    writeFileSync(resolve(dir, 'user.md'), data.user ?? '', 'utf-8')
-    writeFileSync(resolve(dir, 'memory.md'), data.memory ?? '', 'utf-8')
+    // This method is used by PATCH-like autosave calls. Missing fields mean
+    // "leave unchanged"; only an explicit empty string clears a document.
+    if (data.soul !== undefined) writeFileSync(resolve(dir, 'soul.md'), data.soul, 'utf-8')
+    if (data.user !== undefined) writeFileSync(resolve(dir, 'user.md'), data.user, 'utf-8')
+    if (data.memory !== undefined) writeFileSync(resolve(dir, 'memory.md'), data.memory, 'utf-8')
     if (data.prompt !== undefined) {
       if (data.prompt) writeFileSync(resolve(dir, 'prompt.md'), data.prompt, 'utf-8')
       else try { rmSync(resolve(dir, 'prompt.md')) } catch {}

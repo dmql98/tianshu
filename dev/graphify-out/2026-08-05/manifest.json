@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/ApprovalDialog.tsx": {
-    "mtime": 1785374516.8189697,
-    "ast_hash": "1103c95b34d97b96534f9deee4d9703d",
+    "mtime": 1785922303.554001,
+    "ast_hash": "50d3c28e08ad8a6d20eb8295383896cf",
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/CharacterPicker.tsx": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "web/client/src/stores/chatStore.ts": {
-    "mtime": 1785919557.3086498,
-    "ast_hash": "d0c4663d3788c93cf09eed793c08e2ca",
+    "mtime": 1785922303.5530016,
+    "ast_hash": "9f0066c4cb2ee1a615e85e3a0471c47c",
     "semantic_hash": ""
   },
   "web/client/src/stores/providersStore.ts": {
@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "web/client/src/types/index.ts": {
-    "mtime": 1785896542.3254626,
-    "ast_hash": "2f2f517c4d5203fc2aef4196f18438ea",
+    "mtime": 1785922303.5520012,
+    "ast_hash": "6f40e32b2c2bebab2e74312983807464",
     "semantic_hash": ""
   },
   "web/client/src/types/markdown-it.d.ts": {
@@ -295,8 +295,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/inner.ts": {
-    "mtime": 1785918985.9669287,
-    "ast_hash": "a43a58e6384bec53d7d33b6bf7f712c9",
+    "mtime": 1785922303.5510023,
+    "ast_hash": "45cf8d6b59ff6bd7ac250f9a29deee29",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop.ts": {
@@ -310,8 +310,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/outer.ts": {
-    "mtime": 1785896542.330475,
-    "ast_hash": "975a2ad19dc2fb24e1f4cb237505b22f",
+    "mtime": 1785920426.2608397,
+    "ast_hash": "92f96bc654869b74f731e54fcce7918a",
     "semantic_hash": ""
   },
   "web/server/src/agent/session-runner.ts": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/bash/index.ts": {
-    "mtime": 1785896542.3383505,
-    "ast_hash": "c7e67991941a44ae4499deb971eb6fa0",
+    "mtime": 1785920492.4588547,
+    "ast_hash": "23a87a9bc4a22a2883cb1b4115f7943c",
     "semantic_hash": ""
   },
   "web/server/src/tools/bash/tool.json": {
@@ -735,8 +735,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/executor.ts": {
-    "mtime": 1785896542.3414397,
-    "ast_hash": "af05ad629d3a5c7e7d6bccc5eb7b0f94",
+    "mtime": 1785920426.2600746,
+    "ast_hash": "6c3e96e0cd509c8302d3c8f092625ba0",
     "semantic_hash": ""
   },
   "web/server/src/tools/get_time/index.ts": {
@@ -770,8 +770,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/mcp-client.ts": {
-    "mtime": 1785375874.1888216,
-    "ast_hash": "8e2f2182a9e45ccdb1aefa900671d39d",
+    "mtime": 1785920426.2595491,
+    "ast_hash": "1d107f48ed6fb0c54df48150a0953a01",
     "semantic_hash": ""
   },
   "web/server/src/tools/mcp-status.ts": {
@@ -835,8 +835,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/utils.ts": {
-    "mtime": 1785896542.3444448,
-    "ast_hash": "b85136e460a6ab15b8e9a20ebe74ebde",
+    "mtime": 1785922303.5510023,
+    "ast_hash": "64cde36909160081c1f1c03655e63f9b",
     "semantic_hash": ""
   },
   "web/server/src/tools/validate.ts": {
@@ -930,8 +930,8 @@
     "semantic_hash": ""
   },
   "web/client/src/features/character-presence/useCharacterPresence.ts": {
-    "mtime": 1785721415.3822198,
-    "ast_hash": "548bfa95282416ab2193c3f6bd0f1359",
+    "mtime": 1785920426.2613897,
+    "ast_hash": "3b2fd0ade7f2f54fe1f5c4fd88972857",
     "semantic_hash": ""
   },
   "web/client/src/features/characters/CharacterRenderer.tsx": {
@@ -1045,8 +1045,8 @@
     "semantic_hash": ""
   },
   "web/server/src/character/presence-projector.ts": {
-    "mtime": 1785469127.7964551,
-    "ast_hash": "d91b314d0e510efcc17d8ad7756f2ca5",
+    "mtime": 1785920426.2625463,
+    "ast_hash": "24ab17a19cdceb6b651b9b467688719a",
     "semantic_hash": ""
   },
   "web/server/src/character/revision-store.ts": {
@@ -1255,8 +1255,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/utils.test.ts": {
-    "mtime": 1785896542.3434432,
-    "ast_hash": "fb1c378f207b2c088a8677b122720b96",
+    "mtime": 1785922303.5566773,
+    "ast_hash": "a0d73cb304078486f2b7477a5f8d0f35",
     "semantic_hash": ""
   },
   "characterAsset.txt": {
@@ -1277,6 +1277,11 @@
   "web/client/src/components/Chat/PlanDialog.tsx": {
     "mtime": 1785919941.2819057,
     "ast_hash": "2a77a223c5930d6a8f4573443f7d54c0",
+    "semantic_hash": ""
+  },
+  "web/server/src/tools/bash/abort.test.ts": {
+    "mtime": 1785920492.4623406,
+    "ast_hash": "7bcc9475ab07a7cfc23c7b141788eaed",
     "semantic_hash": ""
   }
 }

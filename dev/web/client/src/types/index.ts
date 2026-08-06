@@ -181,6 +181,9 @@ export interface RunEvent {
   token_speed?: number
   token_speed_estimated?: boolean
   question?: string
+  approval_kind?: 'workspace' | 'risk'
+  requested_path?: string
+  permission_root?: string
 }
 
 // 工作区

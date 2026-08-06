@@ -9,8 +9,8 @@ import { logLLMCall } from '../debug/llm-logger.js'
 import type { Strategy } from './session.js'
 import type { Server, Socket } from 'socket.io'
 import type { MCPClient } from '../tools/mcp-client.js'
-import { resolve as pathResolve, dirname } from 'path'
-import { isPathWithin } from '../tools/utils.js'
+import { resolve as pathResolve } from 'path'
+import { isPathWithin, workspaceApprovalRoot } from '../tools/utils.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { saveAttachment } from './media-store.js'
 import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, type AttachmentRecord, type ContentPart } from './attachments.js'
@@ -555,15 +555,19 @@ export async function innerLoop(
     if (result.escaped && sessionId && socket) {
       const escapedPath = result.error?.replace('Path escapes workspace: ', '') || ''
       const absEscapedPath = pathResolve(workspace || process.cwd(), escapedPath)
-      // Approve the exact path that the tool tried to access
-      const approvedPath = absEscapedPath
+      // File requests authorize their containing directory; directory
+      // requests keep that directory as the least useful permission scope.
+      const approvedPath = workspaceApprovalRoot(absEscapedPath)
       const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
         socket.emit('approval.requested', {
           session_id: sessionId,
           run_id: opts.run_id,
           tool_call_id: p.tc.id,
-          tool_name: `[Workspace] ${p.name}`,
-          tool_input: JSON.stringify({ ...p.args, _escaped_path: approvedPath }),
+          tool_name: p.name,
+          tool_input: JSON.stringify(p.args),
+          approval_kind: 'workspace',
+          requested_path: absEscapedPath,
+          permission_root: approvedPath,
         })
         approvalRegistry.register(sessionId, p.tc.id, opts.run_id, resolve)
       })

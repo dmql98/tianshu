@@ -3,6 +3,7 @@ import type { Message } from '@/types'
 import { useChatStore } from '@/stores/chatStore'
 import ThinkingBlock from './ThinkingBlock'
 import ToolCall from './ToolCall'
+import MarkdownContent from './MarkdownContent'
 
 const showReasoning = () => localStorage.getItem('tianshu:showReasoning') !== 'false'
 
@@ -119,12 +120,7 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
         </div>
       ) : hasVisibleContent ? (
         <div className="msg-bubble">
-          {message.content.split('\n').map((line, i) => (
-            <span key={i}>
-              {line}
-              {i < message.content.split('\n').length - 1 && <br />}
-            </span>
-          ))}
+          <MarkdownContent content={message.content} />
         </div>
       ) : null}
       {(hasVisibleContent || isEditing) && (

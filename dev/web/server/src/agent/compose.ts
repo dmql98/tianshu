@@ -40,7 +40,16 @@ export function composeMessages(
 }
 
 function cloneMessage(m: LLMMessage): LLMMessage {
-  return { ...m }
+  const msg = { ...m }
+  // DeepSeek-style reasoning APIs require the `reasoning_content` field on
+  // EVERY assistant message once thinking mode is active — including turns
+  // where the model produced no reasoning (null). Omitting the field (even
+  // when empty) makes the upstream reject with "The reasoning_content in the
+  // thinking mode must be passed back to the API."
+  if (msg.role === 'assistant' && msg.reasoning_content == null) {
+    msg.reasoning_content = ''
+  }
+  return msg
 }
 
 function stripReasoning(m: LLMMessage): LLMMessage {

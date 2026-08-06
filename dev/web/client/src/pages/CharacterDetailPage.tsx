@@ -8,6 +8,7 @@ import type { ToolMeta } from '@/api/tools'
 import type { SkillPackageMeta } from '@/api/skills'
 import CharacterVisualEditor from '@/features/characters/CharacterVisualEditor'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
+import EditField from '@/components/EditField'
 
 const roleLabels: Record<string, string> = { main: '主 Agent', sub: '子 Agent', both: '主 / 子 Agent' }
 
@@ -68,9 +69,6 @@ export default function CharacterDetailPage() {
   useEffect(() => { currentIdRef.current = currentId }, [currentId])
   useEffect(() => { charIdRef.current = charId }, [charId])
 
-  // Debounce timer
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   // Auto-save for existing characters (stable reference via refs)
   const autoSave = useCallback(async (data: Record<string, unknown>) => {
     const cid = currentIdRef.current
@@ -87,17 +85,6 @@ export default function CharacterDetailPage() {
       alert('ID 已存在，请换一个')
     }
   }, [navigate])
-
-  // Debounced version for text fields
-  const debouncedAutoSave = useCallback((data: Record<string, unknown>) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => autoSave(data), 500)
-  }, [autoSave])
-
-  // Cleanup debounce on unmount
-  useEffect(() => {
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [])
 
   // Load character data (edit mode)
   useEffect(() => {
@@ -334,28 +321,77 @@ export default function CharacterDetailPage() {
               <div className="detail-section-title">基本信息</div>
               <div className="info-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                 <div className="info-item" style={{ gridColumn: '1/-1' }}>
-                  <div className="info-item-label">角色名称</div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
-                    <input value={name} onChange={e => { setName(e.target.value); if (!idEdited) setCharId(toSlug(e.target.value)); debouncedAutoSave({ name: e.target.value }) }} placeholder="输入角色名称" style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
-                    <input type="color" value={color} onChange={e => { setColor(e.target.value); autoSave({ color: e.target.value }) }} style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', padding: 2, background: 'var(--bg-input)' }} />
-                  </div>
+                  <EditField
+                    label="角色名称"
+                    value={name}
+                    onSave={v => {
+                      const trimmed = v.trim()
+                      setName(trimmed)
+                      if (!idEdited) setCharId(toSlug(trimmed))
+                      autoSave({ name: trimmed })
+                    }}
+                    renderInput={(v, onChange) => (
+                      <input value={v} onChange={e => onChange(e.target.value)} placeholder="输入角色名称" style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                    )}
+                  />
                 </div>
                 <div className="info-item" style={{ gridColumn: '1/-1' }}>
-                  <div className="info-item-label">角色简介</div>
-                  <textarea value={description} onChange={e => { setDescription(e.target.value); debouncedAutoSave({ description: e.target.value }) }} placeholder="简短描述这个角色" rows={2} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                  <EditField
+                    label="角色颜色"
+                    value={color}
+                    onSave={v => { setColor(v); autoSave({ color: v }) }}
+                    renderInput={(v, onChange) => (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input type="color" value={v} onChange={e => onChange(e.target.value)} style={{ width: 36, height: 32, border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', padding: 2, background: 'var(--bg-input)' }} />
+                        <input value={v} onChange={e => onChange(e.target.value)} style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
+                      </div>
+                    )}
+                    display={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: 4, background: color, border: '1px solid var(--border)', display: 'inline-block' }} />
+                      <span style={{ fontSize: 13, color: 'var(--ink-mid)', fontFamily: 'monospace' }}>{color}</span>
+                    </div>}
+                  />
+                </div>
+                <div className="info-item" style={{ gridColumn: '1/-1' }}>
+                  <EditField
+                    label="角色简介"
+                    value={description}
+                    onSave={v => { setDescription(v); autoSave({ description: v }) }}
+                    renderInput={(v, onChange) => (
+                      <textarea value={v} onChange={e => onChange(e.target.value)} placeholder="简短描述这个角色" rows={2} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                    )}
+                  />
                 </div>
                 <div style={{ display: 'flex', gap: 8, gridColumn: '1/-1' }}>
                   <div className="info-item" style={{ flex: 1 }}>
-                    <div className="info-item-label">角色 ID</div>
-                    <input value={charId} onChange={e => { setCharId(toSlug(e.target.value)); setIdEdited(true) }} onBlur={() => { const trimmed = charId.trim(); if (trimmed && trimmed !== currentId) autoSave({ id: trimmed }) }} placeholder="自定义ID" style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', boxSizing: 'border-box' }} />
+                    <EditField
+                      label="角色 ID"
+                      value={charId}
+                      onSave={v => {
+                        const trimmed = toSlug(v)
+                        setCharId(trimmed)
+                        setIdEdited(true)
+                        if (trimmed && trimmed !== currentId) autoSave({ id: trimmed })
+                      }}
+                      renderInput={(v, onChange) => (
+                        <input value={v} onChange={e => onChange(e.target.value)} placeholder="自定义ID" style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', boxSizing: 'border-box' }} />
+                      )}
+                    />
                   </div>
                   <div className="info-item" style={{ flex: 1 }}>
-                    <div className="info-item-label">角色类型</div>
-                    <select value={role} onChange={e => { setRole(e.target.value as Character['role']); autoSave({ role: e.target.value }) }} style={{ marginTop: 4, width: '100%' }}>
-                      <option value="main">主 Agent</option>
-                      <option value="sub">子 Agent</option>
-                      <option value="both">主/子 Agent</option>
-                    </select>
+                    <EditField
+                      label="角色类型"
+                      value={role}
+                      onSave={v => { setRole(v as Character['role']); autoSave({ role: v }) }}
+                      renderInput={(v, onChange) => (
+                        <select value={v} onChange={e => onChange(e.target.value)} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', fontFamily: 'inherit' }}>
+                          <option value="main">主 Agent</option>
+                          <option value="sub">子 Agent</option>
+                          <option value="both">主/子 Agent</option>
+                        </select>
+                      )}
+                      display={<div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink-mid)' }}>{roleLabels[role] || role}</div>}
+                    />
                   </div>
                   <div className="info-item" style={{ flex: 1 }}>
                     <div className="info-item-label">默认审批模式</div>
@@ -382,10 +418,17 @@ export default function CharacterDetailPage() {
                 {stepsEnabled && (
                   <div className="tool-item">
                     <div className="tool-name">步数上限</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <input type="range" min={1} max={999} value={maxSteps} onChange={e => { const v = Number(e.target.value); setMaxSteps(v); debouncedAutoSave({ maxSteps: v }) }} style={{ flex: 1, accentColor: 'var(--gold)' }} />
-                      <span style={{ fontSize: 12, color: 'var(--ink-deep)', fontWeight: 500, minWidth: 24, textAlign: 'right' }}>{maxSteps}</span>
-                    </div>
+                    <EditField
+                      value={String(maxSteps)}
+                      onSave={v => { const n = Number(v); const limit = Number.isFinite(n) ? Math.max(1, Math.min(999, Math.round(n))) : maxSteps; setMaxSteps(limit); autoSave({ maxSteps: limit }) }}
+                      renderInput={(v, onChange) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                          <input type="range" min={1} max={999} value={v} onChange={e => onChange(e.target.value)} style={{ flex: 1, accentColor: 'var(--gold)' }} />
+                          <input type="number" min={1} max={999} value={v} onChange={e => onChange(e.target.value)} style={{ width: 56, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', textAlign: 'center' }} />
+                        </div>
+                      )}
+                      display={<span style={{ fontSize: 13, color: 'var(--ink-mid)' }}>{maxSteps} 步</span>}
+                    />
                   </div>
                 )}
               </div>
@@ -422,12 +465,26 @@ export default function CharacterDetailPage() {
             <div className="detail-section">
               <div className="detail-columns">
                 <div className="detail-col">
-                  <div className="detail-section-title">Soul（人格）</div>
-                  <textarea className="md-box" value={soul} placeholder="(未设置)" onChange={e => { setSoul(e.target.value); debouncedAutoSave({ soul: e.target.value }) }} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+                  <EditField
+                    label="Soul（人格）"
+                    value={soul}
+                    onSave={v => { setSoul(v); autoSave({ soul: v }) }}
+                    renderInput={(v, onChange) => (
+                      <textarea className="md-box" value={v} placeholder="(未设置)" onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+                    )}
+                    display={<div className="md-box" style={{ minHeight: 400, color: soul ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{soul || '(未设置)'}</div>}
+                  />
                 </div>
                 <div className="detail-col">
-                  <div className="detail-section-title">User（用户画像）</div>
-                  <textarea className="md-box" value={userProfile} placeholder="(未设置)" onChange={e => { setUserProfile(e.target.value); debouncedAutoSave({ userProfile: e.target.value }) }} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+                  <EditField
+                    label="User（用户画像）"
+                    value={userProfile}
+                    onSave={v => { setUserProfile(v); autoSave({ userProfile: v }) }}
+                    renderInput={(v, onChange) => (
+                      <textarea className="md-box" value={v} placeholder="(未设置)" onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+                    )}
+                    display={<div className="md-box" style={{ minHeight: 400, color: userProfile ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{userProfile || '(未设置)'}</div>}
+                  />
                 </div>
               </div>
             </div>
@@ -439,7 +496,15 @@ export default function CharacterDetailPage() {
                 <div className={`toggle ${customPromptEnabled ? 'on' : ''}`} onClick={() => { setCustomPromptEnabled(!customPromptEnabled); autoSave({ customPrompt: !customPromptEnabled ? customPrompt : '' }) }}></div>
               </div>
               {customPromptEnabled ? (
-                <textarea className="md-box" value={customPrompt} placeholder="(输入自定义提示词)" onChange={e => { setCustomPrompt(e.target.value); debouncedAutoSave({ customPrompt: e.target.value }) }} style={{ minHeight: 250, width: '100%', resize: 'vertical' }} />
+                <EditField
+                  label="自定义提示词内容"
+                  value={customPrompt}
+                  onSave={v => { setCustomPrompt(v); autoSave({ customPrompt: v }) }}
+                  renderInput={(v, onChange) => (
+                    <textarea className="md-box" value={v} placeholder="(输入自定义提示词)" onChange={e => onChange(e.target.value)} style={{ minHeight: 250, width: '100%', resize: 'vertical' }} />
+                  )}
+                  display={<div className="md-box" style={{ minHeight: 250, color: customPrompt ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{customPrompt || '(未设置)'}</div>}
+                />
               ) : (
                 <div className="md-box" style={{ color: 'var(--ink-faint)' }}>(未设置，将使用默认系统提示词)</div>
               )}
@@ -468,13 +533,27 @@ export default function CharacterDetailPage() {
                 </div>
                 <div className="tool-item">
                   <div className="tool-name">记忆字符上限</div>
-                  <input type="number" min={0} step={100} value={charLimit} onChange={e => { const v = Number(e.target.value); setCharLimit(v); autoSave({ memory: { enabled: memoryEnabled, selfEvolution, charLimit: v } }) }} style={{ width: 120, marginTop: 4 }} />
+                  <EditField
+                    value={String(charLimit)}
+                    onSave={v => { const n = Number(v); const limit = Number.isFinite(n) && n >= 0 ? n : 0; setCharLimit(limit); autoSave({ memory: { enabled: memoryEnabled, selfEvolution, charLimit: limit } }) }}
+                    renderInput={(v, onChange) => (
+                      <input type="number" min={0} step={100} value={v} onChange={e => onChange(e.target.value)} style={{ width: 120, marginTop: 4, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
+                    )}
+                    display={<div style={{ fontSize: 13, color: 'var(--ink-mid)' }}>{charLimit}</div>}
+                  />
                 </div>
               </div>
             </div>
             <div className="detail-section">
-              <div className="detail-section-title">Memory（记忆内容）</div>
-              <textarea className="md-box" value={memoryContent} placeholder="(空)" onChange={e => { setMemoryContent(e.target.value); debouncedAutoSave({ memoryContent: e.target.value }) }} style={{ minHeight: 450, width: '100%', resize: 'vertical' }} />
+              <EditField
+                label="Memory（记忆内容）"
+                value={memoryContent}
+                onSave={v => { setMemoryContent(v); autoSave({ memoryContent: v }) }}
+                renderInput={(v, onChange) => (
+                  <textarea className="md-box" value={v} placeholder="(空)" onChange={e => onChange(e.target.value)} style={{ minHeight: 450, width: '100%', resize: 'vertical' }} />
+                )}
+                display={<div className="md-box" style={{ minHeight: 450, color: memoryContent ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{memoryContent || '(空)'}</div>}
+              />
             </div>
           </div>
 

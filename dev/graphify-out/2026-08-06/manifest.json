@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/compose.ts": {
-    "mtime": 1785984568.4285102,
-    "ast_hash": "01e55a0619b6a6ebdbd4a5e1010050fb",
+    "mtime": 1785896542.327461,
+    "ast_hash": "da1eeb225b808cf53f322bb03f4fc1ee",
     "semantic_hash": ""
   },
   "web/server/src/agent/context-references.ts": {
@@ -975,8 +975,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/loop-engine.ts": {
-    "mtime": 1785984641.7794569,
-    "ast_hash": "095f1ef987012a8dae111a9bad6fde33",
+    "mtime": 1785983033.8300178,
+    "ast_hash": "ab3aa306cac2f8185020977026925e8f",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/loop-policy.ts": {

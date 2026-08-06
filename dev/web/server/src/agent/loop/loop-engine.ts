@@ -19,6 +19,15 @@ import { goalStore, type GoalRow } from '../plan/plan-store.js'
  * agent/outer.ts sessionLoop.
  */
 
+// Reasoning models (DeepSeek-style) always emit `reasoning_content` regardless
+// of the client's `thinking` toggle. Once thinking is active upstream, every
+// assistant message MUST carry the field — omitting it makes the API reject
+// with "The reasoning_content in the thinking mode must be passed back".
+function isReasoningModel(model: string): boolean {
+  const id = model.toLowerCase()
+  return id.includes('deepseek') || id.includes('reasoner') || id.includes('-r1') || id.includes('qwq') || id.includes('thinking')
+}
+
 function persistComposeChanges(master: LLMMessage[], composed: LLMMessage[]): void {
   if (master.length !== composed.length) return
   for (let i = 0; i < master.length; i++) {
@@ -145,7 +154,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     }
     const composedMsgs = composeMessages(messages, {
       ...composeCtx,
-      preserveReasoning: opts.thinking === true,
+      preserveReasoning: opts.thinking === true || isReasoningModel(model) || messages.some(m => m.role === 'assistant' && !!m.reasoning_content),
     })
     // Persist compose content changes to master array so prefix stays stable across turns
     persistComposeChanges(messages, composedMsgs)

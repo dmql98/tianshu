@@ -1,5 +1,5 @@
-import { resolve, relative, isAbsolute } from 'path'
-import { realpathSync } from 'fs'
+import { resolve, relative, isAbsolute, dirname } from 'path'
+import { realpathSync, statSync } from 'fs'
 
 export class PathEscapeError extends Error {
   constructor(msg: string) { super(msg); this.name = 'PathEscapeError' }
@@ -11,6 +11,18 @@ export function normalizePathForPlatform(p: string): string {
   if (!gitBashDrive) return p
   const suffix = (gitBashDrive[2] || '').replace(/\//g, '\\')
   return `${gitBashDrive[1].toUpperCase()}:\\${suffix}`
+}
+
+/** The least directory scope that can authorize an escaped filesystem path. */
+export function workspaceApprovalRoot(p: string): string {
+  const absolute = resolve(normalizePathForPlatform(p))
+  try {
+    return statSync(absolute).isDirectory() ? absolute : dirname(absolute)
+  } catch {
+    // A non-existent target is normally a file/directory being created, so
+    // its existing parent is the useful authorization boundary.
+    return dirname(absolute)
+  }
 }
 
 export function isPathWithin(root: string, target: string): boolean {

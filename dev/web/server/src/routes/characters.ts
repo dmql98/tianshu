@@ -279,7 +279,7 @@ router.post('/', async (c) => {
     memory: memoryContent as string | undefined,
     prompt: customPrompt as string | undefined,
   })
-  return c.json({ ...meta, soul: soul || '', userProfile: userProfile || '', memoryContent: memoryContent || '', customPrompt: customPrompt || '' }, 201)
+  return c.json(mergeContent(meta, meta.id), 201)
 })
 router.post('/:id/skill-bindings', async (c) => {
   const id = c.req.param('id')
@@ -322,7 +322,7 @@ router.put('/:id', async (c) => {
     memory: memoryContent as string | undefined,
     prompt: customPrompt as string | undefined,
   })
-  return c.json({ ...meta, soul: soul || '', userProfile: userProfile || '', memoryContent: memoryContent || '', customPrompt: customPrompt || '' })
+  return c.json(mergeContent(meta, meta.id))
 })
 router.delete('/:id', (c) => {
   const id = c.req.param('id')

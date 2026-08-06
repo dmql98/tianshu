@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import MarkdownContent from './MarkdownContent'
 
 interface Props {
   content: string
@@ -14,7 +15,7 @@ export default function ThinkingBlock({ content, duration, defaultExpanded = fal
       <div className="th-header">
         ◈ 思考中 {duration ? `· ${(duration / 1000).toFixed(1)}s` : ''}
       </div>
-      {expanded && <div>{content}</div>}
+      {expanded && <MarkdownContent content={content} />}
     </div>
   )
 }

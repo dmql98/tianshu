@@ -23,6 +23,18 @@ interface PendingApproval {
   tool_call_id: string
   tool_name: string
   description: string
+  approval_kind?: 'workspace' | 'risk'
+  permission_root?: string
+}
+
+function pendingApprovalFromEvent(data: RunEvent): PendingApproval {
+  return {
+    tool_call_id: data.tool_call_id || '',
+    tool_name: data.tool_name || 'tool',
+    description: data.tool_input || '',
+    approval_kind: data.approval_kind,
+    permission_root: data.permission_root,
+  }
 }
 
 interface Attachment {
@@ -445,11 +457,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (isHandledByTemporaryListener(data)) return
       if (!data.session_id || !data.tool_call_id) return
       set({
-        pendingApproval: {
-          tool_call_id: data.tool_call_id,
-          tool_name: data.tool_name || 'tool',
-          description: data.tool_input || '',
-        },
+        pendingApproval: pendingApprovalFromEvent(data),
       })
     })
 
@@ -553,11 +561,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     })
     if (pendingApprovalEvent?.tool_call_id) {
       set({
-        pendingApproval: {
-          tool_call_id: pendingApprovalEvent.tool_call_id,
-          tool_name: pendingApprovalEvent.tool_name || 'tool',
-          description: pendingApprovalEvent.tool_input || '',
-        },
+        pendingApproval: pendingApprovalFromEvent(pendingApprovalEvent),
       })
     }
     if (askUserEvent?.run_id && askUserEvent.question) {
@@ -1090,11 +1094,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         if (data.session_id !== session!.id) return
         set({
-          pendingApproval: {
-            tool_call_id: data.tool_call_id!,
-            tool_name: data.tool_name!,
-            description: data.tool_input || '',
-          },
+          pendingApproval: pendingApprovalFromEvent(data),
         })
       }
 
