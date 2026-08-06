@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "patent-disclosure-skill",
+  "name": "中国专利交底与解读",
+  "version": "2.0.0",
+  "category": "patent",
+  "description": "从项目材料挖掘专利点并生成技术交底书，或将已有专利解读为通俗笔记和知识图谱",
+  "root": "SKILL.md",
+  "children": []
+}

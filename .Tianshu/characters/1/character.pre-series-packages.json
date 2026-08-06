@@ -1,0 +1,15 @@
+{
+  "id": "1",
+  "name": "小红",
+  "skills": [
+    "mcp-setup",
+    "model-provider-setup",
+    "session-management",
+    "skill-authoring",
+    "tool-constraint",
+    "character-creation",
+    "patent-disclosure-skill",
+    "uzi"
+  ],
+  "note": "Binding snapshot before lowcode/xhs/tianshu series package migration. Full prior snapshot remains in character.pre-skill-packages.json."
+}

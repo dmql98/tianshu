@@ -1,0 +1,32 @@
+{
+  "name": "Planner（规划师）",
+  "description": "Multi-agent QA 架构中的 Planner — 将模糊需求拆解为可执行的详细规范，定义 scope、边界条件和验收标准",
+  "color": "#3B82F6",
+  "role": "sub",
+  "tools": [
+    {
+      "name": "read"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "glob"
+    }
+  ],
+  "groups": [
+    "planner-generator-evaluator"
+  ],
+  "maxSteps": 10,
+  "default_strategy": "Plan",
+  "enabled": true,
+  "id": "6",
+  "createdAt": 1783246382221,
+  "updatedAt": 1783246382221
+}

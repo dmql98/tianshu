@@ -1,0 +1,97 @@
+{
+  "id": "1",
+  "name": "小红",
+  "description": "用户的贴心小秘书",
+  "avatar": "",
+  "color": "#6366f1",
+  "memory": {
+    "enabled": true,
+    "selfEvolution": false,
+    "charLimit": 2200
+  },
+  "maxSteps": 999,
+  "role": "both",
+  "groups": [],
+  "default_strategy": "Auto Approve",
+  "skills": [
+    "tianshu-system",
+    "patent-disclosure-skill",
+    "uzi",
+    "agent-reach",
+    "drawio-skill"
+  ],
+  "skillBindings": [
+    {
+      "packageId": "tianshu-system",
+      "enabled": true,
+      "preloadSkills": []
+    },
+    {
+      "packageId": "patent-disclosure-skill",
+      "enabled": true,
+      "preloadSkills": []
+    },
+    {
+      "packageId": "uzi",
+      "enabled": true,
+      "preloadSkills": []
+    },
+    {
+      "packageId": "agent-reach",
+      "enabled": true,
+      "preloadSkills": []
+    },
+    {
+      "packageId": "drawio-skill",
+      "enabled": true,
+      "preloadSkills": []
+    }
+  ],
+  "enabled": true,
+  "createdAt": 1782738601774,
+  "updatedAt": 1785983936873,
+  "tools": [
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "bash"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "task_complete"
+    },
+    {
+      "name": "character_manager"
+    },
+    {
+      "name": "provider_manager"
+    },
+    {
+      "name": "mcp_manager"
+    },
+    {
+      "name": "get_time"
+    },
+    {
+      "name": "read"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+You are a helpful general-purpose assistant. Be concise, accurate, and friendly.

@@ -1,0 +1,191 @@
+[
+  {
+    "id": "opencodego-1785374401060",
+    "name": "opencodego",
+    "base_url": "https://opencode.ai/zen/go/v1",
+    "api_key": "sk-mF2UOuWQjrCFDtmJxGFnn1mBPIXHBMaShUfJYLOMRt57h8ajsWzrU4uxf5yQwzmx",
+    "models": [
+      {
+        "id": "minimax-m3",
+        "name": "minimax-m3",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "minimax-m2.7",
+        "name": "minimax-m2.7",
+        "context_window": 204800,
+        "enabled": true
+      },
+      {
+        "id": "minimax-m2.5",
+        "name": "minimax-m2.5",
+        "context_window": 204800,
+        "enabled": true
+      },
+      {
+        "id": "kimi-k3",
+        "name": "kimi-k3",
+        "context_window": 1048576,
+        "enabled": true
+      },
+      {
+        "id": "kimi-k2.7-code",
+        "name": "kimi-k2.7-code",
+        "context_window": 262144,
+        "enabled": true
+      },
+      {
+        "id": "kimi-k2.6",
+        "name": "kimi-k2.6",
+        "context_window": 262144,
+        "enabled": true
+      },
+      {
+        "id": "kimi-k2.5",
+        "name": "kimi-k2.5",
+        "context_window": 256000,
+        "enabled": true
+      },
+      {
+        "id": "glm-5.2",
+        "name": "glm-5.2",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "glm-5.1",
+        "name": "glm-5.1",
+        "context_window": 200000,
+        "enabled": true
+      },
+      {
+        "id": "glm-5",
+        "name": "glm-5",
+        "context_window": 202752,
+        "enabled": true
+      },
+      {
+        "id": "deepseek-v4-pro",
+        "name": "deepseek-v4-pro",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "deepseek-v4-flash",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "qwen3.7-max",
+        "name": "qwen3.7-max",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "qwen3.7-plus",
+        "name": "qwen3.7-plus",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "qwen3.6-plus",
+        "name": "qwen3.6-plus",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "qwen3.5-plus",
+        "name": "qwen3.5-plus",
+        "context_window": 1000000,
+        "enabled": true
+      },
+      {
+        "id": "mimo-v2-pro",
+        "name": "mimo-v2-pro",
+        "context_window": 1048576,
+        "enabled": true
+      },
+      {
+        "id": "mimo-v2-omni",
+        "name": "mimo-v2-omni",
+        "context_window": 262144,
+        "enabled": true
+      },
+      {
+        "id": "mimo-v2.5-pro",
+        "name": "mimo-v2.5-pro",
+        "context_window": 1048576,
+        "enabled": true
+      },
+      {
+        "id": "mimo-v2.5",
+        "name": "mimo-v2.5",
+        "context_window": 1048576,
+        "enabled": true
+      },
+      {
+        "id": "hy3",
+        "name": "hy3",
+        "context_window": 262144,
+        "enabled": true
+      },
+      {
+        "id": "hy3-preview",
+        "name": "hy3-preview",
+        "context_window": 256000,
+        "enabled": true
+      },
+      {
+        "id": "grok-4.5",
+        "name": "grok-4.5",
+        "context_window": 1000000,
+        "enabled": true
+      }
+    ]
+  },
+  {
+    "id": "opencodezen-1785848471372",
+    "name": "opencodezen",
+    "base_url": "https://opencode.ai/zen/v1/",
+    "api_key": "sk-3EFkrMu5xvRXcmBrTCZatImbwKVGLSe8qk2h5sIFGP0nQofcmDK2xmxNT2uz7mVN",
+    "models": [
+      {
+        "id": "big-pickle",
+        "name": "big-pickle",
+        "enabled": true
+      },
+      {
+        "id": "deepseek-v4-flash-free",
+        "name": "deepseek-v4-flash-free",
+        "enabled": true
+      },
+      {
+        "id": "mimo-v2.5-free",
+        "name": "mimo-v2.5-free",
+        "enabled": true
+      },
+      {
+        "id": "ling-3.0-flash-free",
+        "name": "ling-3.0-flash-free",
+        "enabled": true
+      },
+      {
+        "id": "nemotron-3-ultra-free",
+        "name": "nemotron-3-ultra-free",
+        "enabled": true
+      },
+      {
+        "id": "north-mini-code-free",
+        "name": "north-mini-code-free",
+        "enabled": true
+      },
+      {
+        "id": "laguna-s-2.1-free",
+        "name": "laguna-s-2.1-free",
+        "enabled": true
+      }
+    ]
+  }
+]

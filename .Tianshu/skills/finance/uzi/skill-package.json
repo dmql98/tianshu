@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "uzi",
+  "name": "UZI 股票分析",
+  "version": "3.9.2",
+  "category": "finance",
+  "description": "股票深度研究、投资者评审、龙虎榜分析与陷阱检测技能包",
+  "root": "SKILL.md",
+  "children": [
+    { "id": "deep-analysis", "name": "深度分析", "path": "children/deep-analysis", "description": "个股研究、数据采集、机构估值和报告生成", "preload": false },
+    { "id": "investor-panel", "name": "投资者圆桌", "path": "children/investor-panel", "description": "多流派投资者量化评审与观点分析", "preload": false },
+    { "id": "lhb-analyzer", "name": "龙虎榜分析", "path": "children/lhb-analyzer", "description": "龙虎榜席位、游资行为和资金结构分析", "preload": false },
+    { "id": "trap-detector", "name": "陷阱检测", "path": "children/trap-detector", "description": "财务、治理和交易风险识别", "preload": false }
+  ]
+}

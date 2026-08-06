@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "drawio-skill",
+  "name": "Draw.io 图表技能",
+  "version": "2.1.0",
+  "category": "diagram",
+  "description": "从自然语言生成 .drawio 专业图表（UML/SysML/BPMN/网络/C4/ERD 等 11 种预设），导出 PNG/SVG/PDF/JPG；支持代码库/IaC/SQL/OpenAPI 转图、形状搜索、Mermaid 转换与自动布局。来源：https://github.com/Agents365-ai/drawio-skill",
+  "tags": [],
+  "root": "SKILL.md",
+  "children": []
+}

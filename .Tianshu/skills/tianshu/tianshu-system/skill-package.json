@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "tianshu-system",
+  "name": "天枢系统管理",
+  "version": "2.0.0",
+  "category": "tianshu",
+  "description": "天枢角色、会话、模型、MCP、技能和工具约束管理技能包",
+  "root": "SKILL.md",
+  "children": [
+    { "id": "character", "name": "角色管理", "path": "children/character", "description": "设计角色人格并使用 character_manager 安全创建或更新角色", "preload": false },
+    { "id": "session", "name": "会话管理", "path": "children/session", "description": "理解会话、工作区、策略和生命周期", "preload": false },
+    { "id": "provider", "name": "模型服务管理", "path": "children/provider", "description": "使用 provider_manager 配置模型服务", "preload": false },
+    { "id": "mcp", "name": "MCP 管理", "path": "children/mcp", "description": "使用 mcp_manager 配置和验证 MCP 服务", "preload": false },
+    { "id": "skill-authoring", "name": "技能包编写", "path": "children/skill-authoring", "description": "使用标准技能包格式创建和维护技能", "preload": false },
+    { "id": "tool-constraint", "name": "工具约束", "path": "children/tool-constraint", "description": "为角色配置路径、命令和只读约束", "preload": false },
+    { "id": "doom-loop-escape", "name": "失败循环自愈", "path": "children/doom-loop-escape", "description": "识别重复工具失败并切换策略", "preload": false }
+  ]
+}

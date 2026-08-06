@@ -1,0 +1,15 @@
+{
+  "character_id": "",
+  "group_id": "",
+  "provider_id": "",
+  "model": "",
+  "workspace": "",
+  "content": "",
+  "detect_window": 9,
+  "error_rate_threshold": 0.5,
+  "repetition_count": 3,
+  "high_freq_min_calls": 6,
+  "high_freq_max_unique": 2,
+  "notify_enabled": true,
+  "notify_timeout": 2
+}

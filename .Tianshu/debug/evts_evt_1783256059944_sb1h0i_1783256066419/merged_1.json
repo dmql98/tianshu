@@ -1,0 +1,1166 @@
+{
+  "turns": [
+    {
+      "request": {
+        "model": "deepseek-v4-flash-free",
+        "messages": [
+          {
+            "role": "system",
+            "content": "## Character\n# 角色：易大师 (Master Yi)\n\n## 人格特征\n- 锐意进取，永远在寻找更好的解决方案\n- 思维敏捷，能从大量执行轨迹中发现模式\n- 沟通风格：言简意赅，直击要害\n\n## 价值观\n- 穷则变，变则通，通则久。停滞等于退化。\n- 好的工具胜过好的意志。重复三次的事情，值得封装为工具。\n- 分享是进化的加速器。你的优化，可能成为他人的灵感。\n\n## 沟通语气\n- 使用中文，语气笃定而不傲慢\n- 每句话通常包含：观察 → 判断 → 建议\n- 例：\"第三步两次都超时了。换成异步队列。要我帮你生成新的 Skill 吗？\"\n\n## 约束\n- 你作为 Sub-agent 被小师妹委托，只对收到的任务给出分析和建议。\n- 你的优化必须可追溯（记录基版本和变更摘要）。\n- 你只服务于当前会话上下文中的项目，不跨项目共享经验。\n\n## User Info\n# 用户设定\n- 通过小师妹委托任务\n- 需要清晰的问题描述和上下文\n\n## Memory\n# 初始记忆\n- 作为 Sub-agent 服务于小师妹\n- 专注于分析、优化和工具设计\n- 所有分析和建议需可追溯\n\n## Workspace\nYour working directory is: C:\\Users\\dmql\\Documents\\Yi\\Yi-Lin\\apps\\default-workspace\nAll file operations (read/write/edit/glob/bash) use this directory as root. Use paths relative to this directory, or use absolute paths within it.\n\n# Tool-use enforcement\nYou MUST use your tools to take action — do not describe what you would do or plan to do without actually doing it. When you say you will perform an action, you MUST immediately make the corresponding tool call in the same response. Never end your turn with a promise of future action — execute it now.\nKeep working until the task is actually complete. If you have tools available that can accomplish the task, use them instead of telling the user what you would do.\nEvery response should either (a) contain tool calls that make progress, or (b) deliver a final result to the user. Responses that only describe intentions without acting are not acceptable.\n\n# Finishing the job\nWhen the user asks you to build, run, or verify something, the deliverable is a working artifact backed by real tool output — not a description of one. Do not stop after writing a stub, a plan, or a single command. Keep working until you have actually exercised the code or produced the requested result.\nIf a tool fails and blocks the real path, say so directly and try an alternative. NEVER substitute fabricated output for results you couldn’t actually produce.\n\n# Parallel tool calls\nWhen you need several pieces of information that don’t depend on each other, request them together in a single response instead of one tool call per turn. Independent reads, searches, and read-only commands should be batched into the same assistant turn.\nOnly serialize calls when a later call genuinely depends on an earlier call’s result (e.g. you must read a file before you can patch it).\n\n# Act, don’t ask\nWhen a question has an obvious default interpretation, act on it immediately instead of asking for clarification. Examples:\n- ‘What time is it?’ → run `date` (don’t guess)\n- ‘Is this port open?’ → check the machine directly\nOnly ask for clarification when the ambiguity genuinely changes what tool you would call.\n\n# Verification\nBefore finalizing your response:\n- Correctness: does the output satisfy every stated requirement?\n- Grounding: are factual claims backed by tool outputs or provided context?\n- If required context is missing, use a tool to look it up rather than guessing.\n- If you must proceed with incomplete information, label assumptions explicitly.\n\n# No fabrication\nNever invent file contents, command output, API responses, or search results. If a tool returns an error or partial data, report it honestly — do NOT make up plausible-looking output. A blocker reported honestly is always better than a fabricated result.\n\n## Available Tools\n- bash: Execute a shell command in the workspace directory\n- character_manager: Create a character with soul.md + character.json + user.md + memory.md. All files are written server-side to data/characters/<id>/ — workspace-independent. Returns the new character ID.\n- edit: Apply an exact-string replacement edit to a file in the workspace. Replaces the first occurrence of oldString with newString. Use unique surrounding context to target the right match. Set replaceAll to true to replace every occurrence.\n- glob: Find files matching a glob pattern\n- grep: Search file contents using a regex pattern\n- read: Read file contents from the workspace\n- skill_manager: List available skills or read a skill's full SKILL.md content. Skills are discovered server-side (workspace-independent).\n- write: Write content to a file in the workspace\n- task_complete: 标记当前任务已完成，结束本轮会话循环。调用时附带最终结果的摘要说明。\n- debug_sessions: 读取 debug 会话记录：先合并旧 turn 文件，再返回 data/debug/ 下所有会话的对话内容\n- mcp__codegraph__codegraph_search: Quick symbol search by name. Returns locations only (no code). Use codegraph_explore instead to get the actual source / understand an area in one call.\n- mcp__codegraph__codegraph_callers: List functions that call <symbol>. For the full flow, use codegraph_explore.\n- mcp__codegraph__codegraph_callees: List functions that <symbol> calls. For the full flow, use codegraph_explore.\n- mcp__codegraph__codegraph_impact: List symbols affected by changing <symbol>. Use before a refactor.\n- mcp__codegraph__codegraph_node: Two modes. (1) READ A FILE — use INSTEAD of the Read tool: pass `file` (a path or basename) with no `symbol` and it returns that file's current on-disk source with line numbers, exactly the shape Read gives you (`<n>\\t<line>`, safe to Edit from), narrowable with `offset`/`limit` just like Read — PLUS a one-line note of which files depend on it. Same bytes as Read, faster (served from the index), with the blast radius attached. Use it whenever you would Read a source file. (2) ONE SYMBOL you can name — its location, signature, verbatim source (includeCode=true) and caller/callee trail in one call, so before changing it you see what calls it and what your edit would break. For an AMBIGUOUS name it returns EVERY matching definition's body in one call (so you never Read a file to find the right overload); pass `file`/`line` to pin one. Use codegraph_explore for several related symbols or the full flow.\n- mcp__codegraph__codegraph_explore: PRIMARY TOOL — call FIRST for almost any question OR before an edit: how does X work, architecture, a bug, where/what is X, surveying an area, or the symbols you are about to change. Returns the verbatim source of the relevant symbols grouped by file in ONE capped call (Read-equivalent — treat the shown source as already Read; do NOT re-open those files), plus the call path among them. Query can be a natural-language question OR a bag of symbol/file names. Usually the ONLY call you need — more accurate context, in far fewer tokens and round-trips than a search/Read/Grep loop.\n- mcp__codegraph__codegraph_status: Index health check (files / nodes / edges). Skip unless debugging.\n- mcp__codegraph__codegraph_files: Indexed file tree with language + symbol counts. Faster than Glob for project layout.\n\n## Available Skills\n- character-creation: 在 Yi-Lin 系统中创建和编辑角色：soul.md 人格定义、character.json 配置、tools/skills 白名单\n- mcp-setup: 在 Yi-Lin 系统中配置 MCP 服务器，连接外部工具和服务\n- session-management: 理解 Yi-Lin 会话机制：session 生命周期、workspace 解析、会话状态管理\n- skill-authoring: 指引 AI agent 在 Yi-Lin 系统中设计、编写和注册新技能的完整参考\n- tool-constraint: 为 Yi-Lin 角色配置工具约束：限制路径、命令、文件大小等\nUse `skill_manager` with action=\"read\" to view a skill's full SKILL.md content."
+          },
+          {
+            "role": "user",
+            "content": "Source session: mr7slfeth3lr2v\nInsight type: self_correction\n\n根据提供session，总结可用skill或新增专家角色。"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Execute a shell command in the workspace directory",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string",
+                    "description": "Shell command to execute"
+                  }
+                },
+                "required": [
+                  "command"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "character_manager",
+              "description": "Create a character with soul.md + character.json + user.md + memory.md. All files are written server-side to data/characters/<id>/ — workspace-independent. Returns the new character ID.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "create"
+                    ],
+                    "description": "Create a new character with all required files."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Character display name (required)."
+                  },
+                  "soul": {
+                    "type": "string",
+                    "description": "SOUL.md content — the character's personality definition (required)."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Short description of the character."
+                  },
+                  "user_profile": {
+                    "type": "string",
+                    "description": "USER.md content — template/instructions about the user."
+                  },
+                  "memory": {
+                    "type": "string",
+                    "description": "MEMORY.md content — initial memory / background context."
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "main",
+                      "sub",
+                      "both"
+                    ],
+                    "description": "Character role (default: \"both\")."
+                  },
+                  "tools": {
+                    "type": "string",
+                    "description": "Comma-separated tool names to whitelist (e.g. \"read,write,bash\")."
+                  },
+                  "skills": {
+                    "type": "string",
+                    "description": "Comma-separated skill names to attach (e.g. \"character-creation,session-management\")."
+                  },
+                  "color": {
+                    "type": "string",
+                    "description": "Hex color for the character avatar (e.g. \"#6366f1\")."
+                  },
+                  "groups": {
+                    "type": "string",
+                    "description": "Comma-separated group names."
+                  },
+                  "default_strategy": {
+                    "type": "string",
+                    "enum": [
+                      "Plan",
+                      "Ask",
+                      "Bypass"
+                    ],
+                    "description": "Default tool-use strategy (default: \"Ask\")."
+                  },
+                  "maxSteps": {
+                    "type": "string",
+                    "description": "Maximum turns per session (default: \"10\")."
+                  }
+                },
+                "required": [
+                  "action",
+                  "name",
+                  "soul"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "edit",
+              "description": "Apply an exact-string replacement edit to a file in the workspace. Replaces the first occurrence of oldString with newString. Use unique surrounding context to target the right match. Set replaceAll to true to replace every occurrence.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path relative to workspace"
+                  },
+                  "oldString": {
+                    "type": "string",
+                    "description": "The exact text to search for (include enough surrounding context for a unique match)"
+                  },
+                  "newString": {
+                    "type": "string",
+                    "description": "The replacement text"
+                  },
+                  "replaceAll": {
+                    "type": "boolean",
+                    "description": "Replace all occurrences instead of just the first (optional)"
+                  }
+                },
+                "required": [
+                  "path",
+                  "oldString",
+                  "newString"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "glob",
+              "description": "Find files matching a glob pattern",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "pattern": {
+                    "type": "string",
+                    "description": "Glob pattern, relative to workspace"
+                  }
+                },
+                "required": [
+                  "pattern"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "grep",
+              "description": "Search file contents using a regex pattern",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "pattern": {
+                    "type": "string",
+                    "description": "Regex pattern"
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "Directory to search, relative to workspace (optional)"
+                  }
+                },
+                "required": [
+                  "pattern"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "read",
+              "description": "Read file contents from the workspace",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path relative to workspace"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "skill_manager",
+              "description": "List available skills or read a skill's full SKILL.md content. Skills are discovered server-side (workspace-independent).",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "list",
+                      "read"
+                    ],
+                    "description": "\"list\" returns all available skills with descriptions; \"read\" returns a skill's full SKILL.md content."
+                  },
+                  "skill_name": {
+                    "type": "string",
+                    "description": "Required when action=\"read\". The name of the skill to read (e.g. \"character-creation\")."
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "write",
+              "description": "Write content to a file in the workspace",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path relative to workspace"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "File content"
+                  }
+                },
+                "required": [
+                  "path",
+                  "content"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "task_complete",
+              "description": "标记当前任务已完成，结束本轮会话循环。调用时附带最终结果的摘要说明。",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string",
+                    "description": "任务完成摘要"
+                  }
+                },
+                "required": [
+                  "summary"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "debug_sessions",
+              "description": "读取 debug 会话记录：先合并旧 turn 文件，再返回 data/debug/ 下所有会话的对话内容",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "session_id": {
+                    "type": "string",
+                    "description": "按 session ID 过滤（可选）"
+                  }
+                },
+                "required": []
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_search",
+              "description": "Quick symbol search by name. Returns locations only (no code). Use codegraph_explore instead to get the actual source / understand an area in one call.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "Symbol name or partial name (e.g., \"auth\", \"signIn\", \"UserService\")"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "Filter by node kind",
+                    "enum": [
+                      "function",
+                      "method",
+                      "class",
+                      "interface",
+                      "type",
+                      "variable",
+                      "route",
+                      "component"
+                    ]
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum results (default: 10)",
+                    "default": 10
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_callers",
+              "description": "List functions that call <symbol>. For the full flow, use codegraph_explore.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the function, method, or class to find callers for"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "Narrow to the definition in this file (path or suffix) when several same-named symbols exist (e.g. one UserService per app in a monorepo)"
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum number of callers to return (default: 20)",
+                    "default": 20
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "symbol"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_callees",
+              "description": "List functions that <symbol> calls. For the full flow, use codegraph_explore.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the function, method, or class to find callees for"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "Narrow to the definition in this file (path or suffix) when several same-named symbols exist"
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum number of callees to return (default: 20)",
+                    "default": 20
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "symbol"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_impact",
+              "description": "List symbols affected by changing <symbol>. Use before a refactor.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the symbol to analyze impact for"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "Narrow to the definition in this file (path or suffix) when several same-named symbols exist"
+                  },
+                  "depth": {
+                    "type": "number",
+                    "description": "How many levels of dependencies to traverse (default: 2)",
+                    "default": 2
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "symbol"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_node",
+              "description": "Two modes. (1) READ A FILE — use INSTEAD of the Read tool: pass `file` (a path or basename) with no `symbol` and it returns that file's current on-disk source with line numbers, exactly the shape Read gives you (`<n>\\t<line>`, safe to Edit from), narrowable with `offset`/`limit` just like Read — PLUS a one-line note of which files depend on it. Same bytes as Read, faster (served from the index), with the blast radius attached. Use it whenever you would Read a source file. (2) ONE SYMBOL you can name — its location, signature, verbatim source (includeCode=true) and caller/callee trail in one call, so before changing it you see what calls it and what your edit would break. For an AMBIGUOUS name it returns EVERY matching definition's body in one call (so you never Read a file to find the right overload); pass `file`/`line` to pin one. Use codegraph_explore for several related symbols or the full flow.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the symbol to read (symbol mode). Omit it and pass `file` alone to read a whole file like Read."
+                  },
+                  "includeCode": {
+                    "type": "boolean",
+                    "description": "Symbol mode: include the symbol's full body (default: false). Ignored in file mode, which always returns source unless `symbolsOnly` is set.",
+                    "default": false
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "A file path or basename (e.g. \"harness.rs\", \"src/auth/session.ts\"). Pass it ALONE (no symbol) to READ the file like the Read tool — its full source with line numbers + which files depend on it. Or pass it WITH a symbol to disambiguate an overloaded name to the definition in this file."
+                  },
+                  "offset": {
+                    "type": "number",
+                    "description": "File mode: 1-based line to start reading from, exactly like Read's offset. Defaults to the start of the file."
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "File mode: maximum number of lines to return, exactly like Read's limit. Defaults to the whole file (capped at 2000 lines, like Read)."
+                  },
+                  "symbolsOnly": {
+                    "type": "boolean",
+                    "description": "File mode: return just the file's symbol map + dependents (a cheap structural overview) instead of its source.",
+                    "default": false
+                  },
+                  "line": {
+                    "type": "number",
+                    "description": "Symbol mode only: disambiguate to the definition at/around this line (use with the file:line a trail showed you)."
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": []
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_explore",
+              "description": "PRIMARY TOOL — call FIRST for almost any question OR before an edit: how does X work, architecture, a bug, where/what is X, surveying an area, or the symbols you are about to change. Returns the verbatim source of the relevant symbols grouped by file in ONE capped call (Read-equivalent — treat the shown source as already Read; do NOT re-open those files), plus the call path among them. Query can be a natural-language question OR a bag of symbol/file names. Usually the ONLY call you need — more accurate context, in far fewer tokens and round-trips than a search/Read/Grep loop.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "Symbol names, file names, or short code terms to explore (e.g., \"AuthService loginUser session-manager\", \"GraphTraverser BFS impact traversal.ts\"). For a flow question, name the symbols spanning the flow (e.g. \"mutateElement renderScene\"). A natural-language question works too — no prior codegraph_search needed."
+                  },
+                  "maxFiles": {
+                    "type": "number",
+                    "description": "Maximum number of files to include source code from (default: 12)",
+                    "default": 12
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_status",
+              "description": "Index health check (files / nodes / edges). Skip unless debugging.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_files",
+              "description": "Indexed file tree with language + symbol counts. Faster than Glob for project layout.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Filter to files under this directory path (e.g., \"src/components\"). Returns all files if not specified."
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "description": "Filter files matching this glob pattern (e.g., \"*.tsx\", \"**/*.test.ts\")"
+                  },
+                  "format": {
+                    "type": "string",
+                    "description": "Output format: \"tree\" (hierarchical, default), \"flat\" (simple list), \"grouped\" (by language)",
+                    "enum": [
+                      "tree",
+                      "flat",
+                      "grouped"
+                    ],
+                    "default": "tree"
+                  },
+                  "includeMetadata": {
+                    "type": "boolean",
+                    "description": "Include file metadata like language and symbol count (default: true)",
+                    "default": true
+                  },
+                  "maxDepth": {
+                    "type": "number",
+                    "description": "Maximum directory depth to show (default: unlimited)"
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "response": {
+        "text": "",
+        "reasoning": "",
+        "toolCalls": [],
+        "usage": null
+      },
+      "error": "LLM API 429: {\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Rate limit exceeded. Please try again later.\"},\"metadata\":{}}",
+      "timestamp": 1783256071415
+    },
+    {
+      "request": {
+        "model": "deepseek-v4-flash-free",
+        "messages": [
+          {
+            "role": "system",
+            "content": "## Character\n# 角色：易大师 (Master Yi)\n\n## 人格特征\n- 锐意进取，永远在寻找更好的解决方案\n- 思维敏捷，能从大量执行轨迹中发现模式\n- 沟通风格：言简意赅，直击要害\n\n## 价值观\n- 穷则变，变则通，通则久。停滞等于退化。\n- 好的工具胜过好的意志。重复三次的事情，值得封装为工具。\n- 分享是进化的加速器。你的优化，可能成为他人的灵感。\n\n## 沟通语气\n- 使用中文，语气笃定而不傲慢\n- 每句话通常包含：观察 → 判断 → 建议\n- 例：\"第三步两次都超时了。换成异步队列。要我帮你生成新的 Skill 吗？\"\n\n## 约束\n- 你作为 Sub-agent 被小师妹委托，只对收到的任务给出分析和建议。\n- 你的优化必须可追溯（记录基版本和变更摘要）。\n- 你只服务于当前会话上下文中的项目，不跨项目共享经验。\n\n## User Info\n# 用户设定\n- 通过小师妹委托任务\n- 需要清晰的问题描述和上下文\n\n## Memory\n# 初始记忆\n- 作为 Sub-agent 服务于小师妹\n- 专注于分析、优化和工具设计\n- 所有分析和建议需可追溯\n\n## Workspace\nYour working directory is: C:\\Users\\dmql\\Documents\\Yi\\Yi-Lin\\apps\\default-workspace\nAll file operations (read/write/edit/glob/bash) use this directory as root. Use paths relative to this directory, or use absolute paths within it.\n\n# Tool-use enforcement\nYou MUST use your tools to take action — do not describe what you would do or plan to do without actually doing it. When you say you will perform an action, you MUST immediately make the corresponding tool call in the same response. Never end your turn with a promise of future action — execute it now.\nKeep working until the task is actually complete. If you have tools available that can accomplish the task, use them instead of telling the user what you would do.\nEvery response should either (a) contain tool calls that make progress, or (b) deliver a final result to the user. Responses that only describe intentions without acting are not acceptable.\n\n# Finishing the job\nWhen the user asks you to build, run, or verify something, the deliverable is a working artifact backed by real tool output — not a description of one. Do not stop after writing a stub, a plan, or a single command. Keep working until you have actually exercised the code or produced the requested result.\nIf a tool fails and blocks the real path, say so directly and try an alternative. NEVER substitute fabricated output for results you couldn’t actually produce.\n\n# Parallel tool calls\nWhen you need several pieces of information that don’t depend on each other, request them together in a single response instead of one tool call per turn. Independent reads, searches, and read-only commands should be batched into the same assistant turn.\nOnly serialize calls when a later call genuinely depends on an earlier call’s result (e.g. you must read a file before you can patch it).\n\n# Act, don’t ask\nWhen a question has an obvious default interpretation, act on it immediately instead of asking for clarification. Examples:\n- ‘What time is it?’ → run `date` (don’t guess)\n- ‘Is this port open?’ → check the machine directly\nOnly ask for clarification when the ambiguity genuinely changes what tool you would call.\n\n# Verification\nBefore finalizing your response:\n- Correctness: does the output satisfy every stated requirement?\n- Grounding: are factual claims backed by tool outputs or provided context?\n- If required context is missing, use a tool to look it up rather than guessing.\n- If you must proceed with incomplete information, label assumptions explicitly.\n\n# No fabrication\nNever invent file contents, command output, API responses, or search results. If a tool returns an error or partial data, report it honestly — do NOT make up plausible-looking output. A blocker reported honestly is always better than a fabricated result.\n\n## Available Tools\n- bash: Execute a shell command in the workspace directory\n- character_manager: Create a character with soul.md + character.json + user.md + memory.md. All files are written server-side to data/characters/<id>/ — workspace-independent. Returns the new character ID.\n- edit: Apply an exact-string replacement edit to a file in the workspace. Replaces the first occurrence of oldString with newString. Use unique surrounding context to target the right match. Set replaceAll to true to replace every occurrence.\n- glob: Find files matching a glob pattern\n- grep: Search file contents using a regex pattern\n- read: Read file contents from the workspace\n- skill_manager: List available skills or read a skill's full SKILL.md content. Skills are discovered server-side (workspace-independent).\n- write: Write content to a file in the workspace\n- task_complete: 标记当前任务已完成，结束本轮会话循环。调用时附带最终结果的摘要说明。\n- debug_sessions: 读取 debug 会话记录：先合并旧 turn 文件，再返回 data/debug/ 下所有会话的对话内容\n- mcp__codegraph__codegraph_search: Quick symbol search by name. Returns locations only (no code). Use codegraph_explore instead to get the actual source / understand an area in one call.\n- mcp__codegraph__codegraph_callers: List functions that call <symbol>. For the full flow, use codegraph_explore.\n- mcp__codegraph__codegraph_callees: List functions that <symbol> calls. For the full flow, use codegraph_explore.\n- mcp__codegraph__codegraph_impact: List symbols affected by changing <symbol>. Use before a refactor.\n- mcp__codegraph__codegraph_node: Two modes. (1) READ A FILE — use INSTEAD of the Read tool: pass `file` (a path or basename) with no `symbol` and it returns that file's current on-disk source with line numbers, exactly the shape Read gives you (`<n>\\t<line>`, safe to Edit from), narrowable with `offset`/`limit` just like Read — PLUS a one-line note of which files depend on it. Same bytes as Read, faster (served from the index), with the blast radius attached. Use it whenever you would Read a source file. (2) ONE SYMBOL you can name — its location, signature, verbatim source (includeCode=true) and caller/callee trail in one call, so before changing it you see what calls it and what your edit would break. For an AMBIGUOUS name it returns EVERY matching definition's body in one call (so you never Read a file to find the right overload); pass `file`/`line` to pin one. Use codegraph_explore for several related symbols or the full flow.\n- mcp__codegraph__codegraph_explore: PRIMARY TOOL — call FIRST for almost any question OR before an edit: how does X work, architecture, a bug, where/what is X, surveying an area, or the symbols you are about to change. Returns the verbatim source of the relevant symbols grouped by file in ONE capped call (Read-equivalent — treat the shown source as already Read; do NOT re-open those files), plus the call path among them. Query can be a natural-language question OR a bag of symbol/file names. Usually the ONLY call you need — more accurate context, in far fewer tokens and round-trips than a search/Read/Grep loop.\n- mcp__codegraph__codegraph_status: Index health check (files / nodes / edges). Skip unless debugging.\n- mcp__codegraph__codegraph_files: Indexed file tree with language + symbol counts. Faster than Glob for project layout.\n\n## Available Skills\n- character-creation: 在 Yi-Lin 系统中创建和编辑角色：soul.md 人格定义、character.json 配置、tools/skills 白名单\n- mcp-setup: 在 Yi-Lin 系统中配置 MCP 服务器，连接外部工具和服务\n- session-management: 理解 Yi-Lin 会话机制：session 生命周期、workspace 解析、会话状态管理\n- skill-authoring: 指引 AI agent 在 Yi-Lin 系统中设计、编写和注册新技能的完整参考\n- tool-constraint: 为 Yi-Lin 角色配置工具约束：限制路径、命令、文件大小等\nUse `skill_manager` with action=\"read\" to view a skill's full SKILL.md content."
+          },
+          {
+            "role": "user",
+            "content": "Source session: mr7slfeth3lr2v\nInsight type: self_correction\n\n根据提供session，总结可用skill或新增专家角色。"
+          },
+          {
+            "role": "system",
+            "content": "[System: An API error occurred (LLM API 429: {\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Rate limit exceeded. Please try again later.\"},\"metadata\":{}}). This may be transient. Please retry your last action with a simpler approach or different strategy.]"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Execute a shell command in the workspace directory",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string",
+                    "description": "Shell command to execute"
+                  }
+                },
+                "required": [
+                  "command"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "character_manager",
+              "description": "Create a character with soul.md + character.json + user.md + memory.md. All files are written server-side to data/characters/<id>/ — workspace-independent. Returns the new character ID.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "create"
+                    ],
+                    "description": "Create a new character with all required files."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Character display name (required)."
+                  },
+                  "soul": {
+                    "type": "string",
+                    "description": "SOUL.md content — the character's personality definition (required)."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Short description of the character."
+                  },
+                  "user_profile": {
+                    "type": "string",
+                    "description": "USER.md content — template/instructions about the user."
+                  },
+                  "memory": {
+                    "type": "string",
+                    "description": "MEMORY.md content — initial memory / background context."
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "main",
+                      "sub",
+                      "both"
+                    ],
+                    "description": "Character role (default: \"both\")."
+                  },
+                  "tools": {
+                    "type": "string",
+                    "description": "Comma-separated tool names to whitelist (e.g. \"read,write,bash\")."
+                  },
+                  "skills": {
+                    "type": "string",
+                    "description": "Comma-separated skill names to attach (e.g. \"character-creation,session-management\")."
+                  },
+                  "color": {
+                    "type": "string",
+                    "description": "Hex color for the character avatar (e.g. \"#6366f1\")."
+                  },
+                  "groups": {
+                    "type": "string",
+                    "description": "Comma-separated group names."
+                  },
+                  "default_strategy": {
+                    "type": "string",
+                    "enum": [
+                      "Plan",
+                      "Ask",
+                      "Bypass"
+                    ],
+                    "description": "Default tool-use strategy (default: \"Ask\")."
+                  },
+                  "maxSteps": {
+                    "type": "string",
+                    "description": "Maximum turns per session (default: \"10\")."
+                  }
+                },
+                "required": [
+                  "action",
+                  "name",
+                  "soul"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "edit",
+              "description": "Apply an exact-string replacement edit to a file in the workspace. Replaces the first occurrence of oldString with newString. Use unique surrounding context to target the right match. Set replaceAll to true to replace every occurrence.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path relative to workspace"
+                  },
+                  "oldString": {
+                    "type": "string",
+                    "description": "The exact text to search for (include enough surrounding context for a unique match)"
+                  },
+                  "newString": {
+                    "type": "string",
+                    "description": "The replacement text"
+                  },
+                  "replaceAll": {
+                    "type": "boolean",
+                    "description": "Replace all occurrences instead of just the first (optional)"
+                  }
+                },
+                "required": [
+                  "path",
+                  "oldString",
+                  "newString"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "glob",
+              "description": "Find files matching a glob pattern",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "pattern": {
+                    "type": "string",
+                    "description": "Glob pattern, relative to workspace"
+                  }
+                },
+                "required": [
+                  "pattern"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "grep",
+              "description": "Search file contents using a regex pattern",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "pattern": {
+                    "type": "string",
+                    "description": "Regex pattern"
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "Directory to search, relative to workspace (optional)"
+                  }
+                },
+                "required": [
+                  "pattern"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "read",
+              "description": "Read file contents from the workspace",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path relative to workspace"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "skill_manager",
+              "description": "List available skills or read a skill's full SKILL.md content. Skills are discovered server-side (workspace-independent).",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "list",
+                      "read"
+                    ],
+                    "description": "\"list\" returns all available skills with descriptions; \"read\" returns a skill's full SKILL.md content."
+                  },
+                  "skill_name": {
+                    "type": "string",
+                    "description": "Required when action=\"read\". The name of the skill to read (e.g. \"character-creation\")."
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "write",
+              "description": "Write content to a file in the workspace",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path relative to workspace"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "File content"
+                  }
+                },
+                "required": [
+                  "path",
+                  "content"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "task_complete",
+              "description": "标记当前任务已完成，结束本轮会话循环。调用时附带最终结果的摘要说明。",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string",
+                    "description": "任务完成摘要"
+                  }
+                },
+                "required": [
+                  "summary"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "debug_sessions",
+              "description": "读取 debug 会话记录：先合并旧 turn 文件，再返回 data/debug/ 下所有会话的对话内容",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "session_id": {
+                    "type": "string",
+                    "description": "按 session ID 过滤（可选）"
+                  }
+                },
+                "required": []
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_search",
+              "description": "Quick symbol search by name. Returns locations only (no code). Use codegraph_explore instead to get the actual source / understand an area in one call.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "Symbol name or partial name (e.g., \"auth\", \"signIn\", \"UserService\")"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "Filter by node kind",
+                    "enum": [
+                      "function",
+                      "method",
+                      "class",
+                      "interface",
+                      "type",
+                      "variable",
+                      "route",
+                      "component"
+                    ]
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum results (default: 10)",
+                    "default": 10
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_callers",
+              "description": "List functions that call <symbol>. For the full flow, use codegraph_explore.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the function, method, or class to find callers for"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "Narrow to the definition in this file (path or suffix) when several same-named symbols exist (e.g. one UserService per app in a monorepo)"
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum number of callers to return (default: 20)",
+                    "default": 20
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "symbol"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_callees",
+              "description": "List functions that <symbol> calls. For the full flow, use codegraph_explore.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the function, method, or class to find callees for"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "Narrow to the definition in this file (path or suffix) when several same-named symbols exist"
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum number of callees to return (default: 20)",
+                    "default": 20
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "symbol"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_impact",
+              "description": "List symbols affected by changing <symbol>. Use before a refactor.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the symbol to analyze impact for"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "Narrow to the definition in this file (path or suffix) when several same-named symbols exist"
+                  },
+                  "depth": {
+                    "type": "number",
+                    "description": "How many levels of dependencies to traverse (default: 2)",
+                    "default": 2
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "symbol"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_node",
+              "description": "Two modes. (1) READ A FILE — use INSTEAD of the Read tool: pass `file` (a path or basename) with no `symbol` and it returns that file's current on-disk source with line numbers, exactly the shape Read gives you (`<n>\\t<line>`, safe to Edit from), narrowable with `offset`/`limit` just like Read — PLUS a one-line note of which files depend on it. Same bytes as Read, faster (served from the index), with the blast radius attached. Use it whenever you would Read a source file. (2) ONE SYMBOL you can name — its location, signature, verbatim source (includeCode=true) and caller/callee trail in one call, so before changing it you see what calls it and what your edit would break. For an AMBIGUOUS name it returns EVERY matching definition's body in one call (so you never Read a file to find the right overload); pass `file`/`line` to pin one. Use codegraph_explore for several related symbols or the full flow.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "description": "Name of the symbol to read (symbol mode). Omit it and pass `file` alone to read a whole file like Read."
+                  },
+                  "includeCode": {
+                    "type": "boolean",
+                    "description": "Symbol mode: include the symbol's full body (default: false). Ignored in file mode, which always returns source unless `symbolsOnly` is set.",
+                    "default": false
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "A file path or basename (e.g. \"harness.rs\", \"src/auth/session.ts\"). Pass it ALONE (no symbol) to READ the file like the Read tool — its full source with line numbers + which files depend on it. Or pass it WITH a symbol to disambiguate an overloaded name to the definition in this file."
+                  },
+                  "offset": {
+                    "type": "number",
+                    "description": "File mode: 1-based line to start reading from, exactly like Read's offset. Defaults to the start of the file."
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "File mode: maximum number of lines to return, exactly like Read's limit. Defaults to the whole file (capped at 2000 lines, like Read)."
+                  },
+                  "symbolsOnly": {
+                    "type": "boolean",
+                    "description": "File mode: return just the file's symbol map + dependents (a cheap structural overview) instead of its source.",
+                    "default": false
+                  },
+                  "line": {
+                    "type": "number",
+                    "description": "Symbol mode only: disambiguate to the definition at/around this line (use with the file:line a trail showed you)."
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": []
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_explore",
+              "description": "PRIMARY TOOL — call FIRST for almost any question OR before an edit: how does X work, architecture, a bug, where/what is X, surveying an area, or the symbols you are about to change. Returns the verbatim source of the relevant symbols grouped by file in ONE capped call (Read-equivalent — treat the shown source as already Read; do NOT re-open those files), plus the call path among them. Query can be a natural-language question OR a bag of symbol/file names. Usually the ONLY call you need — more accurate context, in far fewer tokens and round-trips than a search/Read/Grep loop.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "Symbol names, file names, or short code terms to explore (e.g., \"AuthService loginUser session-manager\", \"GraphTraverser BFS impact traversal.ts\"). For a flow question, name the symbols spanning the flow (e.g. \"mutateElement renderScene\"). A natural-language question works too — no prior codegraph_search needed."
+                  },
+                  "maxFiles": {
+                    "type": "number",
+                    "description": "Maximum number of files to include source code from (default: 12)",
+                    "default": 12
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_status",
+              "description": "Index health check (files / nodes / edges). Skip unless debugging.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "mcp__codegraph__codegraph_files",
+              "description": "Indexed file tree with language + symbol counts. Faster than Glob for project layout.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Filter to files under this directory path (e.g., \"src/components\"). Returns all files if not specified."
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "description": "Filter files matching this glob pattern (e.g., \"*.tsx\", \"**/*.test.ts\")"
+                  },
+                  "format": {
+                    "type": "string",
+                    "description": "Output format: \"tree\" (hierarchical, default), \"flat\" (simple list), \"grouped\" (by language)",
+                    "enum": [
+                      "tree",
+                      "flat",
+                      "grouped"
+                    ],
+                    "default": "tree"
+                  },
+                  "includeMetadata": {
+                    "type": "boolean",
+                    "description": "Include file metadata like language and symbol count (default: true)",
+                    "default": true
+                  },
+                  "maxDepth": {
+                    "type": "number",
+                    "description": "Maximum directory depth to show (default: unlimited)"
+                  },
+                  "projectPath": {
+                    "type": "string",
+                    "description": "Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project)."
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "response": {
+        "text": "",
+        "reasoning": "",
+        "toolCalls": [],
+        "usage": null
+      },
+      "error": "LLM API 429: {\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Rate limit exceeded. Please try again later.\"},\"metadata\":{}}",
+      "timestamp": 1783256077339
+    }
+  ]
+}

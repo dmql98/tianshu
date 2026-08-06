@@ -1,0 +1,10 @@
+{
+  "id": "002b03e9-bb1c-4d98-8bbc-0d4eabd55ff5",
+  "name": "codegraph",
+  "command": "codegraph",
+  "args": [
+    "serve",
+    "--mcp"
+  ],
+  "env": {}
+}

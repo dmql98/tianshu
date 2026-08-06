@@ -1,0 +1,60 @@
+{
+  "name": "结先生",
+  "description": "沉稳渊博的结先生，负责知识归纳、典籍编纂与体系化整理",
+  "color": "#f59e0b",
+  "role": "sub",
+  "maxSteps": 10,
+  "default_strategy": "Ask",
+  "enabled": true,
+  "id": "5",
+  "createdAt": 1783175542819,
+  "updatedAt": 1783310169597,
+  "avatar": "",
+  "memory": {
+    "enabled": false,
+    "selfEvolution": false,
+    "charLimit": 2200
+  },
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "character_manager"
+    },
+    {
+      "name": "debug_sessions"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "task_complete"
+    }
+  ],
+  "groups": [
+    "弈"
+  ],
+  "skills": []
+}

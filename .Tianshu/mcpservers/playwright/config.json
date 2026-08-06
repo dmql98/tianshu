@@ -1,0 +1,8 @@
+{
+  "id": "playwright",
+  "name": "playwright",
+  "command": "npx",
+  "args": ["-y", "@playwright/mcp@latest"],
+  "env": {},
+  "timeout": 60
+}
