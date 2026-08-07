@@ -12,24 +12,27 @@ export function normalizeAvatarCrop(crop?: AvatarCrop): AvatarCrop {
   return {
     x: clamp(crop?.x ?? 50, 0, 100),
     y: clamp(crop?.y ?? 50, 0, 100),
-    scale: clamp(crop?.scale ?? 1, 1, 3),
+    scale: clamp(crop?.scale ?? 1, 0.3, 3),
   }
 }
 
 /**
- * object-position covers overflow caused by the source aspect ratio. The
- * translate component covers the extra overflow introduced by zooming, so
- * x/y=0 or 100 means an image edge is exactly touching the crop boundary.
+ * Position/zoom the media inside its frame.
+ *
+ * Media always fills the frame via object-fit: cover. The transform scales
+ * around the focus point (x%, y%), so:
+ * - scale >= 1 zooms in on that point.
+ * - scale < 1 shrinks around that point; dragging the focus moves the visible
+ *   region, which translates the whole media across the frame.
+ * 50/50 with scale 1 is the untouched fill.
  */
 export function avatarCropStyle(input?: AvatarCrop): CSSProperties | undefined {
   if (!input) return undefined
   const crop = normalizeAvatarCrop(input)
-  const extraTravel = (crop.scale - 1) * 50
-  const translateX = ((50 - crop.x) / 50) * extraTravel
-  const translateY = ((50 - crop.y) / 50) * extraTravel
   return {
     objectFit: 'cover',
     objectPosition: `${crop.x}% ${crop.y}%`,
-    transform: `translate(${translateX}%, ${translateY}%) scale(${crop.scale})`,
+    transformOrigin: `${crop.x}% ${crop.y}%`,
+    transform: `scale(${crop.scale})`,
   }
 }

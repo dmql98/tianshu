@@ -21,6 +21,13 @@ export interface CharacterAssetRef {
   filename: string
 }
 
+export interface CharacterMotionBinding {
+  assetId: string
+  loop?: boolean
+  /** 动作素材的取景/缩放（与 avatarCrop 同构：x/y 为百分比原点，scale 为缩放）。 */
+  crop?: { x: number; y: number; scale: number }
+}
+
 export interface CharacterVisual {
   schemaVersion: 1
   originalAssetId?: string
@@ -29,7 +36,7 @@ export interface CharacterVisual {
   avatarCrop?: { x: number; y: number; scale: number }
   portraitCrop?: { x: number; y: number; scale: number }
   defaultMotion: CharacterMotion
-  motions: Partial<Record<CharacterMotion, { assetId: string; loop?: boolean }>>
+  motions: Partial<Record<CharacterMotion, CharacterMotionBinding>>
   stage?: Record<string, unknown>
 }
 

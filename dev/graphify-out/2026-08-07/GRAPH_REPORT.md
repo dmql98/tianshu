@@ -1,7 +1,7 @@
 # Graph Report - dev  (2026-08-07)
 
 ## Corpus Check
-- 250 files · ~181,824 words
+- 250 files · ~181,875 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -158,8 +158,8 @@ Cohesion: 0.04
 Nodes (46): better-sqlite3, glob, hono, @hono/node-server, htmlparser2, iconv-lite, jsdom, @modelcontextprotocol/sdk (+38 more)
 
 ### Community 2 - "SkillSettings.vue"
-Cohesion: 0.12
-Nodes (24): runAssetGC(), startAssetGC(), assetIdsFromVisual(), hasProtectingRef(), registerAssetRefs(), touchPlayerLease(), CharacterPresence, characterPresenceProjector (+16 more)
+Cohesion: 0.11
+Nodes (25): runAssetGC(), startAssetGC(), assetIdsFromVisual(), hasProtectingRef(), registerAssetRefs(), touchPlayerLease(), CharacterPresence, characterPresenceProjector (+17 more)
 
 ### Community 3 - "EventsView.vue"
 Cohesion: 0.08
@@ -174,8 +174,8 @@ Cohesion: 0.20
 Nodes (8): browseDirectory(), BrowseResult, DirEntry, openInFileManager(), resolvePath(), Props, ProjectContextMenu, SessionPanel()
 
 ### Community 6 - "toolStore.ts"
-Cohesion: 0.21
-Nodes (15): DATA_DIR, EventDefinitionRow, eventDefinitionStore, broadcastSocket(), drainQueue(), executeOccurrence(), fireOnceEvent(), scheduleOccurrence() (+7 more)
+Cohesion: 0.25
+Nodes (14): EventDefinitionRow, eventDefinitionStore, broadcastSocket(), drainQueue(), executeOccurrence(), fireOnceEvent(), scheduleOccurrence(), claimDue() (+6 more)
 
 ### Community 7 - "index.ts"
 Cohesion: 0.20
@@ -206,8 +206,8 @@ Cohesion: 0.15
 Nodes (26): CharacterAssetRef, characterAssetUrl(), CharacterMotion, CharacterMotionBinding, CharacterVisual, CharacterVisualResponse, createCharacter(), exportCharacterPackage() (+18 more)
 
 ### Community 14 - "inner.ts"
-Cohesion: 0.10
-Nodes (33): createDurableSocket(), publishRunEvent(), unwrapDurableSocket(), removeSessionState(), abortSession(), enqueueRun(), getQueueLength(), getRunState() (+25 more)
+Cohesion: 0.14
+Nodes (25): createDurableSocket(), publishRunEvent(), unwrapDurableSocket(), removeSessionState(), abortSession(), enqueueRun(), getQueueLength(), getRunState() (+17 more)
 
 ### Community 15 - "apiGet"
 Cohesion: 0.21
@@ -278,8 +278,8 @@ Cohesion: 0.13
 Nodes (19): createMCPServer(), deleteMCPServer(), DiscoveredMCPServer, discoverMCPServers(), DiscoverResult, fetchTools(), ImportMCPResult, importMCPServers() (+11 more)
 
 ### Community 32 - "ChatInput.tsx"
-Cohesion: 0.08
-Nodes (30): CharacterSnapshotContent, CharacterBinding, resolveCharacterBinding(), ResolvedCharacterBinding, CharacterRevisionRow, CharacterRevisionSnapshot, characterRevisionStore, makeSnapshot() (+22 more)
+Cohesion: 0.09
+Nodes (23): CharacterSnapshotContent, CharacterRevisionSnapshot, CHAR_DIR, characterContentStore, DATA_DIR, CHAR_DIR, CharacterMemory, characterMetaStore (+15 more)
 
 ### Community 33 - "checkpoint-store.ts"
 Cohesion: 0.12
@@ -298,16 +298,16 @@ Cohesion: 0.13
 Nodes (25): CLAUDE_SPEC, collect(), configPaths(), CURSOR_SPEC, dedupe(), discoverClaudeServers(), discoverCursorServers(), DiscoveredMCPServer (+17 more)
 
 ### Community 37 - "cronRegistry.ts"
-Cohesion: 0.33
-Nodes (7): tool, parseSkillNames(), parsed, toolBindings, updated, updateNamedBindings(), updateSkillNames()
+Cohesion: 0.13
+Nodes (17): CharacterBinding, resolveCharacterBinding(), ResolvedCharacterBinding, CharacterRevisionRow, characterRevisionStore, makeSnapshot(), readVisual(), Config (+9 more)
 
 ### Community 38 - "validate.ts"
 Cohesion: 0.11
 Nodes (11): tool, tool, fuzzySuggest(), similarity(), tool, coerceBoolean, coerceNumber, validate() (+3 more)
 
 ### Community 39 - "CharacterSelector.vue"
-Cohesion: 0.11
-Nodes (15): setEventDefinitionRuntime(), app, httpServer, io, router, router, router, DATA_DIR (+7 more)
+Cohesion: 0.09
+Nodes (20): messageStore, TurnRow, turnStore, setEventDefinitionRuntime(), app, httpServer, io, router (+12 more)
 
 ### Community 40 - "InputToolbar.vue"
 Cohesion: 0.18
@@ -455,14 +455,14 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `expandContextReferences()` connect `context-builder.ts` to `registry.ts`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
-- **Why does `getDataDir()` connect `ChatInput.tsx` to `SkillSettings.vue`, `toolStore.ts`, `CharacterSelector.vue`, `providerStore.ts`, `outer.ts`, `llm-logger.ts`, `offlineMiner.ts`, `client.ts`, `skill-loader.ts`, `context-compactor.ts`, `MarkdownRenderer.vue`, `App.tsx`, `context-builder.ts`?**
+- **Why does `getDataDir()` connect `cronRegistry.ts` to `ChatInput.tsx`, `SkillSettings.vue`, `providerStore.ts`, `outer.ts`, `llm-logger.ts`, `offlineMiner.ts`, `client.ts`, `skill-loader.ts`, `context-compactor.ts`, `MarkdownRenderer.vue`, `App.tsx`, `context-builder.ts`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
   _373 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.0425531914893617 - nodes in this community are weakly interconnected._
 - **Should `SkillSettings.vue` be split into smaller, more focused modules?**
-  _Cohesion score 0.12096774193548387 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11428571428571428 - nodes in this community are weakly interconnected._
 - **Should `EventsView.vue` be split into smaller, more focused modules?**
   _Cohesion score 0.08 - nodes in this community are weakly interconnected._
 - **Should `outer.ts` be split into smaller, more focused modules?**

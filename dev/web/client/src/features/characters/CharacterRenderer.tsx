@@ -39,6 +39,7 @@ interface Props {
 interface AssetCandidate {
   id?: string
   crop?: 'avatar' | 'portrait'
+  motionCrop?: { x: number; y: number; scale: number }
   loop?: boolean
 }
 
@@ -97,8 +98,13 @@ export default function CharacterRenderer({
           {
             id: data.visual.motions[requestedMotion]?.assetId,
             loop: data.visual.motions[requestedMotion]?.loop,
+            motionCrop: data.visual.motions[requestedMotion]?.crop,
           },
-          { id: data.visual.motions.idle?.assetId, loop: data.visual.motions.idle?.loop },
+          {
+            id: data.visual.motions.idle?.assetId,
+            loop: data.visual.motions.idle?.loop,
+            motionCrop: data.visual.motions.idle?.crop,
+          },
           { id: data.visual.originalAssetId, crop: 'avatar' },
           { id: data.visual.avatarAssetId },
           { id: data.visual.portraitAssetId, crop: 'avatar' },
@@ -124,7 +130,9 @@ export default function CharacterRenderer({
       : undefined
   const style = selected?.crop
     ? avatarCropStyle(crop ?? { x: 50, y: 50, scale: 1 })
-    : undefined
+    : selected?.motionCrop
+      ? avatarCropStyle(selected.motionCrop)
+      : undefined
   const selectedAsset = selected?.asset
 
   return (
@@ -143,6 +151,13 @@ export default function CharacterRenderer({
           playsInline
           style={style}
           onError={() => markBroken(selectedAsset)}
+          onEnded={() => {
+            // One-shot motions (success/error, loop=false) finished playing:
+            // signal presence to return to idle exactly when the animation ends.
+            if (selected?.loop === false) {
+              window.dispatchEvent(new CustomEvent('tianshu:motion-ended', { detail: characterId }))
+            }
+          }}
         />
       ) : selectedAsset ? (
         <img

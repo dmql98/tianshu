@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  fetchCharacterVisual, publishCharacterRevision, saveCharacterVisual,
-  uploadCharacterAsset, exportCharacterPackage, importCharacterPackage,
+  fetchCharacterVisual, saveCharacterVisual,
+  uploadCharacterAsset,
   characterAssetUrl,
   type CharacterAssetRef, type CharacterMotion,
   type CharacterVisual,
@@ -37,6 +37,7 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [cropTarget, setCropTarget] = useState<'avatar' | 'portrait' | null>(null)
+  const [motionCropTarget, setMotionCropTarget] = useState<CharacterMotion | null>(null)
 
   const reload = async () => {
     const data = await fetchCharacterVisual(characterId)
@@ -50,26 +51,7 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
   if (!visual) return <div className="empty-state">正在读取角色资源…</div>
 
   const assetName = (assetId?: string) => assets.find(a => a.assetId === assetId)?.filename || ''
-
-  const save = async (publish: boolean) => {
-    setBusy(true)
-    setMessage('')
-    try {
-      await saveCharacterVisual(characterId, visual)
-      invalidateCharacterVisual(characterId)
-      if (publish) {
-        const revision = await publishCharacterRevision(characterId)
-        setMessage(`已发布角色版本 v${revision.revision_no}`)
-      } else {
-        setMessage('视觉草稿已保存')
-      }
-      await reload()
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '保存失败')
-    } finally {
-      setBusy(false)
-    }
-  }
+  const assetOf = (assetId?: string) => assets.find(a => a.assetId === assetId)
 
   const uploadTo = async (slot: UploadSlot, file?: File) => {
     if (!file) return
@@ -88,30 +70,24 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
       )
       setAssets(prev => [...prev, asset])
       if (slot === 'original') {
-        const saved = await saveCharacterVisual(characterId, {
+        await saveCharacterVisual(characterId, {
           ...visual,
           originalAssetId: asset.assetId,
           portraitCrop: undefined,
           avatarCrop: undefined,
         })
-        setVisual(saved)
-        invalidateCharacterVisual(characterId)
-        setPreviewReplay(value => value + 1)
+        await reload()
         setMessage(`原画已上传并保存：${file.name}`)
         return
       }
-      setVisual(current => {
-        if (!current) return current
-        const motion = slot
-        return {
-          ...current,
-          motions: {
-            ...current.motions,
-            [motion]: { assetId: asset.assetId, loop: !['success', 'error'].includes(motion) },
-          },
-        }
+      await saveCharacterVisual(characterId, {
+        ...visual,
+        motions: {
+          ...visual.motions,
+          [slot]: { assetId: asset.assetId, loop: !['success', 'error'].includes(slot) },
+        },
       })
-      invalidateCharacterVisual(characterId)
+      await reload()
       setMessage(`已上传并绑定 ${file.name}`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '上传失败')
@@ -120,29 +96,24 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
     }
   }
 
-  const doExport = async () => {
+  const confirmMotionCrop = async (nextCrop: NonNullable<CharacterVisual['avatarCrop']>) => {
+    if (!motionCropTarget) return
+    const motion = motionCropTarget
     setBusy(true)
     setMessage('')
     try {
-      await exportCharacterPackage(characterId)
-      setMessage('角色包已导出')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '导出失败')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const doImport = async (file?: File, conflict: 'error' | 'replace' | 'new' = 'error') => {
-    if (!file) return
-    setBusy(true)
-    setMessage('')
-    try {
-      await importCharacterPackage(file, conflict)
+      await saveCharacterVisual(characterId, {
+        ...visual,
+        motions: {
+          ...visual.motions,
+          [motion]: { ...visual.motions[motion]!, crop: nextCrop },
+        },
+      })
       await reload()
-      setMessage(`已导入 ${file.name}`)
+      setMotionCropTarget(null)
+      setMessage(`${MOTION_LABELS[motion] || motion} 取景已保存`)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '导入失败')
+      setMessage(error instanceof Error ? error.message : '取景保存失败')
     } finally {
       setBusy(false)
     }
@@ -306,39 +277,35 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
                 setPreviewReplay(value => value + 1)
               }}
             >
-              {visual.motions[motion]?.assetId
-                ? <img src={characterAssetUrl(characterId, visual.motions[motion]!.assetId)} alt={motion} />
-                : <span className="visual-slot-empty">{motion}</span>}
+              {visual.motions[motion]?.assetId ? (() => {
+                const asset = assetOf(visual.motions[motion]!.assetId)
+                const url = characterAssetUrl(characterId, visual.motions[motion]!.assetId)
+                return asset?.kind === 'video'
+                  ? <video src={url} autoPlay muted loop playsInline title={motion} />
+                  : <img src={url} alt={motion} />
+              })() : <span className="visual-slot-empty">{motion}</span>}
             </div>
             <div className="visual-slot-info">
               <div className="visual-slot-name">{MOTION_LABELS[motion] || motion}</div>
               <div className="visual-slot-file">{assetName(visual.motions[motion]?.assetId) || '未绑定（使用 idle / 头像降级）'}</div>
             </div>
-            {uploadButton(motion, 'image/*,video/*')}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+              {visual.motions[motion]?.assetId && (
+                <button
+                  className="btn sm"
+                  disabled={busy}
+                  title="调整动作取景/位置/缩放"
+                  onClick={() => setMotionCropTarget(motion)}
+                  style={{ flexShrink: 0 }}
+                >
+                  调整
+                </button>
+              )}
+              {uploadButton(motion, 'image/*,video/*')}
+            </div>
           </div>
         ))}
 
-        <div className="visual-editor-actions">
-          <button className="btn" disabled={busy} onClick={() => void save(false)}>保存草稿</button>
-          <button className="btn primary" disabled={busy} onClick={() => void save(true)}>发布新版本</button>
-          <button className="btn" disabled={busy} onClick={() => void doExport()}>导出角色包</button>
-          <label className={`btn ${busy ? 'disabled' : ''}`}>
-            导入角色包
-            <input
-              type="file"
-              accept=".gz,.tianshu-character.gz"
-              hidden
-              disabled={busy}
-              onChange={event => {
-                const file = event.target.files?.[0]
-                event.target.value = ''
-                if (!file) return
-                const conflict = window.confirm('若已有同名角色，如何处理？\n\n确定：覆盖该角色\n取消：跳过冲突（报错）') ? 'replace' : 'error'
-                void doImport(file, conflict)
-              }}
-            />
-          </label>
-        </div>
         {message && <div className="visual-editor-message">{message}</div>}
       </div>
 
@@ -352,6 +319,22 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
           onClose={() => setCropTarget(null)}
         />
       )}
+
+      {motionCropTarget && (() => {
+        const binding = visual.motions[motionCropTarget]
+        const asset = assetOf(binding?.assetId)
+        return binding?.assetId && (
+          <AvatarCropDialog
+            imageUrl={characterAssetUrl(characterId, binding.assetId)}
+            isVideo={asset?.kind === 'video'}
+            crop={binding.crop}
+            variant="motion"
+            saving={busy}
+            onConfirm={nextCrop => { void confirmMotionCrop(nextCrop) }}
+            onClose={() => setMotionCropTarget(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

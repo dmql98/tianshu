@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { connectSocket } from '@/api/socket'
 import { fetchCharacterPresence, type CharacterMotion } from '@/api/characters'
 
+export const MOTION_END_EVENT = 'tianshu:motion-ended'
+
 interface SemanticEvent {
   session_id?: string
   run_id?: string
@@ -32,8 +34,25 @@ export function useCharacterPresence(characterId: string, sessionId?: string, en
     if (!characterId || !enabled) return
     let disposed = false
     let resetTimer: ReturnType<typeof setTimeout> | null = null
+
+    // Idle reset for one-shot motions (success/error): wait for the animation
+    // to finish (motion-ended event) or a safety timeout, whichever first.
+    const scheduleIdle = (after: number) => {
+      if (resetTimer) clearTimeout(resetTimer)
+      resetTimer = setTimeout(() => { if (!disposed) setMotion('idle') }, after)
+    }
+    const onMotionEnd = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== characterId) return
+      scheduleIdle(0)
+    }
+    window.addEventListener(MOTION_END_EVENT, onMotionEnd)
+
     fetchCharacterPresence(characterId)
-      .then(presence => { if (!disposed) setMotion(presence.motion) })
+      .then(presence => {
+        if (disposed) return
+        setMotion(presence.motion)
+        if (presence.motion === 'success' || presence.motion === 'error') scheduleIdle(8000)
+      })
       .catch(() => { /* visual presence must never block chat */ })
 
     const socket = connectSocket()
@@ -44,10 +63,8 @@ export function useCharacterPresence(characterId: string, sessionId?: string, en
         const next = eventMotion(type)
         if (!next) return
         setMotion(next)
-        if (resetTimer) clearTimeout(resetTimer)
-        if (next === 'success' || next === 'error') {
-          resetTimer = setTimeout(() => setMotion('idle'), 2200)
-        }
+        if (next === 'success' || next === 'error') scheduleIdle(8000)
+        else if (resetTimer) clearTimeout(resetTimer)
       }
       socket.on(type, listener)
       return [type, listener] as const
@@ -55,6 +72,7 @@ export function useCharacterPresence(characterId: string, sessionId?: string, en
     return () => {
       disposed = true
       if (resetTimer) clearTimeout(resetTimer)
+      window.removeEventListener(MOTION_END_EVENT, onMotionEnd)
       for (const [type, listener] of listeners) socket.off(type, listener)
     }
   }, [characterId, sessionId, enabled])

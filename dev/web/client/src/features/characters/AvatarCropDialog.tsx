@@ -5,8 +5,9 @@ export type { AvatarCrop } from './avatarCrop'
 
 interface Props {
   imageUrl: string
+  isVideo?: boolean
   crop?: AvatarCrop
-  variant?: 'avatar' | 'portrait'
+  variant?: 'avatar' | 'portrait' | 'motion'
   saving?: boolean
   onConfirm: (crop: AvatarCrop) => void
   onClose: () => void
@@ -20,6 +21,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  */
 export default function AvatarCropDialog({
   imageUrl,
+  isVideo = false,
   crop,
   variant = 'avatar',
   saving = false,
@@ -36,12 +38,20 @@ export default function AvatarCropDialog({
     y: number
   } | null>(null)
 
-  const imgStyle = avatarCropStyle(c)
+  const imgStyle = avatarCropStyle(c) ?? {}
   const isPortrait = variant === 'portrait'
   const cropAspectRatio = isPortrait ? '3 / 4' : '1 / 1'
-  const cropTitle = isPortrait ? '裁剪立绘（详情栏 3:4）' : '裁剪头像（基于原画）'
+  const cropTitle = isPortrait
+    ? '裁剪立绘（详情栏 3:4）'
+    : variant === 'motion'
+      ? '调整动作取景'
+      : '裁剪头像（基于原画）'
   const cropAreaLabel = isPortrait ? '立绘三比四裁剪区域' : '头像方形裁剪区域'
   const cropAlt = isPortrait ? '立绘预览' : '头像预览'
+
+  const media = (style: React.CSSProperties, key: string) => isVideo
+    ? <video key={key} src={imageUrl} autoPlay muted loop playsInline style={style} draggable={false} />
+    : <img key={key} src={imageUrl} alt={cropAlt} style={style} draggable={false} />
 
   return (
     <div className="approval-overlay" onClick={saving ? undefined : onClose}>
@@ -96,16 +106,16 @@ export default function AvatarCropDialog({
               const factor = Math.exp(-e.deltaY * 0.0015)
               setC(prev => ({
                 ...prev,
-                scale: Math.round(clamp(prev.scale * factor, 1, 3) * 20) / 20,
+                scale: Math.round(clamp(prev.scale * factor, 0.3, 3) * 20) / 20,
               }))
             }}
           >
-            <img src={imageUrl} alt="原图" style={imgStyle} draggable={false} />
+            {media(imgStyle, 'stage')}
           </div>
           {/* 实时预览 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
             <div className="avatar-crop-preview" style={{ aspectRatio: cropAspectRatio, height: 'auto' }}>
-              <img src={imageUrl} alt={cropAlt} style={imgStyle} draggable={false} />
+              {media(imgStyle, 'preview')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-light)' }}>
               {isPortrait ? '整个 3:4 区域即详情栏立绘' : '整个方形区域即头像'}；按住鼠标左键拖动，滚轮缩放。
@@ -114,7 +124,7 @@ export default function AvatarCropDialog({
               缩放
               <input
                 type="range"
-                min={1}
+                min={0.3}
                 max={3}
                 step={0.05}
                 value={c.scale}

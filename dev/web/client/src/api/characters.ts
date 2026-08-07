@@ -31,6 +31,12 @@ export interface CharacterAssetRef {
   filename: string
 }
 
+export interface CharacterMotionBinding {
+  assetId: string
+  loop?: boolean
+  crop?: { x: number; y: number; scale: number }
+}
+
 export interface CharacterVisual {
   schemaVersion: 1
   originalAssetId?: string
@@ -39,7 +45,7 @@ export interface CharacterVisual {
   avatarCrop?: { x: number; y: number; scale: number }
   portraitCrop?: { x: number; y: number; scale: number }
   defaultMotion: CharacterMotion
-  motions: Partial<Record<CharacterMotion, { assetId: string; loop?: boolean }>>
+  motions: Partial<Record<CharacterMotion, CharacterMotionBinding>>
   stage?: Record<string, unknown>
 }
 

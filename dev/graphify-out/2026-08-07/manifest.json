@@ -1180,8 +1180,8 @@
     "semantic_hash": ""
   },
   "web/client/src/features/characters/avatarCrop.ts": {
-    "mtime": 1786070927.632087,
-    "ast_hash": "13fafe53a6defb86868f567f0ac186ca",
+    "mtime": 1786070418.6381178,
+    "ast_hash": "e6a2695dc3a9f56dab242059d5692c0d",
     "semantic_hash": ""
   },
   "web/client/src/pages/NewSkillPackagePage.tsx": {
