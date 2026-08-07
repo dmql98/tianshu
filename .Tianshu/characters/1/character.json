@@ -16,9 +16,7 @@
   "skills": [
     "tianshu-system",
     "patent-disclosure-skill",
-    "uzi",
-    "agent-reach",
-    "drawio-skill"
+    "agent-reach"
   ],
   "skillBindings": [
     {
@@ -32,24 +30,14 @@
       "preloadSkills": []
     },
     {
-      "packageId": "uzi",
-      "enabled": true,
-      "preloadSkills": []
-    },
-    {
       "packageId": "agent-reach",
-      "enabled": true,
-      "preloadSkills": []
-    },
-    {
-      "packageId": "drawio-skill",
       "enabled": true,
       "preloadSkills": []
     }
   ],
   "enabled": true,
   "createdAt": 1782738601774,
-  "updatedAt": 1786067253894,
+  "updatedAt": 1786099312527,
   "tools": [
     {
       "name": "write"

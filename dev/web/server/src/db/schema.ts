@@ -65,9 +65,11 @@ export function getDb(): Database.Database {
       role TEXT NOT NULL,
       content TEXT NOT NULL DEFAULT '',
       reasoning_content TEXT,
+      tool_name TEXT,
       tool_input TEXT,
       tool_output TEXT,
       tool_status TEXT,
+      attachments TEXT,
       token_speed REAL,
       created_at INTEGER NOT NULL
     );
@@ -136,6 +138,8 @@ export function getDb(): Database.Database {
     try { db.exec(statement) } catch { /* column already exists */ }
   }
   const messageColumns = [
+    'ALTER TABLE messages ADD COLUMN tool_name TEXT',
+    'ALTER TABLE messages ADD COLUMN attachments TEXT',
     'ALTER TABLE messages ADD COLUMN turn_id TEXT',
     'ALTER TABLE messages ADD COLUMN run_id TEXT',
     "ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
