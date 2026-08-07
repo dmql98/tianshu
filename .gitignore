@@ -1,1 +1,6 @@
 dev.zip
+
+# 会话数据
+.Tianshu/sessions.db
+.Tianshu/sessions.db-shm
+.Tianshu/sessions.db-wal
