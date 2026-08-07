@@ -2768,7 +2768,7 @@
       "label": "avatarCropStyle()",
       "file_type": "code",
       "source_file": "web/client/src/features/characters/avatarCrop.ts",
-      "source_location": "L30",
+      "source_location": "L29",
       "_origin": "ast",
       "id": "web_client_src_features_characters_avatarcrop_avatarcropstyle",
       "community": 13,
@@ -5477,8 +5477,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_agent_loop",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "loop.ts"
     },
     {
@@ -8469,8 +8469,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_character_binding_resolver",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "binding-resolver.ts"
     },
     {
@@ -8480,8 +8480,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "web_server_src_character_binding_resolver_characterbinding",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "characterbinding"
     },
     {
@@ -8491,8 +8491,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "web_server_src_character_binding_resolver_resolvedcharacterbinding",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "resolvedcharacterbinding"
     },
     {
@@ -8502,8 +8502,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "web_server_src_character_binding_resolver_resolvecharacterbinding",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "resolvecharacterbinding()"
     },
     {
@@ -8568,8 +8568,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_character_revision_store",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "revision-store.ts"
     },
     {
@@ -8590,8 +8590,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "web_server_src_character_revision_store_characterrevisionrow",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "characterrevisionrow"
     },
     {
@@ -8601,8 +8601,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "web_server_src_character_revision_store_stablejson",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "stablejson()"
     },
     {
@@ -8612,8 +8612,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "web_server_src_character_revision_store_readvisual",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "readvisual()"
     },
     {
@@ -8623,8 +8623,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "web_server_src_character_revision_store_makesnapshot",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "makesnapshot()"
     },
     {
@@ -8634,8 +8634,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "web_server_src_character_revision_store_characterrevisionstore",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "characterrevisionstore"
     },
     {
@@ -8887,8 +8887,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_config",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "config.ts"
     },
     {
@@ -8898,8 +8898,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "web_server_src_config_dirname",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "__dirname"
     },
     {
@@ -8909,8 +8909,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "web_server_src_config_config_file",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "config_file"
     },
     {
@@ -8920,8 +8920,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "web_server_src_config_config",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "config"
     },
     {
@@ -8931,8 +8931,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "web_server_src_config_loadconfig",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "loadconfig()"
     },
     {
@@ -8942,8 +8942,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "web_server_src_config_getdatadir",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "getdatadir()"
     },
     {
@@ -8953,8 +8953,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "web_server_src_config_isconfigured",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "isconfigured()"
     },
     {
@@ -8964,8 +8964,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "web_server_src_config_setdatadir",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "setdatadir()"
     },
     {
@@ -9118,8 +9118,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_db_messagestore",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "messagestore.ts"
     },
     {
@@ -9140,8 +9140,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "web_server_src_db_messagestore_messagestore",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "messagestore"
     },
     {
@@ -9250,8 +9250,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_db_schema",
-      "community": 2,
-      "community_name": "SkillSettings.vue",
+      "community": 6,
+      "community_name": "toolStore.ts",
       "norm_label": "schema.ts"
     },
     {
@@ -9261,8 +9261,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "web_server_src_db_schema_data_dir",
-      "community": 2,
-      "community_name": "SkillSettings.vue",
+      "community": 6,
+      "community_name": "toolStore.ts",
       "norm_label": "data_dir"
     },
     {
@@ -9283,8 +9283,8 @@
       "source_location": "L399",
       "_origin": "ast",
       "id": "web_server_src_db_schema_closedb",
-      "community": 2,
-      "community_name": "SkillSettings.vue",
+      "community": 6,
+      "community_name": "toolStore.ts",
       "norm_label": "closedb()"
     },
     {
@@ -9470,8 +9470,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_db_turnstore",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "turnstore.ts"
     },
     {
@@ -9481,8 +9481,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "web_server_src_db_turnstore_turnrow",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "turnrow"
     },
     {
@@ -9492,8 +9492,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web_server_src_db_turnstore_turnstore",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "turnstore"
     },
     {
@@ -11637,8 +11637,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_routes_config",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 32,
+      "community_name": "ChatInput.tsx",
       "norm_label": "config.ts"
     },
     {
@@ -11703,8 +11703,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_routes_goals",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "goals.ts"
     },
     {
@@ -11714,8 +11714,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "web_server_src_routes_goals_router",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "router"
     },
     {
@@ -11725,8 +11725,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "web_server_src_routes_goals_setgoalruntime",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "setgoalruntime()"
     },
     {
@@ -11736,8 +11736,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "web_server_src_routes_goals_broadcastsocket",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "broadcastsocket()"
     },
     {
@@ -11747,8 +11747,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_routes_messages",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "messages.ts"
     },
     {
@@ -11758,8 +11758,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "web_server_src_routes_messages_router",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "router"
     },
     {
@@ -11769,8 +11769,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_routes_prompts",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 39,
+      "community_name": "CharacterSelector.vue",
       "norm_label": "prompts.ts"
     },
     {
@@ -11780,8 +11780,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "web_server_src_routes_prompts_data_dir",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 39,
+      "community_name": "CharacterSelector.vue",
       "norm_label": "data_dir"
     },
     {
@@ -11791,8 +11791,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "web_server_src_routes_prompts_default_prompt_file",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 39,
+      "community_name": "CharacterSelector.vue",
       "norm_label": "default_prompt_file"
     },
     {
@@ -11802,8 +11802,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "web_server_src_routes_prompts_router",
-      "community": 37,
-      "community_name": "cronRegistry.ts",
+      "community": 39,
+      "community_name": "CharacterSelector.vue",
       "norm_label": "router"
     },
     {
@@ -11846,8 +11846,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_routes_runs",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "runs.ts"
     },
     {
@@ -11857,8 +11857,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "web_server_src_routes_runs_router",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "router"
     },
     {
@@ -11868,8 +11868,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "web_server_src_routes_runs_setrunsruntime",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "setrunsruntime()"
     },
     {
@@ -11879,8 +11879,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_server_src_routes_runs_broadcastsocket",
-      "community": 39,
-      "community_name": "CharacterSelector.vue",
+      "community": 14,
+      "community_name": "inner.ts",
       "norm_label": "broadcastsocket()"
     },
     {
@@ -12297,8 +12297,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_index",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "index.ts"
     },
     {
@@ -12308,8 +12308,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_index_tool",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "tool"
     },
     {
@@ -12319,8 +12319,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills_test",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "skills.test.ts"
     },
     {
@@ -12330,8 +12330,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills_test_parsed",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "parsed"
     },
     {
@@ -12341,8 +12341,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills_test_updated",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "updated"
     },
     {
@@ -12352,8 +12352,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills_test_toolbindings",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "toolbindings"
     },
     {
@@ -12363,8 +12363,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "skills.ts"
     },
     {
@@ -12374,8 +12374,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills_parseskillnames",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "parseskillnames()"
     },
     {
@@ -12385,8 +12385,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills_updateskillnames",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "updateskillnames()"
     },
     {
@@ -12396,8 +12396,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "web_server_src_tools_character_manager_skills_updatenamedbindings",
-      "community": 32,
-      "community_name": "ChatInput.tsx",
+      "community": 37,
+      "community_name": "cronRegistry.ts",
       "norm_label": "updatenamedbindings()"
     },
     {
@@ -22434,7 +22434,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/client/src/features/characters/avatarCrop.ts",
-      "source_location": "L30",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_client_src_features_characters_avatarcrop",
@@ -22480,7 +22480,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "web/client/src/features/characters/avatarCrop.ts",
-      "source_location": "L32",
+      "source_location": "L31",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_client_src_features_characters_avatarcrop_avatarcropstyle",

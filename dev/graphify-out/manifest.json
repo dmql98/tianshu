@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/ChatInput.tsx": {
-    "mtime": 1785724826.1494162,
-    "ast_hash": "ef648e9249e68b15f3bc47a25d96d117",
+    "mtime": 1786091967.224336,
+    "ast_hash": "cc56d5af98ba5c59d956e22d94d6a13b",
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/FilePanel.tsx": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "web/client/src/stores/chatStore.ts": {
-    "mtime": 1785922303.5530016,
-    "ast_hash": "9f0066c4cb2ee1a615e85e3a0471c47c",
+    "mtime": 1786092039.721749,
+    "ast_hash": "5e6903c87370fceda00e7f7174d5380e",
     "semantic_hash": ""
   },
   "web/client/src/stores/providersStore.ts": {

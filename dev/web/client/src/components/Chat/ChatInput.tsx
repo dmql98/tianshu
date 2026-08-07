@@ -43,12 +43,16 @@ export default function ChatInput() {
   const presence = useCharacterPresence(session?.character_id ?? '', activeSessionId ?? undefined)
   const inputMotion = isFocused && presence === 'idle' ? 'listening' : undefined
 
-  // Load current character
+  // Load current character. Reset synchronously when the session switches so
+  // the previous session's avatar never lingers.
   useEffect(() => {
-    if (!session?.character_id) { setCharacter(null); return }
+    setCharacter(null)
+    if (!session?.character_id) return
+    let cancelled = false
     fetchCharacters()
-      .then(chars => setCharacter(chars.find(c => c.id === session.character_id) || null))
-      .catch(() => setCharacter(null))
+      .then(chars => { if (!cancelled) setCharacter(chars.find(c => c.id === session.character_id) || null) })
+      .catch(() => { if (!cancelled) setCharacter(null) })
+    return () => { cancelled = true }
   }, [session?.character_id])
 
   useEffect(() => {

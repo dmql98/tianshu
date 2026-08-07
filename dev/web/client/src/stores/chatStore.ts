@@ -707,14 +707,19 @@ export const useChatStore = create<ChatState>((set, get) => {
       // Cleanup previous session listeners
       if (state._currentCleanup) {
         state._currentCleanup()
-        set({ _currentCleanup: null, _activeRunId: null, isStreaming: false })
+        set({ _currentCleanup: null, _activeRunId: null })
       }
 
-      set({ activeSessionId: id })
+      set({ activeSessionId: id, isStreaming: false })
       savePersistedDefaults({ activeSessionId: id })
 
       const session = get().sessions.find(s => s.id === id)
-      if (!session || session.messages.length > 0) return
+      if (!session || session.messages.length > 0) {
+        // Still evaluate whether this session has a live run so the send/stop
+        // button matches the active session, not the previous one.
+        get().resumeActiveRun(id)
+        return
+      }
 
       try {
         const data = await sessionsApi.fetchSessionMessages(id)
@@ -841,6 +846,14 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     sendMessage: async (input: string) => {
       const state = get()
+      // Cleanup any previous run's temporary listeners first. Otherwise a
+      // second sendMessage registers duplicate socket handlers for the same
+      // events, and the earlier run's streamed deltas get dropped (stuck UI).
+      if (state._currentCleanup) {
+        state._currentCleanup()
+        set({ _currentCleanup: null, _activeRunId: null })
+      }
+
       let session = state.sessions.find(s => s.id === state.activeSessionId)
 
       if (!session) {
@@ -1204,7 +1217,11 @@ export const useChatStore = create<ChatState>((set, get) => {
         return
       }
       const active = runs.find(r => !TERMINAL_RUN_STATUS.has(r.status))
-      if (!active) return
+      if (!active) {
+        // No live run for this session — ensure UI reflects idle.
+        set({ _activeRunId: null, isStreaming: false })
+        return
+      }
 
       const afterSeq = runSeqByRunId.get(active.id) || 0
       let events: RunEvent[] = []
