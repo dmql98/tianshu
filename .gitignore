@@ -4,3 +4,6 @@ dev.zip
 .Tianshu/sessions.db
 .Tianshu/sessions.db-shm
 .Tianshu/sessions.db-wal
+
+# 本地配置
+dev/web/server/config.json
