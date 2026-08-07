@@ -24,9 +24,12 @@
     "planner-generator-evaluator"
   ],
   "maxSteps": 10,
-  "default_strategy": "Plan",
-  "enabled": true,
+  "default_strategy": "Read Only",
+  "enabled": false,
   "id": "6",
   "createdAt": 1783246382221,
-  "updatedAt": 1783246382221
+  "updatedAt": 1786084921717,
+  "skills": [],
+  "skillBindings": [],
+  "hidden": true
 }

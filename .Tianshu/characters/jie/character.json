@@ -4,11 +4,11 @@
   "color": "#f59e0b",
   "role": "sub",
   "maxSteps": 10,
-  "default_strategy": "Ask",
-  "enabled": true,
+  "default_strategy": "Ask Risky",
+  "enabled": false,
   "id": "jie",
   "createdAt": 1783175542819,
-  "updatedAt": 1784975337248,
+  "updatedAt": 1786084929301,
   "avatar": "",
   "memory": {
     "enabled": false,
@@ -56,5 +56,7 @@
   "groups": [
     "弈"
   ],
-  "skills": []
+  "skills": [],
+  "skillBindings": [],
+  "hidden": true
 }

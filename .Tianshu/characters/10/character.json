@@ -1,0 +1,60 @@
+{
+  "name": "易经占卜师",
+  "description": "mysticism 组易经起卦专家：精通梅花易数、六爻（京房纳甲）、小六壬与 64 卦义理决策，擅长跨流派对照融合",
+  "color": "#c0392b",
+  "role": "both",
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "get_time"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "task_complete"
+    }
+  ],
+  "skills": [
+    "mysticism-yijing-divination"
+  ],
+  "skillBindings": [
+    {
+      "packageId": "mysticism-yijing-divination",
+      "enabled": true,
+      "preloadSkills": []
+    }
+  ],
+  "groups": [
+    "mysticism"
+  ],
+  "maxSteps": 999,
+  "default_strategy": "Auto Approve",
+  "enabled": true,
+  "id": "10",
+  "createdAt": 1786085531930,
+  "updatedAt": 1786091593965
+}

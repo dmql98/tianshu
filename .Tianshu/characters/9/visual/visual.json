@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "defaultMotion": "idle",
+  "motions": {
+    "idle": {
+      "assetId": "casset_bad3e975-6323-47ad-bc1b-fc24deac4976",
+      "loop": true
+    },
+    "thinking": {
+      "assetId": "casset_6ab3763e-49a3-4443-8c44-d31d220e3589",
+      "loop": true
+    },
+    "working": {
+      "assetId": "casset_a8c3750a-574e-4457-999c-3a5778b4e383",
+      "loop": true
+    },
+    "speaking": {
+      "assetId": "casset_c2a8a39c-3709-4daa-9b9e-4df748401670",
+      "loop": true
+    },
+    "success": {
+      "assetId": "casset_269fdf15-7888-4b06-bfdb-4814ab1c85f0",
+      "loop": false
+    },
+    "error": {
+      "assetId": "casset_bb270929-a3b8-46eb-b5d5-c9e7731c17d8",
+      "loop": false
+    }
+  },
+  "originalAssetId": "casset_90cfa6bd-22ad-460e-91b8-0ac5a2628f3c"
+}

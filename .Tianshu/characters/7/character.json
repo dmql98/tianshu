@@ -27,9 +27,12 @@
     "planner-generator-evaluator"
   ],
   "maxSteps": 10,
-  "default_strategy": "Bypass",
-  "enabled": true,
+  "default_strategy": "Auto Approve",
+  "enabled": false,
   "id": "7",
   "createdAt": 1783246395445,
-  "updatedAt": 1783246395445
+  "updatedAt": 1786084924307,
+  "skills": [],
+  "skillBindings": [],
+  "hidden": true
 }

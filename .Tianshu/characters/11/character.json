@@ -1,0 +1,60 @@
+{
+  "name": "紫微斗数命理师",
+  "description": "mysticism 组紫微斗数专家：精通标准化排盘、三合/北派飞星/占验多流派解读、紫微八字融合校验与双人合盘",
+  "color": "#b8860b",
+  "role": "both",
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "get_time"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "task_complete"
+    }
+  ],
+  "skills": [
+    "mysticism-ziwei-doushu"
+  ],
+  "skillBindings": [
+    {
+      "packageId": "mysticism-ziwei-doushu",
+      "enabled": true,
+      "preloadSkills": []
+    }
+  ],
+  "groups": [
+    "mysticism"
+  ],
+  "maxSteps": 999,
+  "default_strategy": "Auto Approve",
+  "enabled": true,
+  "id": "11",
+  "createdAt": 1786085531937,
+  "updatedAt": 1786091471096
+}

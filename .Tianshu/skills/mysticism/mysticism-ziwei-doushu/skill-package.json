@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "mysticism-ziwei-doushu",
+  "name": "紫微斗数",
+  "version": "1.0.0",
+  "category": "mysticism",
+  "description": "紫微斗数专家包：覆盖标准化排盘 API、多流派解读（北派飞星/三合/占验/三派融合）与双人合盘完整链路",
+  "tags": [],
+  "root": "SKILL.md",
+  "children": [
+    { "id": "zwds-openclaw", "name": "标准排盘 CLI", "path": "children/zwds-openclaw", "description": "iztro 结构化命盘 JSON、真太阳时校正、禁 Python 直调", "preload": false },
+    { "id": "ziwei-fortune", "name": "经典通排", "path": "children/ziwei-fortune", "description": "十二宫、十四主星、四化，宫位叙事解读", "preload": false },
+    { "id": "ziwei-doushu", "name": "专业咨询报告", "path": "children/ziwei-doushu", "description": "排盘事实/解读框架/实用趋势分离，异步引擎", "preload": false },
+    { "id": "ziwei-dou-shu", "name": "北派飞星", "path": "children/ziwei-dou-shu", "description": "真太阳时、四化飞星、来因宫，北派解象次序", "preload": false },
+    { "id": "destiny-fusion-pro", "name": "紫微八字融合", "path": "children/destiny-fusion-pro", "description": "一套输入两套体系交叉校验，多年度运程", "preload": false },
+    { "id": "zwds-hepan-openclaw", "name": "双人合盘", "path": "children/zwds-hepan-openclaw", "description": "0-100 匹配分 + 四维分项 + hits 证据", "preload": false }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "mysticism-tarot-divination",
+  "name": "塔罗占卜",
+  "version": "1.0.0",
+  "category": "mysticism",
+  "description": "塔罗占卜专家包：覆盖加密随机抽牌引擎、韦特经典体系、治愈反思派、13 牌阵丰富度与占星内容创作完整链路",
+  "tags": [],
+  "root": "SKILL.md",
+  "children": [
+    { "id": "tarot-spreads", "name": "牌阵符号解读", "path": "children/tarot-spreads", "description": "单牌/三牌/凯尔特十字象征叙事，伦理边界严格", "preload": false },
+    { "id": "tarot", "name": "治愈反思派塔罗", "path": "children/tarot", "description": "临在为先、非临床非预测的情感支持解读（22 张大阿卡纳）", "preload": false },
+    { "id": "tarot-reading", "name": "韦特塔罗深读", "path": "children/tarot-reading", "description": "RWS 体系 78 张正逆位完整解读（含大/小阿卡纳库）", "preload": false },
+    { "id": "mysticx-tarot-drawer", "name": "在线牌库", "path": "children/mysticx-tarot-drawer", "description": "MysticX 免费 API：13 牌阵、9 语言在线抽牌/浏览", "preload": false },
+    { "id": "tarot-reading-new", "name": "加密抽牌引擎", "path": "children/tarot-reading-new", "description": "Python secrets 真随机抽牌，4 类问题 × 9 牌阵", "preload": false },
+    { "id": "tarot-content", "name": "占星内容创作", "path": "children/tarot-content", "description": "12 星座周运、事件特辑、视频脚本、Pillow 封面、内容日历", "preload": false }
+  ]
+}

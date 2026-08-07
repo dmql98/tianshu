@@ -1,0 +1,60 @@
+{
+  "name": "UI设计师",
+  "description": "design 组 UI 原型设计专家：PRD 直出、设计稿像素还原、设计系统/令牌、UI 质量审查与反模式识别、线框与 HTML/Tailwind 高保真原型",
+  "color": "#2563eb",
+  "role": "both",
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "get_time"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "task_complete"
+    }
+  ],
+  "skills": [
+    "design-ui-prototype"
+  ],
+  "skillBindings": [
+    {
+      "packageId": "design-ui-prototype",
+      "enabled": true,
+      "preloadSkills": []
+    }
+  ],
+  "groups": [
+    "design"
+  ],
+  "maxSteps": 999,
+  "default_strategy": "Auto Approve",
+  "enabled": true,
+  "id": "12",
+  "createdAt": 1786093569184,
+  "updatedAt": 1786093578086
+}

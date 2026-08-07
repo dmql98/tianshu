@@ -4,11 +4,11 @@
   "color": "#ffd84d",
   "role": "both",
   "maxSteps": 999,
-  "default_strategy": "Bypass",
-  "enabled": true,
+  "default_strategy": "Auto Approve",
+  "enabled": false,
   "id": "3",
   "createdAt": 1783175542798,
-  "updatedAt": 1784975835557,
+  "updatedAt": 1786084914344,
   "avatar": "",
   "memory": {
     "enabled": false,
@@ -65,5 +65,7 @@
   "groups": [
     "弈"
   ],
-  "skills": []
+  "skills": [],
+  "skillBindings": [],
+  "hidden": true
 }

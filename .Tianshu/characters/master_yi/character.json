@@ -4,11 +4,11 @@
   "color": "#6366f1",
   "role": "both",
   "maxSteps": 10,
-  "default_strategy": "Bypass",
-  "enabled": true,
+  "default_strategy": "Auto Approve",
+  "enabled": false,
   "id": "master_yi",
   "createdAt": 1783175542810,
-  "updatedAt": 1783310173596,
+  "updatedAt": 1786084934526,
   "avatar": "",
   "memory": {
     "enabled": false,
@@ -56,5 +56,7 @@
   "groups": [
     "弈"
   ],
-  "skills": []
+  "skills": [],
+  "skillBindings": [],
+  "hidden": true
 }

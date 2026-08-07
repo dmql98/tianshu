@@ -1,6 +1,66 @@
 {
   "schemaVersion": 1,
   "defaultMotion": "idle",
-  "motions": {},
-  "originalAssetId": "casset_fd584f1f-d0df-4e50-bc75-01f5fc679aa0"
+  "motions": {
+    "idle": {
+      "assetId": "casset_96cad221-1ae3-4d38-88a9-0c0bb8472c96",
+      "loop": true,
+      "crop": {
+        "x": 53.33334115835336,
+        "y": 11.025648850661057,
+        "scale": 1
+      }
+    },
+    "thinking": {
+      "assetId": "casset_b5c61595-bbb0-4469-9993-c0cf03d1035d",
+      "loop": true,
+      "crop": {
+        "x": 55.89745154747596,
+        "y": 17.692307692307693,
+        "scale": 1
+      }
+    },
+    "working": {
+      "assetId": "casset_7ac8e312-5a4c-490e-bcbf-753708472425",
+      "loop": true,
+      "crop": {
+        "x": 51.53846153846154,
+        "y": 19.487187312199516,
+        "scale": 1
+      }
+    },
+    "speaking": {
+      "assetId": "casset_75f9c0da-0dec-4c90-a69b-4ba0bac767ed",
+      "loop": true,
+      "crop": {
+        "x": 54.10257192758414,
+        "y": 16.41025249774639,
+        "scale": 1
+      }
+    },
+    "success": {
+      "assetId": "casset_ddda7e47-46a1-4170-8fbc-91f6337f22a4",
+      "loop": false,
+      "crop": {
+        "x": 52.82052847055289,
+        "y": 19.230769230769234,
+        "scale": 1
+      }
+    },
+    "error": {
+      "assetId": "casset_e767cff0-9c51-453e-8bab-facf1424aaa8",
+      "loop": false,
+      "crop": {
+        "x": 55.38461538461539,
+        "y": 25.641009990985573,
+        "scale": 1
+      }
+    }
+  },
+  "originalAssetId": "casset_208186e3-af21-4479-a468-9049b81493d1",
+  "avatarCrop": {
+    "x": 51.53846153846154,
+    "y": 11.282043457031246,
+    "scale": 1
+  }
 }
