@@ -2,5 +2,10 @@
   "schemaVersion": 1,
   "defaultMotion": "idle",
   "motions": {},
-  "originalAssetId": "casset_2c5fc4f3-8c8d-4520-b7c1-0277a9181e53"
+  "originalAssetId": "casset_2c5fc4f3-8c8d-4520-b7c1-0277a9181e53",
+  "avatarCrop": {
+    "x": 53.846153846153854,
+    "y": 3.46153846153846,
+    "scale": 2.45
+  }
 }

@@ -101,7 +101,6 @@ export default function CharactersPage() {
                     </div>
                     <div className="star-info">
                       <div className="star-tags">
-                        {char.enabled !== false && <span className="star-tag jade">已启用</span>}
                         <span className="star-tag blue">{roleLabels[char.role] || char.role}</span>
                         <span className="star-tag">{char.default_strategy}</span>
                         {char.model && <span className="star-tag">{char.model}</span>}

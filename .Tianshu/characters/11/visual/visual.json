@@ -27,5 +27,10 @@
       "loop": false
     }
   },
-  "originalAssetId": "casset_5367aef5-b91f-4d34-8a7d-72721f47f507"
+  "originalAssetId": "casset_5367aef5-b91f-4d34-8a7d-72721f47f507",
+  "avatarCrop": {
+    "x": 50.38461538461539,
+    "y": 11.153846153846153,
+    "scale": 2.1
+  }
 }

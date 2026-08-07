@@ -828,6 +828,13 @@ textarea:focus{border-color:var(--gold)}
   font-size: 32px;
 }
 
+.character-renderer-picker {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  font-size: 13px;
+}
+
 .character-renderer-avatar .character-motion-dot,
 .character-renderer-portrait .character-motion-dot { display: none; }
 .character-renderer-portrait > img,

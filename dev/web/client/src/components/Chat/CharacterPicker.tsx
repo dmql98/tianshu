@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { fetchCharacters } from '@/api/characters'
 import { updateSession } from '@/api/sessions'
 import { useChatStore } from '@/stores/chatStore'
+import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import type { Character } from '@/types'
 
 interface Props {
@@ -68,8 +69,8 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
         key={c.id}
         className="modal-item"
         style={{
-          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-          padding: '8px 10px', border: 'none', borderRadius: 8, background: isActive ? 'rgba(200,150,10,0.08)' : 'transparent',
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+          padding: '10px 12px', border: 'none', borderRadius: 8, background: isActive ? 'rgba(200,150,10,0.08)' : 'transparent',
           cursor: isDisabled ? 'default' : 'pointer', fontSize: 13, textAlign: 'left',
           opacity: isDisabled ? 0.45 : 1, transition: 'background 0.12s',
           color: 'var(--ink-deep)',
@@ -79,22 +80,25 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
       >
         <span style={{
-          width: 32, height: 32, borderRadius: '50%', border: `2px solid ${c.color || 'var(--border)'}`,
+          width: 80, height: 80, borderRadius: '50%', border: `2px solid ${c.color || 'var(--border)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           background: 'var(--bg-hover)', overflow: 'hidden',
         }}>
-          {c.avatar
-            ? <img src={c.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-mid)' }}>{c.name[0]}</span>
-          }
+          <CharacterRenderer
+            characterId={c.id}
+            name={c.name}
+            legacyAvatar={c.avatar}
+            mode="avatar"
+            className="character-renderer-picker"
+          />
         </span>
-        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{c.name}</span>
-          <span style={{ fontSize: 11, color: 'var(--ink-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.description || ''}</span>
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 14, fontWeight: 500 }}>{c.name}</span>
+          <span style={{ fontSize: 12, color: 'var(--ink-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.description || ''}</span>
         </span>
-        {c.role === 'main' && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: 'rgba(37,99,235,0.08)', color: 'var(--blue)', flexShrink: 0 }}>main</span>}
-        {c.role === 'sub' && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: 'var(--bg-hover)', color: 'var(--ink-faint)', flexShrink: 0 }}>sub</span>}
-        {c.role === 'both' && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: 'rgba(200,150,10,0.08)', color: 'var(--gold)', flexShrink: 0 }}>主/子</span>}
+        {c.role === 'main' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, background: 'rgba(37,99,235,0.08)', color: 'var(--blue)', flexShrink: 0 }}>main</span>}
+        {c.role === 'sub' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, background: 'var(--bg-hover)', color: 'var(--ink-faint)', flexShrink: 0 }}>sub</span>}
+        {c.role === 'both' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, background: 'rgba(200,150,10,0.08)', color: 'var(--gold)', flexShrink: 0 }}>主/子</span>}
       </button>
     )
   }
@@ -104,27 +108,27 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'var(--bg-card)', borderRadius: 12, width: 380, maxHeight: '70vh',
+          background: 'var(--bg-card)', borderRadius: 12, width: 800, height: 650, maxWidth: '92vw',
           display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden',
         }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
           <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-deep)' }}>选择角色</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               onClick={() => setGroupView(!groupView)}
               title={groupView ? '列表视图' : '分组视图'}
               style={{
-                width: 26, height: 26, border: `1px solid ${groupView ? 'var(--gold)' : 'var(--border)'}`,
-                borderRadius: 4, background: groupView ? 'rgba(200,150,10,0.08)' : 'var(--bg-input)',
+                width: 40, height: 40, border: `1px solid ${groupView ? 'var(--gold)' : 'var(--border)'}`,
+                borderRadius: 8, background: groupView ? 'rgba(200,150,10,0.08)' : 'var(--bg-input)',
                 cursor: 'pointer', color: groupView ? 'var(--gold)' : 'var(--ink-faint)', padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
               }}
             >▦</button>
             <button
               onClick={onClose}
-              style={{ fontSize: 20, color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+              style={{ width: 40, height: 40, fontSize: 28, color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, borderRadius: 8 }}
             >×</button>
           </div>
         </div>

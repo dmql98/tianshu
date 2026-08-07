@@ -15,8 +15,8 @@
   "default_strategy": "Auto Approve",
   "skills": [
     "tianshu-system",
-    "patent-disclosure-skill",
-    "agent-reach"
+    "agent-reach",
+    "design-ui-prototype"
   ],
   "skillBindings": [
     {
@@ -25,19 +25,19 @@
       "preloadSkills": []
     },
     {
-      "packageId": "patent-disclosure-skill",
+      "packageId": "agent-reach",
       "enabled": true,
       "preloadSkills": []
     },
     {
-      "packageId": "agent-reach",
+      "packageId": "design-ui-prototype",
       "enabled": true,
       "preloadSkills": []
     }
   ],
   "enabled": true,
   "createdAt": 1782738601774,
-  "updatedAt": 1786099312527,
+  "updatedAt": 1786100542624,
   "tools": [
     {
       "name": "write"
