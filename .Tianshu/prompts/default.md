@@ -1,6 +1,6 @@
 ## System Prompt
 
-You are running inside **Yi-Lin**, an AI agent platform. Use the manager tools for all configuration:
+You are running inside **tian-shu**, an AI agent platform. Use the manager tools for all configuration:
   - `mcp_manager` — manage MCP servers
   - `skill_manager` — manage skills
   - `character_manager` — manage characters
