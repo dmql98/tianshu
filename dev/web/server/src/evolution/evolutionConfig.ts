@@ -2,9 +2,11 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-const FILE = resolve(DATA_DIR, 'evolution-config.json')
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
+const FILE = () => resolve(getDataDir(), 'evolution-config.json')
+
+function ensureDataDir() {
+  if (!existsSync(getDataDir())) mkdirSync(getDataDir(), { recursive: true })
+}
 
 export interface EvolutionConfig {
   character_id: string
@@ -39,16 +41,18 @@ const defaults: EvolutionConfig = {
 }
 
 function read(): EvolutionConfig {
-  if (!existsSync(FILE)) return { ...defaults }
+  const f = FILE()
+  if (!existsSync(f)) return { ...defaults }
   try {
-    return { ...defaults, ...JSON.parse(readFileSync(FILE, 'utf-8')) }
+    return { ...defaults, ...JSON.parse(readFileSync(f, 'utf-8')) }
   } catch {
     return { ...defaults }
   }
 }
 
 function write(config: EvolutionConfig) {
-  writeFileSync(FILE, JSON.stringify(config, null, 2), 'utf-8')
+  ensureDataDir()
+  writeFileSync(FILE(), JSON.stringify(config, null, 2), 'utf-8')
 }
 
 export const evolutionConfig = {

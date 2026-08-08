@@ -3,8 +3,7 @@ import { resolve } from 'path'
 import { randomUUID } from 'crypto'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-const MEDIA_DIR = resolve(DATA_DIR, 'media')
+const MEDIA_DIR = () => resolve(getDataDir(), 'media')
 
 export interface AttachmentMeta {
   id: string
@@ -37,25 +36,26 @@ export function saveAttachment(
   sessionId: string,
   input: { filename: string; mediaType: string; data: string },
 ): AttachmentMeta {
-  if (!existsSync(MEDIA_DIR)) mkdirSync(MEDIA_DIR, { recursive: true })
+  const mediaDir = MEDIA_DIR()
+  if (!existsSync(mediaDir)) mkdirSync(mediaDir, { recursive: true })
   const ext = extFor(input.mediaType, input.filename)
   const id = randomUUID()
   const rel = `${sessionId}/${id}.${ext}`
-  const abs = resolve(MEDIA_DIR, rel)
-  if (!existsSync(resolve(MEDIA_DIR, sessionId))) mkdirSync(resolve(MEDIA_DIR, sessionId), { recursive: true })
+  const abs = resolve(mediaDir, rel)
+  if (!existsSync(resolve(mediaDir, sessionId))) mkdirSync(resolve(mediaDir, sessionId), { recursive: true })
   const buf = Buffer.from(input.data, 'base64')
   writeFileSync(abs, buf)
   return { id, mediaType: input.mediaType, filename: input.filename, size: buf.length, ext }
 }
 
 export function loadAttachmentBase64(sessionId: string, id: string, ext: string): string | null {
-  const abs = resolve(MEDIA_DIR, sessionId, `${id}.${ext}`)
+  const abs = resolve(MEDIA_DIR(), sessionId, `${id}.${ext}`)
   if (!existsSync(abs)) return null
   return readFileSync(abs).toString('base64')
 }
 
 export function deleteSessionMedia(sessionId: string): void {
-  const dir = resolve(MEDIA_DIR, sessionId)
+  const dir = resolve(MEDIA_DIR(), sessionId)
   if (!existsSync(dir)) return
   try {
     rmSync(dir, { recursive: true, force: true })

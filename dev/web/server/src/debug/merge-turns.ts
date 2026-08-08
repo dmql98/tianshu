@@ -2,14 +2,13 @@ import { readdirSync, readFileSync, writeFileSync, unlinkSync, rmSync, statSync 
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-const DEBUG_DIR = resolve(DATA_DIR, 'debug')
+const DEBUG_DIR = () => resolve(getDataDir(), 'debug')
 const DAY_MS = 86400000
 
 export function mergeOldDebugTurns(force = false) {
   let entries: string[]
   try {
-    entries = readdirSync(DEBUG_DIR, { withFileTypes: true })
+    entries = readdirSync(DEBUG_DIR(), { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
   } catch {
@@ -19,7 +18,7 @@ export function mergeOldDebugTurns(force = false) {
   const cutoff = Date.now() - 86400000
 
   for (const sessionId of entries) {
-    const dir = resolve(DEBUG_DIR, sessionId)
+    const dir = resolve(DEBUG_DIR(), sessionId)
     const files = readdirSync(dir).filter(f => f.includes('_turn'))
 
     if (files.some(f => f.startsWith('merged_'))) continue
@@ -69,7 +68,7 @@ export function mergeOldDebugTurns(force = false) {
 export function deleteOldDebugSessions() {
   let entries: string[]
   try {
-    entries = readdirSync(DEBUG_DIR, { withFileTypes: true })
+    entries = readdirSync(DEBUG_DIR(), { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
   } catch {
@@ -79,7 +78,7 @@ export function deleteOldDebugSessions() {
   const cutoff = Date.now() - 25 * DAY_MS
 
   for (const sessionId of entries) {
-    const dir = resolve(DEBUG_DIR, sessionId)
+    const dir = resolve(DEBUG_DIR(), sessionId)
     try {
       const st = statSync(dir)
       if (st.birthtimeMs > 0 && st.birthtimeMs < cutoff) {

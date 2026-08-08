@@ -54,7 +54,7 @@
   "maxSteps": 999,
   "default_strategy": "Auto Approve",
   "enabled": true,
-  "id": "9",
+  "id": "taro",
   "createdAt": 1786085531924,
-  "updatedAt": 1786090241667
+  "updatedAt": 1786154030292
 }

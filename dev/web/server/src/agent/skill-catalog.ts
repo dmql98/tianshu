@@ -2,7 +2,9 @@ import { existsSync, readFileSync, readdirSync } from 'fs'
 import { extname, join, relative, resolve, sep } from 'path'
 import { getDataDir } from '../config.js'
 
-export const SKILLS_ROOT = resolve(getDataDir(), 'skills')
+export function skillsRoot(): string {
+  return resolve(getDataDir(), 'skills')
+}
 
 export type SkillFileType = 'reference' | 'script' | 'template' | 'test' | 'asset' | 'other'
 
@@ -142,6 +144,17 @@ function readPackage(category: string, dir: string): SkillPackageRecord {
       tags: strings(child.tags || skill.meta.tags),
     }
   })
+  // Aggregates resource files from the package root AND every child skill
+  // directory so multi-child packages (e.g. uzi, mysticism) surface all
+  // their references/scripts/assets instead of only root-level files.
+  const packageFiles: SkillFileEntry[] = listFiles(dir, new Set(['children']))
+  for (const child of children) {
+    const childDir = resolve(dir, child.path)
+    for (const entry of listFiles(childDir)) {
+      packageFiles.push({ name: entry.name, path: `${child.path}/${entry.path}`, type: entry.type })
+    }
+  }
+  packageFiles.sort((a, b) => a.path.localeCompare(b.path))
   return {
     schemaVersion: 1,
     id: raw.id,
@@ -155,16 +168,17 @@ function readPackage(category: string, dir: string): SkillPackageRecord {
     children,
     dir,
     rootBody: rootSkill.body,
-    files: listFiles(dir, new Set(['children'])),
+    files: packageFiles,
   }
 }
 
 export function listSkillPackages(): SkillPackageRecord[] {
   const packages: SkillPackageRecord[] = []
+  const root = skillsRoot()
   try {
-    for (const category of readdirSync(SKILLS_ROOT, { withFileTypes: true })) {
+    for (const category of readdirSync(root, { withFileTypes: true })) {
       if (!category.isDirectory()) continue
-      const categoryDir = join(SKILLS_ROOT, category.name)
+      const categoryDir = join(root, category.name)
       for (const entry of readdirSync(categoryDir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue
         const dir = join(categoryDir, entry.name)

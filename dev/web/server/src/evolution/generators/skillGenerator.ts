@@ -3,13 +3,12 @@ import { resolve } from 'path'
 import type { SkillDraft } from '../extractors/insightExtractor.js'
 import { getDataDir } from '../../config.js'
 
-const DATA_DIR = getDataDir()
-const SKILLS_DIR = resolve(DATA_DIR, 'skills')
+const SKILLS_DIR = () => resolve(getDataDir(), 'skills')
 
 export class SkillGenerator {
   static generate(draft: SkillDraft): string {
     const nameSlug = draft.name.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-    const dir = resolve(SKILLS_DIR, nameSlug)
+    const dir = resolve(SKILLS_DIR(), nameSlug)
     mkdirSync(dir, { recursive: true })
 
     const content = `# ${draft.name}

@@ -1,7 +1,7 @@
 {
-  "name": "紫微斗数命理师",
-  "description": "紫微斗数专家：精通标准化排盘、三合/北派飞星/占验多流派解读、紫微八字融合校验与双人合盘",
-  "color": "#b8860b",
+  "name": "UI设计师",
+  "description": "design 组 UI 原型设计专家：PRD 直出、设计稿像素还原、设计系统/令牌、UI 质量审查与反模式识别、线框与 HTML/Tailwind 高保真原型",
+  "color": "#2563eb",
   "role": "both",
   "tools": [
     {
@@ -39,22 +39,22 @@
     }
   ],
   "skills": [
-    "mysticism-ziwei-doushu"
+    "design-ui-prototype"
   ],
   "skillBindings": [
     {
-      "packageId": "mysticism-ziwei-doushu",
+      "packageId": "design-ui-prototype",
       "enabled": true,
       "preloadSkills": []
     }
   ],
   "groups": [
-    "mysticism"
+    "design"
   ],
   "maxSteps": 999,
   "default_strategy": "Auto Approve",
   "enabled": true,
-  "id": "11",
-  "createdAt": 1786085531937,
-  "updatedAt": 1786100931707
+  "id": "ui-designer",
+  "createdAt": 1786093569184,
+  "updatedAt": 1786154038026
 }

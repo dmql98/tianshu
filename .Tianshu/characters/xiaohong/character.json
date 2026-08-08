@@ -1,5 +1,5 @@
 {
-  "id": "1",
+  "id": "xiaohong",
   "name": "小红",
   "description": "用户的贴心小秘书",
   "avatar": "",
@@ -37,7 +37,7 @@
   ],
   "enabled": true,
   "createdAt": 1782738601774,
-  "updatedAt": 1786100542624,
+  "updatedAt": 1786154003284,
   "tools": [
     {
       "name": "write"

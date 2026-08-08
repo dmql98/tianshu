@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { getDataDir, setDataDir, isConfigured } from '../config.js'
 import { existsSync, mkdirSync } from 'fs'
+import { getDb, closeDb } from '../db/schema.js'
 
 const router = new Hono()
 
@@ -22,6 +23,12 @@ router.put('/dataspace', async (c) => {
   }
   setDataDir(path)
   return c.json({ ok: true, dataDir: path })
+})
+
+router.post('/reload', (c) => {
+  closeDb()
+  getDb()
+  return c.json({ ok: true, dataDir: getDataDir() })
 })
 
 export default router

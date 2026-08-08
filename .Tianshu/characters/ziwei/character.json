@@ -1,7 +1,7 @@
 {
-  "name": "易经占卜师",
-  "description": "mysticism 组易经起卦专家：精通梅花易数、六爻（京房纳甲）、小六壬与 64 卦义理决策，擅长跨流派对照融合",
-  "color": "#c0392b",
+  "name": "紫微斗数命理师",
+  "description": "紫微斗数专家：精通标准化排盘、三合/北派飞星/占验多流派解读、紫微八字融合校验与双人合盘",
+  "color": "#b8860b",
   "role": "both",
   "tools": [
     {
@@ -39,11 +39,11 @@
     }
   ],
   "skills": [
-    "mysticism-yijing-divination"
+    "mysticism-ziwei-doushu"
   ],
   "skillBindings": [
     {
-      "packageId": "mysticism-yijing-divination",
+      "packageId": "mysticism-ziwei-doushu",
       "enabled": true,
       "preloadSkills": []
     }
@@ -54,7 +54,7 @@
   "maxSteps": 999,
   "default_strategy": "Auto Approve",
   "enabled": true,
-  "id": "10",
-  "createdAt": 1786085531930,
-  "updatedAt": 1786091593965
+  "id": "ziwei",
+  "createdAt": 1786085531937,
+  "updatedAt": 1786154023376
 }

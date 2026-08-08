@@ -3,10 +3,13 @@ import { resolve } from 'path'
 import { getDataDir } from '../config.js'
 import { normalizeStrategy, type Strategy, type StrategyInput } from '../agent/strategy.js'
 
-const DATA_DIR = getDataDir()
-const CHAR_DIR = resolve(DATA_DIR, 'characters')
+const CHAR_DIR = () => resolve(getDataDir(), 'characters')
 
-mkdirSync(CHAR_DIR, { recursive: true })
+function ensureCharDir() {
+  const dir = CHAR_DIR()
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  return dir
+}
 
 export interface CharacterMemory {
   enabled: boolean
@@ -49,7 +52,8 @@ export interface CharacterRecord {
 }
 
 function pathFor(id: string): string {
-  return resolve(CHAR_DIR, id, 'character.json')
+  const dir = ensureCharDir()
+  return resolve(dir, id, 'character.json')
 }
 
 function normalizeRecord(record: CharacterRecord & { default_strategy?: StrategyInput }): CharacterRecord {
@@ -65,10 +69,11 @@ function normalizeRecord(record: CharacterRecord & { default_strategy?: Strategy
 }
 
 function readAll(): CharacterRecord[] {
-  if (!existsSync(CHAR_DIR)) return []
+  const dir = CHAR_DIR()
+  if (!existsSync(dir)) return []
   const items: CharacterRecord[] = []
   try {
-    const entries = readdirSync(CHAR_DIR, { withFileTypes: true })
+    const entries = readdirSync(dir, { withFileTypes: true })
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const f = pathFor(entry.name)
@@ -80,13 +85,13 @@ function readAll(): CharacterRecord[] {
 }
 
 function writeSingle(record: CharacterRecord) {
-  const dir = resolve(CHAR_DIR, record.id)
+  const dir = resolve(CHAR_DIR(), record.id)
   mkdirSync(dir, { recursive: true })
   writeFileSync(resolve(dir, 'character.json'), JSON.stringify(record, null, 2), 'utf-8')
 }
 
 function removeDir(id: string) {
-  const dir = resolve(CHAR_DIR, id)
+  const dir = resolve(CHAR_DIR(), id)
   if (existsSync(dir)) {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -132,8 +137,8 @@ export const characterMetaStore = {
     const all = readAll()
     if (!all.some(c => c.id === oldId)) return null
     if (all.some(c => c.id === newId)) throw new Error(`ID "${newId}" already exists`)
-    const oldDir = resolve(CHAR_DIR, oldId)
-    const newDir = resolve(CHAR_DIR, newId)
+    const oldDir = resolve(CHAR_DIR(), oldId)
+    const newDir = resolve(CHAR_DIR(), newId)
     renameSync(oldDir, newDir)
     const record: CharacterRecord = JSON.parse(readFileSync(resolve(newDir, 'character.json'), 'utf-8'))
     record.id = newId

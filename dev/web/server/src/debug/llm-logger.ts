@@ -3,8 +3,7 @@ import { createHash } from 'crypto'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-const DEBUG_DIR = resolve(DATA_DIR, 'debug')
+const DEBUG_DIR = () => resolve(getDataDir(), 'debug')
 
 function systemPromptFingerprint(messages: unknown[]): string {
   const sysMsg = (messages || []).find(m => (m as any)?.role === 'system')
@@ -23,7 +22,7 @@ export function logLLMCall(
 ) {
   const id = sessionId || 'unknown'
   const ts = Date.now()
-  const dir = resolve(DEBUG_DIR, id)
+  const dir = resolve(DEBUG_DIR(), id)
   mkdirSync(dir, { recursive: true })
 
   const fp = systemPromptFingerprint(request.messages)

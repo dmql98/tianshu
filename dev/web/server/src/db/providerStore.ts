@@ -2,9 +2,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-const FILE = resolve(DATA_DIR, 'providers.json')
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
+const FILE = () => resolve(getDataDir(), 'providers.json')
+const DATA_DIR = () => getDataDir()
 
 export interface ProviderRecord {
   id: string; name: string; base_url: string; api_key: string
@@ -20,16 +19,23 @@ export interface ModelInfo {
 }
 
 function readAll(): ProviderRecord[] {
-  if (!existsSync(FILE)) return []
-  return JSON.parse(readFileSync(FILE, 'utf-8'))
+  ensureDataDir()
+  const f = FILE()
+  if (!existsSync(f)) return []
+  return JSON.parse(readFileSync(f, 'utf-8'))
 }
 function writeAll(items: ProviderRecord[]) {
-  writeFileSync(FILE, JSON.stringify(items, null, 2), 'utf-8')
+  ensureDataDir()
+  writeFileSync(FILE(), JSON.stringify(items, null, 2), 'utf-8')
+}
+
+function ensureDataDir() {
+  if (!existsSync(DATA_DIR())) mkdirSync(DATA_DIR(), { recursive: true })
 }
 
 // migrate existing records that lack an id
 function ensureIds() {
-  if (!existsSync(FILE)) return
+  if (!existsSync(FILE())) return
   const all = readAll()
   let changed = false
   all.forEach(p => { if (!p.id) { p.id = crypto.randomUUID(); changed = true } })

@@ -4,8 +4,7 @@ import type { ToolModule } from '../types.js'
 import { mergeOldDebugTurns } from '../../debug/merge-turns.js'
 import { getDataDir } from '../../config.js'
 
-const DATA_DIR = getDataDir()
-const DEBUG_DIR = resolve(DATA_DIR, 'debug')
+const DEBUG_DIR = () => resolve(getDataDir(), 'debug')
 
 export const tool: ToolModule = {
   name: 'debug_sessions',
@@ -22,7 +21,7 @@ export const tool: ToolModule = {
 
     let sessions: string[]
     try {
-      sessions = readdirSync(DEBUG_DIR, { withFileTypes: true })
+      sessions = readdirSync(DEBUG_DIR(), { withFileTypes: true })
         .filter(d => d.isDirectory())
         .map(d => d.name)
     } catch {
@@ -65,7 +64,7 @@ export const tool: ToolModule = {
 
     const result: string[] = []
     for (const sessionId of sessions) {
-      const dir = resolve(DEBUG_DIR, sessionId)
+      const dir = resolve(DEBUG_DIR(), sessionId)
 
       const mergedFiles = readdirSync(dir)
         .filter(f => f.startsWith('merged_') && f.endsWith('.json'))

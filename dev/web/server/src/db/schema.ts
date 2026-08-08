@@ -3,12 +3,11 @@ import { existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-
 let db: Database.Database | null = null
 
 export function getDb(): Database.Database {
   if (db) return db
+  const DATA_DIR = getDataDir()
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
   db = new Database(resolve(DATA_DIR, 'sessions.db'))
   db.pragma('journal_mode = WAL')

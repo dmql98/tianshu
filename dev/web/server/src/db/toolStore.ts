@@ -2,10 +2,14 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync
 import { resolve, join } from 'path'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-const MCP_DIR = resolve(DATA_DIR, 'mcpservers')
-const OLD_FILE = resolve(DATA_DIR, 'mcpservers.json')
-mkdirSync(MCP_DIR, { recursive: true })
+const MCP_DIR = () => resolve(getDataDir(), 'mcpservers')
+const OLD_FILE = () => resolve(getDataDir(), 'mcpservers.json')
+
+function ensureMcpDir() {
+  const dir = MCP_DIR()
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  return dir
+}
 
 export interface MCPServerRecord {
   id: string
@@ -18,7 +22,8 @@ export interface MCPServerRecord {
 }
 
 function configPath(name: string): string {
-  return join(MCP_DIR, name, 'config.json')
+  ensureMcpDir()
+  return join(MCP_DIR(), name, 'config.json')
 }
 
 function readByName(name: string): MCPServerRecord | null {
@@ -28,18 +33,19 @@ function readByName(name: string): MCPServerRecord | null {
 }
 
 function writeByName(name: string, record: MCPServerRecord) {
-  const dir = join(MCP_DIR, name)
+  const dir = join(MCP_DIR(), name)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, 'config.json'), JSON.stringify(record, null, 2), 'utf-8')
 }
 
 function scanAll(): MCPServerRecord[] {
-  if (!existsSync(MCP_DIR)) return []
-  const entries = readdirSync(MCP_DIR, { withFileTypes: true })
+  const dir = MCP_DIR()
+  if (!existsSync(dir)) return []
+  const entries = readdirSync(dir, { withFileTypes: true })
   const results: MCPServerRecord[] = []
   for (const e of entries) {
     if (!e.isDirectory()) continue
-    const p = join(MCP_DIR, e.name, 'config.json')
+    const p = join(dir, e.name, 'config.json')
     if (!existsSync(p)) continue
     try {
       results.push(JSON.parse(readFileSync(p, 'utf-8')))
@@ -49,11 +55,12 @@ function scanAll(): MCPServerRecord[] {
 }
 
 function findById(id: string): MCPServerRecord | null {
-  if (!existsSync(MCP_DIR)) return null
-  const entries = readdirSync(MCP_DIR, { withFileTypes: true })
+  const dir = MCP_DIR()
+  if (!existsSync(dir)) return null
+  const entries = readdirSync(dir, { withFileTypes: true })
   for (const e of entries) {
     if (!e.isDirectory()) continue
-    const p = join(MCP_DIR, e.name, 'config.json')
+    const p = join(dir, e.name, 'config.json')
     if (!existsSync(p)) continue
     try {
       const record = JSON.parse(readFileSync(p, 'utf-8'))
@@ -64,29 +71,30 @@ function findById(id: string): MCPServerRecord | null {
 }
 
 function findDirById(id: string): string | null {
-  if (!existsSync(MCP_DIR)) return null
-  const entries = readdirSync(MCP_DIR, { withFileTypes: true })
+  const dir = MCP_DIR()
+  if (!existsSync(dir)) return null
+  const entries = readdirSync(dir, { withFileTypes: true })
   for (const e of entries) {
     if (!e.isDirectory()) continue
-    const p = join(MCP_DIR, e.name, 'config.json')
+    const p = join(dir, e.name, 'config.json')
     if (!existsSync(p)) continue
     try {
       const record = JSON.parse(readFileSync(p, 'utf-8'))
-      if (record.id === id) return join(MCP_DIR, e.name)
+      if (record.id === id) return join(dir, e.name)
     } catch { /* skip */ }
   }
   return null
 }
 
 function migrateFromOldFile() {
-  if (!existsSync(OLD_FILE)) return
+  if (!existsSync(OLD_FILE())) return
   try {
-    const data = JSON.parse(readFileSync(OLD_FILE, 'utf-8'))
+    const data = JSON.parse(readFileSync(OLD_FILE(), 'utf-8'))
     if (!Array.isArray(data)) return
     for (const record of data) {
       if (record.name) writeByName(record.name, record)
     }
-    rmSync(OLD_FILE, { force: true })
+    rmSync(OLD_FILE(), { force: true })
     console.log(`[toolStore] Migrated ${data.length} MCP server(s) from mcpservers.json`)
   } catch (err: any) {
     console.error('[toolStore] Failed to migrate mcpservers.json:', err.message)
@@ -114,21 +122,22 @@ export const mcpServerStore = {
     return record
   },
   update: (id: string, patch: Partial<MCPServerRecord>) => {
-    if (!existsSync(MCP_DIR)) return null
-    const entries = readdirSync(MCP_DIR, { withFileTypes: true })
+    const mcpDir = MCP_DIR()
+    if (!existsSync(mcpDir)) return null
+    const entries = readdirSync(mcpDir, { withFileTypes: true })
     for (const e of entries) {
       if (!e.isDirectory()) continue
-      const p = join(MCP_DIR, e.name, 'config.json')
+      const p = join(mcpDir, e.name, 'config.json')
       if (!existsSync(p)) continue
       try {
         const record = JSON.parse(readFileSync(p, 'utf-8'))
         if (record.id !== id) continue
         const updated = { ...record, ...patch, id }
         if (patch.name && patch.name !== e.name) {
-          const newDir = join(MCP_DIR, patch.name)
+          const newDir = join(mcpDir, patch.name)
           mkdirSync(newDir, { recursive: true })
           writeFileSync(join(newDir, 'config.json'), JSON.stringify(updated, null, 2), 'utf-8')
-          rmSync(join(MCP_DIR, e.name), { recursive: true, force: true })
+          rmSync(join(mcpDir, e.name), { recursive: true, force: true })
         } else {
           writeFileSync(p, JSON.stringify(updated, null, 2), 'utf-8')
         }

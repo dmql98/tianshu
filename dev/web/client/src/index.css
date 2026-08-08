@@ -237,13 +237,13 @@ textarea.chat-textarea::placeholder{color:var(--ink-faint)}
 .rp-ws-del:hover{color:var(--cinnabar)}
 
 .approval-overlay{position:fixed;inset:0;z-index:100;background:rgba(44,36,24,0.4);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center}
-.approval-dialog{width:400px;padding:20px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 20px 60px rgba(44,36,24,0.2)}
-.approval-title{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--ink-deep)}
-.approval-desc{font-size:13px;color:var(--ink-mid);margin-bottom:12px;line-height:1.6}
-.approval-path{padding:8px 12px;border-radius:8px;margin-bottom:14px;background:var(--bg-input);border:1px solid var(--border);font-family:monospace;font-size:12px;color:var(--gold);word-break:break-all}
-.approval-workspace-request{padding:12px 14px;border-radius:8px;margin:12px 0 16px;background:var(--bg-input);border:1px solid var(--border);font-size:13px;line-height:1.65;color:var(--ink-mid);overflow-wrap:anywhere}
+.approval-dialog{width:400px;max-height:80vh;padding:20px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 20px 60px rgba(44,36,24,0.2);display:flex;flex-direction:column;overflow:hidden}
+.approval-title{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--ink-deep);flex-shrink:0}
+.approval-desc{font-size:13px;color:var(--ink-mid);margin-bottom:12px;line-height:1.6;flex-shrink:0;word-break:break-all}
+.approval-path{padding:8px 12px;border-radius:8px;margin-bottom:14px;background:var(--bg-input);border:1px solid var(--border);font-family:monospace;font-size:12px;color:var(--gold);word-break:break-all;overflow-y:auto;flex:1;min-height:0}
+.approval-workspace-request{padding:12px 14px;border-radius:8px;margin:12px 0 16px;background:var(--bg-input);border:1px solid var(--border);font-size:13px;line-height:1.65;color:var(--ink-mid);overflow-wrap:anywhere;overflow-y:auto;flex:1;min-height:0}
 .approval-workspace-request strong{color:var(--gold);font-family:monospace;font-weight:600}
-.approval-actions{display:flex;gap:8px}
+.approval-actions{display:flex;gap:8px;flex-shrink:0}
 .approval-btn{flex:1;padding:10px;border-radius:8px;border:none;font-family:inherit;font-size:13px;cursor:pointer;transition:all 0.2s}
 .approval-btn.reject{background:transparent;color:var(--cinnabar);border:1px solid var(--cinnabar)}
 .approval-btn.once{background:var(--bg-hover);color:var(--ink-deep)}

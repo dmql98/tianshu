@@ -2,13 +2,13 @@ import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import type { CharacterRecord, SkillBinding } from '../db/characterStore.js'
 import {
-  SKILLS_ROOT,
+  skillsRoot,
   findSkillPackage,
   parseSkillFrontmatter,
   resolveSkillReference,
 } from './skill-catalog.js'
 
-export { SKILLS_ROOT }
+export { skillsRoot }
 
 export interface SkillIndex {
   name: string

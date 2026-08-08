@@ -7,8 +7,6 @@ import { resolve } from 'path'
 import { getDb } from '../db/schema.js'
 import { getDataDir } from '../config.js'
 import { findSkillPackage } from '../agent/skill-catalog.js'
-
-const DATA_DIR = getDataDir()
 import { resolveCharacterTools } from '../tools/definitions.js'
 import { characterRevisionStore } from '../character/revision-store.js'
 import { characterVisualStore, type CharacterVisual, type CharacterAssetKind } from '../character/visual-store.js'
@@ -18,7 +16,7 @@ import { gzipSync, gunzipSync } from 'zlib'
 
 function mergeContent(meta: CharacterRecord, id: string) {
   const content = characterContentStore.get(id)
-  const promptFile = resolve(DATA_DIR, 'characters', id, 'prompt.md')
+  const promptFile = resolve(getDataDir(), 'characters', id, 'prompt.md')
   const customPrompt = existsSync(promptFile) ? readFileSync(promptFile, 'utf-8') : ''
   return { ...meta, tools: resolveCharacterTools(meta.tools), soul: content.soul, userProfile: content.user, memoryContent: content.memory, customPrompt }
 }

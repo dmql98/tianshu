@@ -16,8 +16,7 @@ import type { MessageRow } from '../../db/messageStore.js'
  * agent/outer.ts.
  */
 
-const DATA_DIR = getDataDir()
-const DEFAULT_PROMPT_FILE = resolve(DATA_DIR, 'prompts', 'default.md')
+const DEFAULT_PROMPT_FILE = () => resolve(getDataDir(), 'prompts', 'default.md')
 
 export function resolveWorkspace(ws: string | null | undefined): string {
   return ws || getDataDir()
@@ -37,8 +36,8 @@ export function resolveDataspace(ds: string | null | undefined): string | undefi
 
 export function loadPromptTemplate(charId: string): string {
   // Per-character prompt overrides default
-  const charPrompt = resolve(DATA_DIR, 'characters', charId, 'prompt.md')
-  const file = existsSync(charPrompt) ? charPrompt : DEFAULT_PROMPT_FILE
+  const charPrompt = resolve(getDataDir(), 'characters', charId, 'prompt.md')
+  const file = existsSync(charPrompt) ? charPrompt : DEFAULT_PROMPT_FILE()
   try {
     return readFileSync(file, 'utf-8')
   } catch {

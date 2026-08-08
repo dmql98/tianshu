@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
-import { fetchDataspace, saveDataspace } from '@/api/config'
+import { fetchDataspace, saveDataspace, reloadDataspace } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
 import type { Provider, Character } from '@/types'
@@ -46,6 +46,7 @@ export default function SettingsPage() {
   const [evo, setEvo] = useState<EvolutionConfig | null>(null)
   const [characters, setCharacters] = useState<Character[]>([])
   const [notifyEnabled, setNotifyEnabled] = useState(true)
+  const [reloading, setReloading] = useState(false)
 
   useEffect(() => {
     load()
@@ -62,6 +63,28 @@ export default function SettingsPage() {
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  const handleReloadDataspace = async () => {
+    setReloading(true)
+    try {
+      await saveDataspace(workspace)
+      await reloadDataspace()
+      // 重新拉取所有后端数据，使新配置路径立即生效
+      saveLs('defaultWorkspace', workspace)
+      window.dispatchEvent(new Event('dataspace-configured'))
+      await Promise.allSettled([
+        load(),
+        fetchDefaultPrompt().then(setDefaultPrompt),
+        fetchEvolutionConfig().then(setEvo),
+        fetchCharacters().then(setCharacters),
+      ])
+      showToast('已重新加载数据')
+    } catch (err: any) {
+      showToast(`加载失败: ${err.message || '网络错误'}`, 'err')
+    } finally {
+      setReloading(false)
+    }
   }
 
   const applyTheme = (t: string) => {
@@ -281,7 +304,12 @@ export default function SettingsPage() {
 
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">配置路径</span><span className="setting-hint">天枢系统配置与数据的根目录</span></div>
-              <div className="setting-control"><input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataspace(e.target.value).then(() => { window.dispatchEvent(new Event('dataspace-configured')) }).catch(() => {}) }} style={{width:280}}/></div>
+              <div className="setting-control">
+                <input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataspace(e.target.value).then(() => { window.dispatchEvent(new Event('dataspace-configured')) }).catch(() => {}) }} style={{width:280}}/>
+                <button className="btn" onClick={handleReloadDataspace} disabled={reloading} style={{marginLeft:8}}>
+                  {reloading ? '加载中…' : '刷新'}
+                </button>
+              </div>
             </div>
           </div>
 

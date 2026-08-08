@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
-import { SKILLS_ROOT, parseSkillFrontmatter, type SkillPackageManifest } from './skill-catalog.js'
+import { skillsRoot, parseSkillFrontmatter, type SkillPackageManifest } from './skill-catalog.js'
 
 const ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 
@@ -31,7 +31,7 @@ function validateId(value: string, field: string): string {
  * Create a standard single-skill package through a sibling staging directory,
  * then atomically rename it into place.
  */
-export function createSkillPackage(input: CreateSkillPackageInput, skillsRoot = SKILLS_ROOT): CreatedSkillPackage {
+export function createSkillPackage(input: CreateSkillPackageInput, skillsRootOverride = skillsRoot()): CreatedSkillPackage {
   const id = validateId(input.id, 'id')
   const category = validateId(input.category, 'category')
   if (!input.content.trim()) throw new Error('content is required')
@@ -40,7 +40,7 @@ export function createSkillPackage(input: CreateSkillPackageInput, skillsRoot = 
   const name = (input.name || String(frontmatter.name || '')).trim()
   if (!name) throw new Error('A package name or SKILL.md frontmatter name is required')
 
-  const categoryDir = resolve(skillsRoot, category)
+  const categoryDir = resolve(skillsRootOverride, category)
   const targetDir = resolve(categoryDir, id)
   if (existsSync(targetDir)) throw new Error(`Skill package "${id}" already exists`)
 

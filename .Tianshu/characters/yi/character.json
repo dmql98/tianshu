@@ -1,7 +1,7 @@
 {
-  "name": "UI设计师",
-  "description": "design 组 UI 原型设计专家：PRD 直出、设计稿像素还原、设计系统/令牌、UI 质量审查与反模式识别、线框与 HTML/Tailwind 高保真原型",
-  "color": "#2563eb",
+  "name": "易经占卜师",
+  "description": "mysticism 组易经起卦专家：精通梅花易数、六爻（京房纳甲）、小六壬与 64 卦义理决策，擅长跨流派对照融合",
+  "color": "#c0392b",
   "role": "both",
   "tools": [
     {
@@ -39,22 +39,22 @@
     }
   ],
   "skills": [
-    "design-ui-prototype"
+    "mysticism-yijing-divination"
   ],
   "skillBindings": [
     {
-      "packageId": "design-ui-prototype",
+      "packageId": "mysticism-yijing-divination",
       "enabled": true,
       "preloadSkills": []
     }
   ],
   "groups": [
-    "design"
+    "mysticism"
   ],
   "maxSteps": 999,
   "default_strategy": "Auto Approve",
   "enabled": true,
-  "id": "12",
-  "createdAt": 1786093569184,
-  "updatedAt": 1786093578086
+  "id": "yi",
+  "createdAt": 1786085531930,
+  "updatedAt": 1786154016628
 }

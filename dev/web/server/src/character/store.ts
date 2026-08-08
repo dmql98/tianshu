@@ -3,11 +3,10 @@ import { resolve } from 'path'
 import { characterMetaStore } from '../db/characterStore.js'
 import { getDataDir } from '../config.js'
 
-const DATA_DIR = getDataDir()
-const CHAR_DIR = resolve(DATA_DIR, 'characters')
+const CHAR_DIR = () => resolve(getDataDir(), 'characters')
 
 function readMdOrLegacy(characterId: string, section: string, legacyKey: string): string {
-  const f = resolve(CHAR_DIR, characterId, `${section}.md`)
+  const f = resolve(CHAR_DIR(), characterId, `${section}.md`)
   if (existsSync(f)) return readFileSync(f, 'utf-8')
   const record = characterMetaStore.getById(characterId)
   if (record) return (record as any)[legacyKey] || ''
@@ -23,7 +22,7 @@ export const characterContentStore = {
     }
   },
   save(characterId: string, data: { soul?: string; user?: string; memory?: string; prompt?: string }) {
-    const dir = resolve(CHAR_DIR, characterId)
+    const dir = resolve(CHAR_DIR(), characterId)
     mkdirSync(dir, { recursive: true })
     // This method is used by PATCH-like autosave calls. Missing fields mean
     // "leave unchanged"; only an explicit empty string clears a document.
