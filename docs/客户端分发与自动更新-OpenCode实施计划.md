@@ -917,12 +917,12 @@ disabled                仅打包客户端支持自动更新
 
 ### Phase 3 验收
 
-- [ ] 浏览器开发模式设置页不报 `window.tianshuDesktop` 未定义。
-- [ ] Electron 开发模式显示真实 app info，但 updater 显示 disabled。
-- [ ] 打包模式显示真实版本。
-- [ ] 前端按钮通过 IPC 工作，不直接 fetch GitHub。
-- [ ] 状态订阅没有重复 listener 和内存泄漏。
-- [ ] 更新安装前 server 被关闭。
+- [x] 浏览器开发模式设置页不报 `window.tianshuDesktop` 未定义。
+- [x] Electron 开发模式显示真实 app info，但 updater 显示 disabled。
+- [x] 打包模式显示真实版本。
+- [x] 前端按钮通过 IPC 工作，不直接 fetch GitHub。
+- [x] 状态订阅没有重复 listener 和内存泄漏。
+- [x] 更新安装前 server 被关闭。
 
 ---
 
@@ -1035,12 +1035,13 @@ Release notes 至少包括：
 
 ### Phase 4 验收
 
-- [ ] 推送测试 tag 后 workflow 能在全新 runner 构建。
-- [ ] Release 中三个 updater 必需文件齐全。
-- [ ] `latest.yml` 的文件名、size、sha512 与安装包一致。
-- [ ] Release 公开访问且无需登录。
-- [ ] 客户端没有 GitHub token。
-- [ ] 构建日志没有泄露 secret。
+- [ ] 推送测试 tag 后 workflow 能在全新 runner 构建。（外部阻塞：无 GitHub Action runner 可触发）
+- [ ] Release 中三个 updater 必需文件齐全。（本地构建已生成 exe/blockmap/latest.yml，GitHub Release 未发布）
+- [x] `latest.yml` 的文件名、size、sha512 与安装包一致。
+- [ ] Release 公开访问且无需登录。（外部阻塞：独立 Release 仓库与 token 未创建）
+- [x] 客户端没有 GitHub token。
+- [ ] 构建日志没有泄露 secret。（外部阻塞：尚未在 CI 运行）
+- [x] 独立 Release 仓库 `dmql98/tianshu-releases` 与 `RELEASES_TOKEN` secret 未创建 → workflow 与本地代码已完成，发布为外部阻塞项（不在本轮伪造成功）。
 
 ---
 

@@ -1,0 +1,103 @@
+name: Desktop Release
+
+# Windows x64 安装包构建与发布。
+# 发布目标：独立公开 Release 仓库 dmql98/tianshu-releases（不含天枢源码）。
+# 客户端更新走 electron-updater（app-update.yml 指向该仓库），客户端内不包含任何 token。
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout exact tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      - name: Verify tag matches desktop version
+        shell: bash
+        run: node dev/scripts/verify-release-version.mjs "${GITHUB_REF_NAME}"
+
+      - name: Install server dependencies
+        working-directory: dev/web/server
+        run: npm ci --no-audit --no-fund
+
+      - name: Install client dependencies
+        working-directory: dev/web/client
+        run: npm ci --no-audit --no-fund
+
+      - name: Install desktop dependencies
+        working-directory: dev/desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Run server tests
+        working-directory: dev
+        run: npm test --prefix web/server
+
+      - name: Run desktop tests
+        working-directory: dev
+        run: npm test --prefix desktop
+
+      - name: Build server
+        working-directory: dev
+        run: npm run build:server
+
+      - name: Build client
+        working-directory: dev
+        run: npm run build:client
+
+      - name: Build desktop
+        working-directory: dev
+        run: npm run build:desktop
+
+      - name: Prepare desktop runtime + packaged smoke test
+        # downloads fixed portable Node 24, verifies SHA-256, stages server/client,
+        # `npm ci --omit=dev` in staging, and runs the bundled-Node smoke test.
+        working-directory: dev
+        run: npm run prepare:desktop
+
+      - name: Build NSIS installer
+        working-directory: dev/desktop
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        # onTagOrDraft publishes to the configured release repo (dmql98/tianshu-releases)
+        # when RELEASES_TOKEN is present; without it this step still builds.
+        run: npx electron-builder --win --x64 --publish onTagOrDraft
+
+      - name: Verify release artifacts
+        shell: bash
+        working-directory: dev/desktop/release
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('../package.json').version")"
+          for f in "TianShu-Setup-${VERSION}-x64.exe" "TianShu-Setup-${VERSION}-x64.exe.blockmap" latest.yml; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::Missing required artifact: $f"
+              exit 1
+            fi
+          done
+          echo "Installer SHA-256:"
+          sha256sum "TianShu-Setup-${VERSION}-x64.exe"
+
+      - name: Warn about unsigned build
+        if: ${{ !secrets.WIN_CSC_LINK }}
+        run: echo "::warning::No WIN_CSC_LINK configured — installer is unsigned (SmartScreen will warn). Sign before wide distribution."
+
+      - name: Warn if release repo token missing
+        if: ${{ !secrets.RELEASES_TOKEN }}
+        run: echo "::warning::RELEASES_TOKEN is not set — artifacts were built but NOT published to dmql98/tianshu-releases."

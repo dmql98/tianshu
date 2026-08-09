@@ -10,6 +10,12 @@
 /docs/*
 !/docs/客户端分发与自动更新-OpenCode实施计划.md
 
+# CI 发布管线
+!/.github/
+/.github/*
+!/.github/workflows/
+!/.github/workflows/*
+
 # 天枢源码
 !/dev/
 !/dev/**

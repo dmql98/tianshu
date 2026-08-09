@@ -7,7 +7,7 @@
   "main": "dist/desktop/src/main.js",
   "scripts": {
     "build": "tsc",
-    "dist:win": "electron-builder --win --x64",
+    "dist:win": "electron-builder --win --x64 --publish never",
     "test": "vitest run"
   },
   "devDependencies": {

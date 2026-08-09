@@ -28,6 +28,16 @@ win:
       arch: [x64]
   artifactName: TianShu-Setup-${version}-${arch}.${ext}
 
+# Public updates come from the dedicated releases repository (not the source
+# repo). electron-updater reads the generated app-update.yml at runtime; the
+# client itself contains no token. Publishing only happens when `--publish` is
+# requested (CI), never for local builds (see package.json dist:win).
+publish:
+  provider: github
+  owner: dmql98
+  repo: tianshu-releases
+  releaseType: release
+
 nsis:
   oneClick: false
   perMachine: false
