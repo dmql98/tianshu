@@ -25,6 +25,47 @@
 - **事件系统**：支持一次性任务、定时任务和事件执行会话。
 - **本地数据**：会话、角色、配置和运行数据保存在用户指定的本地目录中。
 
+## 界面预览
+
+### 新建会话
+
+创建会话时，可以在右侧详情面板中选择角色、模型、思考强度、执行模式与审批模式。
+
+<p align="center">
+  <img src="./dev/assets/readme/new-chat-character-model.png" alt="新建会话并选择角色与模型" width="100%">
+</p>
+
+### 角色配置
+
+角色页面集中管理角色立绘、基础信息、Soul（人格）、User（用户画像）、默认审批模式与运行限制。
+
+<p align="center">
+  <img src="./dev/assets/readme/character-profile.png" alt="角色基础信息、Soul 与 User 配置" width="100%">
+</p>
+
+每个角色可以独立启用工具和技能包，让不同角色拥有不同的工作能力。
+
+<p align="center">
+  <img src="./dev/assets/readme/character-tools.png" alt="为角色启用或停用工具" width="49%">
+  <img src="./dev/assets/readme/character-skills.png" alt="为角色绑定或解绑技能包" width="49%">
+</p>
+
+### MCP 服务
+
+MCP 页面支持检测本机 MCP、导入 JSON 配置，或手动添加服务。
+
+<p align="center">
+  <img src="./dev/assets/readme/mcp-import.png" alt="检测本机 MCP 与导入 JSON 配置" width="100%">
+</p>
+
+### 数据存储目录
+
+在“设置 → 系统”中选择天枢的数据根目录；修改后点击刷新，使后端重新加载配置。
+
+<p align="center">
+  <img src="./dev/assets/readme/data-directory.png" alt="在系统设置中选择数据存储目录" width="100%">
+</p>
+
 ## 环境要求
 
 - Windows 10/11
