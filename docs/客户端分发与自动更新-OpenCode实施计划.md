@@ -1041,7 +1041,7 @@ Release notes 至少包括：
 - [ ] Release 公开访问且无需登录。（外部阻塞：独立 Release 仓库与 token 未创建）
 - [x] 客户端没有 GitHub token。
 - [ ] 构建日志没有泄露 secret。（外部阻塞：尚未在 CI 运行）
-- [x] 独立 Release 仓库 `dmql98/tianshu-releases` 与 `RELEASES_TOKEN` secret 未创建 → workflow 与本地代码已完成，发布为外部阻塞项（不在本轮伪造成功）。
+- [x] 已决策：直接在公开源码仓库 `dmql98/tianshu` 发布 Release（§10.1 允许路径），使用默认 `GITHUB_TOKEN`，无需独立仓库与 `RELEASES_TOKEN`。客户端 contract 与 updater 不变。外部阻塞仅剩“推送首个 `v*` tag 触发 CI”。
 
 ---
 

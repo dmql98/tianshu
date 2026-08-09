@@ -1,8 +1,9 @@
 name: Desktop Release
 
 # Windows x64 安装包构建与发布。
-# 发布目标：独立公开 Release 仓库 dmql98/tianshu-releases（不含天枢源码）。
-# 客户端更新走 electron-updater（app-update.yml 指向该仓库），客户端内不包含任何 token。
+# 发布目标：当前公开源码仓库 dmql98/tianshu（直接在当前仓库建 GitHub Release）。
+# 客户端更新走 electron-updater（app-update.yml 指向本仓库），客户端内不包含任何 token。
+# 发布使用 GitHub 默认的 GITHUB_TOKEN（contents: write 已授权），无需额外 secret。
 
 on:
   push:
@@ -11,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows:
@@ -72,11 +73,10 @@ jobs:
       - name: Build NSIS installer
         working-directory: dev/desktop
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        # onTagOrDraft publishes to the configured release repo (dmql98/tianshu-releases)
-        # when RELEASES_TOKEN is present; without it this step still builds.
+        # onTagOrDraft publishes to dmql98/tianshu using the default GITHUB_TOKEN
+        # when built from a tag; without a tag it only builds.
         run: npx electron-builder --win --x64 --publish onTagOrDraft
 
       - name: Verify release artifacts
@@ -97,7 +97,3 @@ jobs:
       - name: Warn about unsigned build
         if: ${{ !secrets.WIN_CSC_LINK }}
         run: echo "::warning::No WIN_CSC_LINK configured — installer is unsigned (SmartScreen will warn). Sign before wide distribution."
-
-      - name: Warn if release repo token missing
-        if: ${{ !secrets.RELEASES_TOKEN }}
-        run: echo "::warning::RELEASES_TOKEN is not set — artifacts were built but NOT published to dmql98/tianshu-releases."
