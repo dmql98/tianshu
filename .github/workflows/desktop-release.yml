@@ -1,9 +1,11 @@
 name: Desktop Release
 
 # Windows x64 安装包构建与发布。
-# 发布目标：当前公开源码仓库 dmql98/tianshu（直接在当前仓库建 GitHub Release）。
+# 发布目标：当前公开源码仓库 dmql98/tianshu。
 # 客户端更新走 electron-updater（app-update.yml 指向本仓库），客户端内不包含任何 token。
-# 发布使用 GitHub 默认的 GITHUB_TOKEN（contents: write 已授权），无需额外 secret。
+# electron-builder 只负责构建（--publish never，避免其“并发创建同 tag Release”的竞态）；
+# 发布用 gh CLI 确定性创建 Release 并上传 exe/blockmap/latest.yml。
+# 发布使用 GitHub 默认的 GITHUB_TOKEN（permissions.contents.write），无需额外 secret。
 
 on:
   push:
@@ -70,19 +72,14 @@ jobs:
         working-directory: dev
         run: npm run prepare:desktop
 
-      - name: Build NSIS installer
+      - name: Build NSIS installer (no publish)
         working-directory: dev/desktop
         env:
-          # GITHUB_TOKEN is not auto-injected into step env; pass it explicitly
-          # so electron-builder can publish to this repo (contents: write).
-          GH_TOKEN: ${{ github.token }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        # onTagOrDraft publishes to dmql98/tianshu using GH_TOKEN when built
-        # from a tag; without a tag it only builds.
-        run: npx electron-builder --win --x64 --publish onTagOrDraft
+        run: npx electron-builder --win --x64 --publish never
 
-      - name: Verify release artifacts
+      - name: Verify local release artifacts
         shell: bash
         working-directory: dev/desktop/release
         run: |
@@ -96,6 +93,54 @@ jobs:
           done
           echo "Installer SHA-256:"
           sha256sum "TianShu-Setup-${VERSION}-x64.exe"
+
+      - name: Create GitHub release
+        working-directory: dev/desktop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          if ! gh release view "v${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            NOTES=$(printf '天枢桌面客户端 v%s。\n- 安装包: TianShu-Setup-%s-x64.exe\n- 无需安装 Node.js，内置便携 Node 运行时\n- 用户数据位于 %%APPDATA%%\\tianshu-desktop，升级/卸载不会删除数据\n- 安装包 SHA-256 见上方校验步骤' "$VERSION" "$VERSION")
+            gh release create "v${VERSION}" --repo "${{ github.repository }}" \
+              --title "天枢 v${VERSION}" \
+              --notes "$NOTES" \
+              --latest
+            echo "release v${VERSION} created"
+          else
+            echo "release v${VERSION} already exists; uploading assets"
+          fi
+
+      - name: Upload release assets
+        working-directory: dev/desktop/release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('../package.json').version")"
+          gh release upload "v${VERSION}" --repo "${{ github.repository }}" \
+            "TianShu-Setup-${VERSION}-x64.exe" \
+            "TianShu-Setup-${VERSION}-x64.exe.blockmap" \
+            latest.yml \
+            --clobber
+
+      - name: Verify published release assets
+        shell: bash
+        working-directory: dev/desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          ASSETS="$(gh release view "v${VERSION}" --repo "${{ github.repository }}" --json assets -q '.assets[].name')"
+          echo "published assets:"
+          echo "$ASSETS"
+          for f in "TianShu-Setup-${VERSION}-x64.exe" "TianShu-Setup-${VERSION}-x64.exe.blockmap" latest.yml; do
+            echo "$ASSETS" | grep -Fqx "$f" || { echo "::error::missing published asset: $f"; exit 1; }
+          done
 
       - name: Warn about unsigned build
         env:
