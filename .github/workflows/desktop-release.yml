@@ -95,5 +95,5 @@ jobs:
           sha256sum "TianShu-Setup-${VERSION}-x64.exe"
 
       - name: Warn about unsigned build
-        if: ${{ !secrets.WIN_CSC_LINK }}
+        if: ${{ secrets.WIN_CSC_LINK == '' }}
         run: echo "::warning::No WIN_CSC_LINK configured — installer is unsigned (SmartScreen will warn). Sign before wide distribution."
