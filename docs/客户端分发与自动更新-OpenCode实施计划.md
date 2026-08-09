@@ -407,10 +407,10 @@ npm run build --prefix web/client
 
 ### Phase 0 验收
 
-- [ ] client 全新安装依赖后构建成功。
-- [ ] server 全新安装依赖后构建成功。
-- [ ] 没有提交 `node_modules`、`dist` 或 staging 文件。
-- [ ] Node 版本要求统一且有明确错误提示。
+- [x] client 全新安装依赖后构建成功。
+- [x] server 全新安装依赖后构建成功。
+- [x] 没有提交 `node_modules`、`dist` 或 staging 文件。
+- [x] Node 版本要求统一且有明确错误提示。
 
 ---
 

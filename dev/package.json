@@ -1,0 +1,18 @@
+{
+  "name": "tianshu-dev",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": "24.x" },
+  "scripts": {
+    "install:all": "npm ci --prefix web/server && npm ci --prefix web/client && npm ci --prefix desktop",
+    "build:server": "npm run build --prefix web/server",
+    "build:client": "npm run build --prefix web/client",
+    "build:desktop": "npm run build --prefix desktop",
+    "build": "npm run build:server && npm run build:client && npm run build:desktop",
+    "dev": "node scripts/dev-desktop.mjs",
+    "prepare:desktop": "node scripts/prepare-desktop-runtime.mjs",
+    "dist:win": "npm run build && npm run prepare:desktop && npm run dist:win --prefix desktop",
+    "test:desktop": "npm test --prefix desktop",
+    "test:server": "npm test --prefix web/server"
+  }
+}
