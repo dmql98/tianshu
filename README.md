@@ -1,7 +1,7 @@
 # 天枢（TianShu）
 
 <p align="center">
-  <img src="./web/client/public/logo.png" alt="天枢 Logo" width="120">
+  <img src="./dev/web/client/public/logo.png" alt="天枢 Logo" width="120">
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@
 - npm（随 Node.js 一起安装）
 - 可用的 OpenAI 兼容模型服务及 API Key
 
-项目根目录中的 `.node-version` 当前指定 Node.js 18。推荐使用 Node.js 20 LTS 或更高的 LTS 版本。
+`dev/.node-version` 当前指定 Node.js 18。推荐使用 Node.js 20 LTS 或更高的 LTS 版本。
 
 ## 快速开始
 
 ### 1. 安装依赖
 
-进入本 README 所在的 `dev` 目录，双击：
+进入仓库的 `dev` 目录，双击：
 
 ```text
 setup.bat
@@ -284,17 +284,6 @@ dev/web/server/config.json
 ### `better-sqlite3` 安装失败
 
 优先使用 Node.js LTS 版本，并删除对应目录中的 `node_modules` 后重新运行 `setup.bat`。如果 npm 无法下载预编译包，可能还需要可用的网络环境或 Windows C++ 构建工具。
-
-## 开发文档
-
-- [架构总览](../开发/01-架构总览.md)
-- [Agent Loop 设计](../开发/02-Loop设计.md)
-- [前端架构设计](../开发/03-前端架构设计.md)
-- [星官系统设计](../开发/04-星官系统设计.md)
-- [事件系统设计](../开发/05-事件系统设计.md)
-- [项目开发计划](../开发/06-项目开发计划.md)
-- [角色视觉与动画系统](../开发/08-角色视觉与动画系统开发设计.html)
-- [会话与 Agent 运行系统统一架构](../开发/11-会话与Agent运行系统统一架构设计.html)
 
 ## 当前状态
 

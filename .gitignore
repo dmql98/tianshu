@@ -1,9 +1,20 @@
-dev.zip
+# 默认忽略仓库根目录下的所有内容，只保留应用源码、运行数据和 README。
+/*
 
-# 会话数据
-.Tianshu/sessions.db
-.Tianshu/sessions.db-shm
-.Tianshu/sessions.db-wal
+# Git 配置与项目说明
+!/.gitignore
+!/README.md
 
-# 本地配置
-dev/web/server/config.json
+# 天枢源码
+!/dev/
+!/dev/**
+
+# 天枢本地数据
+!/.Tianshu/
+!/.Tianshu/**
+
+# 本机运行状态不进入仓库
+/.Tianshu/sessions.db
+/.Tianshu/sessions.db-shm
+/.Tianshu/sessions.db-wal
+/dev/web/server/config.json
