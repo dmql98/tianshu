@@ -1,5 +1,8 @@
 import { startTianshuServer, type TianshuServer } from './app.js'
 
+// The IPC message shapes below match dev/shared/server-ipc.ts (ServerMessage /
+// DesktopMessage), which is the single source of truth consumed by the desktop
+// shell. Guarded by web/server/test/ipc-contract.test.ts.
 let server: TianshuServer | null = null
 let shuttingDown = false
 

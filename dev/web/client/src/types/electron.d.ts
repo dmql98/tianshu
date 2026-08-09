@@ -1,11 +1,9 @@
-interface ElectronAPI {
-  version: string
-  platform: string
-  onUpdateStatus: (callback: (status: string) => void) => void
-  checkForUpdates: () => void
-  openDirectoryDialog: () => Promise<string | null>
+import type { TianShuDesktopAPI } from '../../../../shared/desktop-contract.js'
+
+declare global {
+  interface Window {
+    tianshuDesktop?: TianShuDesktopAPI
+  }
 }
 
-interface Window {
-  electronAPI?: ElectronAPI
-}
+export {}

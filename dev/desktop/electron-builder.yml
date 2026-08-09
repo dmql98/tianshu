@@ -1,0 +1,42 @@
+appId: cn.tianshu.desktop
+productName: 天枢
+asar: true
+
+directories:
+  output: release
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  - from: runtime
+    to: runtime
+  # `from: staging` (not staging/server) so server/node_modules is a
+  # sub-node_modules and survives electron-builder's root node_modules filter.
+  - from: staging
+    to: .
+    filter:
+      - '**/*'
+      - '!**/*.map'
+      - '!**/package-lock.json'
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: TianShu-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+  shortcutName: 天枢
+  uninstallDisplayName: 天枢
+  # ASCII-safe artifact names come from artifactName; the display name may use
+  # the Chinese product name. Data in %APPDATA% is intentionally preserved on
+  # uninstall (deleteAppDataOnUninstall: false).

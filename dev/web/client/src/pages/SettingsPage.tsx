@@ -6,6 +6,7 @@ import { fetchDataspace, saveDataspace, reloadDataspace } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
 import type { Provider, Character } from '@/types'
+import type { DesktopAppInfo, DesktopServerStatus } from '../../../../shared/desktop-contract.js'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
 
@@ -47,6 +48,47 @@ export default function SettingsPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [notifyEnabled, setNotifyEnabled] = useState(true)
   const [reloading, setReloading] = useState(false)
+
+  // ── 桌面客户端信息 ──
+  const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null)
+  const [serverStatus, setServerStatus] = useState<DesktopServerStatus | null>(null)
+
+  useEffect(() => {
+    const api = window.tianshuDesktop
+    if (!api) return
+    api.getAppInfo().then(setAppInfo).catch(() => {})
+    api.getServerStatus().then(setServerStatus).catch(() => {})
+    const unsubscribe = api.onServerStatus(setServerStatus)
+    return unsubscribe
+  }, [])
+
+  const serverStatusLabel = (s: DesktopServerStatus | null): string => {
+    if (!s) return '未知'
+    switch (s.phase) {
+      case 'starting': return '正在启动本地服务…'
+      case 'ready': return `本地服务运行中（端口 ${s.port}）`
+      case 'failed': return `本地服务异常：${s.message}`
+      case 'stopping': return '正在停止本地服务…'
+      case 'stopped': return '本地服务已停止'
+    }
+  }
+
+  const handleChooseDir = async () => {
+    const api = window.tianshuDesktop
+    if (!api) {
+      showToast('目录选择仅在桌面客户端中可用', 'err')
+      return
+    }
+    const dir = await api.openDirectoryDialog(workspace)
+    if (dir) {
+      setWorkspace(dir)
+      saveLs('defaultWorkspace', dir)
+      await saveDataspace(dir)
+        .then(() => { window.dispatchEvent(new Event('dataspace-configured')) })
+        .catch(() => {})
+      showToast('已选择数据目录')
+    }
+  }
 
   useEffect(() => {
     load()
@@ -306,6 +348,7 @@ export default function SettingsPage() {
               <div className="setting-info"><span className="setting-label">配置路径</span><span className="setting-hint">天枢系统配置与数据的根目录</span></div>
               <div className="setting-control">
                 <input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataspace(e.target.value).then(() => { window.dispatchEvent(new Event('dataspace-configured')) }).catch(() => {}) }} style={{width:280}}/>
+                <button className="btn" onClick={handleChooseDir} style={{marginLeft:8}}>选择目录</button>
                 <button className="btn" onClick={handleReloadDataspace} disabled={reloading} style={{marginLeft:8}}>
                   {reloading ? '加载中…' : '刷新'}
                 </button>
@@ -509,11 +552,15 @@ export default function SettingsPage() {
             <div className="section-title">关于</div>
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">天枢版本</span></div>
-              <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)',fontWeight:500}}>v0.1.0</span></div>
+              <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)',fontWeight:500}}>{appInfo ? `v${appInfo.version}` : 'v0.1.0'}</span></div>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">检查更新</span></div>
-              <div className="setting-control"><button className="btn">检查</button></div>
+              <div className="setting-info"><span className="setting-label">运行模式</span></div>
+              <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)'}}>{appInfo ? (appInfo.packaged ? '桌面客户端' : '浏览器开发模式') : '浏览器开发模式'}</span></div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info"><span className="setting-label">本地服务</span></div>
+              <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)'}}>{serverStatusLabel(serverStatus)}</span></div>
             </div>
           </div>
         </div>
