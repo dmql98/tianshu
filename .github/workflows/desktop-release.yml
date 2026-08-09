@@ -73,10 +73,13 @@ jobs:
       - name: Build NSIS installer
         working-directory: dev/desktop
         env:
+          # GITHUB_TOKEN is not auto-injected into step env; pass it explicitly
+          # so electron-builder can publish to this repo (contents: write).
+          GH_TOKEN: ${{ github.token }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        # onTagOrDraft publishes to dmql98/tianshu using the default GITHUB_TOKEN
-        # when built from a tag; without a tag it only builds.
+        # onTagOrDraft publishes to dmql98/tianshu using GH_TOKEN when built
+        # from a tag; without a tag it only builds.
         run: npx electron-builder --win --x64 --publish onTagOrDraft
 
       - name: Verify release artifacts
