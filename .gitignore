@@ -4,6 +4,7 @@
 # Git 配置与项目说明
 !/.gitignore
 !/README.md
+!/publish-release.bat
 
 # 可交付的实施计划（其余根目录文档仍按默认规则忽略）
 !/docs/
