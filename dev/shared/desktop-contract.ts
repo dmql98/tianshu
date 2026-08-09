@@ -2,10 +2,8 @@
  * Strongly-typed contract between the Electron main/preload and the React
  * renderer, exposed on `window.tianshuDesktop` via contextBridge.
  *
- * Phase 2 covers app info, server lifecycle status and the native directory
- * dialog. The auto-update surface (UpdateState / UpdatePhase / check/download/
- * install) is added in Phase 3 and must live in this same file so the types do
- * not drift between preload and the renderer.
+ * Single source of truth for the desktop API surface; the preload implements
+ * exactly these methods and the renderer consumes exactly these types.
  */
 
 export interface DesktopAppInfo {
@@ -22,9 +20,39 @@ export type DesktopServerStatus =
   | { phase: 'stopping' }
   | { phase: 'stopped' }
 
+export type UpdatePhase =
+  | 'disabled'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface UpdateState {
+  phase: UpdatePhase
+  currentVersion: string
+  targetVersion?: string
+  releaseName?: string
+  releaseNotes?: string
+  releaseDate?: string
+  percent?: number
+  transferred?: number
+  total?: number
+  bytesPerSecond?: number
+  checkedAt?: string
+  message?: string
+}
+
 export interface TianShuDesktopAPI {
   getAppInfo(): Promise<DesktopAppInfo>
   getServerStatus(): Promise<DesktopServerStatus>
   onServerStatus(listener: (status: DesktopServerStatus) => void): () => void
+  getUpdateState(): Promise<UpdateState>
+  checkForUpdates(): Promise<UpdateState>
+  downloadUpdate(): Promise<void>
+  installUpdate(): Promise<void>
+  onUpdateState(listener: (state: UpdateState) => void): () => void
   openDirectoryDialog(defaultPath?: string): Promise<string | null>
 }

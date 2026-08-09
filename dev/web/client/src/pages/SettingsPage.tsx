@@ -6,7 +6,8 @@ import { fetchDataspace, saveDataspace, reloadDataspace } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
 import type { Provider, Character } from '@/types'
-import type { DesktopAppInfo, DesktopServerStatus } from '../../../../shared/desktop-contract.js'
+import type { DesktopServerStatus } from '../../../../shared/desktop-contract.js'
+import UpdatePanel from '@/features/update/UpdatePanel'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
 
@@ -50,13 +51,11 @@ export default function SettingsPage() {
   const [reloading, setReloading] = useState(false)
 
   // ── 桌面客户端信息 ──
-  const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null)
   const [serverStatus, setServerStatus] = useState<DesktopServerStatus | null>(null)
 
   useEffect(() => {
     const api = window.tianshuDesktop
     if (!api) return
-    api.getAppInfo().then(setAppInfo).catch(() => {})
     api.getServerStatus().then(setServerStatus).catch(() => {})
     const unsubscribe = api.onServerStatus(setServerStatus)
     return unsubscribe
@@ -548,16 +547,8 @@ export default function SettingsPage() {
 
         {/* 关于 */}
         <div className="tab-page" style={{display: activeTab === 'about' ? 'block' : 'none'}}>
-          <div className="settings-section">
-            <div className="section-title">关于</div>
-            <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">天枢版本</span></div>
-              <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)',fontWeight:500}}>{appInfo ? `v${appInfo.version}` : 'v0.1.0'}</span></div>
-            </div>
-            <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">运行模式</span></div>
-              <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)'}}>{appInfo ? (appInfo.packaged ? '桌面客户端' : '浏览器开发模式') : '浏览器开发模式'}</span></div>
-            </div>
+          <UpdatePanel />
+          <div className="settings-section" style={{marginTop:32}}>
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">本地服务</span></div>
               <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)'}}>{serverStatusLabel(serverStatus)}</span></div>

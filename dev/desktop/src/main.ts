@@ -1,15 +1,52 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { autoUpdater } from 'electron-updater'
+import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { mkdirSync } from 'fs'
 import { ServerManager } from './server-manager.js'
-import type { DesktopAppInfo, DesktopServerStatus } from '../../shared/desktop-contract.js'
+import { UpdateManager } from './updater.js'
+import type {
+  DesktopAppInfo,
+  DesktopServerStatus,
+  UpdateState,
+} from '../../shared/desktop-contract.js'
 
 const isDev = !app.isPackaged
 const DEV_URL = process.env.TIANSHU_DEV_URL || 'http://127.0.0.1:3457'
 
 let mainWindow: BrowserWindow | null = null
 let serverManager: ServerManager | null = null
+let updateManager: UpdateManager | null = null
 let serverUrl = DEV_URL
+
+function updaterLogFile(): string {
+  return join(app.getPath('userData'), 'logs', 'updater.log')
+}
+
+function logUpdater(msg: string): void {
+  try {
+    appendFileSync(updaterLogFile(), `${new Date().toISOString()} ${msg}\n`)
+  } catch {
+    /* logging is best-effort */
+  }
+}
+
+/** Strip local paths before an error message reaches the renderer. */
+function sanitizeUpdaterMessage(msg: string): string {
+  const paths = [app.getPath('userData'), app.getAppPath(), process.resourcesPath].filter(Boolean)
+  let out = msg
+  for (const p of paths) {
+    if (p) out = out.split(p).join('<本地路径>')
+  }
+  return out
+}
+
+function broadcastUpdateState(state: UpdateState): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('updater:state', state)
+    }
+  }
+}
 
 function registerIpc(manager: ServerManager): void {
   ipcMain.handle('desktop:get-app-info', (): DesktopAppInfo => ({
@@ -30,6 +67,32 @@ function registerIpc(manager: ServerManager): void {
     })
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
+  })
+
+  ipcMain.handle('updater:get-state', (): UpdateState =>
+    updateManager?.getState() ?? { phase: 'disabled', currentVersion: app.getVersion() },
+  )
+  ipcMain.handle('updater:check', async (): Promise<UpdateState> => {
+    try {
+      return (await updateManager?.checkForUpdates()) ?? { phase: 'disabled', currentVersion: app.getVersion() }
+    } catch (err) {
+      console.error('[desktop] updater check failed:', err)
+      return updateManager?.getState() ?? { phase: 'error', currentVersion: app.getVersion(), message: String(err) }
+    }
+  })
+  ipcMain.handle('updater:download', async () => {
+    try {
+      await updateManager?.downloadUpdate()
+    } catch (err) {
+      console.error('[desktop] updater download failed:', err)
+    }
+  })
+  ipcMain.handle('updater:install', async () => {
+    try {
+      await updateManager?.installUpdate()
+    } catch (err) {
+      console.error('[desktop] updater install failed:', err)
+    }
   })
 }
 
@@ -119,6 +182,20 @@ if (!app.requestSingleInstanceLock()) {
     serverManager = manager
     registerIpc(manager)
 
+    // ── updater (disabled in dev; packaged only) ──
+    updateManager = new UpdateManager({
+      updater: autoUpdater,
+      currentVersion: app.getVersion(),
+      enabled: app.isPackaged,
+      stopServer: async () => {
+        if (serverManager) await serverManager.stop()
+      },
+      log: logUpdater,
+      sanitize: sanitizeUpdaterMessage,
+    })
+    updateManager.onUpdate(broadcastUpdateState)
+    logUpdater(`updater initialized (enabled=${app.isPackaged}, version=${app.getVersion()})`)
+
     // Surface server lifecycle changes to the renderer (startup failures etc.).
     manager.onStatus((status) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -132,6 +209,13 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     createWindow()
+
+    // Silent background check ~7s after the window is up (packaged only).
+    if (app.isPackaged) {
+      setTimeout(() => {
+        updateManager?.checkForUpdates().catch(() => {})
+      }, 7_000)
+    }
   })
 
   app.on('window-all-closed', () => {
