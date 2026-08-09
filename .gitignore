@@ -5,6 +5,11 @@
 !/.gitignore
 !/README.md
 
+# 可交付的实施计划（其余根目录文档仍按默认规则忽略）
+!/docs/
+/docs/*
+!/docs/客户端分发与自动更新-OpenCode实施计划.md
+
 # 天枢源码
 !/dev/
 !/dev/**
