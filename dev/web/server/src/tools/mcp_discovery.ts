@@ -1,6 +1,7 @@
 import { homedir } from 'os'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+import { getDataDir } from '../config.js'
 
 export type MCPSource = 'opencode' | 'claude' | 'cursor'
 
@@ -121,7 +122,7 @@ function normalizeEntry(
   if (extra?.replaceWorkspace) {
     parts = {
       command: parts.command,
-      args: parts.args.map(a => a.replace(/\$\{workspaceFolder\}/g, process.cwd())),
+      args: parts.args.map(a => a.replace(/\$\{workspaceFolder\}/g, getDataDir())),
     }
   }
 

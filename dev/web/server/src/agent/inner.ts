@@ -11,6 +11,7 @@ import type { Server, Socket } from 'socket.io'
 import type { MCPClient } from '../tools/mcp-client.js'
 import { resolve as pathResolve } from 'path'
 import { isPathWithin, workspaceApprovalRoot } from '../tools/utils.js'
+import { getDataDir } from '../config.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { saveAttachment } from './media-store.js'
 import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, type AttachmentRecord, type ContentPart } from './attachments.js'
@@ -542,7 +543,7 @@ export async function innerLoop(
 
     async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
       try {
-        return await executeTool(p.name, p.args, workspace || process.cwd(), signal, mcpClients, extraRoots, (chunk) => {
+        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, (chunk) => {
           socket?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output: chunk })
         }, workspaces, dataspace, sessionId)
       } catch (err: any) {
@@ -554,7 +555,7 @@ export async function innerLoop(
 
     if (result.escaped && sessionId && socket) {
       const escapedPath = result.error?.replace('Path escapes workspace: ', '') || ''
-      const absEscapedPath = pathResolve(workspace || process.cwd(), escapedPath)
+      const absEscapedPath = pathResolve(workspace || getDataDir(), escapedPath)
       // File requests authorize their containing directory; directory
       // requests keep that directory as the least useful permission scope.
       const approvedPath = workspaceApprovalRoot(absEscapedPath)

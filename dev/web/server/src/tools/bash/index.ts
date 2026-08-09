@@ -6,6 +6,7 @@ import { assertPathSafe } from '../utils.js'
 import { z } from 'zod'
 import { validate } from '../validate.js'
 import { getOutputDir } from '../truncate.js'
+import { getDataDir } from '../../config.js'
 import * as iconv from 'iconv-lite'
 
 let consoleEncoding = 'utf8'
@@ -29,7 +30,7 @@ function decodeBuffer(buf: Buffer): string {
   return iconv.decode(buf, consoleEncoding)
 }
 
-const LOG_DIR = pathResolve(process.cwd(), 'data', 'bash-logs')
+const LOG_DIR = pathResolve(getDataDir(), 'bash-logs')
 function logBash(sessionId: string | undefined, cmd: string, stdout: string, stderr: string, exitCode: number | null, duration: number) {
   try {
     if (!existsSync(LOG_DIR)) mkdirSync(LOG_DIR, { recursive: true })
@@ -214,7 +215,7 @@ export const tool: ToolModule = {
 
     for (const shell of shellCandidates) {
       try {
-        const shellCwd = workspace && existsSync(workspace) ? workspace : process.cwd()
+        const shellCwd = workspace && existsSync(workspace) ? workspace : getDataDir()
         const { child, cleanup } = await trySpawn(shell, cmd, shellCwd, true)
         cleanup()
 

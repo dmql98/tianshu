@@ -1,12 +1,13 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve } from 'path'
+import { getDataDir } from '../config.js'
 
-export const TRUNCATION_DIR = resolve(process.cwd(), 'data', 'tool-output')
-export const getOutputDir = () => TRUNCATION_DIR
+export const getOutputDir = () => resolve(getDataDir(), 'tool-output')
 const MAX_OUTPUT_CHARS = 64000
 
 function ensureDir() {
-  if (!existsSync(TRUNCATION_DIR)) mkdirSync(TRUNCATION_DIR, { recursive: true })
+  const dir = getOutputDir()
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
 }
 
 export function truncateToolOutput(output: string): string {
@@ -14,7 +15,7 @@ export function truncateToolOutput(output: string): string {
 
   ensureDir()
   const name = `tool_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.log`
-  const filePath = resolve(TRUNCATION_DIR, name)
+  const filePath = resolve(getOutputDir(), name)
   try {
     writeFileSync(filePath, output, 'utf-8')
   } catch {

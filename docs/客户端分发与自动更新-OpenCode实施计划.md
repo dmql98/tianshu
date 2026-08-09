@@ -545,11 +545,11 @@ export function stopAssetGC(): void
 
 ### Phase 1 验收
 
-- [ ] `npm run dev --prefix web/server` 仍可独立运行。
-- [ ] `PORT=0` 可以报告实际端口。
-- [ ] 父进程 IPC 能收到 ready。
-- [ ] shutdown 后 HTTP、Socket.IO、DB 和 timer 均关闭。
-- [ ] client build 可由 server 同源访问并支持刷新子路由。
+- [x] `npm run dev --prefix web/server` 仍可独立运行。
+- [x] `PORT=0` 可以报告实际端口。
+- [x] 父进程 IPC 能收到 ready。
+- [x] shutdown 后 HTTP、Socket.IO、DB 和 timer 均关闭。
+- [x] client build 可由 server 同源访问并支持刷新子路由。
 
 ---
 

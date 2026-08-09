@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { getDataDir } from '../config.js'
 
 export interface ContextReference {
   raw: string
@@ -202,7 +203,7 @@ export async function preprocessContextReferences(
   const originalMessage = message
   const warnings: string[] = []
   const references: ContextReference[] = []
-  const allowedRoot = workspace ? path.resolve(workspace) : process.cwd()
+  const allowedRoot = workspace ? path.resolve(workspace) : getDataDir()
 
   if (!message) {
     return { message: '', originalMessage, references, warnings, injectedTokens: 0, expanded: false, blocked: false }

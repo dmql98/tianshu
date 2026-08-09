@@ -22,6 +22,7 @@
 /.Tianshu/sessions.db
 /.Tianshu/sessions.db-shm
 /.Tianshu/sessions.db-wal
+/.Tianshu/bash-logs/
 
 # API Key、模型服务商与本机环境配置不进入仓库
 /.Tianshu/providers.json

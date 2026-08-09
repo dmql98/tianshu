@@ -2,10 +2,11 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { LLMMessage } from '../llm/client.js'
+import { getDataDir } from '../config.js'
 
 const CACHE_DIR = process.env.SYSTEM_CACHE_DIR
   ? resolve(process.env.SYSTEM_CACHE_DIR)
-  : resolve(process.cwd(), '.cache/system-prompt')
+  : resolve(getDataDir(), '.cache/system-prompt')
 mkdirSync(CACHE_DIR, { recursive: true })
 
 const MAX_MEMORY = 50

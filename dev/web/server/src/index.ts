@@ -1,76 +1,52 @@
-import { Hono } from 'hono'
-import { serve } from '@hono/node-server'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
-import { Server } from 'socket.io'
-import { registerChatSocket } from './ws/chat.js'
-import providersRouter from './routes/providers.js'
-import sessionsRouter from './routes/sessions.js'
-import charactersRouter from './routes/characters.js'
-import skillsRouter from './routes/skills.js'
-import toolsRouter from './routes/tools.js'
-import workspaceRouter from './routes/workspace.js'
-import evolutionRouter from './routes/evolution.js'
-import promptsRouter from './routes/prompts.js'
-import configRouter from './routes/config.js'
-import messagesRouter from './routes/messages.js'
-import eventDefinitionsRouter from './routes/event-definitions.js'
-import goalsRouter, { setGoalRuntime } from './routes/goals.js'
-import runsRouter, { setRunsRuntime } from './routes/runs.js'
-import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
-import { getDb } from './db/schema.js'
-import { init as initTools } from './tools/registry.js'
-import { startEventScheduler } from './event/event-scheduler.js'
-import { startAssetGC } from './character/asset-gc.js'
+import { startTianshuServer, type TianshuServer } from './app.js'
 
-process.on('uncaughtException', (err) => { console.error('[FATAL]', err) })
-process.on('unhandledRejection', (err) => { console.error('[FATAL]', err) })
+let server: TianshuServer | null = null
+let shuttingDown = false
 
-getDb()
-
-// Tool registry auto-discovers all tool directories with tool.json
-initTools().catch(err => console.error('[registry] Tool init failed:', err))
-
-const app = new Hono()
-app.use('*', cors())
-app.use('*', logger())
-app.route('/api/providers', providersRouter)
-app.route('/api/sessions', sessionsRouter)
-app.route('/api/characters', charactersRouter)
-app.route('/api/skills', skillsRouter)
-app.route('/api/tools', toolsRouter)
-app.route('/api/workspace', workspaceRouter)
-app.route('/api/evolution-config', evolutionRouter)
-app.route('/api/prompts', promptsRouter)
-app.route('/api/config', configRouter)
-app.route('/api/runs', runsRouter)
-app.route('/api/messages', messagesRouter)
-app.route('/api/event-definitions', eventDefinitionsRouter)
-app.route('/api/goals', goalsRouter)
-app.get('/health', (c) => c.json({ ok: true }))
-
-const port = Number(process.env.PORT) || 3456
-const httpServer = serve({ fetch: app.fetch, port }, () => {
-  console.log(`TianShu server on :${port}`)
-})
-httpServer.on('error', (err: any) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${port} is already in use. Kill the other process or change PORT env var.`)
-  } else {
-    console.error('Server error:', err)
+async function shutdown(code: number): Promise<void> {
+  if (shuttingDown) return
+  shuttingDown = true
+  try {
+    if (server) await server.close()
+  } catch (err) {
+    console.error('[shutdown] error while closing server:', err)
   }
-  process.exit(1)
+  process.exit(code)
+}
+
+process.on('message', (message: unknown) => {
+  const msg = message as { type?: string } | null
+  if (msg?.type !== 'shutdown') return
+  void shutdown(0)
 })
 
-const io = new Server(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-  // Desktop app sends attachment bytes (base64) through socket.io directly.
-  // A 5 MB photo → ~7 MB base64; accommodate multi-image batches.
-  maxHttpBufferSize: 50 * 1024 * 1024,
+process.on('SIGINT', () => void shutdown(0))
+process.on('SIGTERM', () => void shutdown(0))
+
+// Crash is a state Electron can observe: log, attempt a clean close, then exit
+// non-zero instead of continuing in a corrupted state.
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err)
+  void shutdown(1)
 })
-setEventDefinitionRuntime(io)
-setGoalRuntime(io)
-setRunsRuntime(io)
-io.on('connection', (socket) => registerChatSocket(io, socket))
-startEventScheduler(io)
-startAssetGC()
+process.on('unhandledRejection', (err) => {
+  console.error('[FATAL] unhandledRejection:', err)
+  void shutdown(1)
+})
+
+try {
+  server = await startTianshuServer({
+    host: process.env.HOST || '127.0.0.1',
+    port: Number(process.env.PORT || 3456),
+    clientDist: process.env.TIANSHU_CLIENT_DIST,
+  })
+} catch (err) {
+  console.error('[FATAL] failed to start server:', err)
+  process.exit(1)
+}
+
+if (typeof process.send === 'function') {
+  process.send({ type: 'ready', port: server.port })
+} else {
+  console.log(`TianShu server on http://${server.host}:${server.port}`)
+}

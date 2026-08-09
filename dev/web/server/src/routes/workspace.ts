@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
 import cp from 'child_process'
+import { getDataDir } from '../config.js'
 
 const workspaceRouter = new Hono()
 
@@ -12,7 +13,7 @@ const QUICK_ACCESS: { name: string; path: string }[] = [
   { name: '桌面', path: path.join(HOME, 'Desktop') },
   { name: '下载', path: path.join(HOME, 'Downloads') },
   { name: '文档', path: path.join(HOME, 'Documents') },
-  { name: '项目根目录', path: process.cwd() },
+  { name: '项目根目录', path: getDataDir() },
 ].filter(e => { try { return fs.existsSync(e.path) } catch { return false } })
 
 function getAvailableDrives(): string[] {
