@@ -12,6 +12,47 @@
 
 当前项目主要面向 Windows，已经提供 `setup.bat` 和 `run.bat`，首次安装后可以直接通过批处理脚本启动。
 
+## 桌面客户端（Windows 安装版）
+
+普通用户建议直接使用桌面客户端，**不需要安装 Node.js、npm 或打开浏览器**。
+
+### 安装
+
+1. 打开 GitHub Releases：<https://github.com/dmql98/tianshu/releases>
+2. 下载 `TianShu-Setup-<版本>-x64.exe`（安装包目录：`dev/desktop/release/` 用于本地构建产物）。
+3. 双击安装（可自选安装目录），安装后从开始菜单或桌面快捷方式启动“天枢”。
+4. 未签名的测试包会被 SmartScreen 提示，选择“仍要运行”。
+
+### 数据目录位置
+
+- **应用配置**：`%APPDATA%\tianshu-desktop\config.json`（记录数据根目录，不在安装目录内）。
+- **数据根目录**：默认沿用旧版 `C:\.Tianshu`（若已存在数据）；全新环境默认 `%APPDATA%\tianshu-desktop\data`。可在「设置 → 系统 → 配置路径」修改，或用「选择目录」按钮选择。
+- 数据库、模型服务、角色、技能、MCP 配置等都保存在数据根目录下。
+- 卸载/覆盖安装/自动更新都**不会删除**上述数据。
+
+### 检查更新
+
+- 启动后自动静默检查一次；有更新会提示，不会自动下载。
+- 「设置 → 关于」可手动【检查更新】；发现新版本后【下载更新】→【立即重启安装】或稍后退出时安装。
+
+### 日志位置
+
+- 内置服务日志：`%APPDATA%\tianshu-desktop\logs\server.log`
+- 更新日志：`%APPDATA%\tianshu-desktop\logs\updater.log`（升级失败时据此定位原因）
+
+### 开发者：Electron 开发模式
+
+```powershell
+cd dev
+npm ci --prefix web/server
+npm ci --prefix web/client
+npm ci --prefix desktop
+npm run dev
+```
+
+`npm run dev` 会启动 Hono/Socket.IO（:3456）、Vite（:3457）并打开一个 Electron 窗口指向 Vite；关闭窗口自动清理。开发模式下自动更新被禁用。
+
+
 ## 主要功能
 
 - **Agent 会话**：流式回复、思考内容、工具执行过程、Token 用量与生成速度。
@@ -69,11 +110,11 @@ MCP 页面支持检测本机 MCP、导入 JSON 配置，或手动添加服务。
 ## 环境要求
 
 - Windows 10/11
-- Node.js 18 或更高版本
+- Node.js 24 LTS（仅开发/构建需要；桌面客户端用户无需安装）
 - npm（随 Node.js 一起安装）
 - 可用的 OpenAI 兼容模型服务及 API Key
 
-`dev/.node-version` 当前指定 Node.js 18。推荐使用 Node.js 20 LTS 或更高的 LTS 版本。
+`dev/.node-version` 指定 Node.js `24.14.0`。
 
 ## 快速开始
 
@@ -328,4 +369,4 @@ dev/web/server/config.json
 
 ## 当前状态
 
-天枢仍处于持续开发阶段。接口、数据结构和角色包格式可能继续调整。重要数据请定期备份，升级前建议先备份用户数据目录。
+天枢已提供 **Windows 桌面客户端**（Electron + 内置 Node + electron-updater 自动更新），可从 GitHub Releases 安装。开发模式仍可使用 `setup.bat`/`run.bat` 或 `npm run dev`。接口、数据结构和角色包格式可能继续调整。重要数据请定期备份，升级前建议先备份用户数据目录。

@@ -1116,10 +1116,12 @@ v0.1.1  更新测试包（UI 增加可见版本标记）
 
 ### Phase 5 验收
 
-- [ ] v0.1.0 → v0.1.1 完整升级成功。
-- [ ] 更新前后数据 hash/关键记录一致。
-- [ ] 失败场景不会破坏当前已安装版本。
-- [ ] 更新日志可定位失败原因。
+- [x] v0.1.0 → v0.1.1 完整升级成功。（真实安装版：后台发现 → 下载 → 立即重启安装 → 重启为 0.1.1；另一轮「稍后」退出时静默安装，均已验证）
+- [x] 更新前后数据 hash/关键记录一致。（升级后 config.json、sessions.db(7 会话/89 消息)、providers、5 角色、9 技能包、MCP 均在）
+- [x] 失败场景不会破坏当前已安装版本。（离线/不可达 feed：updater 记录 error，应用照常运行、health 200）
+- [x] 更新日志可定位失败原因。（updater.log 记录 checking/error/available/downloaded/server stopped）
+
+> 失败路径实测：离线/不可达 feed ✓、GitHub 404（早期 tianshu-releases 阶段）✓、错误后应用可用 ✓；下载中断重试、磁盘不足、server 关闭超时属状态机设计 + 单元测试覆盖（installUpdate 先 stopServer、shutdown 8s 宽限 + 强制杀树），未在真实安装版逐项模拟。
 
 ---
 
@@ -1146,9 +1148,9 @@ v0.1.1  更新测试包（UI 增加可见版本标记）
 
 ### Phase 6 验收
 
-- [ ] 新开发者只按 README 能启动 Electron 开发模式。
-- [ ] 发布者只按发布手册能生成一个 Release。
-- [ ] 文档不再同时推荐两套互相冲突的 updater。
+- [x] 新开发者只按 README 能启动 Electron 开发模式。
+- [x] 发布者只按发布手册能生成一个 Release。
+- [x] 文档不再同时推荐两套互相冲突的 updater。
 
 ---
 
@@ -1177,47 +1179,47 @@ v0.1.1  更新测试包（UI 增加可见版本标记）
 
 ### 客户端形态
 
-- [ ] 用户获得标准 Windows `.exe` 安装包。
-- [ ] 用户不需要安装 Node、npm 或打开浏览器。
-- [ ] 启动后只看到天枢桌面窗口。
-- [ ] 单实例工作正常。
+- [x] 用户获得标准 Windows `.exe` 安装包。
+- [x] 用户不需要安装 Node、npm 或打开浏览器。
+- [x] 启动后只看到天枢桌面窗口。
+- [x] 单实例工作正常。
 
 ### 运行稳定性
 
-- [ ] 内置 server 只监听 loopback 动态端口。
-- [ ] server ready、异常和 shutdown 有可靠 IPC。
-- [ ] 退出后无残留 Node 进程。
-- [ ] 安装目录不可写时应用仍正常工作。
+- [x] 内置 server 只监听 loopback 动态端口。
+- [x] server ready、异常和 shutdown 有可靠 IPC。
+- [x] 退出后无残留 Node 进程。
+- [x] 安装目录不可写时应用仍正常工作。
 
 ### 数据安全
 
-- [ ] 配置和数据库不在安装目录。
-- [ ] 安装、覆盖安装、自动更新不删除用户数据。
-- [ ] 旧 `C:\.Tianshu` 数据可继续使用。
+- [x] 配置和数据库不在安装目录。
+- [x] 安装、覆盖安装、自动更新不删除用户数据。
+- [x] 旧 `C:\.Tianshu` 数据可继续使用。
 
 ### 更新体验
 
-- [ ] 启动后自动静默检查一次。
-- [ ] 设置 → 关于可手动检查。
-- [ ] 显示当前版本、目标版本、更新说明和进度。
-- [ ] 用户确认后才下载。
-- [ ] 可立即重启安装或稍后安装。
-- [ ] 更新失败不影响继续使用当前版本。
+- [x] 启动后自动静默检查一次。
+- [x] 设置 → 关于可手动检查。
+- [x] 显示当前版本、目标版本、更新说明和进度。
+- [x] 用户确认后才下载。
+- [x] 可立即重启安装或稍后安装。
+- [x] 更新失败不影响继续使用当前版本。
 
 ### 发布
 
-- [ ] Git tag 能触发 Windows CI。
-- [ ] GitHub Release 包含 exe、blockmap、latest.yml。
-- [ ] 公开下载不需要登录。
-- [ ] 完成一次真实的旧版到新版升级测试。
+- [x] Git tag 能触发 Windows CI。
+- [x] GitHub Release 包含 exe、blockmap、latest.yml。
+- [x] 公开下载不需要登录。
+- [x] 完成一次真实的旧版到新版升级测试。
 
 ### 安全
 
-- [ ] `contextIsolation=true`、`nodeIntegration=false`。
-- [ ] preload 只暴露白名单方法。
-- [ ] 没有 GitHub token、证书或密码进入客户端。
-- [ ] 外链和导航受到限制。
-- [ ] 正式大范围发布包完成 Windows 代码签名。
+- [x] `contextIsolation=true`、`nodeIntegration=false`。
+- [x] preload 只暴露白名单方法。
+- [x] 没有 GitHub token、证书或密码进入客户端。
+- [x] 外链和导航受到限制。
+- [ ] 正式大范围发布包完成 Windows 代码签名。（外部阻塞：未购买证书，未配置 `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD`；当前为 unsigned，SmartScreen 会提示）
 
 ---
 
