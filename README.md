@@ -52,6 +52,12 @@ npm run dev
 
 `npm run dev` 会启动 Hono/Socket.IO（:3456）、Vite（:3457）并打开一个 Electron 窗口指向 Vite；关闭窗口自动清理。开发模式下自动更新被禁用。
 
+### 发布与维护（开发者）
+
+- 发布流程详见 [`docs/桌面客户端发布手册.md`](docs/桌面客户端发布手册.md)。
+- 一键发布脚本（仓库根目录）：`publish-release.bat`（自动读版本 → commit → 打 tag → 推送触发 CI）；`publish-release.bat --verify` 校验 Release 三文件是否齐全可下载。
+- 安装包、`latest.yml` 等构建产物生成在 `dev/desktop/release/`。
+
 
 ## 主要功能
 
@@ -251,32 +257,43 @@ npm run build
 ## 项目结构
 
 ```text
-dev/
-├─ setup.bat                 # 首次安装依赖
-├─ run.bat                   # 启动前后端并打开浏览器
-├─ rebuild-run.bat           # 重建/启动辅助脚本
-├─ .node-version             # 推荐 Node.js 主版本
-├─ web/
-│  ├─ client/                # React + TypeScript + Vite 前端
-│  │  └─ src/
-│  │     ├─ api/             # REST 与 Socket 客户端
-│  │     ├─ components/      # 通用及会话组件
-│  │     ├─ features/        # 功能模块
-│  │     ├─ pages/           # 页面
-│  │     ├─ stores/          # Zustand 状态管理
-│  │     └─ views/           # 组合视图
-│  └─ server/                # Hono + Socket.IO 后端
-│     └─ src/
-│        ├─ agent/           # Agent Loop、运行控制、子 Agent
-│        ├─ character/       # 角色包与角色资源
-│        ├─ db/              # SQLite 数据层与迁移
-│        ├─ event/           # 事件定义、调度与执行
-│        ├─ evolution/       # 轨迹与进化能力
-│        ├─ llm/             # OpenAI 兼容流式模型客户端
-│        ├─ routes/          # REST API
-│        ├─ tools/           # 内置工具注册表
-│        └─ ws/              # Socket.IO 会话事件
-└─ data/                     # 仓库内开发数据（不等于用户数据目录）
+TianShu/
+├─ .github/workflows/        # CI：desktop-release.yml（tag 触发构建+发布）
+├─ publish-release.bat       # 一键发布脚本（--dry-run / --verify）
+├─ docs/                     # 方案与发布手册
+└─ dev/
+   ├─ package.json           # 统一命令（build/test/dev/dist:win）
+   ├─ setup.bat              # 首次安装依赖
+   ├─ run.bat                # 开发模式启动前后端并打开浏览器
+   ├─ .node-version          # 固定 Node.js 24.14.0
+   ├─ shared/                # 桌面与渲染进程共享的强类型契约
+   ├─ desktop/               # Electron 客户端
+   │  ├─ src/                # main / preload / server-manager / updater
+   │  ├─ test/               # 单元测试（fake updater、server-manager）
+   │  ├─ assets/             # 图标
+   │  ├─ electron-builder.yml# NSIS 安装包配置
+   │  └─ release/            # 构建产物（exe/blockmap/latest.yml，gitignore）
+   ├─ scripts/               # dev-desktop / prepare-desktop-runtime / smoke / verify
+   └─ web/
+      ├─ client/             # React + TypeScript + Vite 前端
+      │  └─ src/
+      │     ├─ api/          # REST 与 Socket 客户端
+      │     ├─ components/   # 通用及会话组件
+      │     ├─ features/     # 功能模块（含 update 更新面板）
+      │     ├─ pages/        # 页面
+      │     ├─ stores/       # Zustand 状态管理
+      │     └─ views/        # 组合视图
+      └─ server/             # Hono + Socket.IO 后端
+         └─ src/
+            ├─ agent/        # Agent Loop、运行控制、子 Agent
+            ├─ character/    # 角色包与角色资源
+            ├─ db/           # SQLite 数据层与迁移
+            ├─ event/        # 事件定义、调度与执行
+            ├─ evolution/    # 轨迹与进化能力
+            ├─ llm/          # OpenAI 兼容流式模型客户端
+            ├─ routes/       # REST API
+            ├─ tools/        # 内置工具注册表
+            └─ ws/           # Socket.IO 会话事件
 ```
 
 ## Agent 执行模型
