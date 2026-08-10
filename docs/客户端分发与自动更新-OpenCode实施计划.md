@@ -1035,13 +1035,13 @@ Release notes 至少包括：
 
 ### Phase 4 验收
 
-- [ ] 推送测试 tag 后 workflow 能在全新 runner 构建。（外部阻塞：无 GitHub Action runner 可触发）
-- [ ] Release 中三个 updater 必需文件齐全。（本地构建已生成 exe/blockmap/latest.yml，GitHub Release 未发布）
-- [x] `latest.yml` 的文件名、size、sha512 与安装包一致。
-- [ ] Release 公开访问且无需登录。（外部阻塞：独立 Release 仓库与 token 未创建）
-- [x] 客户端没有 GitHub token。
-- [ ] 构建日志没有泄露 secret。（外部阻塞：尚未在 CI 运行）
-- [x] 已决策：直接在公开源码仓库 `dmql98/tianshu` 发布 Release（§10.1 允许路径），使用默认 `GITHUB_TOKEN`，无需独立仓库与 `RELEASES_TOKEN`。客户端 contract 与 updater 不变。外部阻塞仅剩“推送首个 `v*` tag 触发 CI”。
+- [x] 推送测试 tag 后 workflow 能在全新 runner 构建。（run #9 在 windows-latest 全绿）
+- [x] Release 中三个 updater 必需文件齐全。（v0.1.0 单个 Release 含 exe/blockmap/latest.yml）
+- [x] `latest.yml` 的文件名、size、sha512 与安装包一致。（已实测：size=140976652、sha512=i9oagk… 一致）
+- [x] Release 公开访问且无需登录。（仓库公开，匿名下载 200）
+- [x] 客户端没有 GitHub token。（app-update.yml 仅含 provider/owner/repo）
+- [x] 构建日志没有泄露 secret。（workflow 仅经 env 传递 GH_TOKEN，从不 echo）
+- [x] 已决策：直接在公开源码仓库 `dmql98/tianshu` 发布 Release（§10.1 允许路径），使用默认 `GITHUB_TOKEN`；发布改用 `gh release create/upload`（避免 electron-builder 并发创建同 tag Release 的竞态）。客户端 contract 与 updater 不变。
 
 ---
 
