@@ -20,6 +20,7 @@ import { truncateToolOutput as truncate, truncateError } from '../tools/truncate
 import { isTransientLLMError } from '../llm/errors.js'
 import { approvalRegistry } from './runtime/approval-registry.js'
 import { CONTROL_TOOL_SET } from './loop/control-registry.js'
+import { normalizeToolCalls, buildInvalidToolCall } from './tool-call-normalizer.js'
 
 const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch'])
 
@@ -114,14 +115,18 @@ export async function streamWithRetry(
   onDelta?: (chunk: any) => void,
   onRetry?: (data: { attempt: number; max_attempts: number; error: string; delay_ms: number }) => void,
 ): Promise<{ text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null }> {
-  let fullText = ''
-  let reasoningText = ''
-  let toolCallsAcc: ToolCall[] = []
-  let usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null = null
+  // Accumulators are attempt-local: a retry must start from a clean slate so
+  // the previous attempt's partial text, reasoning, or half-built tool
+  // arguments can never leak into the successful attempt.
+  let committed: { text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null } | null = null
 
   for (let attempt = 0; attempt < 3; attempt++) {
     if (signal?.aborted) break
     let errorText = ''
+    let fullText = ''
+    let reasoningText = ''
+    let toolCallsAcc: ToolCall[] = []
+    let usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null = null
 
     const gen = streamChatCompletion({
       baseUrl: provider.base_url,
@@ -172,7 +177,10 @@ export async function streamWithRetry(
     }
 
     if (signal?.aborted) break
-    if (!errorText) break
+    if (!errorText) {
+      committed = { text: fullText, reasoning: reasoningText, toolCalls: toolCallsAcc, usage }
+      break
+    }
 
     if (!isTransientLLMError(errorText) || attempt >= 2) {
       throw new Error(errorText)
@@ -183,7 +191,10 @@ export async function streamWithRetry(
     await sleep(delay)
   }
 
-  return { text: fullText, reasoning: reasoningText, toolCalls: toolCallsAcc.filter(tc => tc.function.name), usage }
+  if (!committed) {
+    throw new Error('LLM stream ended without a successful attempt')
+  }
+  return committed
 }
 
 export async function innerLoop(
@@ -292,13 +303,35 @@ export async function innerLoop(
 
   logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage })
 
-  const { text: fullText, reasoning: reasoningText, toolCalls: toolCallsAcc } = result
+  const { text: fullText, reasoning: reasoningText, toolCalls: rawToolCalls } = result
   const streamSeconds = firstOutputAt == null ? 0 : Math.max((Date.now() - firstOutputAt) / 1000, 0.05)
   const measuredOutputTokens = result.usage?.output || 0
   const finalTokenSpeed = streamSeconds > 0
     ? (measuredOutputTokens > 0 ? measuredOutputTokens : estimateTokenCount(streamedOutput)) / streamSeconds
     : 0
   const tokenSpeedEstimated = measuredOutputTokens <= 0
+
+  // ── Canonicalize tool calls before anything touches history or execution ──
+  // Raw arguments may be truncated/malformed (msocwg0bciq5x4). Invalid calls
+  // are rewritten as internal `invalid_tool_call`s whose arguments are always
+  // valid JSON; the model can then rewrite the call instead of the turn
+  // failing or an empty `{}` reaching a real tool.
+  const normalized = normalizeToolCalls(rawToolCalls)
+  const toolCallsAcc: ToolCall[] = normalized.calls.map(c => ({
+    id: c.id,
+    type: 'function' as const,
+    function: { name: c.function.name, arguments: JSON.stringify(c.function.arguments) },
+  }))
+  if (!normalized.ok) {
+    for (const f of normalized.failures) {
+      const synthetic = buildInvalidToolCall(f.toolId || `inv_${toolCallsAcc.length}_${Date.now()}`, f)
+      toolCallsAcc.push({
+        id: synthetic.canonical.id,
+        type: 'function' as const,
+        function: { name: 'invalid_tool_call', arguments: JSON.stringify(synthetic.canonical.function.arguments) },
+      })
+    }
+  }
 
   const newMessages: LLMMessage[] = []
   if (fullText || toolCallsAcc.length > 0 || reasoningText) {
@@ -372,7 +405,7 @@ export async function innerLoop(
   }
   if (delegateCall) {
     let args: Record<string, string> = {}
-    try { args = JSON.parse(delegateCall.function.arguments) } catch { args = {} }
+    try { args = JSON.parse(delegateCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + delegateCall.function.name + '): ' + (err?.message || err)) }
     return {
       type: 'sub_agent_request',
       messages: newMessages, fullText, reasoningText,
@@ -389,7 +422,7 @@ export async function innerLoop(
   const submitCall = toolCallsAcc.find(tc => tc.function.name === 'submit_result')
   if (submitCall) {
     let args: Record<string, unknown> = {}
-    try { args = JSON.parse(submitCall.function.arguments) } catch { args = {} }
+    try { args = JSON.parse(submitCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + submitCall.function.name + '): ' + (err?.message || err)) }
     const summary = typeof args.summary === 'string' ? args.summary : ''
     const evidence = Array.isArray(args.evidence)
       ? (args.evidence as unknown[]).filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
@@ -407,7 +440,7 @@ export async function innerLoop(
   const askUserCall = toolCallsAcc.find(tc => tc.function.name === 'ask_user')
   if (askUserCall) {
     let args: Record<string, string> = {}
-    try { args = JSON.parse(askUserCall.function.arguments) } catch { args = {} }
+    try { args = JSON.parse(askUserCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + askUserCall.function.name + '): ' + (err?.message || err)) }
     return {
       type: 'ask_user',
       messages: newMessages, fullText, reasoningText,
@@ -420,7 +453,7 @@ export async function innerLoop(
   const planCall = toolCallsAcc.find(tc => tc.function.name === 'create_plan')
   if (planCall) {
     let args: Record<string, unknown> = {}
-    try { args = JSON.parse(planCall.function.arguments) } catch { args = {} }
+    try { args = JSON.parse(planCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + planCall.function.name + '): ' + (err?.message || err)) }
     const steps = Array.isArray(args.steps)
       ? (args.steps as Array<Record<string, unknown>>)
         .filter(s => typeof s?.title === 'string' && s.title.trim())
@@ -446,7 +479,7 @@ export async function innerLoop(
   const updatePlanStepCall = toolCallsAcc.find(tc => tc.function.name === 'update_plan_step')
   if (updatePlanStepCall) {
     let args: Record<string, unknown> = {}
-    try { args = JSON.parse(updatePlanStepCall.function.arguments) } catch { args = {} }
+    try { args = JSON.parse(updatePlanStepCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + updatePlanStepCall.function.name + '): ' + (err?.message || err)) }
     const allowedStatuses = new Set(['pending', 'in_progress', 'blocked', 'completed', 'skipped', 'failed'])
     const ordinal = typeof args.ordinal === 'number' ? Math.trunc(args.ordinal) : Number(args.ordinal)
     const status = typeof args.status === 'string' && allowedStatuses.has(args.status) ? args.status : 'pending'
@@ -465,13 +498,36 @@ export async function innerLoop(
 
   const toolCallRecords: ToolCallRecord[] = []
 
+  // invalid_tool_call never reaches the real executor: it is a synthetic error
+  // surface so the model can rewrite the malformed call. Fixed tool error,
+  // no permissions prompt, no side effects.
+  const invalidCalls = toolCallsAcc.filter(tc => tc.function.name === 'invalid_tool_call')
+  for (const tc of invalidCalls) {
+    const errorText = `模型生成了无效工具参数：${tc.function.arguments}`
+    toolCallRecords.push({ toolName: 'invalid_tool_call', hasError: true, error: errorText, args: tc.function.arguments })
+    if (sessionId) {
+      messageStore.addMessage(sessionId, {
+        role: 'tool', content: JSON.stringify({ error: errorText }),
+        tool_name: 'invalid_tool_call', tool_input: JSON.stringify({ call_id: tc.id, args: tc.function.arguments }),
+        tool_output: errorText, tool_status: 'error',
+      })
+    }
+    newMessages.push({ role: 'tool', content: JSON.stringify({ error: errorText }), tool_call_id: tc.id })
+    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: 'invalid_tool_call', tool_output: errorText, tool_status: 'error', duration_ms: 0 })
+  }
+
   // Phase 1: pre-check all tools, separate deny/ask from allow
   const prechecked: { tc: ToolCall; name: string; args: Record<string, string>; argsStr: string; skip: boolean; skipReason?: string }[] = []
 
   for (const tc of toolCallsAcc) {
     const { name, arguments: argsStr } = tc.function
-    let args: Record<string, string> = {}
-    try { args = JSON.parse(argsStr) } catch { args = {} }
+    if (name === 'invalid_tool_call') continue // handled above
+    // Arguments were canonicalized before persistence, so this parse must
+    // succeed; a failure here is a programming error, never a silent `{}`.
+    let args: Record<string, string>
+    try { args = JSON.parse(argsStr) } catch (err: any) {
+      throw new Error(`Internal error: tool arguments failed to parse after canonicalization (${name}): ${err?.message}`)
+    }
 
     const bindingError = checkToolBinding(characterId, name, args)
     if (bindingError) {

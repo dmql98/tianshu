@@ -8,6 +8,7 @@ import type { ToolMeta } from '@/api/tools'
 import type { SkillPackageMeta } from '@/api/skills'
 import CharacterVisualEditor from '@/features/characters/CharacterVisualEditor'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
+import { dedupeToolBindings, getUnboundTools, toToolBindingName } from '@/features/characters/toolBindings'
 import EditField from '@/components/EditField'
 
 const roleLabels: Record<string, string> = { main: '主 Agent', sub: '子 Agent', both: '主 / 子 Agent' }
@@ -56,6 +57,7 @@ export default function CharacterDetailPage() {
 
   // Tools & Skills
   const [boundTools, setBoundTools] = useState<{ name: string }[]>([])
+  const boundToolsRef = useRef<{ name: string }[]>([])
   const [boundSkills, setBoundSkills] = useState<string[]>([])
 
   // Groups UI
@@ -112,7 +114,9 @@ export default function CharacterDetailPage() {
       setCustomPrompt(c.customPrompt ?? '')
       setMemoryEnabled(c.memory?.enabled ?? false)
       setCharLimit(c.memory?.charLimit ?? 2000)
-      setBoundTools(c.tools || [])
+      const tools = dedupeToolBindings(c.tools || [])
+      boundToolsRef.current = tools
+      setBoundTools(tools)
       setBoundSkills(c.skillBindings?.map(binding => binding.packageId) || c.skills || [])
     }).catch(() => setChar(null)).finally(() => setLoading(false))
   }, [id, isNew])
@@ -125,8 +129,7 @@ export default function CharacterDetailPage() {
     if (id && !isNew) fetchCharacterStats(id).then(setStats).catch(() => {})
   }, [id, isNew])
 
-  const boundToolNames = new Set(boundTools.map(t => t.name))
-  const unboundTools = allTools.filter(t => !boundToolNames.has(t.name))
+  const unboundTools = getUnboundTools(allTools, boundTools)
   const unboundSkills = allSkills.filter(s => !boundSkills.includes(s.id))
 
   // Collect all existing groups from all characters
@@ -255,14 +258,18 @@ export default function CharacterDetailPage() {
   }
 
   function addTool(name: string, source?: string) {
-    const toolName = source === 'mcp' ? `mcp:${name}` : name
-    const next = [...boundTools, { name: toolName }]
+    const toolName = toToolBindingName(name, source)
+    const current = dedupeToolBindings(boundToolsRef.current)
+    if (current.some(tool => tool.name === toolName)) return
+    const next = [...current, { name: toolName }]
+    boundToolsRef.current = next
     setBoundTools(next)
     autoSave({ tools: next })
   }
 
   function removeTool(name: string) {
-    const next = boundTools.filter(t => t.name !== name)
+    const next = dedupeToolBindings(boundToolsRef.current).filter(t => t.name !== name)
+    boundToolsRef.current = next
     setBoundTools(next)
     autoSave({ tools: next })
   }
@@ -564,7 +571,7 @@ export default function CharacterDetailPage() {
                 <div className="detail-section-title">已激活工具 ({boundTools.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {boundTools.map(t => {
-                    const meta = allTools.find(at => at.name === t.name)
+                    const meta = allTools.find(at => toToolBindingName(at.name, at.source) === t.name)
                     return (
                       <div key={t.name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>

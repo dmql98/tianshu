@@ -86,9 +86,7 @@
   "84": "package.json",
   "85": "electron.d.ts",
   "86": "AGENTS.md",
-  "87": "session-title.ts",
   "88": "workspace.ts",
-  "89": "index.ts",
   "90": "scripts",
   "91": "verify-release-version.mjs",
   "92": "preload.ts",
@@ -115,7 +113,6 @@
   "113": "vercel.ts",
   "114": "xai.ts",
   "115": "xiaomi.ts",
-  "116": "better-sqlite3",
   "117": "vite-env.d.ts",
   "118": "vite.config.ts",
   "119": "@hono/node-server",
@@ -126,5 +123,12 @@
   "124": "die-early-server.mjs",
   "125": "fake-server.mjs",
   "126": "vitest.config.ts",
-  "127": "vitest.config.ts"
+  "127": "vitest.config.ts",
+  "128": "run-store.ts",
+  "129": "control-router.ts",
+  "130": "sub-agent.ts",
+  "131": "toolStore.ts",
+  "132": "definitions.ts",
+  "134": "index.ts",
+  "135": "avatarCropStyle"
 }

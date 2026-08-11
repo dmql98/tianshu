@@ -1,8 +1,19 @@
-import { describeTransportError } from './errors.js'
+import { describeTransportError, IncompleteLLMStreamError, MalformedSSEError } from './errors.js'
 
 // Toggle streaming usage info. Some providers (proxies) may handle
 // include_usage differently and affect prefix caching. Disable to probe.
 const INCLUDE_USAGE = process.env.LLM_INCLUDE_USAGE !== 'false'
+
+// Strict stream completion protocol: EOF without [DONE] or a terminal
+// finish_reason is treated as an incomplete stream (transient, retryable)
+// instead of a successful turn. Default on; set STRICT_LLM_STREAM_COMPLETION=0
+// to restore the lenient behaviour.
+const STRICT_STREAM = process.env.STRICT_LLM_STREAM_COMPLETION !== '0'
+
+// finish_reason values that mean the model turn genuinely ended, even if the
+// provider never emits an explicit `data: [DONE]` marker. Used by the compat
+// terminal policy below.
+const TERMINAL_FINISH_REASONS = new Set(['stop', 'tool_calls', 'length', 'content_filter', 'function_call', 'end_turn'])
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -34,6 +45,16 @@ export interface LLMChunk {
   usage?: LLMUsage
   usage_type?: 'stream' | 'final'
   tool_calls?: ToolCall[]
+  /** Present on `done`: how the stream reached its terminal state. */
+  completion?: StreamCompletion
+}
+
+/** How a provider stream reached its end — callers must not infer success
+ *  from the absence of an error chunk. */
+export interface StreamCompletion {
+  finishReason?: string
+  sawDoneMarker: boolean
+  compatibleTerminal: boolean
 }
 
 export interface LLMOptions {
@@ -82,11 +103,21 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     if (reasoning_effort) body.reasoning_effort = reasoning_effort
   }
 
+  // ── Stream framing state ──
   let reader: any = null
   let finishReason: string | undefined
+  let sawFinishReason = false
+  let sawDoneMarker = false
   let latestUsage: LLMUsage | undefined
+  let sawAnyData = false
+
   const onAbort = () => { reader?.cancel().catch(() => {}) }
   signal?.addEventListener('abort', onAbort, { once: true })
+
+  const emitDone = (compatibleTerminal: boolean): LLMChunk => ({
+    type: 'done', finish_reason: finishReason, usage: latestUsage,
+    completion: { finishReason, sawDoneMarker, compatibleTerminal },
+  })
 
   try {
     const res = await fetch(url, {
@@ -113,7 +144,25 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
       if (signal?.aborted) return
       const { done, value } = await reader.read()
       if (signal?.aborted) return
-      if (done) break
+      if (done) {
+        // Flush the decoder so any trailing multibyte sequence is decoded, and
+        // process every complete SSE line. `decoder.decode()` (final call) no
+        // longer streams, so there is no pending partial line to defer.
+        buffer += decoder.decode()
+        for (const line of buffer.split('\n')) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          const data = trimmed.slice(6)
+          if (data === '[DONE]') { sawDoneMarker = true; continue }
+          let parsed: any
+          try { parsed = JSON.parse(data) } catch (err: any) {
+            throw new MalformedSSEError(String(err?.message || err))
+          }
+          sawAnyData = true
+          for (const chunk of handleDataChunk(parsed)) yield chunk
+        }
+        break
+      }
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
@@ -123,42 +172,19 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
         if (!trimmed || !trimmed.startsWith('data: ')) continue
         const data = trimmed.slice(6)
         if (data === '[DONE]') {
-          yield { type: 'done', finish_reason: finishReason, usage: latestUsage }
+          sawDoneMarker = true
+          yield emitDone(false)
           return
         }
-
-        try {
-          const parsed = JSON.parse(data)
-          const choices = parsed.choices
-          const hasDelta = choices?.[0]?.delta
-          const finish = choices?.[0]?.finish_reason
-
-          // Usage-only chunks (streaming intermediate usage info)
-          if (parsed.usage && !hasDelta) {
-            latestUsage = parseUsage(parsed.usage)
-            yield { type: 'usage', usage: latestUsage, usage_type: finishReason || finish ? 'final' : 'stream' }
-          }
-
-          const delta = hasDelta || {}
-          if (delta.reasoning_content) {
-            yield { type: 'delta', reasoning: delta.reasoning_content }
-          }
-          if (delta.content) {
-            yield { type: 'delta', text: delta.content }
-          }
-          if (delta.tool_calls) {
-            yield { type: 'delta', tool_calls: delta.tool_calls.map((tc: any) => ({
-              id: tc.id || '',
-              index: tc.index,
-              type: 'function' as const,
-              function: { name: tc.function?.name || '', arguments: tc.function?.arguments || '' },
-            }))}
-          }
-          if (finish) {
-            finishReason = finish
-            if (parsed.usage) latestUsage = parseUsage(parsed.usage)
-          }
-        } catch { /* skip malformed SSE lines */ }
+        let parsed: any
+        try { parsed = JSON.parse(data) } catch (err: any) {
+          // A `data:` payload that fails JSON.parse can still carry tool-call
+          // deltas. Silently skipping (old behaviour) can drop the tail of a
+          // tool call; fail the stream instead.
+          throw new MalformedSSEError(String(err?.message || err))
+        }
+        sawAnyData = true
+        for (const chunk of handleDataChunk(parsed)) yield chunk
       }
     }
   } catch (err: any) {
@@ -172,5 +198,72 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
   } finally {
     signal?.removeEventListener('abort', onAbort)
   }
-  yield { type: 'done', finish_reason: finishReason, usage: latestUsage }
+
+  // ── EOF reached. Decide whether the turn completed. ──
+  if (sawDoneMarker) {
+    yield emitDone(false)
+    return
+  }
+  if (sawFinishReason && TERMINAL_FINISH_REASONS.has(finishReason || '')) {
+    // Some OpenAI-compatible providers end the stream without `[DONE]` but
+    // still send a terminal finish_reason on the last delta. Accept it in
+    // compat mode but record that it wasn't a clean marker.
+    yield emitDone(true)
+    return
+  }
+  if (!STRICT_STREAM) {
+    // Legacy lenient behaviour: EOF counts as completion regardless of
+    // terminal markers. Kept behind a flag for rollback.
+    yield emitDone(true)
+    return
+  }
+  if (!sawAnyData) {
+    // Empty body with no data at all — transport-level failure.
+    yield { type: 'error', text: 'Empty LLM stream response' }
+    return
+  }
+  // EOF with data but no terminal marker: the stream was cut mid-response.
+  // Treat as an incomplete stream (retry), never as success.
+  const detail = `EOF without [DONE] or terminal finish_reason` +
+    (finishReason ? ` (finish_reason=${finishReason})` : '')
+  yield { type: 'error', text: new IncompleteLLMStreamError(detail).message }
+  return
+
+  function handleDataChunk(parsed: any): LLMChunk[] {
+    const chunks: LLMChunk[] = []
+    const choices = parsed.choices
+    const hasDelta = choices?.[0]?.delta
+    const finish = choices?.[0]?.finish_reason
+
+    // Usage-only chunks (streaming intermediate usage info)
+    if (parsed.usage && !hasDelta) {
+      latestUsage = parseUsage(parsed.usage)
+      chunks.push({ type: 'usage', usage: latestUsage, usage_type: finishReason || finish ? 'final' : 'stream' })
+    }
+
+    const delta = hasDelta || {}
+    if (delta.reasoning_content) {
+      chunks.push({ type: 'delta', reasoning: delta.reasoning_content })
+    }
+    if (delta.content) {
+      chunks.push({ type: 'delta', text: delta.content })
+    }
+    if (delta.tool_calls) {
+      chunks.push({
+        type: 'delta',
+        tool_calls: delta.tool_calls.map((tc: any) => ({
+          id: tc.id || '',
+          index: tc.index,
+          type: 'function' as const,
+          function: { name: tc.function?.name || '', arguments: tc.function?.arguments || '' },
+        })),
+      })
+    }
+    if (finish) {
+      finishReason = finish
+      sawFinishReason = true
+      if (parsed.usage) latestUsage = parseUsage(parsed.usage)
+    }
+    return chunks
+  }
 }

@@ -26,6 +26,9 @@ export interface ToolResult {
   output: string
   error?: string
   escaped?: boolean
+  // Structured metadata emitted by some tools (e.g. write returns
+  // path/bytes/status/hash) for callers and observability.
+  metadata?: Record<string, unknown>
   // Media produced by the tool (e.g. an image fetched by webfetch). Bytes are
   // passed inline as base64; the agent layer persists them via the media store
   // and re-emits them as multimodal content blocks for vision-capable models.

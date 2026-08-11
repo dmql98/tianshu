@@ -111,11 +111,8 @@ export function rowToLLMMessage(
     return { role: 'tool', content, tool_call_id: callId }
   }
   if (row.role === 'assistant' && row.tool_input) {
-    try {
-      const msg: LLMMessage = { role: 'assistant', content: row.content || null, tool_calls: JSON.parse(row.tool_input) }
-      if (row.reasoning_content) msg.reasoning_content = row.reasoning_content
-      return msg
-    } catch {}
+    const restored = restoreAssistantToolCalls(row)
+    return restored
   }
   if (row.role === 'assistant' && !row.content && !row.tool_input) return null
   if (row.role === 'user' && row.attachments) {
@@ -126,6 +123,72 @@ export function rowToLLMMessage(
   }
   const msg: LLMMessage = { role: row.role as LLMMessage['role'], content: row.content || '' }
   if (row.reasoning_content) msg.reasoning_content = row.reasoning_content
+  return msg
+}
+
+/**
+ * Sanitize a persisted assistant tool call so that whatever reaches the
+ * provider is always valid JSON. Old history may contain half-serialized
+ * `function.arguments` (accident msocwg0bciq5x4) which would make the provider
+ * reject the whole request with "arguments must be valid JSON".
+ *
+ * Strategy: normalize each call; valid ones pass through, invalid ones are
+ * rewritten as internal `invalid_tool_call` with JSON-safe arguments. The
+ * paired tool result (if any) is left intact so protocol pairing holds.
+ */
+export function restoreAssistantToolCalls(row: MessageRow): LLMMessage | null {
+  let rawCalls: unknown
+  try {
+    rawCalls = JSON.parse(row.tool_input || '[]')
+  } catch {
+    return null
+  }
+  if (!Array.isArray(rawCalls) || rawCalls.length === 0) return null
+
+  const calls: import('../../llm/client.js').ToolCall[] = []
+  let sanitized = false
+  for (const call of rawCalls as Array<{
+    id?: string; type?: string;
+    function?: { name?: string; arguments?: unknown }
+  }>) {
+    const id = call?.id || ''
+    const name = call?.function?.name || ''
+    const argsRaw = call?.function?.arguments
+    let argsStr = typeof argsRaw === 'string' ? argsRaw : JSON.stringify(argsRaw ?? {})
+
+    let parsedOk = false
+    try {
+      const parsed = JSON.parse(argsStr)
+      parsedOk = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    } catch { parsedOk = false }
+
+    if (!parsedOk) {
+      // Rewrite the malformed call as a JSON-safe synthetic invalid call.
+      const safeArgs = JSON.stringify({
+        original_tool: name,
+        error: 'invalid_json',
+        detail: 'restored from legacy history with unparseable tool arguments',
+        argument_preview: argsStr.length > 200 ? argsStr.slice(0, 200) + '…' : argsStr,
+      })
+      calls.push({
+        id, type: 'function',
+        function: { name: 'invalid_tool_call', arguments: safeArgs },
+      })
+      sanitized = true
+      console.warn(`[history-sanitize] rewrote invalid tool call id=${id} name=${name} (session ${row.session_id})`)
+    } else {
+      calls.push({ id, type: 'function', function: { name, arguments: argsStr } })
+    }
+  }
+
+  if (calls.length === 0) return null
+  const msg: LLMMessage = { role: 'assistant', content: row.content || null, tool_calls: calls }
+  if (row.reasoning_content) msg.reasoning_content = row.reasoning_content
+  if (sanitized) {
+    // A sanitized call needs a paired tool result so the conversation is not
+    // left with a dangling assistant tool call (provider protocol).
+    (msg as any).__sanitized = true
+  }
   return msg
 }
 

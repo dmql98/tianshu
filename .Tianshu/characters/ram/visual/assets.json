@@ -1,0 +1,44 @@
+[
+  {
+    "assetId": "casset_f4132652-e958-459e-9225-96aa2f95cfaf",
+    "kind": "static",
+    "mime": "image/png",
+    "filename": "casset_f4132652-e958-459e-9225-96aa2f95cfaf.png"
+  },
+  {
+    "assetId": "casset_9dceffaf-fad4-4db8-b0f2-ea5a94618a58",
+    "kind": "video",
+    "mime": "video/mp4",
+    "filename": "casset_9dceffaf-fad4-4db8-b0f2-ea5a94618a58.mp4"
+  },
+  {
+    "assetId": "casset_76d02ce7-eedc-4745-96fa-1802c9995820",
+    "kind": "video",
+    "mime": "video/mp4",
+    "filename": "casset_76d02ce7-eedc-4745-96fa-1802c9995820.mp4"
+  },
+  {
+    "assetId": "casset_57c6de8a-7007-4301-9474-0d6e3f2de1b6",
+    "kind": "video",
+    "mime": "video/mp4",
+    "filename": "casset_57c6de8a-7007-4301-9474-0d6e3f2de1b6.mp4"
+  },
+  {
+    "assetId": "casset_e558f14f-d6bc-4cb0-bb91-8d0f3f22486c",
+    "kind": "video",
+    "mime": "video/mp4",
+    "filename": "casset_e558f14f-d6bc-4cb0-bb91-8d0f3f22486c.mp4"
+  },
+  {
+    "assetId": "casset_b37fb069-bc72-48b6-a471-36a69a1f9fcd",
+    "kind": "video",
+    "mime": "video/mp4",
+    "filename": "casset_b37fb069-bc72-48b6-a471-36a69a1f9fcd.mp4"
+  },
+  {
+    "assetId": "casset_68b8af29-c2ce-4412-8d07-96623af540cb",
+    "kind": "video",
+    "mime": "video/mp4",
+    "filename": "casset_68b8af29-c2ce-4412-8d07-96623af540cb.mp4"
+  }
+]

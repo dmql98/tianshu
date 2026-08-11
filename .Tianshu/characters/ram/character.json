@@ -1,0 +1,52 @@
+{
+  "name": "雷姆",
+  "description": "rezero 组《Re:从零开始的异世界生活》鬼族女仆雷姆：家务全能、战斗力爆表、对主人绝对忠诚的蓝发女仆",
+  "color": "#ec4899",
+  "role": "both",
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "get_time"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "task_complete"
+    }
+  ],
+  "skills": [],
+  "skillBindings": [],
+  "groups": [
+    "rezero"
+  ],
+  "maxSteps": 999,
+  "default_strategy": "Auto Approve",
+  "enabled": true,
+  "id": "ram",
+  "createdAt": 1786440454770,
+  "updatedAt": 1786440644368
+}

@@ -57,3 +57,61 @@ try {
 } finally {
   globalThis.fetch = originalFetch
 }
+
+// ── Attempt isolation: first attempt ends mid-text (EOF, no [DONE]) ──
+// Retry must produce a clean result that does not contain the first attempt's
+// partial text or its half-built tool arguments (msocwg0bciq5x4 pattern).
+async function attemptIsolation() {
+  const originalFetch2 = globalThis.fetch
+  let fetchCalls2 = 0
+  const retries2: Array<{ attempt: number }> = []
+
+  globalThis.fetch = (async () => {
+    fetchCalls2++
+    if (fetchCalls2 === 1) {
+      // First attempt: partial text + truncated tool args, then socket EOF.
+      const body = [
+        'data: {"choices":[{"delta":{"content":"PARTIAL "}}]}',
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"write","arguments":"{\\"content\\":\\"half"}}]}}]}',
+        '', // EOF — no [DONE], no finish_reason
+      ].join('\n')
+      return new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      })
+    }
+    // Second attempt: clean complete response.
+    const body = [
+      'data: {"choices":[{"delta":{"content":"FULL ANSWER"},"finish_reason":"stop"}]}',
+      'data: [DONE]',
+      '',
+    ].join('\n')
+    return new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }) as typeof fetch
+
+  try {
+    const result = await streamWithRetry(
+      [{ role: 'user', content: 'test' }],
+      undefined,
+      { base_url: 'https://example.invalid/v1', api_key: '' },
+      'test-model',
+      undefined,
+      {},
+      undefined,
+      r => retries2.push(r),
+    )
+    if (fetchCalls2 !== 2) throw new Error(`expected 2 fetch calls, got ${fetchCalls2}`)
+    if (retries2.length !== 1) throw new Error(`expected 1 retry, got ${retries2.length}`)
+    if (result.text !== 'FULL ANSWER') throw new Error(`partial text leaked: ${JSON.stringify(result.text)}`)
+    if (result.text.includes('PARTIAL')) throw new Error(`first attempt text leaked into result`)
+    if (result.toolCalls.length !== 0) throw new Error(`half-built tool call leaked: ${JSON.stringify(result.toolCalls)}`)
+    console.log('  OK incomplete stream retries with attempt isolation (no residue)')
+  } finally {
+    globalThis.fetch = originalFetch2
+  }
+}
+
+await attemptIsolation()

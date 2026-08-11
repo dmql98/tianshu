@@ -41,6 +41,22 @@ export const messageStore = {
     getDb().prepare('UPDATE messages SET content = ? WHERE id = ?').run(content, id)
   },
   addMessage(sessionId: string, data: Partial<MessageRow> & { role: string }): MessageRow {
+    // Write-time guard: assistant tool calls persisted to durable history must
+    // have canonical (JSON-parseable) function.arguments. Half-serialized or
+    // otherwise invalid arguments must never enter history (msocwg0bciq5x4).
+    if (data.role === 'assistant' && data.tool_input) {
+      try {
+        const calls = JSON.parse(data.tool_input)
+        if (Array.isArray(calls)) {
+          for (const call of calls) {
+            if (!call?.function?.arguments) continue
+            JSON.parse(call.function.arguments) // throws if not valid JSON
+          }
+        }
+      } catch (err: any) {
+        throw new Error(`Refusing to persist invalid assistant tool call: ${err?.message || err}`)
+      }
+    }
     const now = Date.now()
     const row: MessageRow = {
       id: 0, session_id: sessionId, role: data.role, content: data.content || '',
