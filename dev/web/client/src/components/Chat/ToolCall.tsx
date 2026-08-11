@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import type { Message } from '@/types'
 
 interface Props {
@@ -29,7 +29,7 @@ export default function ToolCall({ message }: Props) {
         {message.tool_name} · {status === 'success' ? '✓ 成功' : status === 'error' ? '✗ 失败' : '执行中...'}
         <span className="expand-icon">▶</span>
       </span>
-      <div style={{ fontSize: 11, color: 'var(--ink-light)', marginTop: 2 }}>
+      <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)', marginTop: 2 }}>
         {message.tool_input}
       </div>
       {expanded && message.tool_output && (

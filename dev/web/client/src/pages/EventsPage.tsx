@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { fetchCharacters } from '@/api/characters'
 import type { Character } from '@/types'
@@ -323,61 +323,61 @@ export default function EventsPage() {
       {showCreate && (
         <div className="approval-overlay" onClick={() => setShowCreate(false)}>
           <div className="approval-dialog" style={{ maxWidth: 560, width: '100%' }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>新建事件</h2>
+            <h2 style={{ fontSize: 'calc(18px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 16 }}>新建事件</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>事件名称 *</label>
-                <input type="text" value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="例如：每日巡检" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }} />
+                <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>事件名称 *</label>
+                <input type="text" value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="例如：每日巡检" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)' }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>执行角色 *</label>
-                  <select value={form.character_id} onChange={e => setForm(prev => ({ ...prev, character_id: e.target.value, assigned_group: '' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
+                  <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>执行角色 *</label>
+                  <select value={form.character_id} onChange={e => setForm(prev => ({ ...prev, character_id: e.target.value, assigned_group: '' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                     <option value="">请选择...</option>
                     {characters.map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>分组</label>
-                  <select value={form.assigned_group} onChange={e => setForm(prev => ({ ...prev, assigned_group: e.target.value }))} disabled={selectedCharGroups.length === 0} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', opacity: selectedCharGroups.length === 0 ? 0.5 : 1 }}>
+                  <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>分组</label>
+                  <select value={form.assigned_group} onChange={e => setForm(prev => ({ ...prev, assigned_group: e.target.value }))} disabled={selectedCharGroups.length === 0} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', opacity: selectedCharGroups.length === 0 ? 0.5 : 1 }}>
                     <option value="">无</option>
                     {selectedCharGroups.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>提供商</label>
-                  <select value={form.provider_id} onChange={e => setForm(prev => ({ ...prev, provider_id: e.target.value, model: '' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
+                  <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>提供商</label>
+                  <select value={form.provider_id} onChange={e => setForm(prev => ({ ...prev, provider_id: e.target.value, model: '' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                     <option value="">默认</option>
                     {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>模型</label>
-                  <select value={form.model} onChange={e => setForm(prev => ({ ...prev, model: e.target.value }))} disabled={!form.provider_id} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', opacity: !form.provider_id ? 0.5 : 1 }}>
+                  <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>模型</label>
+                  <select value={form.model} onChange={e => setForm(prev => ({ ...prev, model: e.target.value }))} disabled={!form.provider_id} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', opacity: !form.provider_id ? 0.5 : 1 }}>
                     <option value="">默认</option>
                     {selectedProviderModels.map(m => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>工作区</label>
-                <input type="text" value={form.workspace} onChange={e => setForm(prev => ({ ...prev, workspace: e.target.value }))} placeholder="工作目录路径" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }} />
+                <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>工作区</label>
+                <input type="text" value={form.workspace} onChange={e => setForm(prev => ({ ...prev, workspace: e.target.value }))} placeholder="工作目录路径" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)' }} />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>指令 *</label>
-                <textarea value={form.instruction} onChange={e => setForm(prev => ({ ...prev, instruction: e.target.value }))} rows={4} placeholder="描述要执行的任务..." style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', resize: 'vertical', fontFamily: 'inherit' }} />
+                <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>指令 *</label>
+                <textarea value={form.instruction} onChange={e => setForm(prev => ({ ...prev, instruction: e.target.value }))} rows={4} placeholder="描述要执行的任务..." style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>类型</label>
-                  <select value={form.type} onChange={e => setForm(prev => ({ ...prev, type: e.target.value as 'once' | 'cron' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
+                  <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>类型</label>
+                  <select value={form.type} onChange={e => setForm(prev => ({ ...prev, type: e.target.value as 'once' | 'cron' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                     <option value="once">一次性</option>
                     <option value="cron">定时 (Cron)</option>
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>重叠策略</label>
-                  <select value={form.overlap_policy} onChange={e => setForm(prev => ({ ...prev, overlap_policy: e.target.value as 'skip' | 'queue' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
+                  <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>重叠策略</label>
+                  <select value={form.overlap_policy} onChange={e => setForm(prev => ({ ...prev, overlap_policy: e.target.value as 'skip' | 'queue' }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                     <option value="skip">跳过 (skip)</option>
                     <option value="queue">排队 (queue)</option>
                   </select>
@@ -386,12 +386,12 @@ export default function EventsPage() {
               {form.type === 'cron' && (
                 <div style={{ display: 'flex', gap: 10 }}>
                   <div style={{ flex: 2 }}>
-                    <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>Cron 表达式</label>
-                    <input type="text" value={form.cron_expr} onChange={e => setForm(prev => ({ ...prev, cron_expr: e.target.value }))} placeholder="0 */4 * * *" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontFamily: 'monospace' }} />
+                    <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>Cron 表达式</label>
+                    <input type="text" value={form.cron_expr} onChange={e => setForm(prev => ({ ...prev, cron_expr: e.target.value }))} placeholder="0 */4 * * *" style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', fontFamily: 'monospace' }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>时区</label>
-                    <select value={form.timezone} onChange={e => setForm(prev => ({ ...prev, timezone: e.target.value }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
+                    <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 4, display: 'block' }}>时区</label>
+                    <select value={form.timezone} onChange={e => setForm(prev => ({ ...prev, timezone: e.target.value }))} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}>
                       <option value="Asia/Shanghai">Asia/Shanghai</option>
                       <option value="UTC">UTC</option>
                       <option value="America/New_York">America/New_York</option>
@@ -400,7 +400,7 @@ export default function EventsPage() {
                 </div>
               )}
             </div>
-            {createError && <p style={{ color: 'var(--cinnabar)', fontSize: 12, margin: '8px 0' }}>{createError}</p>}
+            {createError && <p style={{ color: 'var(--cinnabar)', fontSize: 'calc(12px * var(--ui-font-scale))', margin: '8px 0' }}>{createError}</p>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
               <button className="btn" onClick={() => setShowCreate(false)}>取消</button>
               <button className="btn primary" onClick={handleCreate} disabled={creating}>{creating ? '创建中...' : '创建'}</button>

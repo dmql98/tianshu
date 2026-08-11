@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { fetchTools, type ToolMeta } from '@/api/tools'
 
 const sourceLabels: Record<string, string> = {
@@ -38,7 +38,7 @@ export default function ToolView() {
       <div className="page-header">
         <span className="page-title">工具管理</span>
         {!loading && (
-          <span style={{ fontSize: 12, color: 'var(--ink-light)' }}>
+          <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
             {builtinTools.length} 个内置{mcpTools.length > 0 ? ` · ${mcpTools.length} 个 MCP` : ''}
           </span>
         )}

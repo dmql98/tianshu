@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="天枢（TianShu）AI Agent 融资商业计划书——投资人版" />
+  <title>天枢 AI Agent｜融资商业计划书</title>
+  <style>
+    :root {
+      --ink: #18212f;
+      --navy: #17243a;
+      --blue: #2f5d8a;
+      --teal: #2d7a78;
+      --gold: #d39a00;
+      --muted: #667085;
+      --line: #dbe2ea;
+      --paper: #fffdf9;
+      --soft: #f4f6f9;
+      --warm: #f7f1e4;
+      --green: #287a55;
+      --red: #a33a3a;
+      --shadow: 0 18px 55px rgba(23, 36, 58, .11);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 80% 0%, rgba(211,154,0,.09), transparent 26rem),
+        linear-gradient(180deg, #f6f2ea 0, #edf2f6 40rem, #f6f7f9 100%);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+      line-height: 1.72;
+    }
+
+    a { color: inherit; }
+    .progress {
+      position: fixed; inset: 0 auto auto 0; z-index: 50;
+      width: 0; height: 4px; background: linear-gradient(90deg, var(--gold), var(--teal));
+    }
+    .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 40;
+      backdrop-filter: blur(18px);
+      background: rgba(246, 247, 249, .82);
+      border-bottom: 1px solid rgba(24, 33, 47, .08);
+    }
+    .topbar-inner { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: .08em; }
+    .seal {
+      display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+      color: #fff; background: var(--navy); box-shadow: inset 0 0 0 3px rgba(255,255,255,.18);
+      font-family: serif;
+    }
+    nav { display: flex; gap: 18px; color: var(--muted); font-size: 13px; }
+    nav a { text-decoration: none; }
+    nav a:hover { color: var(--navy); }
+    .print-btn {
+      border: 0; border-radius: 999px; padding: 9px 15px; cursor: pointer;
+      background: var(--navy); color: #fff; font-weight: 700;
+    }
+
+    .hero { padding: 86px 0 66px; min-height: 760px; display: grid; align-items: center; }
+    .hero-grid { display: grid; grid-template-columns: 1.12fr .88fr; gap: 55px; align-items: center; }
+    .eyebrow { color: var(--gold); font-size: 13px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { margin: 18px 0; color: var(--navy); font-size: clamp(44px, 6vw, 80px); line-height: 1.08; letter-spacing: -.045em; }
+    .lead { max-width: 720px; font-size: clamp(18px, 2vw, 24px); color: var(--blue); line-height: 1.6; }
+    .hero-note { margin-top: 30px; padding-left: 18px; border-left: 4px solid var(--gold); color: var(--muted); }
+    .meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+    .chip { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.72); font-size: 12px; font-weight: 700; }
+
+    .orbit-card {
+      position: relative; min-height: 480px; border-radius: 34px; padding: 34px;
+      color: #fff; overflow: hidden; background: var(--navy); box-shadow: var(--shadow);
+    }
+    .orbit-card::before, .orbit-card::after {
+      content: ""; position: absolute; border: 1px solid rgba(255,255,255,.17); border-radius: 50%;
+    }
+    .orbit-card::before { width: 400px; height: 400px; right: -170px; top: -145px; }
+    .orbit-card::after { width: 260px; height: 260px; left: -150px; bottom: -95px; }
+    .orbit-title { font-size: 12px; letter-spacing: .16em; color: #f3ce69; font-weight: 900; }
+    .orbit-core {
+      width: 142px; height: 142px; border-radius: 50%; margin: 62px auto 44px;
+      display: grid; place-items: center; text-align: center; font-size: 27px; font-weight: 900;
+      background: radial-gradient(circle at 35% 28%, #fff, #d6e2ef 22%, #5b7592 52%, #17243a 74%);
+      box-shadow: 0 0 0 18px rgba(255,255,255,.05), 0 0 0 52px rgba(255,255,255,.025);
+      color: var(--navy);
+    }
+    .orbit-nodes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .orbit-node { padding: 13px 14px; border-radius: 13px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1); }
+    .orbit-node b { display: block; color: #f3ce69; font-size: 13px; }
+    .orbit-node span { font-size: 12px; color: #d5dee8; }
+
+    main { padding-bottom: 80px; }
+    .section { scroll-margin-top: 82px; padding: 70px 0; }
+    .section + .section { border-top: 1px solid rgba(24,33,47,.08); }
+    .section-head { display: grid; grid-template-columns: .6fr 1.4fr; gap: 40px; margin-bottom: 34px; align-items: start; }
+    .section-index { color: var(--gold); font-weight: 900; letter-spacing: .14em; font-size: 13px; }
+    h2 { margin: 0; color: var(--navy); font-size: clamp(30px, 4vw, 50px); line-height: 1.18; letter-spacing: -.03em; }
+    .section-desc { margin-top: 14px; color: var(--muted); font-size: 17px; }
+    h3 { margin: 0 0 10px; color: var(--navy); font-size: 19px; line-height: 1.35; }
+    p { margin: 0 0 12px; }
+
+    .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .card {
+      padding: 25px; border: 1px solid var(--line); border-radius: var(--radius);
+      background: rgba(255,255,255,.76); box-shadow: 0 8px 28px rgba(23,36,58,.05);
+    }
+    .card .num { color: var(--gold); font-weight: 900; font-size: 12px; }
+    .card p { color: var(--muted); }
+    .engine-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .engine {
+      position: relative; overflow: hidden; min-height: 330px; padding: 30px;
+      border-radius: 24px; color: #fff; background: var(--navy); box-shadow: var(--shadow);
+    }
+    .engine.emotion { background: linear-gradient(145deg, #5d365f, #233552 62%, #17243a); }
+    .engine::after { content: ""; position: absolute; width: 210px; height: 210px; right: -85px; top: -90px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); }
+    .engine .num { color: #f4ce69; font-size: 12px; font-weight: 900; letter-spacing: .14em; }
+    .engine h3 { margin-top: 16px; color: #fff; font-size: 26px; }
+    .engine p, .engine li { color: #dbe5ef; }
+    .engine ul { margin: 18px 0 0; padding-left: 20px; }
+    .flywheel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 22px; }
+    .flywheel article { padding: 20px; border-radius: 16px; background: #fff; border: 1px solid var(--line); }
+    .flywheel b { display: block; margin-bottom: 6px; color: var(--blue); }
+    .flywheel span { color: var(--muted); font-size: 13px; }
+    .source-note { margin-top: 16px; padding: 13px 16px; border-radius: 12px; background: #fff; border: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .source-note a { color: var(--blue); font-weight: 700; }
+    .callout {
+      margin: 26px 0; padding: 24px 28px; border-radius: 18px;
+      background: var(--navy); color: #fff; box-shadow: var(--shadow);
+    }
+    .callout strong { color: #f4ce69; }
+
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 25px 0; }
+    .metric { padding: 22px 16px; text-align: center; border-radius: 17px; background: #fff; border: 1px solid var(--line); }
+    .metric b { display: block; color: var(--blue); font-size: 26px; line-height: 1.15; }
+    .metric span { color: var(--muted); font-size: 12px; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    th, td { padding: 15px 17px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { background: var(--navy); color: #fff; font-size: 13px; }
+    td { font-size: 14px; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:nth-child(even) { background: #fafbfc; }
+    .status { display: inline-block; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .done { background: #e3f3eb; color: var(--green); }
+    .todo { background: #fff0e2; color: #9b5d00; }
+
+    .product-shot { margin: 28px 0; overflow: hidden; border: 1px solid #d8d0c3; border-radius: 20px; background: #eae2d4; box-shadow: var(--shadow); }
+    .product-shot img { display: block; width: 100%; height: auto; }
+    .caption { padding: 12px 18px; color: var(--muted); background: #fff; font-size: 12px; }
+    .asset-showcase { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 24px 0; }
+    .asset-tile { overflow: hidden; border-radius: 16px; background: #fff; border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(23,36,58,.06); }
+    .asset-tile img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: center top; background: #eef3f7; }
+    .asset-tile span { display: flex; justify-content: space-between; gap: 8px; padding: 11px 13px; color: var(--navy); font-size: 13px; font-weight: 800; }
+    .asset-tile small { color: var(--muted); font-weight: 500; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .feature-list { display: grid; gap: 12px; }
+    .feature {
+      display: grid; grid-template-columns: 42px 1fr; gap: 14px; padding: 18px;
+      border-radius: 15px; background: rgba(255,255,255,.78); border: 1px solid var(--line);
+    }
+    .icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: var(--warm); color: var(--gold); font-weight: 900; }
+    .feature p { color: var(--muted); font-size: 14px; }
+
+    .funnel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: stretch; }
+    .funnel-step { position: relative; padding: 22px; border-radius: 16px; color: #fff; background: var(--blue); }
+    .funnel-step:nth-child(2) { background: #366c8f; }
+    .funnel-step:nth-child(3) { background: var(--teal); }
+    .funnel-step:nth-child(4) { background: var(--navy); }
+    .funnel-step small { color: rgba(255,255,255,.72); }
+
+    .bar-chart { display: grid; gap: 15px; margin-top: 22px; }
+    .bar-row { display: grid; grid-template-columns: 120px 1fr 85px; gap: 14px; align-items: center; }
+    .bar-track { height: 14px; border-radius: 999px; overflow: hidden; background: #e5e9ee; }
+    .bar-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), #e6bb49); }
+    .bar-row:nth-child(2) .bar-fill { background: linear-gradient(90deg, var(--blue), #6990b1); }
+    .bar-row:nth-child(3) .bar-fill { background: linear-gradient(90deg, var(--teal), #6aa6a0); }
+    .bar-row:nth-child(4) .bar-fill { background: linear-gradient(90deg, #7b8797, #aeb6c1); }
+
+    .timeline { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .timeline::before { content: ""; position: absolute; left: 5%; right: 5%; top: 18px; height: 2px; background: var(--line); }
+    .milestone { position: relative; padding-top: 42px; }
+    .milestone::before { content: ""; position: absolute; top: 10px; left: 18px; width: 16px; height: 16px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 7px #f7edcf; }
+    .milestone article { padding: 20px; border-radius: 16px; background: #fff; border: 1px solid var(--line); min-height: 240px; }
+    .milestone ul { margin: 10px 0 0; padding-left: 19px; color: var(--muted); font-size: 13px; }
+
+    .assumption { margin-top: 12px; color: var(--muted); font-size: 12px; font-style: italic; }
+    .closing { padding: 90px 0; text-align: center; }
+    .closing blockquote { margin: 0 auto 30px; max-width: 880px; color: var(--navy); font-size: clamp(25px, 4vw, 44px); font-weight: 850; line-height: 1.4; letter-spacing: -.025em; }
+    .closing .callout { max-width: 900px; margin-inline: auto; text-align: left; }
+    footer { padding: 36px 0 50px; color: var(--muted); border-top: 1px solid var(--line); font-size: 12px; }
+
+    @media (max-width: 900px) {
+      nav { display: none; }
+      .hero { min-height: 0; padding-top: 58px; }
+      .hero-grid, .section-head, .two-col, .engine-grid { grid-template-columns: 1fr; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .asset-showcase { grid-template-columns: repeat(2, 1fr); }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .funnel, .timeline, .flywheel { grid-template-columns: 1fr 1fr; }
+      .timeline::before { display: none; }
+      .milestone { padding-top: 8px; }
+      .milestone::before { display: none; }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 24px, 1180px); }
+      .brand span:last-child { display: none; }
+      .card-grid, .metrics, .funnel, .timeline, .flywheel { grid-template-columns: 1fr; }
+      .section { padding: 48px 0; }
+      .orbit-card { min-height: 440px; }
+      .bar-row { grid-template-columns: 90px 1fr 60px; font-size: 12px; }
+    }
+
+    @media print {
+      @page { size: A4; margin: 14mm 13mm 15mm; }
+      body { background: #fff; font-size: 10pt; }
+      .topbar, .progress, .print-btn { display: none !important; }
+      .shell { width: 100%; }
+      .hero { min-height: 250mm; page-break-after: always; }
+      .section { padding: 10mm 0; break-before: page; border: 0 !important; }
+      .section-head { margin-bottom: 7mm; }
+      h2 { font-size: 25pt; }
+      .card, .metric, .feature, .table-wrap, .product-shot, .callout, .milestone article { break-inside: avoid; box-shadow: none; }
+      .card-grid { gap: 8px; }
+      .product-shot img { max-height: 145mm; object-fit: contain; }
+      .closing { break-before: page; min-height: 250mm; display: grid; align-content: center; }
+      a { text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <div class="brand"><span class="seal">枢</span><span>TIANSHU · INVESTOR BRIEF</span></div>
+      <nav aria-label="页面导航">
+        <a href="#summary">摘要</a><a href="#product">产品</a><a href="#dual-value">双引擎</a>
+        <a href="#business">商业</a><a href="#roadmap">里程碑</a><a href="#funding">融资</a>
+      </nav>
+      <button class="print-btn" type="button" onclick="window.print()">打印 / 导出 PDF</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <div class="eyebrow">TianShu / 弈（Yì） · 融资商业计划书</div>
+        <h1>让能干活的 Agent，<br>成为用户愿意长期拥有的角色</h1>
+        <p class="lead">同一个角色，同时拥有可靠执行、长期记忆和多资产身份：既交付任务结果，也建立关系与数字消费。</p>
+        <p class="hero-note">生产力 Agent 通常没有角色资产与情绪层，陪伴型 AI 通常不能调用真实工具完成工作。天枢把两者建立在同一套角色系统和持久运行时上。</p>
+        <div class="meta">
+          <span class="chip">产品 MVP 已完成</span>
+          <span class="chip">生产力 × 情绪价值</span>
+          <span class="chip">2026 年 8 月</span>
+          <span class="chip">机密资料</span>
+        </div>
+      </div>
+      <aside class="orbit-card" aria-label="天枢产品能力示意">
+        <div class="orbit-title">AGENT EXECUTION SYSTEM</div>
+        <div class="orbit-core">天枢<br>Agent OS</div>
+        <div class="orbit-nodes">
+          <div class="orbit-node"><b>持续执行</b><span>Run / Event / Checkpoint</span></div>
+          <div class="orbit-node"><b>目标闭环</b><span>Goal / Plan / Evidence</span></div>
+          <div class="orbit-node"><b>角色资产</b><span>Memory / Skill / Tool</span></div>
+          <div class="orbit-node"><b>开放生态</b><span>Model / MCP / Package</span></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <main class="shell">
+    <section class="section" id="summary">
+      <div class="section-head">
+        <div class="section-index">01 · EXECUTIVE SUMMARY</div>
+        <div><h2>生产力完成任务，<br>情绪价值创造长期关系</h2><p class="section-desc">天枢同时占据 Agent 执行入口与角色消费入口，形成模型订阅、数字商品和平台抽成三类收入。</p></div>
+      </div>
+      <div class="callout"><strong>投资命题：</strong>免费工具天然获客，模型订阅完成基础变现；专业技能/角色包提升客单价；多资产、换肤与 IP 联动扩大情绪消费和平台交易规模。</div>
+      <div class="metrics">
+        <div class="metric"><b>250+</b><span>代码与文档文件</span></div>
+        <div class="metric"><b>1,300+</b><span>知识图谱节点</span></div>
+        <div class="metric"><b>Windows</b><span>桌面客户端</span></div>
+        <div class="metric"><b>EXE</b><span>可安装 MVP</span></div>
+      </div>
+      <div class="card-grid">
+        <article class="card"><span class="num">WHY NOW</span><h3>模型走向基础设施</h3><p>竞争焦点从“谁有更强模型”转向“谁能把模型组织成稳定、可审计、可复用的业务流程”。</p></article>
+        <article class="card"><span class="num">WHAT</span><h3>双价值 Agent 平台</h3><p>一端用可靠执行创造任务结果，另一端用角色关系、视觉资产与个性表达建立情感留存。</p></article>
+        <article class="card"><span class="num">FLYWHEEL</span><h3>免费流量，分层变现</h3><p>免费工具扩大用户池，模型订阅转化高频用户，官方内容与交易市场持续提升 ARPU。</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="problem">
+      <div class="section-head">
+        <div class="section-index">02 · PROBLEM</div>
+        <div><h2>AI 能回答，<br>但难以负责到底</h2><p class="section-desc">真实工作需要状态、权限、失败恢复、完成标准与长期资产，而不只是下一段文本。</p></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>典型断点</th><th>现状</th><th>业务后果</th></tr></thead><tbody>
+          <tr><td>任务连续性</td><td>断线、刷新或跨会话后状态容易丢失</td><td>任务半途而废，用户反复交代</td></tr>
+          <tr><td>工具可靠性</td><td>缺少审批、重试、检查点和结果验证</td><td>高风险动作不可控，难进入生产业务</td></tr>
+          <tr><td>长期目标</td><td>对话围绕单轮回答，缺少计划与证据闭环</td><td>无法承担研究、运营、开发等复杂任务</td></tr>
+          <tr><td>资产沉淀</td><td>提示词、人格、技能、记忆散落在各平台</td><td>迁移成本高，组织知识无法复用</td></tr>
+          <tr><td>数据与成本</td><td>云端黑盒、固定模型、平台绑定</td><td>敏感数据顾虑，推理成本缺乏主动权</td></tr>
+        </tbody></table>
+      </div>
+      <div class="callout"><strong>聚焦原则：</strong>早期不做“万能助手”，先围绕高频、可验证、能节省明确工时的任务包建立留存与付费。</div>
+    </section>
+
+    <section class="section" id="product">
+      <div class="section-head">
+        <div class="section-index">03 · PRODUCT</div>
+        <div><h2>一套可持续运行的<br>Agent 工作台</h2><p class="section-desc">会话、角色、模型、执行模式、审批与项目目录被统一到一个本地桌面工作环境。</p></div>
+      </div>
+      <figure class="product-shot">
+        <img src="./会话、角色、模型、执行模式、审批与项目目录被统一到一个本地桌面工作环境。.png" alt="天枢 Windows 客户端工作台，会话、角色、模型、执行模式、审批与项目目录集中展示" />
+        <figcaption class="caption">Windows 客户端工作台：会话、角色、模型、执行模式、审批与项目目录被统一到一个本地桌面工作环境。</figcaption>
+      </figure>
+      <div class="card-grid">
+        <article class="card"><span class="num">01</span><h3>Windows 客户端</h3><p>EXE 安装包、项目区、附件、会话与运行状态回放，用户安装后即可使用。</p></article>
+        <article class="card"><span class="num">02</span><h3>执行层</h3><p>Direct / Plan-first / Goal、RunEvent、检查点与断线恢复。</p></article>
+        <article class="card"><span class="num">03</span><h3>Agent 层</h3><p>角色、记忆、技能、工具绑定、子 Agent 与风险策略。</p></article>
+        <article class="card"><span class="num">04</span><h3>自动化层</h3><p>事件定义、Cron、时区/DST、重叠策略、幂等与失败重试。</p></article>
+        <article class="card"><span class="num">05</span><h3>生态层</h3><p>MCP 接入、多模型 Provider、技能加载与角色包导入导出。</p></article>
+        <article class="card"><span class="num">06</span><h3>情绪体验层</h3><p>现有角色多 Asset、动作状态与视觉表现，为后续文生图、图生视频、应用/角色换肤和 IP 联动提供统一资产容器。</p></article>
+      </div>
+      <figure class="product-shot">
+        <img src="./详细计划设计-执行-校验.png" alt="天枢长任务执行计划界面，每一步展示完成状态、验证条件与结果证据" />
+        <figcaption class="caption">长任务持久执行：任务先形成详细计划，再逐步执行，并为每一步保留验证条件与结果证据。</figcaption>
+      </figure>
+    </section>
+
+    <section class="section" id="asset">
+      <div class="section-head">
+        <div class="section-index">04 · AGENT ASSET</div>
+        <div><h2>角色即资产，<br>不是一段提示词</h2><p class="section-desc">身份、关系、记忆、技能、工具、审批策略和视觉资源共同构成可运营的数字员工。</p></div>
+      </div>
+      <div class="two-col">
+        <figure class="product-shot">
+          <img src="../assets/readme/character-profile.png" alt="天枢角色配置页面，展示角色身份、记忆、技能、工具和视觉配置" />
+          <figcaption class="caption">角色配置页：从身份设定到执行策略与资产版本。</figcaption>
+        </figure>
+        <div class="feature-list">
+          <article class="feature"><span class="icon">创</span><div><h3>创建</h3><p>定义 Soul、User、Memory、模型与风险边界。</p></div></article>
+          <article class="feature"><span class="icon">强</span><div><h3>增强</h3><p>绑定技能、工具、工作区、事件和执行模式。</p></div></article>
+          <article class="feature"><span class="icon">运</span><div><h3>运行</h3><p>每次任务产生可回放的 Run、事件、结果与成本数据。</p></div></article>
+          <article class="feature"><span class="icon">沉</span><div><h3>沉淀</h3><p>将最佳角色与流程导出为团队模板或行业任务包。</p></div></article>
+        </div>
+      </div>
+      <div class="callout"><strong>商业意义：</strong>角色既是完成任务的专业能力载体，也是人格、记忆、形象、动作和皮肤的情感资产；同一角色可以同时产生订阅收入、数字商品收入与交易抽成。</div>
+      <h3>角色多 Asset：把生成内容变成可使用、可交易的角色商品</h3>
+      <p class="section-desc">角色会根据交谈、空闲、查询、工作、成功和异常等运行状态切换动态表现。多 Asset 结构让文生图、图生视频的结果不再是散落的媒体文件，而能被自动组织成可安装、可使用、可上架销售的完整角色资产包。</p>
+      <div class="asset-showcase" aria-label="角色多状态动态资产">
+        <figure class="asset-tile"><img loading="lazy" src="./character assets/交谈.gif" alt="角色交谈状态动态资产" /><span>交谈 <small>Speaking</small></span></figure>
+        <figure class="asset-tile"><img loading="lazy" src="./character assets/呼吸.gif" alt="角色空闲呼吸状态动态资产" /><span>呼吸 <small>Idle</small></span></figure>
+        <figure class="asset-tile"><img loading="lazy" src="./character assets/查询.gif" alt="角色查询状态动态资产" /><span>查询 <small>Thinking</small></span></figure>
+        <figure class="asset-tile"><img loading="lazy" src="./character assets/工作.gif" alt="角色工作状态动态资产" /><span>工作 <small>Working</small></span></figure>
+        <figure class="asset-tile"><img loading="lazy" src="./character assets/成功.gif" alt="角色任务成功状态动态资产" /><span>成功 <small>Success</small></span></figure>
+        <figure class="asset-tile"><img loading="lazy" src="./character assets/报错.gif" alt="角色异常状态动态资产" /><span>异常 <small>Error</small></span></figure>
+      </div>
+      <div class="metrics" aria-label="AI 角色生成服务建议定价">
+        <div class="metric"><b>19 元</b><span>六状态动态角色包</span></div>
+        <div class="metric"><b>49 元起</b><span>高级定制 / 商用</span></div>
+        <div class="metric"><b>20%</b><span>角色二次交易抽成</span></div>
+        <div class="metric"><b>80%</b><span>角色创作者分成</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="dual-value">
+      <div class="section-head">
+        <div class="section-index">05 · DUAL VALUE ENGINE</div>
+        <div><h2>一个 Agent，<br>两种不可替代的价值</h2><p class="section-desc">“帮我完成”解决效率与结果，“愿意陪伴”解决关系、审美与身份表达，两者共享角色、记忆和模型基础设施。</p></div>
+      </div>
+      <div class="engine-grid">
+        <article class="engine">
+          <span class="num">PRODUCTIVITY VALUE</span><h3>生产力价值：完成任务</h3>
+          <p>用户为可靠结果付费，而不是为聊天次数付费。</p>
+          <ul><li>研究、文件、代码、运营和自动报告</li><li>Goal / Plan / 工具 / 审批 / 证据闭环</li><li>专业技能角色包降低复杂任务门槛</li><li>价值指标：成功任务数、节省工时、任务 ROI</li></ul>
+        </article>
+        <article class="engine emotion">
+          <span class="num">EMOTIONAL VALUE</span><h3>情绪价值：陪伴与表达</h3>
+          <p>用户为“我喜欢的角色和空间”付费，形成高频互动与数字资产消费。</p>
+          <ul><li>角色多 Asset、表情、动作、语音与长期记忆</li><li>文生图设计角色，图生视频生成多状态动作资产</li><li>用户自用、换肤，或将原创角色上架二次销售</li><li>游戏、动漫、虚拟偶像等 IP 联名与任务联动</li></ul>
+        </article>
+      </div>
+      <div class="source-note">市场参照：<a href="https://character.ai/subscribe" target="_blank" rel="noreferrer">Character.AI</a> 将更强模型、记忆、语音和聊天定制纳入 c.ai+；<a href="https://kindroid.ai/docs/article/subscriptions/" target="_blank" rel="noreferrer">Kindroid</a> 将高级模型、长期记忆、语音、视频头像与自拍作为订阅权益；<a href="https://github.com/Fei-Away/Codex-Dream-Skin" target="_blank" rel="noreferrer">Codex Dream Skin</a> 已形成主题库、在线 Studio、社区投稿和一键换肤机制。它们共同证明：角色关系、视觉个性化和数字形象具备独立付费空间。</div>
+    </section>
+
+    <section class="section" id="moat">
+      <div class="section-head">
+        <div class="section-index">06 · TECHNOLOGY MOAT</div>
+        <div><h2>可靠执行，<br>比单次生成更难复制</h2><p class="section-desc">工程重点不是“再包一层模型”，而是系统性处理状态、失败、权限、证据和资产生命周期。</p></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>核心组件</th><th>工程事实</th><th>可形成的壁垒</th></tr></thead><tbody>
+          <tr><td>持久运行时</td><td>Run / RunEvent / Checkpoint、序列回放、断线重连</td><td>Agent 任务从“请求”升级为可恢复业务流程</td></tr>
+          <tr><td>目标与计划</td><td>Goal / Plan / Plan Step、预算与证据门禁</td><td>用完成条件约束模型，减少“看似完成”</td></tr>
+          <tr><td>多 Agent 协作</td><td>独立 Session/Run、边界化多轮工具 Loop</td><td>复杂任务可分解，同时控制递归和成本</td></tr>
+          <tr><td>安全控制</td><td>持久审批、控制动作隔离、危险工具策略</td><td>为文件、命令与企业工具调用建立信任</td></tr>
+          <tr><td>事件系统</td><td>Cron、时区/DST、幂等、skip/queue、重试</td><td>Agent 能长期值守并进入运营节奏</td></tr>
+          <tr><td>开放适配</td><td>多模型 Provider、MCP、技能与角色工具解析</td><td>避免模型与工具锁定，价值位于编排层</td></tr>
+        </tbody></table>
+      </div>
+      <div class="metrics">
+        <div class="metric"><b>本地优先</b><span>数据与工作区</span></div>
+        <div class="metric"><b>持久执行</b><span>恢复与检查点</span></div>
+        <div class="metric"><b>角色资产</b><span>配置与记忆</span></div>
+        <div class="metric"><b>开放生态</b><span>模型 / MCP / 技能</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="positioning">
+      <div class="section-head">
+        <div class="section-index">07 · POSITIONING</div>
+        <div><h2>执行能力与角色经济，<br>在同一平台汇合</h2><p class="section-desc">生产力 Agent 和情感陪伴产品通常分立；天枢用同一个角色系统连接任务结果、长期关系和数字资产。</p></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>方案类型</th><th>优势</th><th>主要缺口</th><th>天枢定位</th></tr></thead><tbody>
+          <tr><td>通用 AI 聊天产品</td><td>模型强、上手快</td><td>本地控制与长期状态有限</td><td>持久执行、角色资产和本地边界</td></tr>
+          <tr><td>IDE / 编码 Agent</td><td>代码场景闭环强</td><td>跨职能工作流不足</td><td>覆盖研究、运营、文件和多工具任务</td></tr>
+          <tr><td>低代码自动化</td><td>流程确定、连接器丰富</td><td>模糊目标适应弱</td><td>用 Goal/Plan 驱动半结构化工作</td></tr>
+          <tr><td>开源 Agent 框架</td><td>灵活、可定制</td><td>部署与可靠性门槛高</td><td>面向终端用户的一体化桌面产品</td></tr>
+          <tr><td>AI 陪伴 / 角色产品</td><td>关系留存、创作者生态强</td><td>真实工具执行与工作闭环弱</td><td>让角色既能陪伴，也能真正完成任务</td></tr>
+          <tr><td>主题 / 换肤社区</td><td>审美表达、传播性和数字商品属性强</td><td>通常不拥有 Agent 身份与记忆</td><td>皮肤与角色、任务、动作状态原生绑定</td></tr>
+        </tbody></table>
+      </div>
+      <div class="callout"><strong>护城河路线：</strong>可靠性数据 → 高价值任务模板 → 角色/技能分发 → 团队治理与私有部署。</div>
+    </section>
+
+    <section class="section" id="business">
+      <div class="section-head">
+        <div class="section-index">08 · BUSINESS MODEL</div>
+        <div><h2>免费工具获客，<br>角色生成与交易放大收入</h2><p class="section-desc">OpenCode 已验证“免费 Agent 工具 + 模型订阅”；天枢在此之上增加 AI 角色生成、数字角色商品和创作者二次交易抽成。</p></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>收入层</th><th>产品形态</th><th>定价模型</th><th>价值与增长逻辑</th></tr></thead><tbody>
+          <tr><td>流量层</td><td>免费工具与免费模型</td><td>免费</td><td>降低首次使用门槛；工具能力与分享内容天然带来搜索、社区和口碑流量</td></tr>
+          <tr><td>收入 1</td><td>官方模型订阅</td><td>Pro 59–99 元/月；高阶档按额度分层</td><td>为更强模型、更高额度、更快响应、长上下文和稳定服务付费</td></tr>
+          <tr><td>收入 2A</td><td>AI 角色生成服务</td><td>六状态动态包 19 元；高级定制 49 元起</td><td>文生图生成角色形象，图生视频生成交谈、呼吸、查询、工作、成功和异常动作，并自动打包为多 Asset 角色</td></tr>
+          <tr><td>收入 2B</td><td>官方专业技能 / 角色包</td><td>单包 29–299 元；行业套装 499 元起</td><td>直接交付可用结果，把复杂配置变成一键购买的生产力商品</td></tr>
+          <tr><td>收入 3</td><td>创作者 Marketplace</td><td>平台标准抽成 20%</td><td>用户可将自行开发或生成的角色、技能、工作流、皮肤和场景上架销售；平台提供分发、支付、安全与评价</td></tr>
+          <tr><td>收入 4</td><td>视觉资产与 IP 联动</td><td>皮肤/资产 6–68 元；联名按授权分成</td><td>应用/角色换肤、限定主题、游戏和虚拟偶像联动，持续拉动复购</td></tr>
+          <tr><td>企业增量</td><td>Team / Enterprise</td><td>席位订阅；私有部署 20 万元/年起</td><td>共享角色、审批、审计、SSO、策略、SLA 和定制连接器</td></tr>
+        </tbody></table>
+      </div>
+      <div class="flywheel">
+        <article><b>① 免费获客</b><span>工具、免费模型、开源与用户分享降低 CAC</span></article>
+        <article><b>② 订阅转化</b><span>更强模型、额度、稳定性和高级体验形成基础 ARPU</span></article>
+        <article><b>③ 角色生成</b><span>用户付费生成自己的角色，将模型调用转化为高毛利数字商品</span></article>
+        <article><b>④ 二次交易</b><span>用户上架角色持续获益，平台抽成并用内容供给反哺免费流量</span></article>
+      </div>
+      <div class="source-note">可验证参照：<a href="https://opencode.ai/docs/" target="_blank" rel="noreferrer">OpenCode</a> 是免费开源 Agent，其官方 <a href="https://opencode.ai/go" target="_blank" rel="noreferrer">Go</a> 提供模型订阅，验证了“免费工具获客 → 官方模型服务变现”。天枢由此继续延伸：同一用户既可订阅模型，也可购买图像/视频生成服务，把生成结果变成可交易的角色资产；角色每次二次销售，平台继续获得抽成。</div>
+    </section>
+
+    <section class="section" id="gtm">
+      <div class="section-head">
+        <div class="section-index">09 · GO-TO-MARKET</div>
+        <div><h2>先卖任务结果，<br>再扩张为平台</h2><p class="section-desc">用可量化节省工时的任务包缩短价值证明周期，再复制到团队与生态。</p></div>
+      </div>
+      <div class="funnel">
+        <article class="funnel-step"><small>0–3 个月</small><h3>免费流量入口</h3><p>开放核心工具和免费模型，围绕研究、执行、报告及角色内容形成分享传播。</p></article>
+        <article class="funnel-step"><small>3–6 个月</small><h3>多线付费验证</h3><p>同步验证模型订阅、AI 角色生成与官方专业包，识别生产力和情绪价值 ARPU。</p></article>
+        <article class="funnel-step"><small>6–12 个月</small><h3>创作者市场</h3><p>允许用户将生成或自制的角色、技能、工作流、皮肤和场景上架，建立审核、评价与 20% 平台抽成。</p></article>
+        <article class="funnel-step"><small>12–18 个月</small><h3>团队与 IP 扩张</h3><p>推进团队治理、行业合作伙伴和游戏/动漫/虚拟偶像联名。</p></article>
+      </div>
+      <div class="callout"><strong>北极星指标：</strong>每周成功完成的高价值 Agent Run 数；同步关注任务成功率、人工接管率、次周留存和单次成功任务成本。</div>
+    </section>
+
+    <section class="section" id="roadmap">
+      <div class="section-head">
+        <div class="section-index">10 · 18-MONTH ROADMAP</div>
+        <div><h2>18 个月，<br>完成三次价值跃迁</h2><p class="section-desc">从产品 MVP 到模型与角色生成付费，再到创作者市场和 IP 生态。</p></div>
+      </div>
+      <div class="timeline">
+        <div class="milestone"><article><h3>M0–M3 · 稳定</h3><ul><li>安装/升级与崩溃恢复</li><li>真实 Provider E2E</li><li>3 个设计伙伴</li><li>成功率 ≥70%</li></ul></article></div>
+        <div class="milestone"><article><h3>M4–M6 · 付费</h3><ul><li>模型订阅与成本面板</li><li>文生图角色生成 Beta</li><li>验证 19/49 元价格带</li><li>100 名付费用户</li></ul></article></div>
+        <div class="milestone"><article><h3>M7–M12 · 市场</h3><ul><li>图生视频与动态资产打包</li><li>用户角色上架与 20% 抽成</li><li>创作者分成与内容审核</li><li>3 个标杆内容合作方</li></ul></article></div>
+        <div class="milestone"><article><h3>M13–M18 · 生态</h3><ul><li>应用与角色换肤体系</li><li>SDK、IP 联名与行业渠道</li><li>生成—使用—交易完整闭环</li><li>形成下一轮数据</li></ul></article></div>
+      </div>
+    </section>
+
+    <section class="section" id="financials">
+      <div class="section-head">
+        <div class="section-index">11 · FINANCIAL MODEL</div>
+        <div><h2>三年增长模型，<br>从订阅收入走向角色经济</h2><p class="section-desc">第一年验证模型订阅，第二年放大官方内容，第三年由交易市场与企业收入共同驱动规模化。</p></div>
+      </div>
+      <div class="callout"><strong>保守估计口径：</strong>每位付费用户每月支付 59 元模型订阅，并月均消费 30 元购买皮肤，月 ARPU 为 89 元、年化价值为 1,068 元。当年收入按照期初和期末付费用户的平均值计算；AI 角色生成服务、团队订阅、企业客户、技能/角色包、Marketplace 抽成和 IP 联名收入均未计入。</div>
+      <div class="table-wrap">
+        <table><thead><tr><th>指标</th><th>第 1 年</th><th>第 2 年</th><th>第 3 年</th></tr></thead><tbody>
+          <tr><td>期末付费个人用户</td><td>1,000</td><td>5,000</td><td>15,000</td></tr>
+          <tr><td>当年平均付费用户</td><td>500</td><td>3,000</td><td>10,000</td></tr>
+          <tr><td>模型订阅收入（59 元/月）</td><td>35.4 万元</td><td>212.4 万元</td><td>708 万元</td></tr>
+          <tr><td>皮肤消费收入（30 元/月）</td><td>18 万元</td><td>108 万元</td><td>360 万元</td></tr>
+          <tr><td><strong>个人用户年度收入</strong></td><td><strong>53.4 万元</strong></td><td><strong>320.4 万元</strong></td><td><strong>1,068 万元</strong></td></tr>
+          <tr><td>期末个人 ARR</td><td>106.8 万元</td><td>534 万元</td><td>1,602 万元</td></tr>
+        </tbody></table>
+      </div>
+    </section>
+
+    <section class="section" id="funding">
+      <div class="section-head">
+        <div class="section-index">12 · FUNDING ASK</div>
+        <div><h2>本轮融资 500 万元，<br>建立双价值商业闭环</h2><p class="section-desc">18 个月内完成模型订阅、角色生成、官方内容和创作者市场四项商业验证。</p></div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><b>500 万</b><span>本轮融资额</span></div>
+        <div class="metric"><b>18 个月</b><span>资金周期</span></div>
+        <div class="metric"><b>6–8 人</b><span>核心团队规模</span></div>
+        <div class="metric"><b>PMF</b><span>本轮核心目标</span></div>
+      </div>
+      <div class="bar-chart" aria-label="资金使用比例">
+        <div class="bar-row"><b>产品与研发</b><div class="bar-track"><div class="bar-fill" style="width:45%"></div></div><span>45% · 225 万</span></div>
+        <div class="bar-row"><b>增长与内容</b><div class="bar-track"><div class="bar-fill" style="width:25%"></div></div><span>25% · 125 万</span></div>
+        <div class="bar-row"><b>核心人才</b><div class="bar-track"><div class="bar-fill" style="width:20%"></div></div><span>20% · 100 万</span></div>
+        <div class="bar-row"><b>运营与合规</b><div class="bar-track"><div class="bar-fill" style="width:10%"></div></div><span>10% · 50 万</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="risk">
+      <div class="section-head">
+        <div class="section-index">13 · RISKS & DILIGENCE</div>
+        <div><h2>把未知写清楚，<br>比包装成熟更可信</h2><p class="section-desc">Windows 客户端 MVP 与 EXE 安装包已经完成，融资后重点推进商业验证和生产级规模化。</p></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>关键风险</th><th>当前证据</th><th>融资后化解动作</th></tr></thead><tbody>
+          <tr><td>持续使用与付费</td><td><span class="status todo">验证中</span> 可安装 MVP 已完成，进入用户与收入验证</td><td>设计伙伴、任务包、遥测、按周复盘</td></tr>
+          <tr><td>执行可靠性</td><td><span class="status done">有基础</span> RunEvent、检查点、重连与测试骨架</td><td>真实 Provider E2E、故障注入、成功率看板</td></tr>
+          <tr><td>模型平台挤压</td><td><span class="status done">有基础</span> 多 Provider、MCP 与开放技能</td><td>聚焦跨模型执行状态、治理与行业任务包</td></tr>
+          <tr><td>成本与毛利</td><td><span class="status done">有基础</span> 上下文压缩、缓存与预算机制</td><td>路由、BYOK、限额与任务成本归因</td></tr>
+          <tr><td>企业安全</td><td><span class="status done">有基础</span> 审批、危险工具策略、本地目录</td><td>RBAC、审计、签名更新与渗透测试</td></tr>
+          <tr><td>IP 与内容安全</td><td><span class="status todo">待建设</span> 角色换肤和联名尚处规划阶段</td><td>授权链、素材溯源、审核分级、未成年人保护与下架机制</td></tr>
+        </tbody></table>
+      </div>
+    </section>
+
+    <section class="section" id="proof">
+      <div class="section-head">
+        <div class="section-index">14 · PRODUCT PROOF</div>
+        <div><h2>底层产品已经成型，<br>商业化开始加速</h2><p class="section-desc">产品演示可完整展示目标、计划、工具、审批、恢复、事件和角色多资产闭环。</p></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><h3>已完成</h3><p>Windows 客户端与 EXE 安装包；Agent Loop；Goal/Plan；持久 RunEvent；审批与恢复；事件/Cron；角色版本；多 Asset、动作状态与视觉编辑；MCP 与多模型适配。</p></div>
+        <div class="card"><h3>商业化验证重点</h3><p>模型订阅转化；角色生成付费率与客单价；用户角色上架与二次交易；专业包复购；IP 联名效率；生产稳定性与用户留存。</p></div>
+      </div>
+      <figure class="product-shot">
+        <img src="./mcp接入.png" alt="天枢检测本机 MCP 服务界面，可从 OpenCode、Claude 和 Cursor 配置中选择并一键导入" />
+        <figcaption class="caption">MCP 接入：可直接扫描 OpenCode、Claude、Cursor 等主流工具的现有配置并一键导入，用户无需重新配置，切换成本更低。</figcaption>
+      </figure>
+    </section>
+
+    <section class="closing" id="closing">
+      <div class="section-index">CLOSING · BUILD AGENTS THAT FINISH</div>
+      <blockquote>下一代 Agent 不只替用户工作，也会成为用户愿意长期拥有、装扮和共同成长的数字角色。</blockquote>
+      <div class="callout"><strong>天枢的机会：</strong>用免费工具获得流量，用模型订阅建立现金流，用专业角色/技能包交付结果，再让用户付费生成自己的角色、持续使用或上架销售，由多资产、换肤、创作者市场与 IP 联动打开情绪消费和平台规模。</div>
+      <p>本轮资金将把已经成型的产品底座，转化为模型订阅、AI 角色生成、角色内容和平台交易共同驱动的规模化业务。</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">天枢（TianShu）融资商业计划书 · 投资人版 · 2026.08 · 机密资料，仅供潜在投资人与顾问评估</div>
+  </footer>
+
+  <script>
+    const progress = document.getElementById('progress');
+    const updateProgress = () => {
+      const root = document.documentElement;
+      const max = root.scrollHeight - root.clientHeight;
+      progress.style.width = `${max > 0 ? (root.scrollTop / max) * 100 : 0}%`;
+    };
+    addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+  </script>
+</body>
+</html>

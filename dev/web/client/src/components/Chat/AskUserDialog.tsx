@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { submitRunInput } from '@/api/runs'
 
@@ -42,9 +42,9 @@ export default function AskUserDialog() {
           rows={3}
           placeholder="输入您的回答..."
           autoFocus
-          style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', resize: 'vertical', fontFamily: 'inherit' }}
+          style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', resize: 'vertical', fontFamily: 'inherit' }}
         />
-        {error && <p style={{ color: 'var(--cinnabar)', fontSize: 12, margin: '8px 0' }}>{error}</p>}
+        {error && <p style={{ color: 'var(--cinnabar)', fontSize: 'calc(12px * var(--ui-font-scale))', margin: '8px 0' }}>{error}</p>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
           <button className="btn" onClick={clearAskUser}>暂不回答</button>
           <button className="btn primary" disabled={busy || !answer.trim()} onClick={() => void handleSubmit()}>

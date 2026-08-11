@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { fetchCharacters } from '@/api/characters'
 import type { Character } from '@/types'
@@ -129,7 +129,7 @@ export default function ChatInput() {
               {attachments.map((a, i) => (
                 <div key={i} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '2px 6px', fontSize: 11, borderRadius: 4,
+                  padding: '2px 6px', fontSize: 'calc(11px * var(--ui-font-scale))', borderRadius: 4,
                   background: 'rgba(42,157,92,0.06)', border: '1px solid rgba(42,157,92,0.2)',
                   color: 'var(--jade)', maxWidth: 160,
                 }}>
@@ -140,7 +140,7 @@ export default function ChatInput() {
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
                   <span
                     onClick={() => removeAttachment(i)}
-                    style={{ cursor: 'pointer', color: 'rgba(42,157,92,0.5)', fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+                    style={{ cursor: 'pointer', color: 'rgba(42,157,92,0.5)', fontSize: 'calc(13px * var(--ui-font-scale))', lineHeight: 1, flexShrink: 0 }}
                   >×</span>
                 </div>
               ))}

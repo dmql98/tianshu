@@ -1,4 +1,4 @@
-export default function MarketPage() {
+﻿export default function MarketPage() {
   const categories = ['全部', '文档与办公', '开发与测试', '设计与创意', '数据与分析', '搜索与研究', '自动化', '安全', '写作']
 
   return (
@@ -41,7 +41,7 @@ export default function MarketPage() {
         </div>
 
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:600,color:'var(--ink-light)',marginBottom:8}}>🎭 角色</div>
+          <div style={{fontSize: 'calc(12px * var(--ui-font-scale))',fontWeight:600,color:'var(--ink-light)',marginBottom:8}}>🎭 角色</div>
           <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:4,scrollbarWidth:'none'}}>
             <div className="popular-card"><div className="popular-card-img" style={{background:'linear-gradient(135deg,rgba(200,150,10,0.1),rgba(200,150,10,0.03))'}}>🌟</div><div className="popular-card-body"><div className="popular-card-name">长庚</div><div className="popular-card-meta">暮星 · 日常执事</div><div className="popular-card-stat">💬 986</div></div></div>
             <div className="popular-card"><div className="popular-card-img" style={{background:'linear-gradient(135deg,rgba(37,99,235,0.1),rgba(37,99,235,0.03))'}}>⚙️</div><div className="popular-card-body"><div className="popular-card-name">天璇</div><div className="popular-card-meta">天玑 · 代码工匠</div><div className="popular-card-stat">💬 312</div></div></div>
@@ -51,7 +51,7 @@ export default function MarketPage() {
         </div>
 
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:600,color:'var(--ink-light)',marginBottom:8}}>⚡ 技能</div>
+          <div style={{fontSize: 'calc(12px * var(--ui-font-scale))',fontWeight:600,color:'var(--ink-light)',marginBottom:8}}>⚡ 技能</div>
           <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:4,scrollbarWidth:'none'}}>
             <div className="popular-card"><div className="popular-card-img" style={{background:'linear-gradient(135deg,rgba(200,150,10,0.1),rgba(200,150,10,0.03))'}}>🔬</div><div className="popular-card-body"><div className="popular-card-name">Deep Research</div><div className="popular-card-meta">深度研究与多源整合</div><div className="popular-card-stat">⬇ 1.2K</div></div></div>
             <div className="popular-card"><div className="popular-card-img" style={{background:'linear-gradient(135deg,rgba(42,157,92,0.1),rgba(42,157,92,0.03))'}}>🔍</div><div className="popular-card-body"><div className="popular-card-name">Code Review Pro</div><div className="popular-card-meta">多维度代码审查</div><div className="popular-card-stat">⬇ 652</div></div></div>

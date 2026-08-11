@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, updateCharacterSkillBinding, deleteCharacter } from '@/api/characters'
 import { fetchTools } from '@/api/tools'
@@ -331,7 +331,7 @@ export default function CharacterDetailPage() {
                       autoSave({ name: trimmed })
                     }}
                     renderInput={(v, onChange) => (
-                      <input value={v} onChange={e => onChange(e.target.value)} placeholder="输入角色名称" style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                      <input value={v} onChange={e => onChange(e.target.value)} placeholder="输入角色名称" style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                     )}
                   />
                 </div>
@@ -343,12 +343,12 @@ export default function CharacterDetailPage() {
                     renderInput={(v, onChange) => (
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <input type="color" value={v} onChange={e => onChange(e.target.value)} style={{ width: 36, height: 32, border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', padding: 2, background: 'var(--bg-input)' }} />
-                        <input value={v} onChange={e => onChange(e.target.value)} style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
+                        <input value={v} onChange={e => onChange(e.target.value)} style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
                       </div>
                     )}
                     display={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 20, height: 20, borderRadius: 4, background: color, border: '1px solid var(--border)', display: 'inline-block' }} />
-                      <span style={{ fontSize: 13, color: 'var(--ink-mid)', fontFamily: 'monospace' }}>{color}</span>
+                      <span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)', fontFamily: 'monospace' }}>{color}</span>
                     </div>}
                   />
                 </div>
@@ -358,7 +358,7 @@ export default function CharacterDetailPage() {
                     value={description}
                     onSave={v => { setDescription(v); autoSave({ description: v }) }}
                     renderInput={(v, onChange) => (
-                      <textarea value={v} onChange={e => onChange(e.target.value)} placeholder="简短描述这个角色" rows={2} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                      <textarea value={v} onChange={e => onChange(e.target.value)} placeholder="简短描述这个角色" rows={2} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
                     )}
                   />
                 </div>
@@ -374,7 +374,7 @@ export default function CharacterDetailPage() {
                         if (trimmed && trimmed !== currentId) autoSave({ id: trimmed })
                       }}
                       renderInput={(v, onChange) => (
-                        <input value={v} onChange={e => onChange(e.target.value)} placeholder="自定义ID" style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', boxSizing: 'border-box' }} />
+                        <input value={v} onChange={e => onChange(e.target.value)} placeholder="自定义ID" style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', boxSizing: 'border-box' }} />
                       )}
                     />
                   </div>
@@ -384,13 +384,13 @@ export default function CharacterDetailPage() {
                       value={role}
                       onSave={v => { setRole(v as Character['role']); autoSave({ role: v }) }}
                       renderInput={(v, onChange) => (
-                        <select value={v} onChange={e => onChange(e.target.value)} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', fontFamily: 'inherit' }}>
+                        <select value={v} onChange={e => onChange(e.target.value)} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', fontFamily: 'inherit' }}>
                           <option value="main">主 Agent</option>
                           <option value="sub">子 Agent</option>
                           <option value="both">主/子 Agent</option>
                         </select>
                       )}
-                      display={<div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink-mid)' }}>{roleLabels[role] || role}</div>}
+                      display={<div style={{ marginTop: 4, fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{roleLabels[role] || role}</div>}
                     />
                   </div>
                   <div className="info-item" style={{ flex: 1 }}>
@@ -412,7 +412,7 @@ export default function CharacterDetailPage() {
                   <div className="tool-name">限制最大步数</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div className={`toggle ${stepsEnabled ? 'on' : ''}`} onClick={() => { setStepsEnabled(!stepsEnabled); autoSave({ maxSteps: !stepsEnabled ? maxSteps : 999 }) }}></div>
-                    <span style={{ fontSize: 12, color: 'var(--ink-light)' }}>{stepsEnabled ? `${maxSteps} 步` : '不限制'}</span>
+                    <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{stepsEnabled ? `${maxSteps} 步` : '不限制'}</span>
                   </div>
                 </div>
                 {stepsEnabled && (
@@ -424,10 +424,10 @@ export default function CharacterDetailPage() {
                       renderInput={(v, onChange) => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
                           <input type="range" min={1} max={999} value={v} onChange={e => onChange(e.target.value)} style={{ flex: 1, accentColor: 'var(--gold)' }} />
-                          <input type="number" min={1} max={999} value={v} onChange={e => onChange(e.target.value)} style={{ width: 56, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', textAlign: 'center' }} />
+                          <input type="number" min={1} max={999} value={v} onChange={e => onChange(e.target.value)} style={{ width: 56, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(12px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', textAlign: 'center' }} />
                         </div>
                       )}
-                      display={<span style={{ fontSize: 13, color: 'var(--ink-mid)' }}>{maxSteps} 步</span>}
+                      display={<span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{maxSteps} 步</span>}
                     />
                   </div>
                 )}
@@ -454,7 +454,7 @@ export default function CharacterDetailPage() {
                     onBlur={addNewGroup}
                     placeholder="新分组名"
                     autoFocus
-                    style={{ width: 80, padding: '3px 10px', fontSize: 11, border: '1px solid var(--gold)', borderRadius: 6, outline: 'none', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
+                    style={{ width: 80, padding: '3px 10px', fontSize: 'calc(11px * var(--ui-font-scale))', border: '1px solid var(--gold)', borderRadius: 6, outline: 'none', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
                   />
                 ) : (
                   <span className="tag" style={{ borderStyle: 'dashed', borderColor: 'var(--border)' }} onClick={() => setShowNewGroupInput(true)}>+</span>
@@ -537,9 +537,9 @@ export default function CharacterDetailPage() {
                     value={String(charLimit)}
                     onSave={v => { const n = Number(v); const limit = Number.isFinite(n) && n >= 0 ? n : 0; setCharLimit(limit); autoSave({ memory: { enabled: memoryEnabled, selfEvolution, charLimit: limit } }) }}
                     renderInput={(v, onChange) => (
-                      <input type="number" min={0} step={100} value={v} onChange={e => onChange(e.target.value)} style={{ width: 120, marginTop: 4, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
+                      <input type="number" min={0} step={100} value={v} onChange={e => onChange(e.target.value)} style={{ width: 120, marginTop: 4, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
                     )}
-                    display={<div style={{ fontSize: 13, color: 'var(--ink-mid)' }}>{charLimit}</div>}
+                    display={<div style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{charLimit}</div>}
                   />
                 </div>
               </div>
@@ -568,18 +568,18 @@ export default function CharacterDetailPage() {
                     return (
                       <div key={t.name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{t.name.replace(/^mcp:/, '')}</div>
+                          <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{t.name.replace(/^mcp:/, '')}</div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <span className={`tool-source ${t.name.startsWith('mcp:') ? 'mcp' : 'builtin'}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4 }}>{t.name.startsWith('mcp:') ? 'MCP' : '内置'}</span>
+                            <span className={`tool-source ${t.name.startsWith('mcp:') ? 'mcp' : 'builtin'}`} style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4 }}>{t.name.startsWith('mcp:') ? 'MCP' : '内置'}</span>
                             <button onClick={() => removeTool(t.name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                           </div>
                         </div>
-                        {meta && <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>}
+                        {meta && <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>}
                       </div>
                     )
                   })}
                   {boundTools.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>暂无已激活工具</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>暂无已激活工具</div>
                   )}
                 </div>
               </div>
@@ -589,17 +589,17 @@ export default function CharacterDetailPage() {
                   {unboundTools.slice(0, 20).map(t => (
                     <div key={t.name} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{t.name}</div>
+                        <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{t.name}</div>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <span className={`tool-source ${t.source}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4 }}>{t.source === 'mcp' ? 'MCP' : '内置'}</span>
+                          <span className={`tool-source ${t.source}`} style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4 }}>{t.source === 'mcp' ? 'MCP' : '内置'}</span>
                           <button onClick={() => addTool(t.name, t.source)} title="激活" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                         </div>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{t.description}</div>
+                      <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{t.description}</div>
                     </div>
                   ))}
                   {unboundTools.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>所有工具已激活</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>所有工具已激活</div>
                   )}
                 </div>
               </div>
@@ -618,22 +618,22 @@ export default function CharacterDetailPage() {
                       <div key={name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{meta?.name || name}</div>
-                            {meta && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{meta.category}</span>}
+                            <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{meta?.name || name}</div>
+                            {meta && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{meta.category}</span>}
                           </div>
                           <button onClick={() => toggleSkill(name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                         </div>
                         {meta && <>
-                          <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>
+                          <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>
                           {meta.children.length > 0 && <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {meta.children.map(child => <div key={child.id} style={{ fontSize: 11 }}>↳ {child.name}</div>)}
+                            {meta.children.map(child => <div key={child.id} style={{ fontSize: 'calc(11px * var(--ui-font-scale))' }}>↳ {child.name}</div>)}
                           </div>}
                         </>}
                       </div>
                     )
                   })}
                   {boundSkills.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>暂无已绑定技能包</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>暂无已绑定技能包</div>
                   )}
                 </div>
               </div>
@@ -644,16 +644,16 @@ export default function CharacterDetailPage() {
                     <div key={s.id} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <div className="tool-name" style={{ fontSize: 14, fontWeight: 600 }}>{s.name}</div>
-                          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{s.category}</span>
+                          <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{s.name}</div>
+                          <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{s.category}</span>
                         </div>
                         <button onClick={() => toggleSkill(s.id)} title="绑定技能包" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ink-light)', lineHeight: 1.4 }}>{s.description}</div>
+                      <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{s.description}</div>
                     </div>
                   ))}
                   {unboundSkills.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', padding: 8 }}>所有技能包均已绑定</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>所有技能包均已绑定</div>
                   )}
                 </div>
               </div>

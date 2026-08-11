@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { fetchGoals, createGoal, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
 import { getSocket } from '@/api/socket'
 import PlanDialog from './PlanDialog'
@@ -94,13 +94,13 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
     <div className="rp-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="rp-section-title">
         目标与计划
-        {mode === 'goal' && <span style={{ fontWeight: 400, fontSize: 10 }}>（Goal · 持续执行）</span>}
-        {mode === 'plan_first' && <span style={{ fontWeight: 400, fontSize: 10 }}>（Plan-first · 强制计划）</span>}
-        {mode === 'direct' && <span style={{ fontWeight: 400, fontSize: 10 }}>（Direct · 计划可选）</span>}
+        {mode === 'goal' && <span style={{ fontWeight: 400, fontSize: 'calc(10px * var(--ui-font-scale))' }}>（Goal · 持续执行）</span>}
+        {mode === 'plan_first' && <span style={{ fontWeight: 400, fontSize: 'calc(10px * var(--ui-font-scale))' }}>（Plan-first · 强制计划）</span>}
+        {mode === 'direct' && <span style={{ fontWeight: 400, fontSize: 'calc(10px * var(--ui-font-scale))' }}>（Direct · 计划可选）</span>}
       </div>
 
       {activeGoal ? (
-        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontWeight: 600 }}>🎯 {activeGoal.outcome}</span>
             <span style={{ color: activeGoal.status === 'active' ? 'var(--jade)' : 'var(--gold)' }}>{goalStatusLabels[activeGoal.status]}</span>
@@ -128,28 +128,28 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
             value={outcome}
             onChange={e => setOutcome(e.target.value)}
             placeholder="目标（例如：调研并整理 TianShu 的发布清单）"
-            style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
+            style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
           />
           <input
             type="text"
             value={verification}
             onChange={e => setVerification(e.target.value)}
             placeholder="验证标准（可选）"
-            style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
+            style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
           />
           <input
             type="number"
             value={budget}
             onChange={e => setBudget(e.target.value)}
             placeholder="Token 预算（可选）"
-            style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
+            style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
           />
           <button className="btn sm primary" disabled={busy || !outcome.trim()} onClick={() => void handleCreate()}>创建目标</button>
         </div>
       ) : mode === 'plan_first' ? (
-        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Agent 必须先创建计划，再按步骤执行。</div>
+        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>Agent 必须先创建计划，再按步骤执行。</div>
       ) : (
-        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Agent 可以直接执行，也可以按需要创建计划。</div>
+        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>Agent 可以直接执行，也可以按需要创建计划。</div>
       )}
 
       {plan && plan.steps.length > 0 ? (
@@ -161,7 +161,7 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
           <button className="btn sm" type="button" onClick={() => setShowPlan(true)}>查看完整计划</button>
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>当前暂无计划</div>
+        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', marginTop: 2 }}>当前暂无计划</div>
       )}
 
       {showPlan && plan && <PlanDialog plan={plan} onClose={() => setShowPlan(false)} />}

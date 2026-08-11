@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useProvidersStore } from '@/stores/providersStore'
@@ -34,7 +34,7 @@ export default function RightPanel() {
     return (
       <aside className="right-panel">
         <div className="rp-header"><span className="rp-title">详情</span><span className="rp-close" onClick={toggleRightPanel}>✕</span></div>
-        <div className="rp-body" style={{ padding: 20, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 12 }}>
+        <div className="rp-body" style={{ padding: 20, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(12px * var(--ui-font-scale))' }}>
           选择一个会话查看详情
         </div>
       </aside>
@@ -185,7 +185,7 @@ export default function RightPanel() {
               transition: 'all 0.15s',
             }}
             >+</div>
-            <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>尚未选择角色</span>
+            <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>尚未选择角色</span>
           </div>
         )}
 
@@ -212,7 +212,7 @@ export default function RightPanel() {
             <select
               value={currentModelKey}
               onChange={e => handleModelChange(e.target.value)}
-              style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)', maxWidth: 140 }}
+              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)', maxWidth: 140 }}
             >
               {modelOptions.length === 0 && <option value="">--</option>}
               {providers.map(p => {
@@ -235,7 +235,7 @@ export default function RightPanel() {
             <select
               value={session.reasoning_effort || 'medium'}
               onChange={e => handleReasoningEffortChange(e.target.value)}
-              style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
+              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
             >
               <option value="low">低</option>
               <option value="medium">中</option>
@@ -248,7 +248,7 @@ export default function RightPanel() {
             <select
               value={(session as any).execution_mode || 'direct'}
               onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
-              style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
+              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
             >
               <option value="direct">Direct（直接执行）</option>
               <option value="plan_first">Plan-first（先计划后执行）</option>
@@ -260,7 +260,7 @@ export default function RightPanel() {
             <select
               value={session.current_strategy || 'Ask Risky'}
               onChange={e => handleStrategyChange(e.target.value as Strategy)}
-              style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
+              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
             >
               <option value="Read Only">Read Only</option>
               <option value="Ask Risky">Ask Risky</option>
@@ -279,7 +279,7 @@ export default function RightPanel() {
               <span className="rp-ws-path">{session.workspace}</span>
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>未设置项目</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>未设置项目</div>
           )}
         </div>
 
@@ -288,7 +288,7 @@ export default function RightPanel() {
           <div className="rp-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             授权工作区
             <button
-              style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+              style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 'calc(14px * var(--ui-font-scale))', lineHeight: 1 }}
               title="添加路径"
               onClick={() => {
                 const path = prompt('输入工作区路径：')
@@ -297,7 +297,7 @@ export default function RightPanel() {
             >+</button>
           </div>
           {authorizedWorkspaces.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>无授权工作区</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>无授权工作区</div>
           ) : authorizedWorkspaces.map((ws, i) => (
             <div key={i} className="rp-ws-item">
               <span className="rp-ws-path">{ws}</span>
@@ -322,7 +322,7 @@ export default function RightPanel() {
           </div>
           <div className="rp-row"><span className="label">当前审批模式</span><span className="value">{session.current_strategy || 'Ask Risky'}</span></div>
           {session.compacted && (
-            <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 4 }}>⚠ 会话已压缩</div>
+            <div style={{ fontSize: 'calc(10px * var(--ui-font-scale))', color: 'var(--gold)', marginTop: 4 }}>⚠ 会话已压缩</div>
           )}
         </div>
 

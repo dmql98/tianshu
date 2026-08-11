@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import type { UpdateState } from '../../../../../shared/desktop-contract.js'
 import { useDesktopUpdater } from './useDesktopUpdater'
 
@@ -28,7 +28,7 @@ function ReleaseNotes({ notes }: { notes?: string }) {
   if (!notes) return null
   const text = notes.length > MAX_NOTES_LENGTH ? `${notes.slice(0, MAX_NOTES_LENGTH)}…` : notes
   return (
-    <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'var(--bg-input,#f5f3ef)', whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.6, maxHeight: 180, overflowY: 'auto', color: 'var(--ink-mid)' }}>
+    <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'var(--bg-input,#f5f3ef)', whiteSpace: 'pre-wrap', fontSize: 'calc(12px * var(--ui-font-scale))', lineHeight: 1.6, maxHeight: 180, overflowY: 'auto', color: 'var(--ink-mid)' }}>
       {text}
     </div>
   )
@@ -46,11 +46,11 @@ export default function UpdatePanel() {
         return (
           <div className="setting-row">
             <div className="setting-info"><span className="setting-label">自动更新</span><span className="setting-hint">仅打包客户端支持自动更新</span></div>
-            <div className="setting-control"><span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>disabled</span></div>
+            <div className="setting-control"><span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>disabled</span></div>
           </div>
         )
       case 'checking':
-        return <div className="setting-row"><div className="setting-control"><span style={{ fontSize: 13, color: 'var(--ink-mid)' }}>正在检查…</span></div></div>
+        return <div className="setting-row"><div className="setting-control"><span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>正在检查…</span></div></div>
       case 'available':
         return (
           <div className="setting-row">
@@ -69,7 +69,7 @@ export default function UpdatePanel() {
               <div style={{ height: 8, borderRadius: 4, background: 'var(--bg-input,#eae6df)', overflow: 'hidden', marginBottom: 6 }}>
                 <div style={{ height: '100%', width: `${percent}%`, background: 'var(--jade,#1f9d72)', transition: 'width 0.2s' }} />
               </div>
-              <span style={{ fontSize: 12, color: 'var(--ink-mid)' }}>
+              <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>
                 {percent.toFixed(0)}%&nbsp;/&nbsp;{formatBytes(state.transferred)}&nbsp;/&nbsp;{formatBytes(state.total)}
                 {formatSpeed(state.bytesPerSecond) && `　${formatSpeed(state.bytesPerSecond)}`}
               </span>
@@ -81,7 +81,7 @@ export default function UpdatePanel() {
         if (dismissed) {
           return (
             <div className="setting-row">
-              <div className="setting-control"><span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>将在退出时自动安装新版本</span></div>
+              <div className="setting-control"><span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>将在退出时自动安装新版本</span></div>
             </div>
           )
         }
@@ -99,7 +99,7 @@ export default function UpdatePanel() {
           <div className="setting-row" style={{ alignItems: 'flex-start' }}>
             <div className="setting-info"><span className="setting-label">更新失败</span></div>
             <div className="setting-control">
-              <div style={{ fontSize: 12, color: 'var(--cinnabar,#c0392b)', marginBottom: 6, maxWidth: 340 }}>{state.message || '未知错误'}</div>
+              <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--cinnabar,#c0392b)', marginBottom: 6, maxWidth: 340 }}>{state.message || '未知错误'}</div>
               <button className="btn" onClick={() => void check()}>重试</button>
             </div>
           </div>
@@ -125,15 +125,15 @@ export default function UpdatePanel() {
       <div className="section-title">关于</div>
       <div className="setting-row">
         <div className="setting-info"><span className="setting-label">天枢版本</span></div>
-        <div className="setting-control"><span style={{ fontSize: 13, color: 'var(--ink-mid)', fontWeight: 500 }}>{versionLabel}</span></div>
+        <div className="setting-control"><span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)', fontWeight: 500 }}>{versionLabel}</span></div>
       </div>
       <div className="setting-row">
         <div className="setting-info"><span className="setting-label">更新渠道</span></div>
-        <div className="setting-control"><span style={{ fontSize: 13, color: 'var(--ink-mid)' }}>Stable</span></div>
+        <div className="setting-control"><span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>Stable</span></div>
       </div>
       <div className="setting-row">
         <div className="setting-info"><span className="setting-label">运行模式</span></div>
-        <div className="setting-control"><span style={{ fontSize: 13, color: 'var(--ink-mid)' }}>{appInfo ? (appInfo.packaged ? '桌面客户端' : '浏览器开发模式') : '浏览器开发模式'}</span></div>
+        <div className="setting-control"><span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{appInfo ? (appInfo.packaged ? '桌面客户端' : '浏览器开发模式') : '浏览器开发模式'}</span></div>
       </div>
       {renderControls()}
       {(state.phase === 'available' || state.phase === 'downloaded' || state.phase === 'downloading') && (

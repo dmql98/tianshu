@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+﻿import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
 import { openInFileManager } from '@/api/workspace'
@@ -300,7 +300,7 @@ export default function SessionPanel() {
         )}
 
         {filteredGroups.length === 0 && filteredEvents.length === 0 && (
-          <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--ink-faint)' }}>
+          <div style={{ padding: 20, textAlign: 'center', fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>
             {search ? '无匹配会话' : '暂无会话'}
           </div>
         )}
@@ -389,7 +389,7 @@ function ContextMenuItem({ icon, label, danger, onClick }: {
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: '6px 12px', fontSize: 12, cursor: 'pointer',
+        padding: '6px 12px', fontSize: 'calc(12px * var(--ui-font-scale))', cursor: 'pointer',
         color: danger ? 'var(--cinnabar)' : 'var(--ink-mid)',
         background: hovered ? (danger ? 'rgba(196,92,60,0.08)' : 'var(--bg-hover)') : 'transparent',
       }}

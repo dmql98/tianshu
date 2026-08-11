@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
@@ -10,6 +10,17 @@ import type { DesktopServerStatus } from '../../../../shared/desktop-contract.js
 import UpdatePanel from '@/features/update/UpdatePanel'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
+import {
+  DEFAULT_DISPLAY_PREFERENCES,
+  applyDisplayPreferences,
+  isValidHexColor,
+  loadDisplayPreferences,
+  normalizeDisplayPreferences,
+  resetDisplayPreferences,
+  saveDisplayPreferences,
+  type DisplayPreferences,
+  type FontFamilyId,
+} from '@/features/display/displayPreferences'
 
 const ls = (key: string, fallback: string) => localStorage.getItem(`tianshu:${key}`) ?? fallback
 const lsBool = (key: string, fallback: boolean) => { const v = localStorage.getItem(`tianshu:${key}`); return v === null ? fallback : v === 'true' }
@@ -31,6 +42,8 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState(ls('theme', 'light'))
   const [notify, setNotify] = useState(lsBool('notify', true))
   const [sound, setSound] = useState(lsBool('sound', false))
+  const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences)
+  const [textColorDraft, setTextColorDraft] = useState(() => loadDisplayPreferences().textColor)
 
   // ── 会话设置 ──
   const [workspace, setWorkspace] = useState(ls('defaultWorkspace', 'C:\\.Tianshu'))
@@ -134,6 +147,31 @@ export default function SettingsPage() {
       theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     }
     document.documentElement.setAttribute('data-theme', theme)
+  }
+
+  const updateDisplayPreferences = (patch: Partial<DisplayPreferences>) => {
+    const next = normalizeDisplayPreferences({ ...displayPreferences, ...patch })
+    setDisplayPreferences(next)
+    saveDisplayPreferences(next)
+    applyDisplayPreferences(next)
+    return next
+  }
+
+  const commitTextColor = () => {
+    if (!isValidHexColor(textColorDraft)) {
+      setTextColorDraft(displayPreferences.textColor)
+      showToast('请输入 #RRGGBB 格式的颜色值', 'err')
+      return
+    }
+    const next = updateDisplayPreferences({ textColor: textColorDraft })
+    setTextColorDraft(next.textColor)
+  }
+
+  const handleResetDisplayPreferences = () => {
+    const defaults = resetDisplayPreferences()
+    setDisplayPreferences(defaults)
+    setTextColorDraft(defaults.textColor)
+    showToast('显示设置已恢复默认')
   }
 
   // ── Provider handlers ──
@@ -274,7 +312,7 @@ export default function SettingsPage() {
                       {provider.is_builtin ? '内置' : '自定义'}
                     </span>
                     {testResult[provider.id] && (
-                      <span style={{fontSize:11,color:testResult[provider.id].ok ? 'var(--jade)' : 'var(--cinnabar)',marginLeft:4}}>
+                      <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:testResult[provider.id].ok ? 'var(--jade)' : 'var(--cinnabar)',marginLeft:4}}>
                         {testResult[provider.id].msg}
                       </span>
                     )}
@@ -314,7 +352,7 @@ export default function SettingsPage() {
                         </div>
                       )
                     }) || (
-                      <span style={{fontSize:11,color:'var(--ink-faint)'}}>
+                      <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)'}}>
                         点击"刷新模型"加载模型列表
                       </span>
                     )}
@@ -361,7 +399,7 @@ export default function SettingsPage() {
             <textarea rows={10} value={defaultPrompt} onChange={e => { setDefaultPrompt(e.target.value); setPromptDirty(true) }} />
             <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
               <button className="btn primary" onClick={handleSavePrompt} disabled={!promptDirty}>保存</button>
-              {promptDirty && <span style={{fontSize:11,color:'var(--ink-faint)'}}>未保存</span>}
+              {promptDirty && <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)'}}>未保存</span>}
             </div>
           </div>
         </div>
@@ -390,6 +428,84 @@ export default function SettingsPage() {
                   <option value="system">跟随系统</option>
                 </select>
               </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info"><span className="setting-label">界面字体</span><span className="setting-hint">应用到所有页面的普通界面文字</span></div>
+              <div className="setting-control">
+                <select
+                  value={displayPreferences.fontFamily}
+                  onChange={e => updateDisplayPreferences({ fontFamily: e.target.value as FontFamilyId })}
+                  aria-label="界面字体"
+                >
+                  <option value="wenkai">霞鹜文楷</option>
+                  <option value="system-sans">系统黑体</option>
+                  <option value="system-serif">系统宋体</option>
+                  <option value="monospace">等宽字体</option>
+                </select>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info"><span className="setting-label">字体大小</span><span className="setting-hint">调整普通界面文字，图标和角色资源不缩放</span></div>
+              <div className="setting-control font-size-control">
+                <input
+                  type="range"
+                  min="80"
+                  max="140"
+                  step="5"
+                  value={displayPreferences.fontScale}
+                  onChange={e => updateDisplayPreferences({ fontScale: Number(e.target.value) })}
+                  aria-label="字体大小"
+                />
+                <output>{displayPreferences.fontScale}%</output>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info"><span className="setting-label">字体颜色</span><span className="setting-hint">调整普通文字颜色，语义状态色保持不变</span></div>
+              <div className="setting-control font-color-control">
+                <input
+                  type="color"
+                  value={displayPreferences.textColor}
+                  onChange={e => {
+                    setTextColorDraft(e.target.value)
+                    updateDisplayPreferences({ textColor: e.target.value })
+                  }}
+                  aria-label="选择字体颜色"
+                />
+                <input
+                  className="font-color-hex"
+                  type="text"
+                  value={textColorDraft}
+                  maxLength={7}
+                  spellCheck={false}
+                  onChange={e => setTextColorDraft(e.target.value)}
+                  onBlur={commitTextColor}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      commitTextColor()
+                    }
+                  }}
+                  aria-label="字体颜色十六进制值"
+                />
+              </div>
+            </div>
+            <div className="display-preferences-preview" aria-live="polite">
+              <div className="display-preview-text">天枢 TianShu · 让智能体拥有长期记忆</div>
+              <div className="display-preview-meta">
+                当前字体 · {displayPreferences.fontScale}% · {displayPreferences.textColor}
+              </div>
+              <button
+                className="btn sm"
+                type="button"
+                onClick={handleResetDisplayPreferences}
+                disabled={
+                  displayPreferences.fontFamily === DEFAULT_DISPLAY_PREFERENCES.fontFamily
+                  && displayPreferences.fontScale === DEFAULT_DISPLAY_PREFERENCES.fontScale
+                  && displayPreferences.textColor === DEFAULT_DISPLAY_PREFERENCES.textColor
+                }
+              >
+                恢复默认显示设置
+              </button>
             </div>
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">消息通知</span><span className="setting-hint">接收新消息与事件通知</span></div>
@@ -446,7 +562,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="setting-group">
-              <div className="setting-group-title">进化引擎 <span style={{fontSize:11,fontWeight:400,color:'var(--ink-faint)'}}>在线洞察检测 + 离线 LCS 聚类</span></div>
+              <div className="setting-group-title">进化引擎 <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',fontWeight:400,color:'var(--ink-faint)'}}>在线洞察检测 + 离线 LCS 聚类</span></div>
               <div className="setting-row">
                 <div className="setting-info"><span className="setting-label">进化角色</span><span className="setting-hint">用于技能生成的 Agent 角色</span></div>
                 <div className="setting-control">
@@ -551,7 +667,7 @@ export default function SettingsPage() {
           <div className="settings-section" style={{marginTop:32}}>
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">本地服务</span></div>
-              <div className="setting-control"><span style={{fontSize:13,color:'var(--ink-mid)'}}>{serverStatusLabel(serverStatus)}</span></div>
+              <div className="setting-control"><span style={{fontSize: 'calc(13px * var(--ui-font-scale))',color:'var(--ink-mid)'}}>{serverStatusLabel(serverStatus)}</span></div>
             </div>
           </div>
         </div>
@@ -562,7 +678,7 @@ export default function SettingsPage() {
       {toast && (
         <div style={{
           position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
-          padding:'8px 20px', borderRadius:8, fontSize:13, zIndex:999,
+          padding:'8px 20px', borderRadius:8, fontSize: 'calc(13px * var(--ui-font-scale))', zIndex:999,
           background: toast.type === 'ok' ? 'var(--jade)' : 'var(--cinnabar)',
           color:'#fff', boxShadow:'0 4px 12px rgba(0,0,0,0.15)',
         }}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchSkillPackages, type SkillPackageMeta } from '@/api/skills'
 import { fetchCharacters } from '@/api/characters'
@@ -41,7 +41,7 @@ export default function SkillView() {
     <div className="main">
       <div className="page-header">
         <span className="page-title">技能管理</span>
-        <span style={{ fontSize: 12, color: 'var(--ink-light)' }}>{packages.length} 个技能包</span>
+        <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{packages.length} 个技能包</span>
         <div style={{ flex: 1 }} />
         <button className="detail-btn primary" onClick={() => navigate('/skills/new')}>+ 新建技能包</button>
       </div>
@@ -61,7 +61,7 @@ export default function SkillView() {
                       <div className="skill-icon" style={{ background: 'rgba(200,150,10,0.08)' }}>📦</div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div className="skill-name">{pkg.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{pkg.id}{pkg.version ? ` · v${pkg.version}` : ''}</div>
+                        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{pkg.id}{pkg.version ? ` · v${pkg.version}` : ''}</div>
                       </div>
                       <span className="skill-origin evolved">{pkg.childCount > 0 ? `${pkg.childCount} 个子技能` : '单技能包'}</span>
                     </div>
@@ -73,7 +73,7 @@ export default function SkillView() {
                     {pkg.childCount > 0 && isOpen && (
                       <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 8 }}>
                         {pkg.children.map(child => (
-                          <div key={child.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 2px', fontSize: 12 }}>
+                          <div key={child.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 2px', fontSize: 'calc(12px * var(--ui-font-scale))' }}>
                             <span><b>{child.name}</b><span style={{ color: 'var(--ink-faint)' }}> · {child.description}</span></span>
                           </div>
                         ))}

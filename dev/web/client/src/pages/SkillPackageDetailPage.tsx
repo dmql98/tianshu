@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { fetchSkillChild, fetchSkillPackage, type SkillChildDetail, type SkillPackageDetail } from '@/api/skills'
 
@@ -85,7 +85,7 @@ export default function SkillPackageDetailPage() {
             <div className="detail-section"><div className="detail-section-title">子技能</div>
               {detail.children.length === 0 ? <div className="empty-state" style={{ padding: 20 }}>该技能包只有根技能，无需额外激活子技能</div> : <div className="tool-list">
                 {detail.children.map(item => <div key={item.id} className="tool-item" style={{ cursor: 'pointer', background: child?.id === item.id ? 'rgba(42,157,92,0.06)' : undefined }} onClick={() => openChild(item.id)}>
-                  <span>⚡</span><div style={{ flex: 1 }}><div className="tool-name">{item.name}</div><div style={{ fontSize: 11, color: 'var(--ink-light)' }}>{item.description}</div></div>
+                  <span>⚡</span><div style={{ flex: 1 }}><div className="tool-name">{item.name}</div><div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{item.description}</div></div>
                 </div>)}
               </div>}
             </div>

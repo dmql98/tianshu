@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { avatarCropStyle, normalizeAvatarCrop, type AvatarCrop } from './avatarCrop'
 
 export type { AvatarCrop } from './avatarCrop'
@@ -117,10 +117,10 @@ export default function AvatarCropDialog({
             <div className="avatar-crop-preview" style={{ aspectRatio: cropAspectRatio, height: 'auto' }}>
               {media(imgStyle, 'preview')}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--ink-light)' }}>
+            <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
               {isPortrait ? '整个 3:4 区域即详情栏立绘' : '整个方形区域即头像'}；按住鼠标左键拖动，滚轮缩放。
             </div>
-            <label style={{ fontSize: 12, color: 'var(--ink-light)' }}>
+            <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
               缩放
               <input
                 type="range"
@@ -131,7 +131,7 @@ export default function AvatarCropDialog({
                 onChange={e => setC(prev => ({ ...prev, scale: Number(e.target.value) }))}
                 style={{ width: '100%', marginTop: 4 }}
               />
-              <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{c.scale.toFixed(2)}x</span>
+              <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{c.scale.toFixed(2)}x</span>
             </label>
           </div>
         </div>

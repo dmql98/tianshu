@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { updateProvider } from '@/api/providers'
 import type { Provider } from '@/types'
@@ -57,7 +57,7 @@ export default function EditProviderDialog({ provider, onClose }: Props) {
             <div className="provider-form-field">
               <label>API Key</label>
               {provider.envKey && (
-                <div style={{fontSize:11,color:'var(--ink-faint)',marginBottom:4}}>
+                <div style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)',marginBottom:4}}>
                   也可设置环境变量 <code style={{background:'var(--bg-hover)',padding:'1px 4px',borderRadius:3}}>{provider.envKey}</code>
                 </div>
               )}

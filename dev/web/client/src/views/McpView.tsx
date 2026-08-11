@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import {
   fetchTools,
   createMCPServer,
@@ -242,7 +242,7 @@ export default function McpView() {
                   {testResults[s.id] && (
                     <>
                       <div style={{
-                        fontSize: 11,
+                        fontSize: 'calc(11px * var(--ui-font-scale))',
                         padding: '4px 8px',
                         borderRadius: 4,
                         marginTop: 6,
@@ -273,8 +273,8 @@ export default function McpView() {
       {discoverOpen && (
         <div className="approval-overlay" onClick={() => { if (!importing) setDiscoverOpen(false) }}>
           <div className="approval-dialog" onClick={e => e.stopPropagation()} style={{ width: 620 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>检测本机 MCP 服务</div>
-            <p style={{ fontSize: 12, color: 'var(--ink-light)', margin: '-4px 0 12px' }}>
+            <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 12 }}>检测本机 MCP 服务</div>
+            <p style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', margin: '-4px 0 12px' }}>
               扫描 opencode / Claude / Cursor 配置中发现的 MCP 服务，勾选后一键导入：
             </p>
             {discovering ? (
@@ -312,17 +312,17 @@ export default function McpView() {
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-deep)' }}>{s.name}</span>
+                          <span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)' }}>{s.name}</span>
                           <span className={`mcp-status ${s.importable ? 'connected' : 'failed'}`}>
                             {s.alreadyExists ? '已导入' : s.importable ? 'stdio' : s.transport}
                           </span>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--ink-light)', marginTop: 2, wordBreak: 'break-all' }}>
+                        <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginTop: 2, wordBreak: 'break-all' }}>
                           {s.importable
                             ? `${s.command} ${s.args.join(' ')}`.trim()
                             : `远程服务（${s.transport}）: ${s.url || '无 URL'}`}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>
+                        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', marginTop: 2 }}>
                           来源: {s.source} · {s.sourceFile}
                         </div>
                       </div>
@@ -333,7 +333,7 @@ export default function McpView() {
             )}
             {importSummary && (
               <pre style={{
-                fontSize: 12,
+                fontSize: 'calc(12px * var(--ui-font-scale))',
                 whiteSpace: 'pre-wrap',
                 color: importSummary.includes('失败') || importSummary.includes('检测失败') ? 'var(--cinnabar)' : 'var(--jade)',
                 background: 'var(--bg-hover)',
@@ -345,7 +345,7 @@ export default function McpView() {
               }}>{importSummary}</pre>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: 'var(--ink-light)' }}>
+              <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
                 已选 {selected.size} 个
               </span>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -367,8 +367,8 @@ export default function McpView() {
       {showImport && (
         <div className="approval-overlay" onClick={() => setShowImport(false)}>
           <div className="approval-dialog" onClick={e => e.stopPropagation()} style={{ width: 480 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>导入 MCP 配置</div>
-            <p style={{ fontSize: 12, color: 'var(--ink-light)', margin: '-4px 0 12px' }}>
+            <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 12 }}>导入 MCP 配置</div>
+            <p style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', margin: '-4px 0 12px' }}>
               粘贴 MCP 服务器 JSON 配置：
             </p>
             <textarea
@@ -381,7 +381,7 @@ export default function McpView() {
                 padding: 8,
                 border: '1px solid var(--border)',
                 borderRadius: 6,
-                fontSize: 13,
+                fontSize: 'calc(13px * var(--ui-font-scale))',
                 fontFamily: 'inherit',
                 background: 'var(--bg-input)',
                 color: 'var(--ink-deep)',
@@ -390,7 +390,7 @@ export default function McpView() {
               }}
             />
             {importError && (
-              <p style={{ fontSize: 12, color: 'var(--cinnabar)', margin: '6px 0 0' }}>{importError}</p>
+              <p style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--cinnabar)', margin: '6px 0 0' }}>{importError}</p>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
               <button className="btn" onClick={() => setShowImport(false)}>取消</button>
@@ -404,7 +404,7 @@ export default function McpView() {
       {editing && (
         <div className="approval-overlay" onClick={() => setEditing(null)}>
           <div className="approval-dialog" onClick={e => e.stopPropagation()} style={{ width: 480 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+            <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 16 }}>
               {editing.id ? '编辑 MCP 服务器' : '新建 MCP 服务器'}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -480,7 +480,7 @@ export default function McpView() {
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontSize: 12,
+  fontSize: 'calc(12px * var(--ui-font-scale))',
   color: 'var(--ink-light)',
   marginBottom: 4,
 }
@@ -490,7 +490,7 @@ const inputStyle: React.CSSProperties = {
   padding: '8px 10px',
   border: '1px solid var(--border)',
   borderRadius: 6,
-  fontSize: 13,
+  fontSize: 'calc(13px * var(--ui-font-scale))',
   fontFamily: 'inherit',
   background: 'var(--bg-input)',
   color: 'var(--ink-deep)',

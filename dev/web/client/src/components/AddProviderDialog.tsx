@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { createProvider, fetchBuiltinProviders, type ProviderModel } from '@/api/providers'
 
@@ -109,7 +109,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                   style={{
                     width:'100%', padding:'6px 10px', borderRadius:6,
                     border:'1px solid var(--border)', background:'var(--bg)',
-                    color:'var(--ink)', outline:'none', fontSize:13,
+                    color:'var(--ink)', outline:'none', fontSize: 'calc(13px * var(--ui-font-scale))',
                   }}
                 />
               </div>
@@ -143,7 +143,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                 <div className="provider-list-arrow">›</div>
               </div>
               {filtered.length === 0 && search && (
-                <div style={{textAlign:'center',padding:24,color:'var(--ink-faint)',fontSize:13}}>
+                <div style={{textAlign:'center',padding:24,color:'var(--ink-faint)',fontSize: 'calc(13px * var(--ui-font-scale))'}}>
                   未找到匹配的服务商
                 </div>
               )}
@@ -179,7 +179,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                   API Key
                 </label>
                 {selectedProvider?.envKey && (
-                  <div style={{fontSize:11,color:'var(--ink-faint)',marginBottom:4}}>
+                  <div style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)',marginBottom:4}}>
                     也可设置环境变量 <code style={{background:'var(--bg-hover)',padding:'1px 4px',borderRadius:3}}>{selectedProvider.envKey}</code>
                   </div>
                 )}

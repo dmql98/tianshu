@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -40,7 +40,7 @@ export default function ChatPage() {
         {sidebarOpen && <SessionPanel />}
         <main className="main" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
           <div style={{ fontSize: 48, opacity: 0.3 }}>💬</div>
-          <div style={{ fontSize: 16, color: 'var(--ink-mid)', fontWeight: 500 }}>选择一个会话开始对话</div>
+          <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', color: 'var(--ink-mid)', fontWeight: 500 }}>选择一个会话开始对话</div>
         </main>
       </>
     )

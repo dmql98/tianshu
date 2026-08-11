@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import { fetchEventDefinitions } from './api/eventDefinitions'
 import { fetchDataspace } from './api/config'
@@ -128,10 +128,10 @@ export default function App() {
             textAlign: 'center', maxWidth: 400,
           }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-deep)', marginBottom: 8 }}>
+            <div style={{ fontSize: 'calc(18px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)', marginBottom: 8 }}>
               需要配置系统路径
             </div>
-            <div style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.6, marginBottom: 20 }}>
+            <div style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)', lineHeight: 1.6, marginBottom: 20 }}>
               首次使用需要在「设置 → 系统」中配置天枢的数据存储路径，所有系统数据将保存在该目录下。
             </div>
             <button

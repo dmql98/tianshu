@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode, type CSSProperties } from 'react'
+﻿import { useState, useEffect, type ReactNode, type CSSProperties } from 'react'
 
 interface EditFieldProps {
   label?: string
@@ -30,11 +30,11 @@ export default function EditField({
         {label && <div className="info-item-label" style={{ marginBottom: 0, flex: 1 }}>{label}</div>}
         {editing ? (
           <div style={{ display: 'flex', gap: 6 }}>
-            <button type="button" className="detail-btn" style={{ padding: '3px 10px', fontSize: 12 }} onClick={cancel}>取消</button>
-            <button type="button" className="detail-btn primary" style={{ padding: '3px 10px', fontSize: 12 }} onClick={save}>保存</button>
+            <button type="button" className="detail-btn" style={{ padding: '3px 10px', fontSize: 'calc(12px * var(--ui-font-scale))' }} onClick={cancel}>取消</button>
+            <button type="button" className="detail-btn primary" style={{ padding: '3px 10px', fontSize: 'calc(12px * var(--ui-font-scale))' }} onClick={save}>保存</button>
           </div>
         ) : (
-          <button type="button" className="detail-btn" style={{ padding: '3px 10px', fontSize: 12 }} onClick={startEdit}>编辑</button>
+          <button type="button" className="detail-btn" style={{ padding: '3px 10px', fontSize: 'calc(12px * var(--ui-font-scale))' }} onClick={startEdit}>编辑</button>
         )}
       </div>
       <div style={{ marginTop: 4 }}>
@@ -42,7 +42,7 @@ export default function EditField({
           <div style={{
             padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6,
             background: 'var(--bg-input)', color: value ? 'var(--ink-deep)' : 'var(--ink-faint)',
-            fontSize: 13, minHeight: 22, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            fontSize: 'calc(13px * var(--ui-font-scale))', minHeight: 22, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}>
             {value || '（未设置）'}
           </div>

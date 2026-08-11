@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -106,7 +106,7 @@ export default function FilePanel() {
         <div className="fp-section">
           <div className="fp-section-title">附件</div>
           {attachments.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--ink-faint)', padding: '4px 0' }}>无附件</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>无附件</div>
           ) : attachments.map((f, i) => (
             <div key={i} className="fp-file-item">
               <span className="fp-file-icon">{f.icon}</span>
@@ -119,7 +119,7 @@ export default function FilePanel() {
         <div className="fp-section">
           <div className="fp-section-title">工具文件</div>
           {toolFiles.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--ink-faint)', padding: '4px 0' }}>无文件操作</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>无文件操作</div>
           ) : toolFiles.map((f, i) => (
             <div key={i} className="fp-file-item">
               <span className="fp-file-icon">{f.icon}</span>
@@ -130,7 +130,7 @@ export default function FilePanel() {
                   title="打开所在目录"
                   style={{
                     marginLeft: 'auto', background: 'none', border: 'none',
-                    color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 12,
+                    color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 'calc(12px * var(--ui-font-scale))',
                     padding: '0 2px', flexShrink: 0,
                   }}
                   onMouseEnter={e => (e.currentTarget.style.color = 'var(--gold)')}
