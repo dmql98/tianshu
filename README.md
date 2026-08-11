@@ -55,7 +55,7 @@ npm run dev
 ### 发布与维护（开发者）
 
 - 发布流程详见 [`docs/桌面客户端发布手册.md`](docs/桌面客户端发布手册.md)。
-- 一键发布脚本（仓库根目录）：`publish-release.bat`（自动读版本 → commit → 打 tag → 推送触发 CI）；`publish-release.bat --verify` 校验 Release 三文件是否齐全可下载。
+- 一键发布脚本（仓库根目录）：`publish-release.bat`（显示当前版本 → 输入更新版本 → 同步 package/lockfile → 确认改动 → commit → 打 tag → 重试推送触发 CI）；`publish-release.bat --dry-run 0.1.3` 可预演，`publish-release.bat --verify` 校验 Release 三文件是否齐全可下载。
 - 安装包、`latest.yml` 等构建产物生成在 `dev/desktop/release/`。
 
 
