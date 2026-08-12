@@ -1,0 +1,188 @@
+Builtin Content 阶段交接提示词
+请开始 TianShu 的第二阶段开发：实现
+
+C:\Users\dmql\Documents\tianshu\dev\BUILTIN_CONTENT_DEVELOPMENT_PLAN.md
+
+源码工作区：
+
+C:\Users\dmql\Documents\tianshu\dev
+
+前置阶段：
+
+RUN_LIMIT_POLICY_PLAN.md 已经实施完成。开始工作前，请先检查当前代码和 Git diff，并运行相关测试确认 Run Policy 阶段的真实实现状态。当前代码和测试结果是事实来源；开发计划中的“当前代码现状”如果已经过时，只作为历史背景，禁止据此回滚已完成能力。
+
+必须保留的前置契约：
+
+1. <TIANSHU_CONFIG_DIR>/config.json 同时保存 dataDir、SystemRunPolicy 等系统配置。
+2. 修改 config.ts、config.json 或 dataDir 逻辑时，不得丢失、重置或整对象覆盖 runPolicy。
+3. CharacterRecord.runPolicy 是角色执行偏好；旧 maxSteps 只按现有兼容迁移规则处理。
+4. CharacterRunPolicy 必须继续进入 character revision、manifest hash 和 RunPolicySnapshot。
+5. Run 创建继续使用 pinned character revision，不得恢复为读取实时 character.json。
+6. 不得恢复“maxSteps=999 表示无限”的旧语义。
+7. 保留系统“运行与安全”设置、角色运行策略 UI、RightPanel 策略摘要。
+8. 保留动态收敛、自动续跑、ActiveRunState、整链停止、事件乱序处理和重连恢复。
+9. 编辑内置角色的 runPolicy、memory、visual、revision 或其他可变内容之前，必须先 materialize 用户副本。
+10. 内置角色只能声明 CharacterRunPolicy，不能包含或突破 SystemRunPolicy。
+
+实施要求：
+
+1. 严格按 BUILTIN_CONTENT_DEVELOPMENT_PLAN.md 分阶段实现。
+2. 首先建立或确认公共 web/server/src/data-paths.ts：
+   - dataRoot()
+   - charactersRoot()
+   - skillsRoot()
+   - themesRoot()
+   - contentStateFile()
+3. getDataDir() 的解析、迁移和缓存仍只归 config.ts 管理；data-paths.ts 不重复读取环境变量或 config.json。
+4. 建立 content/builtin 只读发行层。
+5. characters 和 skills 实现 builtin + userdata 双层扫描。
+6. 同 ID 用户内容完整覆盖内置内容，不做隐式逐字段合并。
+7. 内置角色和技能编辑采用 copy-on-write。
+8. Provider 只实现公开预设与用户配置的边界，不把凭据放进 builtin。
+9. 不实现主题 store；只提供并验证 themesRoot()。
+10. 不修改已安装客户端目录、app.asar 或稳定版用户数据。
+11. 保留用户现有未提交修改，不覆盖无关文件。
+12. 每个阶段完成后执行对应测试并报告证据。
+13. 修改代码后运行 graphify update .。
+
+开始前必须完成：
+
+- 检查 Git 状态和现有改动。
+- 阅读三份计划的最终版本：
+  - RUN_LIMIT_POLICY_PLAN.md
+  - BUILTIN_CONTENT_DEVELOPMENT_PLAN.md
+  - TIANSHU_THEME_SWITCHING_PLAN.md
+- 运行 Run Policy 阶段的服务端、客户端和数据库迁移测试，记录基线。
+- 检查 config.ts、characterStore、revision-store、run-store、SettingsPage、CharacterDetailPage、RightPanel、chatStore 的当前实现。
+- 根据当前实现更新执行计划，不重复实现已经完成的公共能力。
+
+验收必须包括：
+
+- content/builtin 在开发版和安装包中可读取且运行时只读。
+- <dataDir>/characters、skills、themes 使用同一公共 data root。
+- 用户编辑内置角色/技能时创建完整用户副本。
+- SystemRunPolicy 和 dataDir 均能经过配置保存/重载而不丢失。
+- builtin 角色的 runPolicy 能进入用户副本、revision 和新 Run 快照。
+- 已启动 Run 不受角色副本后续修改影响。
+- Run Policy 全套回归保持通过。
+- 前后端及桌面端 build/test 通过。
+
+完成时请提交一份交接报告，包含：
+
+1. 实际修改文件。
+2. 实际目录和数据协议。
+3. 数据库或配置迁移。
+4. Run Policy 回归结果。
+5. Builtin 专项测试结果。
+6. 构建结果。
+7. 未完成项和风险。
+8. 进入 Theme 阶段前必须满足的条件。
+
+不要自动提交、推送或修改安装目录，除非我另行明确授权。
+Theme 阶段交接提示词
+请开始 TianShu 的第三阶段开发：实现
+
+C:\Users\dmql\Documents\tianshu\dev\TIANSHU_THEME_SWITCHING_PLAN.md
+
+源码工作区：
+
+C:\Users\dmql\Documents\tianshu\dev
+
+前置阶段：
+
+1. RUN_LIMIT_POLICY_PLAN.md 已完成。
+2. BUILTIN_CONTENT_DEVELOPMENT_PLAN.md 已完成。
+
+开始工作前，请检查当前代码、Git diff 和前两阶段交接报告，并运行前两阶段测试记录基线。当前代码和测试结果是事实来源；Theme 计划中的历史“当前状态”描述如果已过时，不得用于覆盖前两阶段的新实现。
+
+必须复用和保护的契约：
+
+1. <TIANSHU_CONFIG_DIR>/config.json 已包含 dataDir 和 SystemRunPolicy。
+2. 主题代码不得整对象覆盖 config.json，不得删除、重置或迁移走 runPolicy。
+3. 公共 web/server/src/data-paths.ts 已由 Builtin 阶段提供。
+4. 自定义主题必须使用 themesRoot()，不得新建另一套 getDataDir/config 路径解析。
+5. 如果 themesRoot() 或公共 data-paths.ts 缺失，停止 Theme 开发并报告 Builtin 阶段未完成，不能创建同义模块。
+6. 两个内置主题由前端代码和静态资源提供，不放入 content/builtin，也不复制进 <dataDir>/themes。
+7. <dataDir>/themes 只保存用户自定义主题及其素材。
+8. 主题不参与角色/技能 copy-on-write、content-state 或同 ID 双层覆盖。
+9. 不修改 CharacterRunPolicy、SystemRunPolicy、character revision 或 RunPolicySnapshot schema。
+10. 保留 SettingsPage 已有“运行与安全”区域。
+11. 主题设置必须作为独立组件挂载，禁止通过重写整个 SettingsPage 覆盖现有功能。
+12. 保留 RightPanel 的运行策略摘要和业务逻辑；只能做 Token 化和样式适配。
+13. 保留 chatStore 的 ActiveRunState、自动续跑事件归并、整链停止和重连恢复。
+14. 主题切换不能让自动续跑期间的输入框、停止按钮或 activeRunId 行为退化。
+15. 复用 Builtin 阶段已经稳定的开发版/打包版 dataDir 和 Electron resources 编排。
+
+产品目标：
+
+1. 两个可靠内置主题：
+   - tianshu-light
+   - tianshu-dark
+2. system 是自动选择模式，不是第三个主题。
+3. 用户可以：
+   - 选择或拖入本地图片
+   - 调节水平/垂直焦点
+   - 自动提取主题色
+   - 选择或推断 light/dark 外观
+   - 手动调整色板
+   - 实时预览首页和任务页
+   - 保存、应用、编辑、复制、重命名和删除主题
+4. 自定义主题完整保存到：
+   <dataDir>/themes/<id>/
+5. 图片和完整主题不得保存到 localStorage、IndexedDB、固定 userData/backgrounds 或远程 CDN。
+6. localStorage 只允许保存轻量当前选择或经过计划明确允许的启动缓存。
+
+实施要求：
+
+1. 严格按 TIANSHU_THEME_SWITCHING_PLAN.md 分阶段实现。
+2. 先记录前两阶段完整测试和构建基线。
+3. 先完成两个内置主题、主题 runtime 和 Token 映射。
+4. 在 React 首次渲染前应用主题。
+5. 完成 display preferences v2，避免字体颜色覆盖主题。
+6. 使用 themesRoot() 实现服务端主题 schema、store、API 和资产读取。
+7. 图片上传必须校验 magic bytes、真实解码、格式、字节数、像素尺寸和路径安全。
+8. 保存主题使用同卷临时目录和原子提交；theme.json 最后写入。
+9. 自动取色结果必须经过对比度校正，不能直接把主色当正文色。
+10. ThemeStudio 必须支持焦点、色板、对比度、撤销/重做和真实界面预览。
+11. Token 化 SettingsPage、RightPanel、ChatInput、会话和弹窗时保留原业务逻辑。
+12. 不实现任意 CSS、HTML、JavaScript 或远程主题代码。
+13. 不修改已安装客户端目录、app.asar 或稳定版用户数据。
+14. 保留用户现有未提交修改，不覆盖无关文件。
+15. 修改代码后运行 graphify update .。
+
+开始前必须检查：
+
+- data-paths.ts 和 themesRoot()。
+- config.ts 对 dataDir + runPolicy 的原子保存行为。
+- SettingsPage 的“运行与安全”组件边界。
+- CharacterDetailPage 和 RightPanel 的运行策略 UI。
+- chatStore 的 ActiveRunState 和续跑事件逻辑。
+- Builtin characters/skills 的扫描及 copy-on-write。
+- 当前 index.css、displayPreferences 和主题旧 localStorage 迁移逻辑。
+
+验收必须包括：
+
+- config.json 经过主题相关保存/重载后，dataDir 和 runPolicy 均保持不变。
+- 系统“运行与安全”与角色运行策略仍可正常读写。
+- RunPolicySnapshot、动态收敛和自动续跑测试全部通过。
+- 自动续跑过程中切换主题不会导致输入框短暂解锁或 activeRunId 丢失。
+- Builtin 双层加载、copy-on-write 和打包资源测试全部通过。
+- themesRoot() 与 charactersRoot()/skillsRoot() 来自同一 data root。
+- 两个内置主题、system、自定义主题重启恢复均正常。
+- 图片损坏、主题损坏和素材缺失时安全回退。
+- 首页、会话、Markdown、代码块、设置、弹窗均满足可读性要求。
+- 前端、服务端、桌面端 build/test 全部通过。
+
+完成时请提交一份最终交接报告，包含：
+
+1. 修改文件。
+2. 主题目录和 API 协议。
+3. 取色算法和对比度策略。
+4. 数据迁移。
+5. Run Policy 回归结果。
+6. Builtin 回归结果。
+7. Theme 专项测试和视觉验收结果。
+8. 构建结果。
+9. 未完成项、已知限制和人工验收项。
+
+不要自动提交、推送、发布安装包或修改安装目录，除非我另行明确授权。
