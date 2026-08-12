@@ -36,6 +36,12 @@
     },
     {
       "name": "task_complete"
+    },
+    {
+      "name": "mcp:codebase-memory-mcp"
+    },
+    {
+      "name": "mcp:codegraph"
     }
   ],
   "skills": [
@@ -65,5 +71,5 @@
   "enabled": true,
   "id": "coder",
   "createdAt": 1786512269669,
-  "updatedAt": 1786517234499
+  "updatedAt": 1786525561095
 }
