@@ -12,6 +12,11 @@ const DEFAULT_WORKSPACE = 'C:\\.Tianshu'
 const TERMINAL_RUN_STATUS = new Set([
   'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
 ])
+// Run waiting on a human action (approval prompt / ask-user input / manual
+// pause). These are NOT actively streaming and must not show the "working"
+// state, otherwise the UI stays stuck forever once the backend has no live
+// loop to resume.
+const PARKED_RUN_STATUS = new Set(['awaiting_approval', 'awaiting_input', 'paused'])
 const TERMINAL_EVENT_TYPES = new Set([
   'run.completed', 'run.failed', 'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
 ])
@@ -1244,6 +1249,12 @@ export const useChatStore = create<ChatState>((set, get) => {
         applyRunEvents(sessionId, tail)
         runSeqByRunId.set(active.id, tail[tail.length - 1].seq ?? (runSeqByRunId.get(active.id) || 0))
         if (TERMINAL_EVENT_TYPES.has(tail[tail.length - 1].type || '')) return
+      }
+      // A parked run is waiting for the user (approval/input/pause), not
+      // streaming. Show idle so the stop button is not stuck "working".
+      if (PARKED_RUN_STATUS.has(active.status)) {
+        set({ _activeRunId: active.id, isStreaming: false })
+        return
       }
       // Live streaming continues through the persistent listeners.
       set({ _activeRunId: active.id, isStreaming: true })

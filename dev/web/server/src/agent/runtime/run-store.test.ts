@@ -17,7 +17,7 @@ process.env.TIANSHU_DATA_DIR = tmpData
 const { getDb, closeDb } = await import('../../db/schema.js')
 const { sessionStore } = await import('../../db/sessionStore.js')
 const { runStore } = await import('./run-store.js')
-const { runEventStore, publishRunEvent } = await import('./run-event-store.js')
+const { runEventStore, publishRunEvent, forceCancelRun, forceCancelSessionRuns } = await import('./run-event-store.js')
 const { runCoordinator } = await import('./run-coordinator.js')
 
 function assert(cond: unknown, message: string): asserts cond {
@@ -247,6 +247,77 @@ try {
     assert(runStore.get(run.id)!.status === 'running', 'tool.started resumes running')
     assert(runStore.get(run.id)!.phase === 'tools', 'tool.started phase tools')
     console.log('  OK event-driven run state transitions')
+  }
+
+  // ---- bugfix: post-approval tool.completed resumes a parked run ----------
+  // Real event order for an escaping tool: tool.started fires BEFORE
+  // approval.requested, so after approval the only signals are tool.output /
+  // tool.completed. These must also resume awaiting_approval -> running.
+  {
+    const session = makeSession(newChar())
+    const run = runStore.create(session)
+    runStore.transition(run.id, 'preparing', 'context')
+    runEventStore.append(run.id, 'run.started', {})
+    runEventStore.append(run.id, 'tool.started', { name: 'bash' })
+    assert(runStore.get(run.id)!.status === 'running', 'tool.started while running stays running')
+    runEventStore.append(run.id, 'approval.requested', { tool_name: 'bash' })
+    assert(runStore.get(run.id)!.status === 'awaiting_approval', 'approval parks the run')
+    // Approval granted, tool re-executes and completes — no second tool.started.
+    runEventStore.append(run.id, 'tool.output', { output: 'ok' })
+    assert(runStore.get(run.id)!.status === 'running', 'tool.output after approval resumes running')
+    runEventStore.append(run.id, 'tool.completed', { tool_name: 'bash', tool_status: 'success' })
+    assert(runStore.get(run.id)!.status === 'running', 'tool.completed keeps running')
+    console.log('  OK post-approval tool events resume a parked run')
+  }
+
+  // ---- bugfix: a parked run can reach terminal states ---------------------
+  // Previously awaiting_approval had no path to completed/max_turns, so a
+  // run that ended while waiting on approval never emitted its terminal
+  // event and the client stayed "working" forever.
+  {
+    const session = makeSession(newChar())
+    const run = runStore.create(session)
+    runStore.transition(run.id, 'preparing', 'context')
+    runEventStore.append(run.id, 'run.started', {})
+    runEventStore.append(run.id, 'approval.requested', { tool_name: 'bash' })
+    assert(runStore.get(run.id)!.status === 'awaiting_approval', 'parked awaiting approval')
+    const terminal = runEventStore.append(run.id, 'run.completed', { status: 'max_turns' })
+    assert(!!terminal, 'max_turns terminal accepted from awaiting_approval')
+    assert(runStore.get(run.id)!.status === 'max_turns', 'run finished as max_turns')
+    console.log('  OK parked run can reach terminal states')
+  }
+
+  // ---- bugfix: forceCancelRun rescues an orphaned stuck run ---------------
+  {
+    const session = makeSession(newChar())
+    const run = runStore.create(session)
+    runStore.transition(run.id, 'preparing', 'context')
+    runEventStore.append(run.id, 'run.started', {})
+    runEventStore.append(run.id, 'approval.requested', { tool_name: 'bash' })
+    const event = forceCancelRun(run.id, 'test_abort')
+    assert(!!event, 'forceCancelRun persists a cancelled terminal event')
+    assert(event!.type === 'run.cancelled', 'forceCancelRun emits run.cancelled')
+    assert(runStore.get(run.id)!.status === 'cancelled', 'force-cancelled run is terminal')
+    // Already terminal: second force-cancel is a no-op.
+    assert(forceCancelRun(run.id) === null, 'second forceCancelRun is rejected')
+    console.log('  OK forceCancelRun rescues orphaned stuck runs')
+  }
+
+  // ---- bugfix: forceCancelSessionRuns rescues all non-terminal runs -------
+  {
+    const session = makeSession(newChar())
+    const runA = runStore.create(session)
+    const runB = runStore.create(session)
+    runStore.transition(runA.id, 'preparing', 'context')
+    runEventStore.append(runA.id, 'run.started', {})
+    runEventStore.append(runA.id, 'approval.requested', { tool_name: 'bash' })
+    // runB stays queued (never started).
+    const rescued = forceCancelSessionRuns(session.id, 'orphaned_after_restart')
+    assert(rescued.length === 2, 'both non-terminal runs rescued')
+    assert(runStore.get(runA.id)!.status === 'cancelled' && runStore.get(runB.id)!.status === 'cancelled',
+      'both runs cancelled')
+    assert(forceCancelSessionRuns(session.id).length === 0, 'no-op once terminal')
+    console.log('  OK forceCancelSessionRuns reclaims orphaned runs')
   }
 
   // ---- append to a missing run throws -------------------------------------

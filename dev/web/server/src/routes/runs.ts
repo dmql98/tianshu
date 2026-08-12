@@ -6,13 +6,21 @@ import { abortSession, enqueueRun } from '../agent/session-runner.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
-import { createDurableSocket, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { createDurableSocket, publishRunEvent, forceCancelRun } from '../agent/runtime/run-event-store.js'
 import { sessionLoop } from '../agent/loop.js'
 import type { Server } from 'socket.io'
 
 const router = new Hono()
 
 let ioRef: Server | null = null
+
+const TERMINAL_RUN_STATUS = new Set([
+  'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
+])
+
+function isNonTerminal(run: { status: string }): boolean {
+  return !TERMINAL_RUN_STATUS.has(run.status)
+}
 
 export function setRunsRuntime(io: Server) {
   ioRef = io
@@ -65,7 +73,20 @@ router.post('/:id/cancel', (c) => {
   const run = runStore.get(c.req.param('id'))
   if (!run) return c.json({ error: 'Not found' }, 404)
   const accepted = abortSession(run.session_id)
-  return accepted ? c.json({ ok: true }) : c.json({ error: 'Run is not active' }, 409)
+  // Fallback for orphaned/stuck runs (awaiting_approval with no in-memory
+  // coordinator entry, e.g. after a restart): force the DB to terminal and
+  // broadcast so connected clients leave the streaming state.
+  let forceEvent: ReturnType<typeof forceCancelRun> = null
+  if (!accepted || !isNonTerminal(run)) {
+    forceEvent = forceCancelRun(run.id)
+  }
+  if (!accepted && !forceEvent) return c.json({ error: 'Run is not active' }, 409)
+  if (forceEvent) {
+    publishRunEvent(broadcastSocket(ioRef!), run.id, 'run.cancelled', {
+      ...JSON.parse(forceEvent.payload),
+    })
+  }
+  return c.json({ ok: true })
 })
 
 /**

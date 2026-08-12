@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import type { Server, Socket } from 'socket.io'
 import { getDb } from '../../db/schema.js'
-import { runStore, type RunPhase } from './run-store.js'
+import { runStore, isParked, type RunPhase } from './run-store.js'
 import { checkpointStore } from './checkpoint-store.js'
 
 export const RAW_SOCKET = Symbol('tianshu.rawSocket')
@@ -67,7 +67,12 @@ export const runEventStore = {
         })
       } else {
         const current = runStore.get(runId)
-        if (current?.status === 'awaiting_approval' && type === 'tool.started') {
+        // A run parked on approval/input/pause resumes as soon as real tool
+        // or model activity arrives. Note `tool.started` is emitted BEFORE
+        // `approval.requested` for a single call, so the resuming signal is
+        // usually the post-approval `tool.output` / `tool.completed` — the
+        // resume must accept any activity, not just a fresh `tool.started`.
+        if (current && isParked(current.status) && /^(tool\.|message\.)/.test(type)) {
           runStore.transition(runId, 'queued', 'tools')
           runStore.transition(runId, 'preparing', 'tools')
           runStore.transition(runId, 'running', 'tools')
@@ -138,4 +143,30 @@ export function createDurableSocket(socket: Socket, runId: string): Socket {
 
 export function unwrapDurableSocket(socket: Socket): Socket {
   return (socket as Socket & { [RAW_SOCKET]?: Socket })[RAW_SOCKET] || socket
+}
+
+/** Force a run to the terminal `cancelled` state at the DB level, bypassing
+ *  any in-memory coordinator entry. Returns the persisted terminal event (or
+ *  null if the run was already terminal / unknown). Callers must still publish
+ *  it through the durable socket to notify clients. */
+export function forceCancelRun(runId: string, reason = 'user_requested'): RunEventRow | null {
+  const run = runStore.get(runId)
+  if (!run) return null
+  return runEventStore.append(runId, 'run.cancelled', { status: 'cancelled', reason })
+}
+
+/** Force-cancel every non-terminal run of a session (e.g. one stuck in
+ *  `awaiting_approval` with no live coordinator entry after a restart). */
+export function forceCancelSessionRuns(sessionId: string, reason = 'user_requested'): Array<{ runId: string; event: RunEventRow }> {
+  const cancelled: Array<{ runId: string; event: RunEventRow }> = []
+  for (const run of runStore.listForSession(sessionId, 50)) {
+    if (isTerminalStatus(run.status)) continue
+    const event = forceCancelRun(run.id, reason)
+    if (event) cancelled.push({ runId: run.id, event })
+  }
+  return cancelled
+}
+
+function isTerminalStatus(status: string): boolean {
+  return ['completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted'].includes(status)
 }

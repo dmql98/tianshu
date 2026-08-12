@@ -7,7 +7,7 @@ import { setSessionStrategy, removeSessionState, getSessionState } from '../agen
 import { enqueueRun, abortSession, getRunState, getQueueLength } from '../agent/session-runner.js'
 import { turnStore } from '../db/turnStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
-import { createDurableSocket, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { createDurableSocket, publishRunEvent, forceCancelSessionRuns } from '../agent/runtime/run-event-store.js'
 import { approvalRegistry, type ApprovalChoice } from '../agent/runtime/approval-registry.js'
 import { checkpointStore } from '../agent/runtime/checkpoint-store.js'
 import { saveAttachment, type AttachmentMeta } from '../agent/media-store.js'
@@ -149,9 +149,26 @@ export function registerChatSocket(io: Server, socket: Socket) {
   })
 
   socket.on('abort', (data: { session_id?: string }) => {
-    if (data.session_id) {
-      approvalRegistry.cancelSession(data.session_id)
-      abortSession(data.session_id)
+    if (!data.session_id) return
+    approvalRegistry.cancelSession(data.session_id)
+    const inMemoryAccepted = abortSession(data.session_id)
+    // A stuck run (e.g. awaiting_approval with no live coordinator entry)
+    // can't be aborted in-memory. Force it terminal at the DB level and
+    // broadcast the terminal event so the client leaves the streaming state.
+    // The event is already persisted by forceCancelRun — emit straight to the
+    // socket instead of re-appending (re-append would be rejected as a second
+    // terminal event and never reach the client).
+    for (const { runId, event } of forceCancelSessionRuns(data.session_id)) {
+      const payload = JSON.parse(event.payload)
+      socket.emit(event.type, {
+        ...payload,
+        event_id: event.event_id,
+        session_id: data.session_id,
+        run_id: runId,
+        seq: event.seq,
+        type: event.type,
+        occurred_at: event.created_at,
+      })
     }
   })
 

@@ -24,6 +24,8 @@ import { getDb, closeDb } from './db/schema.js'
 import { init as initTools } from './tools/registry.js'
 import { startEventScheduler, stopEventScheduler } from './event/event-scheduler.js'
 import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
+import { runStore } from './agent/runtime/run-store.js'
+import { forceCancelSessionRuns } from './agent/runtime/run-event-store.js'
 
 export interface StartServerOptions {
   host?: string
@@ -155,6 +157,26 @@ export async function startTianshuServer(
     await initTools()
   } catch (err) {
     console.error('[registry] Tool init failed:', err)
+  }
+  // Reclaim orphaned runs left behind by a previous process. Approval/ask
+  // waits live only in-memory, so after a restart any run still parked in
+  // awaiting_approval/awaiting_input/paused is dead: without this sweep the
+  // client would keep showing the session as "working" forever.
+  {
+    const db = getDb()
+    const orphaned = db.prepare(`
+      SELECT session_id FROM runs
+      WHERE status IN ('awaiting_approval','awaiting_input','paused')
+    `).all() as Array<{ session_id: string }>
+    const reclaimed = new Set<string>()
+    for (const row of orphaned) {
+      if (reclaimed.has(row.session_id)) continue
+      reclaimed.add(row.session_id)
+      const cancelled = forceCancelSessionRuns(row.session_id, 'orphaned_after_restart')
+      if (cancelled.length > 0) {
+        console.log(`[startup] reclaimed ${cancelled.length} orphaned run(s) for session ${row.session_id}`)
+      }
+    }
   }
 
   const app = new Hono()

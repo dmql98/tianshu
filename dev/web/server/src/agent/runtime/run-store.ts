@@ -48,9 +48,18 @@ const ALLOWED_TRANSITIONS: Record<RunStatus, ReadonlySet<RunStatus>> = {
     'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
   ]),
   cancelling: new Set(['cancelled', 'failed', 'interrupted']),
-  awaiting_approval: new Set(['queued', 'cancelling', 'cancelled', 'failed', 'interrupted']),
-  awaiting_input: new Set(['queued', 'cancelling', 'cancelled', 'failed', 'interrupted']),
-  paused: new Set(['queued', 'cancelling', 'cancelled', 'failed', 'interrupted']),
+  awaiting_approval: new Set([
+    'queued', 'cancelling', 'cancelled', 'failed', 'interrupted',
+    'completed', 'max_turns', 'budget_exhausted',
+  ]),
+  awaiting_input: new Set([
+    'queued', 'cancelling', 'cancelled', 'failed', 'interrupted',
+    'completed', 'max_turns', 'budget_exhausted',
+  ]),
+  paused: new Set([
+    'queued', 'cancelling', 'cancelled', 'failed', 'interrupted',
+    'completed', 'max_turns', 'budget_exhausted',
+  ]),
   completed: new Set(),
   failed: new Set(),
   cancelled: new Set(),
@@ -61,6 +70,11 @@ const ALLOWED_TRANSITIONS: Record<RunStatus, ReadonlySet<RunStatus>> = {
 
 export function canTransitionRun(from: RunStatus, to: RunStatus): boolean {
   return ALLOWED_TRANSITIONS[from].has(to)
+}
+
+/** Waiting-on-human states: approval prompt, ask-user input, or manual pause. */
+export function isParked(status: RunStatus): boolean {
+  return status === 'awaiting_approval' || status === 'awaiting_input' || status === 'paused'
 }
 
 export const runStore = {

@@ -1,13 +1,21 @@
 export type FontFamilyId = 'wenkai' | 'system-sans' | 'system-serif' | 'monospace'
 
+export type TextColorMode = 'theme' | 'custom'
+
 export interface DisplayPreferences {
   fontFamily: FontFamilyId
   fontScale: number
+  /**
+   * 'theme'：文字颜色由当前主题控制（深色主题下自动使用浅色文字），不写 --ink-*；
+   * 'custom'：用户显式自定义文字颜色，覆盖主题文字层级。
+   */
+  textColorMode: TextColorMode
+  /** custom 模式下的文字颜色；theme 模式下保留但不生效。 */
   textColor: string
 }
 
 interface StoredDisplayPreferences extends DisplayPreferences {
-  version: 1
+  version: 2
 }
 
 export const DISPLAY_PREFERENCES_STORAGE_KEY = 'tianshu:displayPreferences'
@@ -19,9 +27,13 @@ export const FONT_FAMILIES: Record<FontFamilyId, string> = {
   monospace: 'Consolas,"Cascadia Code","SFMono-Regular","Courier New",monospace',
 }
 
+/** v1 默认文字色（浅色棕）。v1 -> v2 迁移时：等于该值视为未自定义 -> theme 模式。 */
+export const LEGACY_DEFAULT_TEXT_COLOR = '#2c2418'
+
 export const DEFAULT_DISPLAY_PREFERENCES: DisplayPreferences = {
   fontFamily: 'wenkai',
   fontScale: 100,
+  textColorMode: 'theme',
   textColor: '#2c2418',
 }
 
@@ -39,12 +51,20 @@ export function normalizeDisplayPreferences(value: unknown): DisplayPreferences 
   const fontScale = typeof candidate.fontScale === 'number' && Number.isFinite(candidate.fontScale)
     ? Math.round(candidate.fontScale)
     : DEFAULT_DISPLAY_PREFERENCES.fontScale
+  // v1 存储没有 textColorMode：textColor 为有效非默认值视为用户自定义过
+  const legacyCustom = candidate.textColorMode === undefined
+    && isValidHexColor(candidate.textColor)
+    && candidate.textColor.toLowerCase() !== LEGACY_DEFAULT_TEXT_COLOR
+  const textColorMode: TextColorMode = legacyCustom || candidate.textColorMode === 'custom'
+    ? 'custom'
+    : 'theme'
 
   return {
     fontFamily: typeof candidate.fontFamily === 'string' && FONT_FAMILY_IDS.has(candidate.fontFamily as FontFamilyId)
       ? candidate.fontFamily as FontFamilyId
       : DEFAULT_DISPLAY_PREFERENCES.fontFamily,
     fontScale: Math.min(140, Math.max(80, fontScale)),
+    textColorMode,
     textColor: isValidHexColor(candidate.textColor)
       ? candidate.textColor.toLowerCase()
       : DEFAULT_DISPLAY_PREFERENCES.textColor,
@@ -71,7 +91,7 @@ export function saveDisplayPreferences(
 ): DisplayPreferences {
   const normalized = normalizeDisplayPreferences(preferences)
   if (storage) {
-    const stored: StoredDisplayPreferences = { version: 1, ...normalized }
+    const stored: StoredDisplayPreferences = { version: 2, ...normalized }
     storage.setItem(DISPLAY_PREFERENCES_STORAGE_KEY, JSON.stringify(stored))
   }
   return normalized
@@ -104,14 +124,24 @@ export function applyDisplayPreferences(
   const normalized = normalizeDisplayPreferences(preferences)
   if (!root) return normalized
 
-  const colors = deriveTextColors(normalized.textColor)
-  root.style.setProperty('--ui-font-family', FONT_FAMILIES[normalized.fontFamily])
-  root.style.setProperty('--ui-font-scale', String(normalized.fontScale / 100))
-  root.style.setProperty('--ui-text-color', normalized.textColor)
-  root.style.setProperty('--ink-deep', colors.deep)
-  root.style.setProperty('--ink-mid', colors.mid)
-  root.style.setProperty('--ink-light', colors.light)
-  root.style.setProperty('--ink-faint', colors.faint)
+  const style = root.style
+  style.setProperty('--ui-font-family', FONT_FAMILIES[normalized.fontFamily])
+  style.setProperty('--ui-font-scale', String(normalized.fontScale / 100))
+  style.setProperty('--ui-text-color', normalized.textColor)
+
+  if (normalized.textColorMode === 'custom') {
+    const colors = deriveTextColors(normalized.textColor)
+    style.setProperty('--ink-deep', colors.deep)
+    style.setProperty('--ink-mid', colors.mid)
+    style.setProperty('--ink-light', colors.light)
+    style.setProperty('--ink-faint', colors.faint)
+  } else {
+    // theme 模式：移除内联覆盖，由当前主题的 CSS 变量控制文字层级
+    style.removeProperty('--ink-deep')
+    style.removeProperty('--ink-mid')
+    style.removeProperty('--ink-light')
+    style.removeProperty('--ink-faint')
+  }
   return normalized
 }
 
