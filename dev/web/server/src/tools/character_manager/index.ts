@@ -105,7 +105,7 @@ export const tool: ToolModule = {
       },
       maxSteps: {
         type: 'string',
-        description: 'Maximum turns per session (default: "10").',
+        description: 'Maximum turns per session (default: "50").',
       },
       provider: {
         type: 'string',
@@ -163,7 +163,7 @@ export const tool: ToolModule = {
       const groups = args.groups
         ? args.groups.split(',').map(g => g.trim()).filter(Boolean)
         : undefined
-      const maxSteps = args.maxSteps ? parseInt(args.maxSteps, 10) || 10 : 10
+      const maxSteps = args.maxSteps ? parseInt(args.maxSteps, 10) || 50 : 50
 
       const record = characterMetaStore.create({
         name: args.name,
@@ -208,7 +208,7 @@ export const tool: ToolModule = {
       if (args.color !== undefined) patch.color = args.color || undefined
       if (args.role !== undefined) patch.role = args.role
       if (args.default_strategy !== undefined) patch.default_strategy = normalizeStrategy(args.default_strategy, 'Ask Risky')
-      if (args.maxSteps !== undefined) patch.maxSteps = parseInt(args.maxSteps) || 10
+      if (args.maxSteps !== undefined) patch.maxSteps = parseInt(args.maxSteps) || 50
       if (args.provider !== undefined) patch.provider = args.provider || undefined
       if (args.model !== undefined) patch.model = args.model || undefined
       if ((args.tools !== undefined || args.tools_json !== undefined) && args.tools_mode !== 'replace') {

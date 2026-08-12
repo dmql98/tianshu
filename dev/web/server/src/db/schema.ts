@@ -193,7 +193,7 @@ export function getDb(): Database.Database {
       approval_mode TEXT NOT NULL,
       execution_mode TEXT NOT NULL,
       turn_no INTEGER NOT NULL DEFAULT 0,
-      max_turns INTEGER NOT NULL DEFAULT 20,
+      max_turns INTEGER NOT NULL DEFAULT 50,
       usage TEXT,
       result TEXT,
       error TEXT,

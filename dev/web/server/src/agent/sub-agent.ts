@@ -205,7 +205,7 @@ export async function spawnAndRunSubAgent(
           context_window: 0,
         })
         let last: InnerResult | null = null
-        const maxTurns = Math.max(1, targetChar.maxSteps || 20)
+        const maxTurns = Math.max(1, targetChar.maxSteps || 50)
         for (let childTurn = 1; childTurn <= maxTurns && !childSignal.aborted; childTurn++) {
           last = await innerLoop(
             messages,

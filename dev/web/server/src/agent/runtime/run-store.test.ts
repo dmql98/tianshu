@@ -65,7 +65,7 @@ try {
     const run1 = runStore.create(session)
     assert(run1.character_revision_id === `rev_${charId}_1`, 'run1 fixed to current revision')
     assert(/^[0-9a-f]{64}$/.test(run1.character_snapshot_hash), 'snapshot hash is sha256 hex')
-    assert(run1.status === 'queued' && run1.source === 'chat' && run1.max_turns === 20, 'default run fields')
+    assert(run1.status === 'queued' && run1.source === 'chat' && run1.max_turns === 50, 'default run fields')
 
     publishRevision(charId, `rev_${charId}_2`, 2)
     const run2 = runStore.create(session)

@@ -134,7 +134,17 @@ export const characterRevisionStore = {
     const definition = this.getDefinition(characterId)
     if (definition?.current_revision_id) {
       const current = this.getRevision(definition.current_revision_id)
-      if (current) return current
+      if (current) {
+        // The revision snapshot is taken at publish time; the live character
+        // definition/content may have changed since (edited via the file,
+        // character_manager tool, or HTTP API). Recompute the hash and publish
+        // a new revision when stale so follow_latest runs pick up the change
+        // (e.g. maxSteps) instead of forever pinning an old snapshot.
+        const fresh = stableJson(makeSnapshot(characterId))
+        const freshHash = createHash('sha256').update(fresh).digest('hex')
+        if (current.manifest_hash === freshHash) return current
+        return this.publish(characterId)
+      }
     }
     return this.publish(characterId)
   },

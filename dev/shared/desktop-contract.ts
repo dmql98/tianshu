@@ -45,6 +45,41 @@ export interface UpdateState {
   message?: string
 }
 
+/**
+ * 背景图片信息。桌面端图片落盘于 userData/backgrounds，
+ * 通过 `tianshu-bg://backgrounds/<fileName>` 自定义协议加载。
+ */
+export interface BackgroundImageInfo {
+  /** 稳定文件名，例如 custom-1723456789-a1b2c3.png */
+  fileName: string
+  /** 通过 tianshu-bg:// 协议可加载的 URL */
+  url: string
+  /** 文件大小（字节） */
+  sizeBytes: number
+}
+
+/** 打开图片选择对话框的结果。取消时 canceled 为 true 且无 image。 */
+export interface OpenImageDialogResult {
+  canceled: boolean
+  image?: {
+    /** 用户选择的原始文件名 */
+    fileName: string
+    /** dataURL，用于渲染端即时预览（保存时再由主进程落盘） */
+    dataUrl: string
+    /** 文件大小（字节） */
+    sizeBytes: number
+    /** 校验后的 MIME 类型（image/png | image/jpeg | image/webp） */
+    mimeType: string
+  }
+}
+
+export interface SaveBackgroundImageInput {
+  /** dataURL（image/png | image/jpeg | image/webp） */
+  dataUrl: string
+  /** 原始文件名，仅用于推导扩展名 */
+  originalName: string
+}
+
 export interface TianShuDesktopAPI {
   getAppInfo(): Promise<DesktopAppInfo>
   getServerStatus(): Promise<DesktopServerStatus>
@@ -55,4 +90,10 @@ export interface TianShuDesktopAPI {
   installUpdate(): Promise<void>
   onUpdateState(listener: (state: UpdateState) => void): () => void
   openDirectoryDialog(defaultPath?: string): Promise<string | null>
+  /** 打开图片选择对话框，返回 dataURL 供预览（仅桌面端可用） */
+  openImageDialog(): Promise<OpenImageDialogResult>
+  /** 把 dataURL 图片落盘到 userData/backgrounds，返回可加载 URL */
+  saveBackgroundImage(input: SaveBackgroundImageInput): Promise<BackgroundImageInfo>
+  /** 删除 userData/backgrounds 中的背景图文件 */
+  deleteBackgroundImage(url: string): Promise<boolean>
 }

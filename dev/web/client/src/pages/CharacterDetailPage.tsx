@@ -40,7 +40,7 @@ export default function CharacterDetailPage() {
   const [role, setRole] = useState<Character['role']>('both')
   const [strategy, setStrategy] = useState<Strategy>('Ask Risky')
   const [stepsEnabled, setStepsEnabled] = useState(false)
-  const [maxSteps, setMaxSteps] = useState(10)
+  const [maxSteps, setMaxSteps] = useState(50)
   const [groups, setGroups] = useState<string[]>([])
   const [selfEvolution, setSelfEvolution] = useState(false)
 
@@ -104,7 +104,7 @@ export default function CharacterDetailPage() {
       setRole(c.role || 'both')
       setStrategy(normalizeStrategy(c.default_strategy))
       setStepsEnabled(!!c.maxSteps && c.maxSteps < 999)
-      setMaxSteps(c.maxSteps && c.maxSteps < 999 ? c.maxSteps : 10)
+      setMaxSteps(c.maxSteps && c.maxSteps < 999 ? c.maxSteps : 50)
       setGroups(c.groups ? [...c.groups] : [])
       setSelfEvolution(c.memory?.selfEvolution ?? false)
       setSoul(c.soul ?? '')

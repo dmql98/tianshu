@@ -8,7 +8,7 @@ import { findBestMatch, exactMatch } from './matchers.js'
 
 export const tool: ToolModule = {
   name: 'edit',
-  description: 'Apply an exact-string replacement edit to a file in the workspace. Replaces the first occurrence of oldString with newString. If exact match fails, tries fuzzy fallbacks (line-trimmed, whitespace-normalized, indentation-flexible, context-aware). Set replaceAll to true to replace every occurrence.',
+  description: 'Apply an exact-string replacement edit to a file in the workspace. Replaces the first occurrence of oldString with newString. Falls back to a strict, indentation-preserving fuzzy match only when the exact string is absent. Set replaceAll to true to replace every occurrence.',
   parameters: {
     type: 'object',
     properties: {
@@ -46,17 +46,25 @@ export const tool: ToolModule = {
       return { output: `Replaced all occurrences of oldString in ${p}` }
     }
 
-    // Try exact first, then fuzzy cascade
+    // Exact match only by default. Fuzzy fallbacks are strict (single-line
+    // whitespace normalization; multi-line context with indentation preserved
+    // and uniqueness required) and never match a non-unique region.
     const exact = exactMatch(content, oldString)
     const found = exact ? { result: exact, method: 'exact' as const } : findBestMatch(content, oldString)
 
     if (!found) {
-      return { output: '', error: `oldString not found in file. Edit failed — the text to replace doesn't match any part of the file, even with fuzzy comparison.` }
+      return { output: '', error: `oldString not found in file. Edit failed — no exact or strict-fuzzy match exists. Re-read the file and provide the exact text to replace.` }
+    }
+
+    // Guard against ambiguous fuzzy matches.
+    if (found.method !== 'exact' && found.result.length === 0) {
+      return { output: '', error: `oldString matched ambiguously (${found.detail || 'multiple regions'}). Re-read the file and include more surrounding context for a unique exact match.` }
     }
 
     const isFuzzy = found.method !== 'exact'
     const newContent = content.slice(0, found.result.index) + newString + content.slice(found.result.index + found.result.length)
     writeFileSync(fullPath, newContent, 'utf-8')
-    return { output: `Applied edit at position ${found.result.index} in ${p}${isFuzzy ? ` (matched via ${found.method})` : ''} (${oldString.length} chars replaced with ${newString.length} chars)` }
+    const fuzzyNote = isFuzzy ? ` (matched via ${found.method}${found.detail ? `: ${found.detail}` : ''})` : ''
+    return { output: `Applied edit at position ${found.result.index} in ${p}${fuzzyNote} (${oldString.length} chars replaced with ${newString.length} chars)` }
   },
 }

@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
 cd /d "%~dp0"
@@ -16,6 +16,18 @@ rem  Verify the release matching desktop/package.json:
 rem    publish-release.bat --verify
 rem ============================================================
 
+call :main %*
+set "EXIT_CODE=%errorlevel%"
+echo.
+if "%EXIT_CODE%"=="0" (
+  echo 完成，按任意键关闭窗口...
+) else (
+  echo 出错（错误码 %EXIT_CODE%），按任意键关闭窗口...
+)
+pause >nul
+exit /b %EXIT_CODE%
+
+:main
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
   echo [错误] 当前目录不是 Git 仓库。
@@ -188,7 +200,6 @@ echo  v!VERSION! 已推送，GitHub Actions 正在构建 Release。
 echo  进度：https://github.com/dmql98/tianshu/actions
 echo  完成后校验：publish-release.bat --verify
 echo ============================================================
-endlocal
 exit /b 0
 
 :read_current_version

@@ -5,7 +5,7 @@ import type { LLMMessage } from '../../llm/client.js'
  * Pure helpers migrated from agent/outer.ts.
  */
 
-export const DEFAULT_MAX_TURNS = 20
+export const DEFAULT_MAX_TURNS = 50
 export const DEFAULT_CONTEXT_WINDOW = 200000
 
 export const SOFT_COMPACT_RATIO = 0.5

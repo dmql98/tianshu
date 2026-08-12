@@ -113,7 +113,7 @@ export const runStore = {
       approval_mode: session.approval_mode || session.current_strategy || 'Ask Risky',
       execution_mode: session.execution_mode || 'direct',
       turn_no: 0,
-      max_turns: input.maxTurns || 20,
+      max_turns: input.maxTurns || 50,
       usage: null,
       result: null,
       error: null,
