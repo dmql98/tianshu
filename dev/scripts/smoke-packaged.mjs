@@ -1,22 +1,24 @@
 /**
- * smoke-packaged.mjs <nodeExe> <stagingServer> <clientDist>
+ * smoke-packaged.mjs <nodeExe> <stagingServer> <clientDist> [builtinContentDir]
  *
  * Verifies the packaged runtime with the bundled portable Node:
  *   1. Node version is the pinned runtime.
  *   2. better-sqlite3 loads under the bundled Node (native ABI check).
  *   3. The compiled server starts, serves /health, serves the SPA index, and
  *      shuts down cleanly via the shutdown IPC message.
+ *   4. (builtin) The packaged content/builtin is readable at the resources
+ *      path, the manifest is valid, and the API returns builtin content.
  *
  * Exits non-zero on any failure.
  */
 import { spawnSync, fork } from 'child_process'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, rmSync, readFileSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-const [nodeExe, stagingServer, clientDist] = process.argv.slice(2)
+const [nodeExe, stagingServer, clientDist, builtinContentDir] = process.argv.slice(2)
 if (!nodeExe || !stagingServer || !clientDist) {
-  console.error('usage: node smoke-packaged.mjs <nodeExe> <stagingServer> <clientDist>')
+  console.error('usage: node smoke-packaged.mjs <nodeExe> <stagingServer> <clientDist> [builtinContentDir]')
   process.exit(1)
 }
 
@@ -51,6 +53,7 @@ const child = fork(join(stagingServer, 'dist', 'index.js'), [], {
     TIANSHU_CLIENT_DIST: clientDist,
     TIANSHU_CONFIG_DIR: dataDir,
     TIANSHU_DEFAULT_DATA_DIR: join(dataDir, 'data'),
+    ...(builtinContentDir ? { TIANSHU_BUILTIN_CONTENT_DIR: builtinContentDir } : {}),
   },
   stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
 })
@@ -74,6 +77,25 @@ child.on('message', async (msg) => {
       const index = await fetch(`http://127.0.0.1:${port}/`)
       if (index.status !== 200) fail(`/ returned ${index.status}`)
       console.log('[smoke] SPA index 200')
+
+      if (builtinContentDir) {
+        // 4. builtin 发行层在打包路径可读且 API 返回内置内容
+        const manifestPath = join(builtinContentDir, 'manifest.json')
+        if (!existsSync(manifestPath)) fail(`builtin manifest missing at ${manifestPath}`)
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+        if (manifest.schemaVersion !== 1) fail(`builtin manifest schemaVersion=${manifest.schemaVersion}`)
+        console.log(`[smoke] builtin manifest OK (contentVersion=${manifest.contentVersion})`)
+
+        const chars = await (await fetch(`http://127.0.0.1:${port}/api/characters`)).json()
+        const builtinChars = (chars || []).filter(c => c.source === 'builtin')
+        if (builtinChars.length === 0) fail('no builtin characters returned by the API')
+        console.log(`[smoke] builtin characters via API: ${builtinChars.map(c => c.id).join(', ')}`)
+
+        const skills = await (await fetch(`http://127.0.0.1:${port}/api/skills/packages`)).json()
+        const builtinSkills = (skills.packages || []).filter(p => p.source === 'builtin')
+        if (builtinSkills.length === 0) fail('no builtin skills returned by the API')
+        console.log(`[smoke] builtin skills via API: ${builtinSkills.map(p => p.id).join(', ')}`)
+      }
 
       const shutdown = await new Promise((resolveExit) => {
         child.send({ type: 'shutdown' })

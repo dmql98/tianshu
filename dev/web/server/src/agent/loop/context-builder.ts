@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { getDataDir } from '../../config.js'
+import { builtinPromptsRoot } from '../../content/paths.js'
 import { characterMetaStore, type CharacterRecord } from '../../db/characterStore.js'
 import { characterContentStore } from '../../character/store.js'
 import { buildSkillIndex } from '../skill-loader.js'
@@ -16,7 +17,8 @@ import type { MessageRow } from '../../db/messageStore.js'
  * agent/outer.ts.
  */
 
-const DEFAULT_PROMPT_FILE = () => resolve(getDataDir(), 'prompts', 'default.md')
+const USER_DEFAULT_PROMPT_FILE = () => resolve(getDataDir(), 'prompts', 'default.md')
+const BUILTIN_DEFAULT_PROMPT_FILE = () => resolve(builtinPromptsRoot(), 'default.md')
 
 export function resolveWorkspace(ws: string | null | undefined): string {
   return ws || getDataDir()
@@ -35,14 +37,14 @@ export function resolveDataspace(ds: string | null | undefined): string | undefi
 }
 
 export function loadPromptTemplate(charId: string): string {
-  // Per-character prompt overrides default
+  // 优先角色自定义 prompt.md → 用户默认提示词 → 内置只读默认（content/builtin）。
   const charPrompt = resolve(getDataDir(), 'characters', charId, 'prompt.md')
-  const file = existsSync(charPrompt) ? charPrompt : DEFAULT_PROMPT_FILE()
-  try {
-    return readFileSync(file, 'utf-8')
-  } catch {
-    return '## System Prompt\n\n{{GUIDANCE}}'
+  for (const file of [charPrompt, USER_DEFAULT_PROMPT_FILE(), BUILTIN_DEFAULT_PROMPT_FILE()]) {
+    if (existsSync(file)) {
+      try { return readFileSync(file, 'utf-8') } catch { /* try next */ }
+    }
   }
+  return '## System Prompt\n\n{{GUIDANCE}}'
 }
 
 export function assembleStaticPrompt(

@@ -132,6 +132,12 @@ export class ServerManager {
         TIANSHU_CLIENT_DIST: this.opts.clientDist,
         TIANSHU_CONFIG_DIR: this.opts.userDataDir,
         TIANSHU_DEFAULT_DATA_DIR: join(this.opts.userDataDir, 'data'),
+        // 只读内置内容根（content/builtin → resources/content/builtin）。
+        // resourcesPath 只在 Electron 运行时存在；测试环境回退到用户数据目录
+        // 下的 content/builtin（不存在时 server 使用仓库根定位）。
+        TIANSHU_BUILTIN_CONTENT_DIR: process.resourcesPath
+          ? join(process.resourcesPath, 'content', 'builtin')
+          : join(this.opts.userDataDir, 'content', 'builtin'),
       }
 
       this.emit({ phase: 'starting' })

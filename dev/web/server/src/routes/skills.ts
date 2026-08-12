@@ -6,12 +6,16 @@ import {
   resolvePackageFile,
   resolveSkillReference,
   skillFileLanguage,
+  ensureSkillPackageWritable,
+  restoreBuiltinSkill,
+  type SkillPackageRecord,
 } from '../agent/skill-catalog.js'
 import { createSkillPackage } from '../agent/skill-package-writer.js'
+import { setHidden, readContentState } from '../content/state.js'
 
 const router = new Hono()
 
-function packageJson(pkg: ReturnType<typeof listSkillPackages>[number], includeBody = false) {
+function packageJson(pkg: SkillPackageRecord, includeBody = false) {
   return {
     id: pkg.id,
     name: pkg.name,
@@ -24,9 +28,18 @@ function packageJson(pkg: ReturnType<typeof listSkillPackages>[number], includeB
     childCount: pkg.children.length,
     children: pkg.children,
     files: pkg.files,
+    source: pkg.source,
+    readOnly: pkg.readOnly,
+    overridesBuiltin: pkg.overridesBuiltin,
+    ...(pkg.builtinVersion ? { builtinVersion: pkg.builtinVersion } : {}),
     ...(includeBody ? { body: pkg.rootBody } : {}),
   }
 }
+
+/** 内容层状态：隐藏列表与 lastSeenBuiltinVersion（管理接口）。 */
+router.get('/content-state', (c) => {
+  return c.json(readContentState())
+})
 
 router.get('/packages', (c) => {
   const packages = listSkillPackages().map(pkg => packageJson(pkg))
@@ -115,6 +128,52 @@ router.get('/packages/:category/:packageId/skills/:skillId/file/*', (c) => {
   } catch (error: any) {
     return c.json({ error: error.message }, 400)
   }
+})
+
+/**
+ * 编辑内置技能：先物化用户副本（copy-on-write），再返回可写副本记录。
+ * 后续编辑写操作由技能工作台走用户副本目录。
+ */
+router.post('/packages/:category/:packageId/materialize', (c) => {
+  const { category, packageId } = c.req.param()
+  try {
+    const pkg = ensureSkillPackageWritable(category, packageId)
+    return c.json(packageJson(pkg, true))
+  } catch (error: any) {
+    return c.json({ error: error.message }, error.message.includes('not found') ? 404 : 400)
+  }
+})
+
+/** 隐藏内置技能（普通列表不再返回）。 */
+router.post('/packages/:category/:packageId/hide', (c) => {
+  const { packageId } = c.req.param()
+  const pkg = findSkillPackage(packageId, c.req.param('category'))
+  if (!pkg) return c.json({ error: 'Skill package not found' }, 404)
+  if (pkg.source !== 'builtin') return c.json({ error: 'Only builtin skills can be hidden' }, 400)
+  setHidden('skills', packageId, true)
+  return c.json({ ok: true, hidden: true })
+})
+
+/** 取消隐藏内置技能。 */
+router.post('/packages/:category/:packageId/unhide', (c) => {
+  const { category, packageId } = c.req.param()
+  const pkg = findSkillPackage(packageId, category)
+  if (!pkg) return c.json({ error: 'Skill package not found' }, 404)
+  setHidden('skills', packageId, false)
+  return c.json({ ok: true, hidden: false })
+})
+
+/** 恢复内置版本：删除用户副本目录，重新显示当前内置版本。 */
+router.post('/packages/:category/:packageId/restore-builtin', (c) => {
+  const { category, packageId } = c.req.param()
+  const pkg = findSkillPackage(packageId, category)
+  if (!pkg) return c.json({ error: 'Skill package not found' }, 404)
+  if (pkg.source !== 'user' || !pkg.overridesBuiltin) {
+    return c.json({ error: 'Skill has no user copy to restore' }, 400)
+  }
+  restoreBuiltinSkill(category, packageId)
+  setHidden('skills', packageId, false)
+  return c.json({ ok: true, restored: true, source: 'builtin' })
 })
 
 export default router

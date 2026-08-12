@@ -1,20 +1,65 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { resolve } from 'path'
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'fs'
+import { resolve, dirname, basename } from 'path'
+import { randomUUID } from 'crypto'
 import type { ToolModule } from '../types.js'
-import { assertPathSafe, findFirstOccurrence, replaceAllOccurrences } from '../utils.js'
+import { assertPathSafe } from '../utils.js'
 import { z } from 'zod'
 import { validate } from '../validate.js'
-import { findBestMatch, exactMatch } from './matchers.js'
+import { replace } from './matchers.js'
+
+const BOM = '\uFEFF'
+
+function hasBOM(content: string): boolean {
+  return content.length > 0 && content.charCodeAt(0) === 0xFEFF
+}
+
+function stripBOM(content: string): string {
+  return hasBOM(content) ? content.slice(1) : content
+}
+
+// ---------- Line-ending handling (mirrors opencode edit.ts) ----------
+// Matching happens against the file bytes as-is; only the incoming
+// oldString/newString are converted to the file's line ending so a model
+// typing LF in a CRLF file still matches. Offsets therefore always stay
+// correct — the historical CRLF-offset corruption cannot recur.
+
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, '\n')
+}
+
+function detectLineEnding(text: string): '\n' | '\r\n' {
+  return text.includes('\r\n') ? '\r\n' : '\n'
+}
+
+function convertToLineEnding(text: string, ending: '\n' | '\r\n'): string {
+  if (ending === '\n') return text
+  return text.replace(/\n/g, '\r\n')
+}
+
+// ---------- Per-file lock ----------
+// Multiple sessions/agents share one server process. Two concurrent
+// read-modify-write cycles on the same file must not interleave, or one edit
+// silently overwrites the other. Serialize edits per resolved path.
+const locks = new Map<string, Promise<unknown>>()
+
+function withFileLock<T>(filePath: string, fn: () => Promise<T> | T): Promise<T> {
+  const prev = locks.get(filePath) ?? Promise.resolve()
+  const run = prev.then(async () => fn())
+  // Swallow the stored promise's rejection so a failed edit never deadlocks
+  // later edits to the same file; callers still see the real rejection.
+  locks.set(filePath, run.catch(() => {}))
+  return run
+}
 
 export const tool: ToolModule = {
   name: 'edit',
-  description: 'Apply an exact-string replacement edit to a file in the workspace. Replaces the first occurrence of oldString with newString. Falls back to a strict, indentation-preserving fuzzy match only when the exact string is absent. Set replaceAll to true to replace every occurrence.',
+  description: 'Apply a string-replacement edit to a file in the workspace. Tries an exact match first, then progressively more tolerant matching (line-trimmed, block-anchor, whitespace-normalized, indentation-flexible, escape-normalized, trimmed-boundary, context-aware) so stale/whitespace-drifted oldStrings still resolve. Always replaces a real block in the file, preserves the file\'s line endings and UTF-8 BOM, refuses ambiguous or disproportionate matches, and serializes concurrent edits to the same file. Set replaceAll to true to replace every occurrence.',
   parameters: {
     type: 'object',
     properties: {
       path: { type: 'string', description: 'Path relative to workspace' },
-      oldString: { type: 'string', description: 'The exact text to search for (include enough surrounding context for a unique match)' },
-      newString: { type: 'string', description: 'The replacement text' },
+      oldString: { type: 'string', description: 'The text to search for (copy it exactly from the file — indentation and line endings are normalized for matching, so drift is tolerated). Provide enough surrounding context for a unique match.' },
+      newString: { type: 'string', description: 'The replacement text (must be different from oldString)' },
       replaceAll: { type: 'boolean', description: 'Replace all occurrences instead of just the first (optional)' },
     },
     required: ['path', 'oldString', 'newString'],
@@ -31,40 +76,60 @@ export const tool: ToolModule = {
       args, 'edit',
     )
 
+    if (input.oldString === input.newString) {
+      return { output: '', error: 'No changes to apply: oldString and newString are identical.' }
+    }
+
     const p = input.path
     assertPathSafe(p, workspaces ?? [workspace], allowedRoots)
     const fullPath = resolve(workspace, p)
-    if (!existsSync(fullPath)) return { output: '', error: `File not found: ${p}` }
-    const content = readFileSync(fullPath, 'utf-8')
-    const oldString = input.oldString
-    const newString = input.newString
     const replaceAll = input.replaceAll === 'true'
 
-    if (replaceAll) {
-      if (findFirstOccurrence(content, oldString) === -1) return { output: '', error: 'oldString not found in file (replaceAll only supports exact match)' }
-      writeFileSync(fullPath, replaceAllOccurrences(content, oldString, newString), 'utf-8')
-      return { output: `Replaced all occurrences of oldString in ${p}` }
-    }
+    return withFileLock(fullPath, () => {
+      if (!existsSync(fullPath)) return { output: '', error: `File not found: ${p}` }
+      if (statSync(fullPath).isDirectory()) return { output: '', error: `Path is a directory, not a file: ${p}` }
 
-    // Exact match only by default. Fuzzy fallbacks are strict (single-line
-    // whitespace normalization; multi-line context with indentation preserved
-    // and uniqueness required) and never match a non-unique region.
-    const exact = exactMatch(content, oldString)
-    const found = exact ? { result: exact, method: 'exact' as const } : findBestMatch(content, oldString)
+      const raw = readFileSync(fullPath, 'utf-8')
+      const desiredBom = hasBOM(raw)
+      const content = stripBOM(raw)
+      const ending = detectLineEnding(content)
 
-    if (!found) {
-      return { output: '', error: `oldString not found in file. Edit failed — no exact or strict-fuzzy match exists. Re-read the file and provide the exact text to replace.` }
-    }
+      // Convert the model's strings to the file's line ending so matching
+      // works whether the file is LF or CRLF.
+      const old = convertToLineEnding(normalizeLineEndings(input.oldString), ending)
+      const replacement = convertToLineEnding(normalizeLineEndings(input.newString), ending)
 
-    // Guard against ambiguous fuzzy matches.
-    if (found.method !== 'exact' && found.result.length === 0) {
-      return { output: '', error: `oldString matched ambiguously (${found.detail || 'multiple regions'}). Re-read the file and include more surrounding context for a unique exact match.` }
-    }
+      let result: ReturnType<typeof replace>
+      try {
+        result = replace(content, old, replacement, replaceAll)
+      } catch (err: any) {
+        return { output: '', error: err?.message || String(err) }
+      }
 
-    const isFuzzy = found.method !== 'exact'
-    const newContent = content.slice(0, found.result.index) + newString + content.slice(found.result.index + found.result.length)
-    writeFileSync(fullPath, newContent, 'utf-8')
-    const fuzzyNote = isFuzzy ? ` (matched via ${found.method}${found.detail ? `: ${found.detail}` : ''})` : ''
-    return { output: `Applied edit at position ${found.result.index} in ${p}${fuzzyNote} (${oldString.length} chars replaced with ${newString.length} chars)` }
+      if (result.next === content) {
+        return { output: '', error: 'No changes to apply: oldString and newString are identical.' }
+      }
+
+      const target = (desiredBom ? BOM : '') + result.next
+
+      // Atomic replace: write to a temp file in the same directory, then rename.
+      const parent = dirname(fullPath)
+      mkdirSync(parent, { recursive: true })
+      const temp = resolve(parent, `.${basename(fullPath)}.${randomUUID()}.tmp`)
+      writeFileSync(temp, target, 'utf-8')
+      renameSync(temp, fullPath)
+
+      const fuzzyNote = result.method === 'exact' ? '' : ` (matched via ${result.method})`
+      const allNote = result.count > 1 ? ` (${result.count} occurrences)` : ''
+      return {
+        output: `Applied edit at position ${result.index} in ${p}${allNote}${fuzzyNote} (${result.length} chars replaced with ${replacement.length} chars)`,
+        metadata: {
+          path: p,
+          bytes: Buffer.byteLength(target, 'utf-8'),
+          method: result.method,
+          count: result.count,
+        },
+      }
+    })
   },
 }

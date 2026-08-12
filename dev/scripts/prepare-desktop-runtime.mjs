@@ -153,6 +153,14 @@ async function prepareRuntime() {
   if (!existsSync(clientDist)) throw new Error('web/client/dist missing — run npm run build:client first')
   cpSync(clientDist, join(stagingDir, 'client'), { recursive: true })
 
+  // ── 5.1 stage builtin content (content/builtin → resources/content/builtin) ──
+  const builtinContent = join(devRoot, 'content', 'builtin')
+  if (!existsSync(join(builtinContent, 'manifest.json'))) {
+    throw new Error('content/builtin/manifest.json missing — run the builtin content build/validation first')
+  }
+  cpSync(builtinContent, join(stagingDir, 'content', 'builtin'), { recursive: true })
+  log('staged content/builtin -> staging/content/builtin')
+
   const serverDir = join(devRoot, 'web', 'server')
   const serverDist = join(serverDir, 'dist')
   if (!existsSync(serverDist)) throw new Error('web/server/dist missing — run npm run build:server first')
@@ -176,7 +184,13 @@ async function prepareRuntime() {
 
   // ── 7. smoke test with the bundled Node ───────────────────────────────────
   const nodeExe = join(nodeDir, 'node.exe')
-  run(process.execPath, ['scripts/smoke-packaged.mjs', nodeExe, stagingServer, join(stagingDir, 'client')], {
+  run(process.execPath, [
+    'scripts/smoke-packaged.mjs',
+    nodeExe,
+    stagingServer,
+    join(stagingDir, 'client'),
+    join(stagingDir, 'content', 'builtin'),
+  ], {
     cwd: devRoot,
   })
 

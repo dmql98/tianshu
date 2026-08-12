@@ -1,139 +1,543 @@
-export interface MatchResult {
+// Matching + replacement engine for the `edit` tool.
+//
+// Ported from opencode's edit tool (packages/opencode/src/tool/edit.ts):
+//   - https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-23-25.ts
+//   - https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/editCorrector.ts
+//   - https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-26-25.ts
+//
+// Safety invariants that make permissive matching safe (these are what let the
+// historical TianShu corruption class stay dead while still tolerating the
+// stale-oldString and whitespace drift models actually produce):
+//   - Every replacer yields a span that is a REAL substring of `content` (never
+//     a synthetic reconstruction), so a replacement can only ever swap an
+//     actual block of the file — offsets are always correct, even with CRLF.
+//   - A replacement only applies when the found span is unique in the file
+//     (unless replaceAll); an ambiguous oldString is refused, never guessed.
+//   - `isDisproportionateMatch` refuses to swap a span far larger than the
+//     oldString the model claimed to target.
+
+export type Replacer = (content: string, find: string) => Generator<string, void, unknown>
+
+export interface ReplaceResult {
+  /** The fully-replaced content (ready to write back with the original BOM). */
+  next: string
+  /** Position of the first replaced span. */
   index: number
+  /** Length of the matched span that was replaced. */
   length: number
-}
-
-export interface ResolvedMatch {
-  result: MatchResult
+  /** Number of spans replaced (1 unless replaceAll). */
+  count: number
+  /** Which replacer produced the match: 'exact', 'lineTrimmed', ... */
   method: string
-  // For fuzzy matches, describe what differed so the caller can surface it
-  // to the model (which otherwise wrongly assumes an exact match).
-  detail?: string
 }
 
-// Normalize line endings (never changes matching semantics beyond CRLF/LF)
-function normalizeLineEndings(s: string): string {
-  return s.replace(/\r\n/g, '\n')
-}
+// Similarity thresholds for block anchor fallback matching
+const SINGLE_CANDIDATE_SIMILARITY_THRESHOLD = 0.65
+const MULTIPLE_CANDIDATES_SIMILARITY_THRESHOLD = 0.65
 
-// ---------- Level 1: Exact (the only default match) ----------
-export function exactMatch(content: string, oldString: string): MatchResult | null {
-  const idx = content.indexOf(oldString)
-  return idx >= 0 ? { index: idx, length: oldString.length } : null
-}
-
-/** Count exact occurrences of oldString in content. */
-function countExact(content: string, oldString: string): number {
-  if (!oldString) return 0
-  let n = 0
-  let i = content.indexOf(oldString)
-  while (i !== -1) { n++; i = content.indexOf(oldString, i + oldString.length) }
-  return n
-}
-
-// ---------- Context-aware (multi-line, indentation-sensitive, uniqueness-checked) ----------
+/**
+ * Levenshtein distance algorithm implementation
+ */
 function levenshtein(a: string, b: string): number {
-  const m = a.length, n = b.length
-  const dp: number[] = Array(n + 1).fill(0).map((_, i) => i)
-  for (let i = 1; i <= m; i++) {
-    let prev = dp[0]
-    dp[0] = i
-    for (let j = 1; j <= n; j++) {
-      const tmp = dp[j]
-      dp[j] = Math.min(
-        prev + (a[i - 1] === b[j - 1] ? 0 : 1),
-        dp[j] + 1,
-        dp[j - 1] + 1,
-      )
-      prev = tmp
+  // Handle empty strings
+  if (a === '' || b === '') {
+    return Math.max(a.length, b.length)
+  }
+  const matrix = Array.from({ length: a.length + 1 }, (_, i) =>
+    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  )
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost)
     }
   }
-  return dp[n]
+  return matrix[a.length][b.length]
 }
 
-function similarity(a: string, b: string): number {
-  const maxLen = Math.max(a.length, b.length)
-  if (maxLen === 0) return 1
-  return 1 - levenshtein(a, b) / maxLen
+export const SimpleReplacer: Replacer = function* (_content, find) {
+  yield find
+}
+
+export const LineTrimmedReplacer: Replacer = function* (content, find) {
+  const originalLines = content.split('\n')
+  const searchLines = find.split('\n')
+
+  if (searchLines[searchLines.length - 1] === '') {
+    searchLines.pop()
+  }
+
+  for (let i = 0; i <= originalLines.length - searchLines.length; i++) {
+    let matches = true
+
+    for (let j = 0; j < searchLines.length; j++) {
+      const originalTrimmed = originalLines[i + j].trim()
+      const searchTrimmed = searchLines[j].trim()
+
+      if (originalTrimmed !== searchTrimmed) {
+        matches = false
+        break
+      }
+    }
+
+    if (matches) {
+      let matchStartIndex = 0
+      for (let k = 0; k < i; k++) {
+        matchStartIndex += originalLines[k].length + 1
+      }
+
+      let matchEndIndex = matchStartIndex
+      for (let k = 0; k < searchLines.length; k++) {
+        matchEndIndex += originalLines[i + k].length
+        if (k < searchLines.length - 1) {
+          matchEndIndex += 1 // Add newline character except for the last line
+        }
+      }
+
+      yield content.substring(matchStartIndex, matchEndIndex)
+    }
+  }
+}
+
+export const BlockAnchorReplacer: Replacer = function* (content, find) {
+  const originalLines = content.split('\n')
+  const searchLines = find.split('\n')
+
+  if (searchLines.length < 3) {
+    return
+  }
+
+  if (searchLines[searchLines.length - 1] === '') {
+    searchLines.pop()
+  }
+
+  const firstLineSearch = searchLines[0].trim()
+  const lastLineSearch = searchLines[searchLines.length - 1].trim()
+  const searchBlockSize = searchLines.length
+  const maxLineDelta = Math.max(1, Math.floor(searchBlockSize * 0.25))
+
+  // Collect all candidate positions where both anchors match
+  const candidates: Array<{ startLine: number; endLine: number }> = []
+  for (let i = 0; i < originalLines.length; i++) {
+    if (originalLines[i].trim() !== firstLineSearch) {
+      continue
+    }
+
+    // Look for the matching last line after this first line
+    for (let j = i + 2; j < originalLines.length; j++) {
+      if (originalLines[j].trim() === lastLineSearch) {
+        const actualBlockSize = j - i + 1
+        if (Math.abs(actualBlockSize - searchBlockSize) <= maxLineDelta) {
+          candidates.push({ startLine: i, endLine: j })
+        }
+        break // Only match the first occurrence of the last line
+      }
+    }
+  }
+
+  // Return immediately if no candidates
+  if (candidates.length === 0) {
+    return
+  }
+
+  // Handle single candidate scenario (using relaxed threshold)
+  if (candidates.length === 1) {
+    const { startLine, endLine } = candidates[0]
+    const actualBlockSize = endLine - startLine + 1
+
+    let similarity = 0
+    const linesToCheck = Math.min(searchBlockSize - 2, actualBlockSize - 2) // Middle lines only
+
+    if (linesToCheck > 0) {
+      for (let j = 1; j < searchBlockSize - 1 && j < actualBlockSize - 1; j++) {
+        const originalLine = originalLines[startLine + j].trim()
+        const searchLine = searchLines[j].trim()
+        const maxLen = Math.max(originalLine.length, searchLine.length)
+        if (maxLen === 0) {
+          continue
+        }
+        const distance = levenshtein(originalLine, searchLine)
+        similarity += (1 - distance / maxLen) / linesToCheck
+
+        // Exit early when threshold is reached
+        if (similarity >= SINGLE_CANDIDATE_SIMILARITY_THRESHOLD) {
+          break
+        }
+      }
+    } else {
+      // No middle lines to compare, just accept based on anchors
+      similarity = 1.0
+    }
+
+    if (similarity >= SINGLE_CANDIDATE_SIMILARITY_THRESHOLD) {
+      let matchStartIndex = 0
+      for (let k = 0; k < startLine; k++) {
+        matchStartIndex += originalLines[k].length + 1
+      }
+      let matchEndIndex = matchStartIndex
+      for (let k = startLine; k <= endLine; k++) {
+        matchEndIndex += originalLines[k].length
+        if (k < endLine) {
+          matchEndIndex += 1 // Add newline character except for the last line
+        }
+      }
+      yield content.substring(matchStartIndex, matchEndIndex)
+    }
+    return
+  }
+
+  // Calculate similarity for multiple candidates
+  let bestMatch: { startLine: number; endLine: number } | null = null
+  let maxSimilarity = -1
+
+  for (const candidate of candidates) {
+    const { startLine, endLine } = candidate
+    const actualBlockSize = endLine - startLine + 1
+
+    let similarity = 0
+    const linesToCheck = Math.min(searchBlockSize - 2, actualBlockSize - 2) // Middle lines only
+
+    if (linesToCheck > 0) {
+      for (let j = 1; j < searchBlockSize - 1 && j < actualBlockSize - 1; j++) {
+        const originalLine = originalLines[startLine + j].trim()
+        const searchLine = searchLines[j].trim()
+        const maxLen = Math.max(originalLine.length, searchLine.length)
+        if (maxLen === 0) {
+          continue
+        }
+        const distance = levenshtein(originalLine, searchLine)
+        similarity += 1 - distance / maxLen
+      }
+      similarity /= linesToCheck // Average similarity
+    } else {
+      // No middle lines to compare, just accept based on anchors
+      similarity = 1.0
+    }
+
+    if (similarity > maxSimilarity) {
+      maxSimilarity = similarity
+      bestMatch = candidate
+    }
+  }
+
+  // Threshold judgment
+  if (maxSimilarity >= MULTIPLE_CANDIDATES_SIMILARITY_THRESHOLD && bestMatch) {
+    const { startLine, endLine } = bestMatch
+    let matchStartIndex = 0
+    for (let k = 0; k < startLine; k++) {
+      matchStartIndex += originalLines[k].length + 1
+    }
+    let matchEndIndex = matchStartIndex
+    for (let k = startLine; k <= endLine; k++) {
+      matchEndIndex += originalLines[k].length
+      if (k < endLine) {
+        matchEndIndex += 1
+      }
+    }
+    yield content.substring(matchStartIndex, matchEndIndex)
+  }
+}
+
+export const WhitespaceNormalizedReplacer: Replacer = function* (content, find) {
+  const normalizeWhitespace = (text: string) => text.replace(/\s+/g, ' ').trim()
+  const normalizedFind = normalizeWhitespace(find)
+
+  // Handle single line matches
+  const lines = content.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (normalizeWhitespace(line) === normalizedFind) {
+      yield line
+    } else {
+      // Only check for substring matches if the full line doesn't match
+      const normalizedLine = normalizeWhitespace(line)
+      if (normalizedLine.includes(normalizedFind)) {
+        // Find the actual substring in the original line that matches
+        const words = find.trim().split(/\s+/)
+        if (words.length > 0) {
+          const pattern = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+')
+          try {
+            const regex = new RegExp(pattern)
+            const match = line.match(regex)
+            if (match) {
+              yield match[0]
+            }
+          } catch {
+            // Invalid regex pattern, skip
+          }
+        }
+      }
+    }
+  }
+
+  // Handle multi-line matches
+  const findLines = find.split('\n')
+  if (findLines.length > 1) {
+    for (let i = 0; i <= lines.length - findLines.length; i++) {
+      const block = lines.slice(i, i + findLines.length)
+      if (normalizeWhitespace(block.join('\n')) === normalizedFind) {
+        yield block.join('\n')
+      }
+    }
+  }
+}
+
+export const IndentationFlexibleReplacer: Replacer = function* (content, find) {
+  const removeIndentation = (text: string) => {
+    const lines = text.split('\n')
+    const nonEmptyLines = lines.filter((line) => line.trim().length > 0)
+    if (nonEmptyLines.length === 0) return text
+
+    const minIndent = Math.min(
+      ...nonEmptyLines.map((line) => {
+        const match = line.match(/^(\s*)/)
+        return match ? match[1].length : 0
+      }),
+    )
+
+    return lines.map((line) => (line.trim().length === 0 ? line : line.slice(minIndent))).join('\n')
+  }
+
+  const normalizedFind = removeIndentation(find)
+  const contentLines = content.split('\n')
+  const findLines = find.split('\n')
+
+  for (let i = 0; i <= contentLines.length - findLines.length; i++) {
+    const block = contentLines.slice(i, i + findLines.length).join('\n')
+    if (removeIndentation(block) === normalizedFind) {
+      yield block
+    }
+  }
+}
+
+export const EscapeNormalizedReplacer: Replacer = function* (content, find) {
+  const unescapeString = (str: string): string => {
+    return str.replace(/\\(n|t|r|'|"|`|\\|\n|\$)/g, (match, capturedChar) => {
+      switch (capturedChar) {
+        case 'n':
+          return '\n'
+        case 't':
+          return '\t'
+        case 'r':
+          return '\r'
+        case "'":
+          return "'"
+        case '"':
+          return '"'
+        case '`':
+          return '`'
+        case '\\':
+          return '\\'
+        case '\n':
+          return '\n'
+        case '$':
+          return '$'
+        default:
+          return match
+      }
+    })
+  }
+
+  const unescapedFind = unescapeString(find)
+
+  // Try direct match with unescaped find string
+  if (content.includes(unescapedFind)) {
+    yield unescapedFind
+  }
+
+  // Also try finding escaped versions in content that match unescaped find
+  const lines = content.split('\n')
+  const findLines = unescapedFind.split('\n')
+
+  for (let i = 0; i <= lines.length - findLines.length; i++) {
+    const block = lines.slice(i, i + findLines.length).join('\n')
+    const unescapedBlock = unescapeString(block)
+
+    if (unescapedBlock === unescapedFind) {
+      yield block
+    }
+  }
+}
+
+export const MultiOccurrenceReplacer: Replacer = function* (content, find) {
+  // This replacer yields all exact matches, allowing the replace function
+  // to handle multiple occurrences based on replaceAll parameter
+  let startIndex = 0
+
+  while (true) {
+    const index = content.indexOf(find, startIndex)
+    if (index === -1) break
+
+    yield find
+    startIndex = index + find.length
+  }
+}
+
+export const TrimmedBoundaryReplacer: Replacer = function* (content, find) {
+  const trimmedFind = find.trim()
+
+  if (trimmedFind === find) {
+    // Already trimmed, no point in trying
+    return
+  }
+
+  // Try to find the trimmed version
+  if (content.includes(trimmedFind)) {
+    yield trimmedFind
+  }
+
+  // Also try finding blocks where trimmed content matches
+  const lines = content.split('\n')
+  const findLines = find.split('\n')
+
+  for (let i = 0; i <= lines.length - findLines.length; i++) {
+    const block = lines.slice(i, i + findLines.length).join('\n')
+
+    if (block.trim() === trimmedFind) {
+      yield block
+    }
+  }
+}
+
+export const ContextAwareReplacer: Replacer = function* (content, find) {
+  const findLines = find.split('\n')
+  if (findLines.length < 3) {
+    // Need at least 3 lines to have meaningful context
+    return
+  }
+
+  // Remove trailing empty line if present
+  if (findLines[findLines.length - 1] === '') {
+    findLines.pop()
+  }
+
+  const contentLines = content.split('\n')
+
+  // Extract first and last lines as context anchors
+  const firstLine = findLines[0].trim()
+  const lastLine = findLines[findLines.length - 1].trim()
+
+  // Find blocks that start and end with the context anchors
+  for (let i = 0; i < contentLines.length; i++) {
+    if (contentLines[i].trim() !== firstLine) continue
+
+    // Look for the matching last line
+    for (let j = i + 2; j < contentLines.length; j++) {
+      if (contentLines[j].trim() === lastLine) {
+        // Found a potential context block
+        const blockLines = contentLines.slice(i, j + 1)
+        const block = blockLines.join('\n')
+
+        // Check if the middle content has reasonable similarity
+        // (simple heuristic: at least 50% of non-empty lines should match when trimmed)
+        if (blockLines.length === findLines.length) {
+          let matchingLines = 0
+          let totalNonEmptyLines = 0
+
+          for (let k = 1; k < blockLines.length - 1; k++) {
+            const blockLine = blockLines[k].trim()
+            const findLine = findLines[k].trim()
+
+            if (blockLine.length > 0 || findLine.length > 0) {
+              totalNonEmptyLines++
+              if (blockLine === findLine) {
+                matchingLines++
+              }
+            }
+          }
+
+          if (totalNonEmptyLines === 0 || matchingLines / totalNonEmptyLines >= 0.5) {
+            yield block
+            break // Only match the first occurrence
+          }
+        }
+        break
+      }
+    }
+  }
+}
+
+export const REPLACERS: Replacer[] = [
+  SimpleReplacer,
+  LineTrimmedReplacer,
+  BlockAnchorReplacer,
+  WhitespaceNormalizedReplacer,
+  IndentationFlexibleReplacer,
+  EscapeNormalizedReplacer,
+  TrimmedBoundaryReplacer,
+  ContextAwareReplacer,
+  MultiOccurrenceReplacer,
+]
+
+function replacerName(replacer: Replacer): string {
+  if (replacer === SimpleReplacer) return 'exact'
+  const name = replacer.name.replace(/Replacer$/, '')
+  return name.charAt(0).toLowerCase() + name.slice(1)
 }
 
 /**
- * Multi-line fuzzy match anchored on exact first/last lines, with
- * indentation kept and an 80% middle-line similarity bar. Only fires for
- * oldStrings of >= 4 lines (shorter anchors are too ambiguous) and rejects
- * when the anchored region is not unique in the file.
+ * Find oldString in content and produce the replaced result. Throws when:
+ *   - oldString/newString are identical
+ *   - oldString is empty (would be a full-file replacement — use write)
+ *   - the best match is disproportionate to oldString
+ *   - no match exists at all
+ *   - the match is ambiguous (multiple occurrences) and replaceAll is false
  */
-export function contextAwareMatch(content: string, oldString: string): ResolvedMatch | null {
-  const oldLines = normalizeLineEndings(oldString).split('\n')
-  if (oldLines.length < 4) return null
+export function replace(content: string, oldString: string, newString: string, replaceAll = false): ReplaceResult {
+  if (oldString === newString) {
+    throw new Error('No changes to apply: oldString and newString are identical.')
+  }
+  if (oldString === '') {
+    throw new Error('oldString cannot be empty when editing an existing file. Provide the exact text to replace, or use write for an intentional full-file replacement.')
+  }
 
-  const firstLine = oldLines[0]
-  const lastLine = oldLines[oldLines.length - 1]
-  const middleLines = oldLines.slice(1, -1)
-  if (middleLines.length === 0) return null
+  let notFound = true
 
-  const contentLines = normalizeLineEndings(content).split('\n')
-  const candidates: Array<{ i: number; detail: string }> = []
-
-  for (let i = 0; i <= contentLines.length - oldLines.length; i++) {
-    // Exact anchor lines INCLUDING indentation — a dedented oldString must
-    // not match a correctly-indented block.
-    if (contentLines[i] !== firstLine) continue
-    if (contentLines[i + oldLines.length - 1] !== lastLine) continue
-
-    let matchCount = 0
-    let diffDetail: string[] = []
-    for (let j = 1; j < oldLines.length - 1; j++) {
-      const a = contentLines[i + j]
-      const b = middleLines[j - 1]
-      if (a === b) { matchCount++; continue }
-      // Indentation must match for fuzzy tolerance to apply: compare the
-      // leading whitespace; if it differs, treat as a mismatch (no credit).
-      const indentA = a.match(/^\s*/)![0]
-      const indentB = b.match(/^\s*/)![0]
-      if (indentA !== indentB) { diffDetail.push(`line ${j + 1}: indentation differs`); continue }
-      if (similarity(a.trim(), b.trim()) >= 0.8) { matchCount++; continue }
-      diffDetail.push(`line ${j + 1}: content differs`)
-    }
-
-    const threshold = Math.ceil(middleLines.length * 0.8)
-    if (matchCount >= threshold) {
-      const idx = contentLines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0)
-      const len = contentLines.slice(i, i + oldLines.length).join('\n').length
-      candidates.push({ i, detail: diffDetail.slice(0, 3).join('; ') })
+  for (const replacer of REPLACERS) {
+    for (const search of replacer(content, oldString)) {
+      const index = content.indexOf(search)
+      if (index === -1) continue
+      notFound = false
+      if (isDisproportionateMatch(search, oldString)) {
+        throw new Error(
+          'Refusing replacement because the matched span is much larger than oldString. Re-read the file and provide the full exact oldString for the intended replacement.',
+        )
+      }
+      if (replaceAll) {
+        const parts = content.split(search)
+        return {
+          next: parts.join(newString),
+          index,
+          length: search.length,
+          count: parts.length - 1,
+          method: replacerName(replacer),
+        }
+      }
+      const lastIndex = content.lastIndexOf(search)
+      if (index !== lastIndex) continue
+      return {
+        next: content.substring(0, index) + newString + content.substring(index + search.length),
+        index,
+        length: search.length,
+        count: 1,
+        method: replacerName(replacer),
+      }
     }
   }
 
-  if (candidates.length === 0) return null
-  if (candidates.length > 1) return { result: { index: 0, length: 0 }, method: 'contextAware', detail: 'match not unique in file' }
-
-  const c = candidates[0]
-  const idx = contentLines.slice(0, c.i).join('\n').length + (c.i > 0 ? 1 : 0)
-  const len = contentLines.slice(c.i, c.i + oldLines.length).join('\n').length
-  return {
-    result: { index: idx, length: len },
-    method: 'contextAware',
-    detail: c.detail || 'fuzzy (indentation-preserved, 80% middle threshold)',
+  if (notFound) {
+    throw new Error(
+      'Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings. Re-read the file and copy the exact text to replace.',
+    )
   }
+  throw new Error('Found multiple matches for oldString. Provide more surrounding context to make the match unique.')
 }
 
-// ---------- Master matcher ----------
-// Order matters: exact first. Only contextAware remains as a fallback — it is
-// indentation-preserving, requires >=4 lines, and enforces uniqueness, so it
-// cannot silently corrupt indentation or hit an unrelated duplicate block.
-export const matchers: Array<{ name: string; match: (c: string, o: string) => MatchResult | ResolvedMatch | null }> = [
-  { name: 'exact', match: exactMatch },
-  { name: 'contextAware', match: contextAwareMatch },
-]
-
-export function findBestMatch(content: string, oldString: string): ResolvedMatch | null {
-  for (const { name, match } of matchers) {
-    const result = match(content, oldString)
-    if (result) {
-      // Normalize a bare MatchResult into ResolvedMatch
-      if ('method' in result) return result as ResolvedMatch
-      return { result: result as MatchResult, method: name }
-    }
-  }
-  return null
+function isDisproportionateMatch(search: string, oldString: string): boolean {
+  const oldLines = oldString.split('\n').length
+  const searchLines = search.split('\n').length
+  if (searchLines >= Math.max(oldLines + 3, oldLines * 2)) return true
+  if (oldLines === 1) return false
+  return search.trim().length > Math.max(oldString.trim().length + 500, oldString.trim().length * 4)
 }

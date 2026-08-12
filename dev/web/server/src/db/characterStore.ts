@@ -1,13 +1,17 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync } from 'fs'
 import { resolve } from 'path'
-import { getDataDir, getSystemRunPolicy } from '../config.js'
+import { getSystemRunPolicy } from '../config.js'
+import { charactersRoot } from '../data-paths.js'
+import { builtinCharactersRoot } from '../content/paths.js'
+import { mergeById, type ContentOriginFields } from '../content/catalog.js'
+import { readContentState } from '../content/state.js'
+import { materializeCharacter, userCharacterDirExists } from '../content/copy-on-write.js'
+import { builtinContentVersion } from '../agent/skill-catalog.js'
 import { normalizeStrategy, type Strategy, type StrategyInput } from '../agent/strategy.js'
 import { normalizeCharacterRunPolicy, migrateCharacterRunPolicy, type CharacterRunPolicy } from '../agent/loop/run-policy.js'
 
-const CHAR_DIR = () => resolve(getDataDir(), 'characters')
-
 function ensureCharDir() {
-  const dir = CHAR_DIR()
+  const dir = charactersRoot()
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -53,6 +57,9 @@ export interface CharacterRecord {
   updatedAt?: number
 }
 
+/** API 响应派生来源字段（不写入 character.json）。 */
+export type CharacterOriginFields = ContentOriginFields
+
 function pathFor(id: string): string {
   const dir = ensureCharDir()
   return resolve(dir, id, 'character.json')
@@ -79,15 +86,15 @@ function normalizeRecord(record: CharacterRecord & { default_strategy?: Strategy
   }
 }
 
-function readAll(): CharacterRecord[] {
-  const dir = CHAR_DIR()
-  if (!existsSync(dir)) return []
+/** 扫描单个角色根，返回已规范化的记录（不含来源字段）。 */
+export function scanCharacters(root: string): CharacterRecord[] {
   const items: CharacterRecord[] = []
+  if (!existsSync(root)) return items
   try {
-    const entries = readdirSync(dir, { withFileTypes: true })
+    const entries = readdirSync(root, { withFileTypes: true })
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
-      const f = pathFor(entry.name)
+      const f = resolve(root, entry.name, 'character.json')
       if (!existsSync(f)) continue
       try { items.push(normalizeRecord(JSON.parse(readFileSync(f, 'utf-8')))) } catch { /* skip corrupt */ }
     }
@@ -95,14 +102,44 @@ function readAll(): CharacterRecord[] {
   return items
 }
 
+/** 双层角色合并（builtin + userdata），返回带来源字段的稳定排序列表。 */
+export function listMergedCharacters(includeHidden = false): Array<CharacterRecord & CharacterOriginFields> {
+  const builtin = scanCharacters(builtinCharactersRoot())
+  const user = scanCharacters(charactersRoot())
+  const state = readContentState()
+  const hiddenIds = new Set<string>()
+  if (!includeHidden) for (const id of state.hidden.characters) hiddenIds.add(id)
+
+  return mergeById<CharacterRecord>({
+    builtin,
+    user,
+    hiddenIds,
+    builtinVersion: builtinContentVersion(),
+  })
+}
+
+/** 解析单个角色：用户层完整覆盖内置层；不存在的 ID 返回 null。 */
+export function resolveCharacterRecord(id: string): (CharacterRecord & CharacterOriginFields) | null {
+  const builtin = scanCharacters(builtinCharactersRoot()).find(c => c.id === id)
+  const user = scanCharacters(charactersRoot()).find(c => c.id === id)
+  if (!builtin && !user) return null
+  const [merged] = mergeById<CharacterRecord>({
+    builtin: builtin ? [builtin] : [],
+    user: user ? [user] : [],
+    hiddenIds: new Set(),
+    builtinVersion: builtinContentVersion(),
+  })
+  return merged || null
+}
+
 function writeSingle(record: CharacterRecord) {
-  const dir = resolve(CHAR_DIR(), record.id)
+  const dir = resolve(charactersRoot(), record.id)
   mkdirSync(dir, { recursive: true })
   writeFileSync(resolve(dir, 'character.json'), JSON.stringify(record, null, 2), 'utf-8')
 }
 
 function removeDir(id: string) {
-  const dir = resolve(CHAR_DIR(), id)
+  const dir = resolve(charactersRoot(), id)
   if (existsSync(dir)) {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -113,17 +150,37 @@ function nextId(items: CharacterRecord[]): string {
   return String(max + 1)
 }
 
-export const characterMetaStore = {
-  getAll: () => readAll(),
+/**
+ * 写入口保护：对内置角色执行 copy-on-write，确保后续写入落在用户副本。
+ * 用户副本已存在（含损坏目录）时不覆盖。
+ */
+function ensureWritable(id: string): void {
+  const builtin = scanCharacters(builtinCharactersRoot()).some(c => c.id === id)
+  if (!builtin) return
+  if (!userCharacterDirExists(id)) {
+    materializeCharacter(id, builtinContentVersion())
+  }
+}
 
-  getById: (id: string) => {
+export const characterMetaStore = {
+  /** 双层合并列表（普通列表不含隐藏项）。 */
+  getAll: (): Array<CharacterRecord & CharacterOriginFields> => listMergedCharacters(false),
+
+  /** 双层合并列表（含隐藏项，管理接口 all=true 使用）。 */
+  getAllIncludingHidden: (): Array<CharacterRecord & CharacterOriginFields> => listMergedCharacters(true),
+
+  /** 双层解析；用户层完整覆盖内置层。 */
+  getById: (id: string): (CharacterRecord & CharacterOriginFields) | null => resolveCharacterRecord(id),
+
+  /** 仅读取用户层原始记录（写路径内部使用，避免 builtin 伪装成用户副本）。 */
+  getUserRecord: (id: string): CharacterRecord | null => {
     const f = pathFor(id)
     if (!existsSync(f)) return null
     try { return normalizeRecord(JSON.parse(readFileSync(f, 'utf-8'))) } catch { return null }
   },
 
   create: (data: Omit<CharacterRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
-    const all = readAll()
+    const all = scanCharacters(charactersRoot())
     const now = Date.now()
     const id = data.id?.trim() || nextId(all)
     if (all.some(c => c.id === id)) {
@@ -136,7 +193,9 @@ export const characterMetaStore = {
   },
 
   update: (id: string, data: Partial<CharacterRecord>) => {
-    const record = characterMetaStore.getById(id)
+    // 编辑内置角色：先物化用户副本，再改副本（copy-on-write）。
+    ensureWritable(id)
+    const record = characterMetaStore.getUserRecord(id)
     if (!record) return null
     const updated: CharacterRecord = normalizeRecord({ ...record, ...data, id, updatedAt: Date.now() })
     writeSingle(updated)
@@ -144,12 +203,12 @@ export const characterMetaStore = {
   },
 
   rename: (oldId: string, newId: string): CharacterRecord | null => {
-    if (oldId === newId) return characterMetaStore.getById(oldId)
-    const all = readAll()
+    if (oldId === newId) return characterMetaStore.getUserRecord(oldId)
+    const all = scanCharacters(charactersRoot())
     if (!all.some(c => c.id === oldId)) return null
     if (all.some(c => c.id === newId)) throw new Error(`ID "${newId}" already exists`)
-    const oldDir = resolve(CHAR_DIR(), oldId)
-    const newDir = resolve(CHAR_DIR(), newId)
+    const oldDir = resolve(charactersRoot(), oldId)
+    const newDir = resolve(charactersRoot(), newId)
     renameSync(oldDir, newDir)
     const record: CharacterRecord = JSON.parse(readFileSync(resolve(newDir, 'character.json'), 'utf-8'))
     record.id = newId
@@ -159,7 +218,7 @@ export const characterMetaStore = {
   },
 
   delete: (id: string) => {
-    if (!characterMetaStore.getById(id)) return false
+    if (!characterMetaStore.getUserRecord(id)) return false
     removeDir(id)
     return true
   },

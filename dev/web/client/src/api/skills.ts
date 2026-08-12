@@ -27,6 +27,11 @@ export interface SkillPackageMeta {
   childCount: number
   children: SkillPackageChild[]
   files: SkillFile[]
+  /** 双层内容来源（BUILTIN_CONTENT_DEVELOPMENT_PLAN §12）。 */
+  source?: 'builtin' | 'user'
+  readOnly?: boolean
+  overridesBuiltin?: boolean
+  builtinVersion?: string
 }
 
 export interface SkillPackageDetail extends SkillPackageMeta {

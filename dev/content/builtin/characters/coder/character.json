@@ -38,25 +38,16 @@
       "name": "task_complete"
     },
     {
-      "name": "mcp:codebase-memory-mcp"
-    },
-    {
       "name": "mcp:codegraph"
     }
   ],
   "skills": [
     "graphify",
-    "drawio-skill",
     "agent-reach"
   ],
   "skillBindings": [
     {
       "packageId": "graphify",
-      "enabled": true,
-      "preloadSkills": []
-    },
-    {
-      "packageId": "drawio-skill",
       "enabled": true,
       "preloadSkills": []
     },
@@ -71,5 +62,10 @@
   "enabled": true,
   "id": "coder",
   "createdAt": 1786512269669,
-  "updatedAt": 1786525561095
+  "updatedAt": 1786535649020,
+  "runPolicy": {
+    "version": 1,
+    "softTurns": 999,
+    "graceTurns": 0
+  }
 }

@@ -1,10 +1,9 @@
 import { createHash, randomUUID } from 'crypto'
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
-import { getDataDir } from '../config.js'
 import { getDb } from '../db/schema.js'
 import { characterMetaStore, type CharacterRecord } from '../db/characterStore.js'
-import { characterContentStore } from './store.js'
+import { characterContentStore, characterDir } from './store.js'
 import { registerAssetRefs } from './asset-refs.js'
 
 export interface CharacterRevisionSnapshot {
@@ -35,14 +34,16 @@ function stableJson(value: unknown): string {
 }
 
 function readVisual(characterId: string): Record<string, unknown> | null {
-  const file = resolve(getDataDir(), 'characters', characterId, 'visual', 'visual.json')
+  const file = resolve(characterDir(characterId), 'visual', 'visual.json')
   if (!existsSync(file)) return null
   try { return JSON.parse(readFileSync(file, 'utf8')) } catch { return null }
 }
 
 function makeSnapshot(characterId: string): CharacterRevisionSnapshot {
-  const meta = characterMetaStore.getById(characterId)
-  if (!meta) throw new Error(`Character "${characterId}" not found`)
+  const merged = characterMetaStore.getById(characterId)
+  if (!merged) throw new Error(`Character "${characterId}" not found`)
+  // 快照只保存角色真实配置（含 runPolicy），不保存双层派生来源字段。
+  const { source: _source, readOnly: _readOnly, overridesBuiltin: _overrides, builtinVersion: _version, ...meta } = merged
   return { meta, content: characterContentStore.get(characterId), visual: readVisual(characterId) }
 }
 
@@ -139,7 +140,7 @@ export const characterRevisionStore = {
         // definition/content may have changed since (edited via the file,
         // character_manager tool, or HTTP API). Recompute the hash and publish
         // a new revision when stale so follow_latest runs pick up the change
-        // (e.g. maxSteps) instead of forever pinning an old snapshot.
+        // instead of forever pinning an old snapshot.
         const fresh = stableJson(makeSnapshot(characterId))
         const freshHash = createHash('sha256').update(fresh).digest('hex')
         if (current.manifest_hash === freshHash) return current

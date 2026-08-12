@@ -1,22 +1,19 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'path'
-import { fileURLToPath } from 'url'
+import { isAbsolute, join, relative, resolve, sep } from 'path'
 import { providerPresetSchema, type ProviderPreset } from './schema.js'
 import { getPlugin } from '../providers/index.js'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { builtinProvidersRoot } from '../content/paths.js'
 
 /**
- * Catalog 根目录定位：
- * - 开发（tsx）：src/provider-catalog
- * - 打包（tsc）：dist/provider-catalog
- * 两者相对本文件都位于 `..` 下，布局一致。
- * 测试可通过 TIANSHU_PROVIDER_CATALOG_DIR 覆盖。
+ * Catalog 根目录定位（BUILTIN_CONTENT_DEVELOPMENT_PLAN §2 / §11）：
+ * - 默认：content/builtin/providers（随应用发布的只读预设层）
+ * - 测试 / 高级用户可用 TIANSHU_PROVIDER_CATALOG_DIR 显式覆盖
+ *   （兼容旧 provider-catalog 测试与自定义目录）。
  */
 export function getCatalogRoot(): string {
   const override = process.env.TIANSHU_PROVIDER_CATALOG_DIR
   if (override) return resolve(override)
-  return resolve(__dirname, '..', 'provider-catalog')
+  return builtinProvidersRoot()
 }
 
 export interface CatalogIssue {
@@ -72,7 +69,7 @@ interface CacheEntry {
 let cache: CacheEntry | null = null
 
 /**
- * 扫描并校验 provider-catalog 目录。
+ * 扫描并校验 provider catalog 目录。
  * 生产/开发均按目录树 mtime 缓存，文件变化后自动重扫。
  */
 export function loadCatalog(): CatalogLoadResult {

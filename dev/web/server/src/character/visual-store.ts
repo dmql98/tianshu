@@ -3,7 +3,10 @@ import {
   existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync,
 } from 'fs'
 import { basename, extname, resolve } from 'path'
-import { getDataDir } from '../config.js'
+import { charactersRoot } from '../data-paths.js'
+import { builtinCharactersRoot } from '../content/paths.js'
+import { materializeCharacter } from '../content/copy-on-write.js'
+import { builtinContentVersion } from '../agent/skill-catalog.js'
 import { getDb } from '../db/schema.js'
 
 export type CharacterMotion =
@@ -46,9 +49,26 @@ const DEFAULT_VISUAL: CharacterVisual = {
   motions: {},
 }
 
+/**
+ * 视觉目录按最终获胜来源解析：用户层存在则用用户层（完整覆盖内置层），
+ * 否则用内置只读目录（若内置提供默认视觉）。
+ */
 function visualDir(characterId: string) {
-  return resolve(getDataDir(), 'characters', characterId, 'visual')
+  const userDir = resolve(charactersRoot(), characterId, 'visual')
+  if (existsSync(userDir)) return userDir
+  return resolve(builtinCharactersRoot(), characterId, 'visual')
 }
+
+/** 写入口：确保视觉落在用户层（内置角色首次写入自动物化用户副本）。 */
+function ensureWritableVisual(characterId: string): string {
+  const builtinExists = existsSync(resolve(builtinCharactersRoot(), characterId, 'character.json'))
+  const userDir = resolve(charactersRoot(), characterId)
+  if (builtinExists && !existsSync(userDir)) {
+    materializeCharacter(characterId, builtinContentVersion())
+  }
+  return resolve(charactersRoot(), characterId, 'visual')
+}
+
 function manifestPath(characterId: string) {
   return resolve(visualDir(characterId), 'visual.json')
 }
@@ -84,6 +104,7 @@ export const characterVisualStore = {
 
   save(characterId: string, visual: CharacterVisual): CharacterVisual {
     if (visual.schemaVersion !== 1) throw new Error('Unsupported character visual schema')
+    const writableDir = ensureWritableVisual(characterId)
     const assets = new Set(readAssetIndex(characterId).map(asset => asset.assetId))
     const referenced = [
       visual.originalAssetId,
@@ -98,7 +119,7 @@ export const characterVisualStore = {
       ...visual,
       motions: visual.motions || {},
     }
-    atomicJson(manifestPath(characterId), normalized)
+    atomicJson(resolve(writableDir, 'visual.json'), normalized)
     return normalized
   },
 
@@ -115,8 +136,9 @@ export const characterVisualStore = {
     const id = `casset_${randomUUID()}`
     const safeExtension = extname(basename(input.filename)).replace(/[^a-zA-Z0-9.]/g, '').slice(0, 12)
     const filename = `${id}${safeExtension}`
-    mkdirSync(assetDir(characterId), { recursive: true })
-    writeFileSync(resolve(assetDir(characterId), filename), input.bytes)
+    const writableDir = ensureWritableVisual(characterId)
+    mkdirSync(resolve(writableDir, 'assets'), { recursive: true })
+    writeFileSync(resolve(writableDir, 'assets', filename), input.bytes)
     const mime = input.mime || 'application/octet-stream'
     const kind = input.kind || (
       mime === 'image/gif' || mime === 'image/webp' ? 'animated-image'
@@ -130,7 +152,7 @@ export const characterVisualStore = {
       filename,
     }
     const assets = [...readAssetIndex(characterId), asset]
-    atomicJson(assetIndexPath(characterId), assets)
+    atomicJson(resolve(writableDir, 'assets.json'), assets)
     return asset
   },
 
@@ -177,11 +199,12 @@ export const characterVisualStore = {
 
   /** Drop every asset file and reset the manifest (package replace). */
   clearAssets(characterId: string): void {
+    const writableDir = ensureWritableVisual(characterId)
     const assets = readAssetIndex(characterId)
     for (const asset of assets) {
-      rmSync(resolve(assetDir(characterId), basename(asset.filename)), { force: true })
+      rmSync(resolve(writableDir, 'assets', basename(asset.filename)), { force: true })
     }
-    atomicJson(assetIndexPath(characterId), [])
-    atomicJson(manifestPath(characterId), DEFAULT_VISUAL)
+    atomicJson(resolve(writableDir, 'assets.json'), [])
+    atomicJson(resolve(writableDir, 'visual.json'), DEFAULT_VISUAL)
   },
 }

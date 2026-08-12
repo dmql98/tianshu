@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "1.0.0",
+  "characters": true,
+  "skills": true,
+  "providers": true,
+  "prompts": true
+}

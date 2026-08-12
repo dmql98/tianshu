@@ -69,6 +69,30 @@ for (const port of [SERVER_PORT, CLIENT_PORT]) {
   }
 }
 
+// Resolve the Electron userData dir via a short-lived Electron probe so the
+// dev server shares the SAME config.json location and default data dir as the
+// packaged app (BUILTIN_CONTENT_DEVELOPMENT_PLAN §3.1.1):
+//   TIANSHU_CONFIG_DIR=<userData>
+//   TIANSHU_DEFAULT_DATA_DIR=<userData>/data
+const require2 = createRequire(import.meta.url)
+const electronPath = require2(join(desktopDir, 'node_modules', 'electron'))
+let userDataDir = process.env.TIANSHU_DEV_USERDATA
+if (!userDataDir) {
+  const probe = spawnSync(electronPath, [join(__dirname, 'get-userdata.cjs')], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+  })
+  if (probe.status !== 0 || !probe.stdout.trim()) {
+    console.error('[dev-desktop] failed to resolve Electron userData; falling back to TIANSHU_DATA_DIR or TEMP')
+    userDataDir = process.env.TIANSHU_DATA_DIR || join(process.env.TEMP || '.', 'tianshu-dev-userdata')
+  } else {
+    userDataDir = probe.stdout.trim()
+  }
+}
+log(`userData dir: ${userDataDir}`)
+const defaultDataDir = join(userDataDir, 'data')
+
 function start(cmd, args, opts) {
   log(`${cmd} ${args.join(' ')}`)
   const child = spawn(cmd, args, { windowsHide: true, stdio: 'inherit', ...opts })
@@ -100,11 +124,19 @@ process.on('SIGINT', () => {
   process.exit(0)
 })
 
-// server
+// server — dev server shares the Electron userData config + default data dir
 const tsxCli = join(serverDir, 'node_modules', 'tsx', 'dist', 'cli.mjs')
 const server = start(process.execPath, [tsxCli, 'watch', 'src/index.ts'], {
   cwd: serverDir,
-  env: { ...process.env, PORT: String(SERVER_PORT) },
+  env: {
+    ...process.env,
+    PORT: String(SERVER_PORT),
+    TIANSHU_CONFIG_DIR: userDataDir,
+    TIANSHU_DEFAULT_DATA_DIR: defaultDataDir,
+    // Dev 内置内容定位仓库根 content/builtin（content/paths.ts 自带回退，
+    // 这里显式注入以保证 dev/packaged 行为一致）。
+    TIANSHU_BUILTIN_CONTENT_DIR: join(devRoot, 'content', 'builtin'),
+  },
 })
 
 // client (vite) — bind 127.0.0.1 so the Electron window URL matches
@@ -113,12 +145,8 @@ const vite = start(process.execPath, [viteCli, '--port', String(CLIENT_PORT), '-
   cwd: clientDir,
 })
 
-// electron
-const require2 = createRequire(import.meta.url)
-const electronPath = require2(join(desktopDir, 'node_modules', 'electron'))
+// electron 在 dev servers 就绪后再启动（见下方 waitForPort 之后）。
 
-// Wait until both dev servers accept connections so Electron never loads a
-// dead URL.
 async function waitForPort(port, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {

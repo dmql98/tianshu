@@ -46,7 +46,7 @@ export default function CharactersPage() {
   }, [])
 
   const filtered = characters.filter(c =>
-    c.name.includes(search) || c.description.includes(search)
+    c.name.includes(search) || (c.description || '').includes(search)
   )
 
   const grouped = filtered.reduce((acc, char) => {
@@ -104,8 +104,12 @@ export default function CharactersPage() {
                         <span className="star-tag blue">{roleLabels[char.role] || char.role}</span>
                         <span className="star-tag">{char.default_strategy}</span>
                         {char.model && <span className="star-tag">{char.model}</span>}
+                        {char.source === 'builtin' && <span className="star-tag" style={{ background: 'rgba(120,120,200,0.15)', color: 'var(--ink-mid)' }}>内置</span>}
+                        {char.source === 'user' && char.overridesBuiltin && <span className="star-tag" style={{ background: 'rgba(40,160,120,0.15)', color: 'var(--ink-mid)' }}>已自定义</span>}
+                        {char.source === 'user' && !char.overridesBuiltin && <span className="star-tag" style={{ background: 'rgba(40,160,120,0.12)', color: 'var(--ink-mid)' }}>我的</span>}
                       </div>
-                      <div className="star-stats">
+                    </div>
+                    <div className="star-stats">
                         <div className="star-stat">
                           <div className="star-stat-value">{char.tools?.length || 0}</div>
                           <div className="star-stat-label">工具</div>
@@ -149,7 +153,6 @@ export default function CharactersPage() {
                         </div>
                       )}
                     </div>
-                  </div>
                 ))}
               </div>
             </div>

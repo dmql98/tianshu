@@ -10,9 +10,9 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 /**
- * Legacy default data directory used by non-Electron/dev setups. Production
- * config MUST NOT be written next to the server dist; it lives in
- * <TIANSHU_CONFIG_DIR>/config.json (Electron userData).
+ * Legacy data directory used ONLY as a migration source for pre-0.1.6 installs.
+ * It is never the default write target for dev / new installs
+ * (BUILTIN_CONTENT_DEVELOPMENT_PLAN §3.1 / §16.1).
  */
 const LEGACY_DATA_DIR = 'C:\\.Tianshu'
 
@@ -91,18 +91,22 @@ function loadConfig(): Config {
   // 2. Persisted selection in <TIANSHU_CONFIG_DIR>/config.json.
   const file = configFilePath()
   if (existsSync(file)) {
+    let raw: Record<string, unknown> | undefined
     try {
-      const raw = JSON.parse(readFileSync(file, 'utf-8'))
-      if (raw.dataDir) {
-        cached = {
-          dataDir: raw.dataDir,
-          runPolicy: normalizeSystemRunPolicy(raw.runPolicy),
-        }
-        explicitlySet = true
-        return cached
+      raw = JSON.parse(readFileSync(file, 'utf-8'))
+    } catch (err: any) {
+      // Corrupt config must not be silently ignored — surface the real reason
+      // instead of a misleading "no data directory" (e.g. unescaped backslashes
+      // in a hand-edited dataDir). Fix or delete the file to proceed.
+      throw new Error(`Invalid config file ${file}: ${err?.message || String(err)}`)
+    }
+    if (raw && typeof raw === 'object' && (raw.dataDir as string | undefined)) {
+      cached = {
+        dataDir: raw.dataDir as string,
+        runPolicy: normalizeSystemRunPolicy(raw.runPolicy),
       }
-    } catch {
-      /* corrupt config — fall through */
+      explicitlySet = true
+      return cached
     }
   }
 
@@ -122,9 +126,13 @@ function loadConfig(): Config {
     return cached
   }
 
-  // 4. Dev fallback: legacy default.
-  cached = { dataDir: LEGACY_DATA_DIR }
-  return cached
+  // 4. 没有任何显式配置：拒绝静默使用 C:\.Tianshu 作为默认写入目录
+  //    （BUILTIN_CONTENT_DEVELOPMENT_PLAN §3.1 / §16.1）。开发模式必须由
+  //    Electron / dev orchestrator 显式传入 TIANSHU_DEFAULT_DATA_DIR。
+  throw new Error(
+    'No data directory configured. Set TIANSHU_DATA_DIR / DATA_DIR, or TIANSHU_DEFAULT_DATA_DIR ' +
+    '(dev/desktop shell), or persist dataDir in <TIANSHU_CONFIG_DIR>/config.json.',
+  )
 }
 
 export function getDataDir(): string {

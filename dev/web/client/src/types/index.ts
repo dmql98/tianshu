@@ -91,6 +91,11 @@ export interface Character {
   runPolicy?: CharacterRunPolicyView
   createdAt?: number
   updatedAt?: number
+  /** 双层内容来源（BUILTIN_CONTENT_DEVELOPMENT_PLAN §12）。 */
+  source?: 'builtin' | 'user'
+  readOnly?: boolean
+  overridesBuiltin?: boolean
+  builtinVersion?: string
 }
 
 export interface CharacterRunPolicyView {

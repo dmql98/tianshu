@@ -1,11 +1,10 @@
 import { Hono } from 'hono'
 import { characterMetaStore } from '../db/characterStore.js'
 import type { CharacterRecord } from '../db/characterStore.js'
-import { characterContentStore } from '../character/store.js'
+import { characterContentStore, characterDir } from '../character/store.js'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { getDb } from '../db/schema.js'
-import { getDataDir } from '../config.js'
 import { findSkillPackage } from '../agent/skill-catalog.js'
 import { resolveCharacterTools } from '../tools/definitions.js'
 import { characterRevisionStore } from '../character/revision-store.js'
@@ -16,6 +15,8 @@ import { gzipSync, gunzipSync } from 'zlib'
 import { getSystemRunPolicy } from '../config.js'
 import { resolveRunPolicy } from '../agent/loop/run-policy-resolver.js'
 import { normalizeCharacterRunPolicy } from '../agent/loop/run-policy.js'
+import { setHidden, readContentState } from '../content/state.js'
+import { restoreBuiltinCharacter } from '../content/copy-on-write.js'
 
 /** Effective-policy preview used by the edit UI. True Run still resolves at
  *  creation from the pinned revision (§13.1). */
@@ -31,9 +32,9 @@ function runPolicyView(meta: CharacterRecord) {
   return { configured, effectivePreview: snapshot.effective, constrainedFields }
 }
 
-function mergeContent(meta: CharacterRecord, id: string) {
+function mergeContent(meta: CharacterRecord & { source?: string; readOnly?: boolean; overridesBuiltin?: boolean; builtinVersion?: string }, id: string) {
   const content = characterContentStore.get(id)
-  const promptFile = resolve(getDataDir(), 'characters', id, 'prompt.md')
+  const promptFile = resolve(characterDir(id), 'prompt.md')
   const customPrompt = existsSync(promptFile) ? readFileSync(promptFile, 'utf-8') : ''
   return { ...meta, tools: resolveCharacterTools(meta.tools), soul: content.soul, userProfile: content.user, memoryContent: content.memory, customPrompt, runPolicy: runPolicyView(meta) }
 }
@@ -41,18 +42,25 @@ function mergeContent(meta: CharacterRecord, id: string) {
 const router = new Hono()
 const ORIGINAL_MAX_BYTES = 20 * 1024 * 1024
 const CHARACTER_ASSET_MAX_BYTES = 50 * 1024 * 1024
+
 router.get('/', (c) => {
   const includeHidden = c.req.query('all') === 'true'
-  const chars = characterMetaStore.getAll()
-    .filter(r => includeHidden || !r.hidden)
+  const chars = (includeHidden ? characterMetaStore.getAllIncludingHidden() : characterMetaStore.getAll())
     .map(r => mergeContent(r, r.id))
   return c.json(chars)
 })
+
+/** 内容层状态：隐藏列表与 lastSeenBuiltinVersion（管理接口）。 */
+router.get('/content-state', (c) => {
+  return c.json(readContentState())
+})
+
 router.get('/:id', (c) => {
   const record = characterMetaStore.getById(c.req.param('id'))
   if (!record) return c.json({ error: 'Not found' }, 404)
   return c.json(mergeContent(record, record.id))
 })
+
 router.get('/:id/revisions', (c) => {
   const id = c.req.param('id')
   if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
@@ -62,6 +70,7 @@ router.get('/:id/revisions', (c) => {
     visual_manifest: revision.visual_manifest ? JSON.parse(revision.visual_manifest) : null,
   })))
 })
+
 router.get('/:id/visual', (c) => {
   const id = c.req.param('id')
   if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
@@ -70,6 +79,7 @@ router.get('/:id/visual', (c) => {
     assets: characterVisualStore.listAssets(id),
   })
 })
+
 router.put('/:id/visual', async (c) => {
   const id = c.req.param('id')
   if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
@@ -79,6 +89,7 @@ router.put('/:id/visual', async (c) => {
     return c.json({ error: error.message || String(error) }, 400)
   }
 })
+
 router.post('/:id/assets', async (c) => {
   const id = c.req.param('id')
   if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
@@ -102,6 +113,7 @@ router.post('/:id/assets', async (c) => {
   })
   return c.json(asset, 201)
 })
+
 router.get('/:id/assets/:assetId', (c) => {
   const stored = characterVisualStore.getAsset(c.req.param('id'), c.req.param('assetId'))
   if (!stored) return c.json({ error: 'Not found' }, 404)
@@ -131,15 +143,18 @@ router.get('/:id/assets/:assetId', (c) => {
   c.header('Content-Length', String(stored.size))
   return c.body(readFileSync(stored.file))
 })
+
 router.delete('/:id/assets/:assetId', (c) => {
   const result = characterVisualStore.removeAsset(c.req.param('id'), c.req.param('assetId'))
   return result.ok ? c.json({ ok: true }) : c.json({ error: result.reason }, result.reason === 'Asset not found' ? 404 : 409)
 })
+
 router.get('/:id/presence', (c) => {
   const id = c.req.param('id')
   if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
   return c.json(characterPresenceProjector.get(id))
 })
+
 router.get('/:id/export', (c) => {
   const id = c.req.param('id')
   const meta = characterMetaStore.getById(id)
@@ -165,6 +180,7 @@ router.get('/:id/export', (c) => {
   c.header('Content-Disposition', `attachment; filename="${id}.tianshu-character.gz"`)
   return c.body(payload)
 })
+
 const PACKAGE_MAX_ASSETS = 100
 const PACKAGE_MAX_TOTAL_BYTES = 300 * 1024 * 1024
 const PACKAGE_MAX_SINGLE_BYTES = 50 * 1024 * 1024
@@ -266,11 +282,13 @@ router.post('/import', async (c) => {
     return c.json({ error: error.message || String(error) }, 400)
   }
 })
+
 router.post('/:id/revisions', (c) => {
   const id = c.req.param('id')
   if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
   return c.json(characterRevisionStore.publish(id), 201)
 })
+
 router.post('/:id/archive', (c) => {
   const id = c.req.param('id')
   if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
@@ -279,6 +297,7 @@ router.post('/:id/archive', (c) => {
   characterMetaStore.update(id, { hidden: true, enabled: false })
   return c.json({ ok: true })
 })
+
 router.post('/', async (c) => {
   const body = await c.req.json() as any
   const { soul, userProfile, memoryContent, customPrompt, ...metaRest } = body
@@ -294,8 +313,10 @@ router.post('/', async (c) => {
     memory: memoryContent as string | undefined,
     prompt: customPrompt as string | undefined,
   })
-  return c.json(mergeContent(meta, meta.id), 201)
+  const merged = characterMetaStore.getById(meta.id)
+  return c.json(mergeContent(merged || meta, meta.id), 201)
 })
+
 router.post('/:id/skill-bindings', async (c) => {
   const id = c.req.param('id')
   const record = characterMetaStore.getById(id)
@@ -312,8 +333,11 @@ router.post('/:id/skill-bindings', async (c) => {
     ? current.some(binding => binding.packageId === body.packageId) ? current : [...current, { packageId: body.packageId, enabled: true, preloadSkills: [] }]
     : current.filter(binding => binding.packageId !== body.packageId)
   const updated = characterMetaStore.update(id, { skillBindings: next, skills: next.map(binding => binding.packageId) })
-  return c.json(updated)
+  if (!updated) return c.json({ error: 'Not found' }, 404)
+  const merged = characterMetaStore.getById(id)
+  return c.json(merged || updated)
 })
+
 router.put('/:id', async (c) => {
   const body = await c.req.json() as any
   const { soul, userProfile, memoryContent, customPrompt, id: newId, ...metaRest } = body
@@ -337,16 +361,61 @@ router.put('/:id', async (c) => {
     memory: memoryContent as string | undefined,
     prompt: customPrompt as string | undefined,
   })
-  return c.json(mergeContent(meta, meta.id))
+  // 写路径成功后返回双层合并视图（含 source/readOnly/overridesBuiltin）。
+  const merged = characterMetaStore.getById(meta.id)
+  return c.json(mergeContent(merged || meta, meta.id))
 })
+
 router.delete('/:id', (c) => {
   const id = c.req.param('id')
-  if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
+  const merged = characterMetaStore.getById(id)
+  if (!merged) return c.json({ error: 'Not found' }, 404)
+  // 内置角色不能从安装目录删除：记录隐藏状态（文件仍留在发行层）。
+  if (merged.source === 'builtin') {
+    characterRevisionStore.ensureCurrent(id)
+    setHidden('characters', id, true)
+    return c.json({ success: true, archived: true, hidden: true })
+  }
   characterRevisionStore.ensureCurrent(id)
   characterRevisionStore.archive(id)
   characterMetaStore.update(id, { hidden: true, enabled: false })
   return c.json({ success: true, archived: true })
 })
+
+/** 隐藏内置角色（普通列表不再返回；all=true 可见）。 */
+router.post('/:id/hide', (c) => {
+  const id = c.req.param('id')
+  const merged = characterMetaStore.getById(id)
+  if (!merged) return c.json({ error: 'Not found' }, 404)
+  if (merged.source !== 'builtin') return c.json({ error: 'Only builtin characters can be hidden' }, 400)
+  setHidden('characters', id, true)
+  return c.json({ ok: true, hidden: true })
+})
+
+/** 取消隐藏内置角色。 */
+router.post('/:id/unhide', (c) => {
+  const id = c.req.param('id')
+  const merged = characterMetaStore.getById(id)
+  if (!merged) return c.json({ error: 'Not found' }, 404)
+  setHidden('characters', id, false)
+  return c.json({ ok: true, hidden: false })
+})
+
+/** 恢复内置版本：删除用户个人副本，重新显示当前内置版本。 */
+router.post('/:id/restore-builtin', (c) => {
+  const id = c.req.param('id')
+  const merged = characterMetaStore.getById(id)
+  if (!merged) return c.json({ error: 'Not found' }, 404)
+  if (merged.source !== 'user' || !merged.overridesBuiltin) {
+    return c.json({ error: 'Character has no user copy to restore' }, 400)
+  }
+  characterRevisionStore.ensureCurrent(id)
+  characterRevisionStore.archive(id)
+  restoreBuiltinCharacter(id)
+  setHidden('characters', id, false)
+  return c.json({ ok: true, restored: true, source: 'builtin' })
+})
+
 router.get('/:id/stats', (c) => {
   const id = c.req.param('id')
   const db = getDb()
@@ -354,4 +423,5 @@ router.get('/:id/stats', (c) => {
   const lastActive = (db.prepare('SELECT MAX(updated_at) as ts FROM sessions WHERE character_id = ?').get(id) as any)?.ts || null
   return c.json({ sessionCount, lastActive })
 })
+
 export default router

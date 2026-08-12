@@ -65,9 +65,11 @@ export default function SkillView() {
                       </div>
                       <span className="skill-origin evolved">{pkg.childCount > 0 ? `${pkg.childCount} 个子技能` : '单技能包'}</span>
                     </div>
-                    <div className="skill-desc">{pkg.description || '暂无描述'}</div>
                     <div className="skill-meta">
                       <span>{categoryLabels[category] || category}</span>
+                      {pkg.source === 'builtin' && <span style={{ color: 'var(--ink-mid)' }}>内置</span>}
+                      {pkg.source === 'user' && pkg.overridesBuiltin && <span style={{ color: 'var(--ink-mid)' }}>已自定义</span>}
+                      {pkg.source === 'user' && !pkg.overridesBuiltin && <span style={{ color: 'var(--ink-mid)' }}>我的</span>}
                       {bound.length > 0 && <span>绑定：{bound.join('、')}</span>}
                     </div>
                     {pkg.childCount > 0 && isOpen && (

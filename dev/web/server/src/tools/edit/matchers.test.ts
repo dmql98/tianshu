@@ -1,4 +1,4 @@
-import { findBestMatch, exactMatch, contextAwareMatch } from './matchers.js'
+import { replace } from './matchers.js'
 import { strict as assert } from 'assert'
 
 let passed = 0
@@ -8,122 +8,148 @@ function ok(name: string, cond: unknown) {
   console.log(`  OK ${name}`)
 }
 
-// --- Regression: indentation-insensitive matchers are GONE ---
-// Previously lineTrimmed/indentationFlexible matched a block with wrong
-// indentation and replaced it, corrupting indentation (the main.ts `])7.0.0.1`
-// class of bug).
+// --- Exact match is preferred and works ---
+{
+  const code = 'const x = 1\nconst y = 2\n'
+  const r = replace(code, 'const y = 2', 'const y = 20')
+  assert.strictEqual(r.method, 'exact')
+  assert.strictEqual(r.index, code.indexOf('const y = 2'))
+  assert.strictEqual(r.next, 'const x = 1\nconst y = 20\n')
+  ok('exact match is preferred', true)
+}
+
+// --- CRLF: LF-typed oldString matches a CRLF file and CRLF is preserved ---
+{
+  const code = 'const a = 1\r\nconst b = 2\r\nconst c = 3\r\n'
+  const r = replace(code, 'const b = 2', 'const b = 20')
+  assert.strictEqual(r.next, 'const a = 1\r\nconst b = 20\r\nconst c = 3\r\n')
+  assert.strictEqual(r.method, 'exact')
+  ok('CRLF preserved + LF oldString matched', true)
+}
+
+// --- Ambiguous (multiple identical blocks) is refused without replaceAll ---
+{
+  const code = 'foo()\nfoo()\n'
+  assert.throws(() => replace(code, 'foo()', 'bar()'), /multiple matches/i)
+  const r = replace(code, 'foo()', 'bar()', true)
+  assert.strictEqual(r.next, 'bar()\nbar()\n')
+  assert.strictEqual(r.count, 2)
+  ok('ambiguous refused; replaceAll replaces all', true)
+}
+
+// --- LineTrimmed: wrong-indentation oldString resolves to the REAL block ---
 {
   const code = [
     'export function resetTheme() {',
     '    delete document.documentElement.dataset.theme',
     '}',
+    '',
+    'export function applyTheme(t: Theme) {',
+    '    document.documentElement.dataset.theme = t.id',
+    '}',
   ].join('\n')
-  // Old buggy matcher accepted 2-space indentation; now multi-line fuzzy is
-  // context-aware only, and the anchor lines must match exactly INCLUDING indent.
-  const badIndent = [
+  const dedented = [
     'export function resetTheme() {',
     '  delete document.documentElement.dataset.theme',
     '}',
   ].join('\n')
-  const r = findBestMatch(code, badIndent)
-  ok('wrong indentation no longer matches (indent-sensitive)', r === null)
+  const r = replace(code, dedented, 'export function resetTheme() {\n    /* x */\n}')
+  assert.strictEqual(r.method, 'lineTrimmed')
+  assert.ok(r.next.includes('    /* x */'), 'replaced with provided newString')
+  assert.ok(r.next.includes('export function applyTheme'), 'sibling block untouched')
+  ok('dedented oldString resolves to real block', true)
 }
 
-// --- Regression: exact match still works and is preferred ---
+// --- Nested indented block: dedented oldString still resolves ---
 {
-  const code = 'const x = 1\nconst y = 2\n'
-  const r = findBestMatch(code, 'const y = 2')
-  assert(r && r.method === 'exact' && code.slice(r.result.index, r.result.index + r.result.length) === 'const y = 2')
-  ok('exact match works', !!r)
+  const code = 'function outer() {\n    if (x) {\n        doA()\n        doB()\n    }\n}\n'
+  const r = replace(code, 'if (x) {\n  doA()\n  doB()\n}', 'if (x) { doAll() }')
+  assert.ok(r.next.startsWith('function outer() {\n'), 'outer preserved')
+  assert.ok(r.next.includes('if (x) { doAll() }'), 'inner replaced')
+  assert.ok(r.next.endsWith('}\n'), 'outer close preserved')
+  ok('nested indented block resolves', true)
 }
 
-// --- Regression: contextAware requires >=4 lines and exact anchor indent ---
+// --- BlockAnchor: line-count drift between anchors tolerated ---
 {
-  const content = [
-    'function handleA() {',
+  const code = [
+    'function outer() {',
     '  const a = 1',
     '  const b = 2',
-    '  return a + b',
-    '}',
-    '',
-    'function handleB() {',
-    '  const x = 100',
-    '  const y = 200',
-    '  const z = 300',
-    '  return x * y + z',
+    '  const c = 3',
+    '  return x',
     '}',
   ].join('\n')
-  // handleB with one line content-differing (x=100 -> x=1000) should still match
-  // handleB uniquely (threshold 80%).
-  const oldB = [
-    'function handleB() {',
-    '  const x = 100',
-    '  const y = 200',
-    '  const z = 300',
-    '  return x * y + z',
+  // find is missing the b-line: LineTrimmed needs exact count, BlockAnchor doesn't.
+  const find = [
+    'function outer() {',
+    '  const a = 1',
+    '  const c = 3',
+    '  return x',
     '}',
   ].join('\n')
-  const r = findBestMatch(content, oldB)
-  ok('contextAware exact-preferred for handleB', r && r.method === 'exact')
-
-  // A fuzzy variant: first+last lines differ only in indent should NOT match.
-  const dedentedB = [
-    'function handleB() {',
-    'const x = 100',
-    'const y = 200',
-    'const z = 300',
-    'return x * y + z',
-    '}',
-  ].join('\n')
-  const r2 = findBestMatch(content, dedentedB)
-  ok('contextAware rejects dedented middle (indent-sensitive)', r2 === null)
-
-  // <4 line oldString: fuzzy refused entirely.
-  const shortOld = 'function handleB() {\n  const x = 100\n  return 1\n}'
-  const r3 = findBestMatch(content, shortOld)
-  // If exact fails (it does — return differs), fuzzy must refuse (<4 lines).
-  ok('short multi-line oldString fuzzy refused', r3 === null || r3.method === 'exact')
+  const r = replace(code, find, 'function outer() { return 0 }')
+  assert.strictEqual(r.method, 'blockAnchor')
+  assert.ok(r.next.includes('function outer() { return 0 }'))
+  ok('blockAnchor tolerates line-count drift', true)
 }
 
-// --- whitespaceNormalized was removed: no permissive whitespace collapse ---
+// --- ContextAware: first/last anchors + tolerant middle ---
 {
-  // Previously a single-line whitespace matcher could accept token-merged
-  // text (e.g. `"foo"  ;` vs `"foo";`). That matcher is gone; only exact and
-  // contextAware remain.
-  const r = findBestMatch('const x =  "a"  ;\n', 'const x = "a";')
-  ok('whitespace-only difference no longer fuzzy-matches (exact is the floor)', r === null || r.method === 'exact')
+  const code = [
+    'function handle() {',
+    '  const a = 100',
+    '  const b = 200',
+    '  const c = 300',
+    '  const d = 400',
+    '  return total',
+    '}',
+  ].join('\n')
+  // 2 of 4 middle lines differ -> BlockAnchor (0.65) fails, ContextAware (0.5) passes.
+  const drifted = [
+    'function handle() {',
+    '  const a = 100',
+    '  return zzzzzzz()',
+    '  return qqqqqqq()',
+    '  const d = 400',
+    '  return total',
+    '}',
+  ].join('\n')
+  const r = replace(code, drifted, 'function handle() { return 42 }')
+  assert.strictEqual(r.method, 'contextAware')
+  assert.ok(r.next.includes('return 42'))
+  ok('contextAware tolerates middle drift', true)
 }
 
-// --- index.ts ambiguity guard: length===0 signals ambiguous ---
+// --- WhitespaceNormalized: internal whitespace collapse ---
 {
-  const content = [
-    'function f1() {',
-    '  const x = 1',
-    '  const y = 2',
-    '  const z = 3',
-    '  return x',
-    '}',
-    'function f2() {',
-    '  const x = 10',
-    '  const y = 20',
-    '  const z = 30',
-    '  return x',
-    '}',
-  ].join('\n')
-  // oldString whose first/last lines match BOTH functions identically, and
-  // middle lines similar enough to pass threshold for both -> ambiguity.
-  const ambiguous = [
-    'function f1() {',
-    '  const x = 1',
-    '  const y = 2',
-    '  const z = 3',
-    '  return x',
-    '}',
-  ].join('\n')
-  const r = findBestMatch(content, ambiguous)
-  // If exact matched f1 it's fine; but the oldString must be EXACTLY f1, else
-  // contextAware may find two candidates and return ambiguity marker.
-  ok('ambiguity detection returns a result (never crashes)', r !== null)
+  const code = 'const x =  "a";\n'
+  const r = replace(code, 'const x = "a";', 'const y = "b";')
+  assert.strictEqual(r.method, 'whitespaceNormalized')
+  assert.strictEqual(r.next, 'const y = "b";\n')
+  ok('whitespaceNormalized collapses internal whitespace', true)
+}
+
+// --- Not found throws a clear error ---
+{
+  assert.throws(() => replace('const x = 1\n', 'function missing() {}', 'x'), /Could not find oldString/i)
+  ok('missing oldString throws', true)
+}
+
+// --- Empty oldString and identical strings throw ---
+{
+  assert.throws(() => replace('abc', '', 'x'), /cannot be empty/i)
+  assert.throws(() => replace('abc', 'x', 'x'), /identical/i)
+  ok('empty/identical guards', true)
+}
+
+// --- Single-line exact edit stays proportionate ---
+{
+  const big = 'function a() {\n' + Array.from({ length: 30 }, () => '  const v = 1').join('\n') + '\n}\n'
+  const r = replace(big, 'function a() {', 'function a() { x }')
+  assert.strictEqual(r.method, 'exact')
+  assert.strictEqual(r.length, 'function a() {'.length)
+  ok('single-line exact stays proportionate', true)
 }
 
 console.log(`\nALL MATCHER TESTS PASSED (${passed})`)
