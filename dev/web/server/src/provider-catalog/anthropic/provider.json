@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "anthropic",
+  "name": "Anthropic",
+  "description": "Anthropic API",
+  "format": "anthropic",
+  "runtime": {
+    "plugin": "anthropic"
+  },
+  "baseUrl": "https://api.anthropic.com/v1/",
+  "env": [
+    "ANTHROPIC_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://www.anthropic.com/",
+  "docsUrl": "https://docs.anthropic.com/",
+  "popular": true,
+  "sortOrder": 20,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "sk-ant-..."
+    }
+  ]
+}

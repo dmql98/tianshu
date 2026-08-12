@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
-import { createProvider, fetchBuiltinProviders, type ProviderModel } from '@/api/providers'
+import { createProvider, fetchBuiltinProviders, type ProviderPreset } from '@/api/providers'
 
 const formatLabel: Record<string, string> = {
   openai: 'OpenAI 兼容', anthropic: 'Anthropic 格式', gemini: 'Gemini 格式',
@@ -10,19 +10,51 @@ interface Props {
   onClose: () => void
 }
 
+function ProviderIcon({ preset }: { preset: ProviderPreset }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink-mid)' }}>
+        {preset.name.slice(0, 1).toUpperCase()}
+      </span>
+    )
+  }
+  return (
+    <img
+      src={preset.icon_url}
+      alt=""
+      width={24}
+      height={24}
+      onError={() => setFailed(true)}
+      style={{ color: 'var(--ink-mid)' }}
+    />
+  )
+}
+
 export default function AddProviderDialog({ onClose }: Props) {
   const { load } = useProvidersStore()
   const [step, setStep] = useState<'select' | 'config'>('select')
-  const [builtinProviders, setBuiltinProviders] = useState<any[]>([])
+  const [builtinProviders, setBuiltinProviders] = useState<ProviderPreset[]>([])
   const [search, setSearch] = useState('')
-  const [selectedProvider, setSelectedProvider] = useState<any>(null)
+  const [selectedProvider, setSelectedProvider] = useState<ProviderPreset | null>(null)
   const [formData, setFormData] = useState({ name: '', baseUrl: '', apiKey: '' })
   const [loading, setLoading] = useState(false)
+  const [listLoading, setListLoading] = useState(true)
+  const [listError, setListError] = useState('')
   const [error, setError] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
 
+  const loadList = () => {
+    setListLoading(true)
+    setListError('')
+    fetchBuiltinProviders()
+      .then(setBuiltinProviders)
+      .catch((err) => setListError(err?.message || '加载预设服务商失败'))
+      .finally(() => setListLoading(false))
+  }
+
   useEffect(() => {
-    fetchBuiltinProviders().then(setBuiltinProviders).catch(console.error)
+    loadList()
   }, [])
 
   useEffect(() => {
@@ -33,11 +65,14 @@ export default function AddProviderDialog({ onClose }: Props) {
     if (!search) return builtinProviders
     const q = search.toLowerCase()
     return builtinProviders.filter(p =>
-      p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) || (p.format || '').includes(q)
+      p.name.toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q) ||
+      (p.format || '').includes(q)
     )
   }, [builtinProviders, search])
 
-  const handleSelectProvider = (provider: any) => {
+  const handleSelectProvider = (provider: ProviderPreset) => {
     setSelectedProvider(provider)
     setFormData({
       name: provider.name,
@@ -65,17 +100,25 @@ export default function AddProviderDialog({ onClose }: Props) {
     setError('')
 
     try {
+      const preset = selectedProvider
       await createProvider({
-        id: selectedProvider?.id || `${formData.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+        id: preset?.id || `${formData.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
         name: formData.name,
         base_url: formData.baseUrl,
         api_key: formData.apiKey || undefined,
         models: [],
+        ...(preset ? {
+          preset_id: preset.id,
+          runtime_plugin: preset.runtime_plugin,
+          format: preset.format,
+          is_builtin: true,
+        } : {}),
       })
       await load()
       onClose()
-    } catch (err) {
-      setError('添加失败，请重试')
+    } catch (err: any) {
+      if (err?.message?.includes('409')) setError('该预设服务商已添加')
+      else setError('添加失败，请重试')
     } finally {
       setLoading(false)
     }
@@ -113,36 +156,66 @@ export default function AddProviderDialog({ onClose }: Props) {
                   }}
                 />
               </div>
-              {filtered.map(provider => (
+
+              {listLoading && (
+                <div style={{textAlign:'center',padding:24,color:'var(--ink-faint)',fontSize: 'calc(13px * var(--ui-font-scale))'}}>
+                  加载预设服务商...
+                </div>
+              )}
+
+              {listError && (
+                <div className="provider-form-error" style={{margin:'8px 4px'}}>
+                  {listError}
+                  <button
+                    className="provider-btn secondary"
+                    style={{marginTop:8,width:'100%'}}
+                    onClick={loadList}
+                  >
+                    重试
+                  </button>
+                </div>
+              )}
+
+              {!listLoading && !listError && filtered.map(provider => (
                 <div
                   key={provider.id}
                   className="provider-list-item"
-                  onClick={() => handleSelectProvider(provider)}
+                  onClick={() => !provider.added && handleSelectProvider(provider)}
+                  style={provider.added ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
                 >
                   <div className="provider-list-icon">
-                    <svg width={24} height={24} viewBox="0 0 40 40">
-                      <use href={`/provider-icons/sprite.svg#${provider.id}`} />
-                    </svg>
+                    <ProviderIcon preset={provider} />
                   </div>
                   <div className="provider-list-info">
                     <div className="provider-list-name">{provider.name}</div>
-                    <div className="provider-list-desc">{formatLabel[provider.format] || provider.format}</div>
+                    <div className="provider-list-desc">
+                      {formatLabel[provider.format] || provider.format}
+                      {provider.env_available && (
+                        <span style={{ color: 'var(--jade)', marginLeft: 6 }}>· 已检测到环境变量</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="provider-list-arrow">
+                    {provider.added ? '已添加' : '›'}
+                  </div>
+                </div>
+              ))}
+
+              {!listLoading && !listError && (
+                <div
+                  className="provider-list-item"
+                  style={{borderStyle: 'dashed'}}
+                  onClick={handleCustom}
+                >
+                  <div className="provider-list-icon" style={{fontSize:18}}>➕</div>
+                  <div className="provider-list-info">
+                    <div className="provider-list-name">自定义服务商</div>
                   </div>
                   <div className="provider-list-arrow">›</div>
                 </div>
-              ))}
-              <div
-                className="provider-list-item"
-                style={{borderStyle: 'dashed'}}
-                onClick={handleCustom}
-              >
-                <div className="provider-list-icon" style={{fontSize:18}}>➕</div>
-                <div className="provider-list-info">
-                  <div className="provider-list-name">自定义服务商</div>
-                </div>
-                <div className="provider-list-arrow">›</div>
-              </div>
-              {filtered.length === 0 && search && (
+              )}
+
+              {!listLoading && !listError && filtered.length === 0 && search && (
                 <div style={{textAlign:'center',padding:24,color:'var(--ink-faint)',fontSize: 'calc(13px * var(--ui-font-scale))'}}>
                   未找到匹配的服务商
                 </div>
@@ -153,38 +226,45 @@ export default function AddProviderDialog({ onClose }: Props) {
               {error && (
                 <div className="provider-form-error">{error}</div>
               )}
-              
+
               <div className="provider-form-field">
                 <label>服务名称</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formData.name}
                   onChange={e => setFormData(p => ({...p, name: e.target.value}))}
                   placeholder="例如：Anthropic"
                 />
               </div>
-              
+
               <div className="provider-form-field">
                 <label>API 地址</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formData.baseUrl}
                   onChange={e => setFormData(p => ({...p, baseUrl: e.target.value}))}
                   placeholder="例如：https://api.anthropic.com/v1/"
                 />
               </div>
-              
+
               <div className="provider-form-field">
                 <label>
                   API Key
+                  {selectedProvider?.env_available && (
+                    <span className="provider-form-hint" style={{ color: 'var(--jade)' }}>
+                      已检测到环境变量，可留空
+                    </span>
+                  )}
                 </label>
-                {selectedProvider?.envKey && (
+                {selectedProvider?.env?.length ? (
                   <div style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)',marginBottom:4}}>
-                    也可设置环境变量 <code style={{background:'var(--bg-hover)',padding:'1px 4px',borderRadius:3}}>{selectedProvider.envKey}</code>
+                    也可设置环境变量 {selectedProvider.env.map(name => (
+                      <code key={name} style={{background:'var(--bg-hover)',padding:'1px 4px',borderRadius:3}}>{name}</code>
+                    ))}
                   </div>
-                )}
-                <input 
-                  type="password" 
+                ) : null}
+                <input
+                  type="password"
                   value={formData.apiKey}
                   onChange={e => setFormData(p => ({...p, apiKey: e.target.value}))}
                   placeholder="sk-..."
@@ -200,8 +280,8 @@ export default function AddProviderDialog({ onClose }: Props) {
           ) : (
             <>
               <button className="provider-btn secondary" onClick={() => { setStep('select'); setSearch('') }}>返回</button>
-              <button 
-                className="provider-btn primary" 
+              <button
+                className="provider-btn primary"
                 onClick={handleSubmit}
                 disabled={loading || !formData.name || !formData.baseUrl}
               >

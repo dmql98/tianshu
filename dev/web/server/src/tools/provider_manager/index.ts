@@ -69,10 +69,10 @@ export const tool: ToolModule = {
         ? args.models.split(',').map(s => s.trim()).filter(Boolean).map(mid => ({ id: mid, name: mid }))
         : []
 
-      const record = providerStore.create({
+      const { record } = providerStore.create({
         id, name: args.name, base_url: args.base_url, api_key: args.api_key, models,
       })
-      return { output: `Provider "${record.id}" created\n  Name: ${record.name}\n  URL: ${record.base_url}\n  Models: ${models.length > 0 ? models.map(m => m.id).join(', ') : '(none)'}` }
+      return { output: `Provider "${record!.id}" created\n  Name: ${record!.name}\n  URL: ${record!.base_url}\n  Models: ${models.length > 0 ? models.map(m => m.id).join(', ') : '(none)'}` }
     }
 
     if (action === 'update') {

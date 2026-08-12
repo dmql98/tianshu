@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "cerebras",
+  "name": "Cerebras",
+  "description": "Cerebras API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "cerebras"
+  },
+  "baseUrl": "https://api.cerebras.ai/v1/",
+  "env": [
+    "CEREBRAS_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://www.cerebras.ai/",
+  "docsUrl": "https://docs.cerebras.ai/",
+  "popular": false,
+  "sortOrder": 170,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "cerebras-..."
+    }
+  ]
+}

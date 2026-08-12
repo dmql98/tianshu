@@ -1,16 +1,16 @@
-# Graph Report - dev  (2026-08-11)
+# Graph Report - dev  (2026-08-12)
 
 ## Corpus Check
-- 285 files · ~229,816 words
+- 308 files · ~235,482 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1650 nodes · 3459 edges · 134 communities (96 shown, 38 thin omitted)
+- 1720 nodes · 3547 edges · 142 communities (106 shown, 36 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 19 edges (avg confidence: 0.69)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `39c9a85b`
+- Built from commit: `b09d9c68`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -141,12 +141,19 @@
 - sub-agent.ts
 - toolStore.ts
 - definitions.ts
+- checkpoint-store.ts
+- 7. 初始化与切换流程
 - avatarCropStyle
+- Provider Catalog 图标许可证与来源记录
+- 4. 产品范围建议
+- 6. 主题 Token 设计
+- 8. UI 开发计划
+- 3. 天枢当前状态
 
 ## God Nodes (most connected - your core abstractions)
 1. `getDataDir()` - 52 edges
-2. `apiGet()` - 39 edges
-3. `apiPost()` - 39 edges
+2. `apiPost()` - 39 edges
+3. `apiGet()` - 38 edges
 4. `ProviderPlugin` - 36 edges
 5. `sessionLoop()` - 33 edges
 6. `getDb()` - 33 edges
@@ -171,7 +178,7 @@
 - 2-file cycle: `web/server/src/agent/inner.ts -> web/server/src/agent/loop/completion-evaluator.ts -> web/server/src/agent/inner.ts`
 - 3-file cycle: `web/server/src/agent/loop.ts -> web/server/src/agent/outer.ts -> web/server/src/event/event-run-adapter.ts -> web/server/src/agent/loop.ts`
 
-## Communities (134 total, 38 thin omitted)
+## Communities (142 total, 36 thin omitted)
 
 ### Community 0 - "chatStore.ts"
 Cohesion: 0.29
@@ -182,12 +189,12 @@ Cohesion: 0.13
 Nodes (15): better-sqlite3, hono, @modelcontextprotocol/sdk, @mozilla/readability, socket.io, turndown, dependencies, better-sqlite3 (+7 more)
 
 ### Community 2 - "SkillSettings.vue"
-Cohesion: 0.13
-Nodes (24): runAssetGC(), startAssetGC(), assetIdsFromVisual(), hasProtectingRef(), registerAssetRefs(), touchPlayerLease(), CharacterPresence, characterPresenceProjector (+16 more)
+Cohesion: 0.10
+Nodes (31): runAssetGC(), startAssetGC(), assetIdsFromVisual(), hasProtectingRef(), registerAssetRefs(), touchPlayerLease(), CharacterPresence, characterPresenceProjector (+23 more)
 
 ### Community 3 - "EventsView.vue"
-Cohesion: 0.08
-Nodes (24): 08：桌面角色窗口已取消, 08：资源生命周期 —— ✅ 已收口（2026-07-31 第二轮）, 1. 任务背景, 2.1 Run、RunEvent 与持久事件骨架, 2.2 CharacterDefinition / CharacterRevision, 2.3 消息 revision 与会话分支, 2.4 08 第一阶段：资源、Renderer 与 Presence, 2.5 角色资源引用保护与包 (+16 more)
+Cohesion: 0.05
+Nodes (40): 10. 图标导入要求, 11.1 Catalog loader 单元测试, 11.2 API 测试, 11.3 客户端测试, 11.4 集成验证, 11. 测试计划, 12. 验收标准, 13. 推荐实施顺序 (+32 more)
 
 ### Community 4 - "dependencies"
 Cohesion: 0.24
@@ -214,8 +221,8 @@ Cohesion: 0.10
 Nodes (34): assembleStaticPrompt(), resolveDataspace(), resolveWorkspace(), resolveWorkspaces(), getControlToolDefinitions(), RunResult, sessionLoop(), cachePath() (+26 more)
 
 ### Community 10 - "package.json"
-Cohesion: 0.18
-Nodes (11): react, react-dom, react-router-dom, socket.io-client, dependencies, react, react-dom, react-router-dom (+3 more)
+Cohesion: 0.12
+Nodes (21): CacheEntry, CatalogIssue, CatalogLoadResult, __dirname, getCatalogRoot(), getIconPath(), getPreset(), isIconInsideDir() (+13 more)
 
 ### Community 11 - "offlineMiner.ts"
 Cohesion: 0.12
@@ -223,91 +230,91 @@ Nodes (20): lcs(), lengthTier(), OfflineMiner, parseToolCalls(), similarity(), T
 
 ### Community 12 - "EvolutionSettings.vue"
 Cohesion: 0.12
-Nodes (19): cancelRun(), fetchRecentRuns(), fetchRunEvents(), RunRow, submitRunInput(), AskUserDialog(), applyRunEvents(), Attachment (+11 more)
+Nodes (20): cancelRun(), fetchRecentRuns(), fetchRunEvents(), RunRow, submitRunInput(), connectSocket(), AskUserDialog(), applyRunEvents() (+12 more)
 
 ### Community 13 - "ModelSelector.vue"
-Cohesion: 0.15
-Nodes (24): CharacterAssetRef, characterAssetUrl(), CharacterMotion, CharacterMotionBinding, CharacterVisual, CharacterVisualResponse, exportCharacterPackage(), fetchCharacterVisual() (+16 more)
+Cohesion: 0.19
+Nodes (16): CharacterVisual, saveCharacterVisual(), uploadCharacterAsset(), AvatarCrop, avatarCropStyle(), clamp(), normalizeAvatarCrop(), AvatarCropDialog() (+8 more)
 
 ### Community 14 - "inner.ts"
-Cohesion: 0.09
-Nodes (38): checkpointService, PendingApprovalState, CheckpointRow, checkpointStore, createDurableSocket(), PHASE_BY_EVENT, publishRunEvent(), RAW_SOCKET (+30 more)
+Cohesion: 0.11
+Nodes (29): createDurableSocket(), PHASE_BY_EVENT, publishRunEvent(), RAW_SOCKET, RunEventRow, runEventStore, terminalStatus(), unwrapDurableSocket() (+21 more)
 
 ### Community 15 - "apiGet"
-Cohesion: 0.14
-Nodes (23): deleteCharacter(), apiDelete(), apiGet(), apiPut(), EvolutionConfig, saveEvolutionConfig(), saveDefaultPrompt(), createProvider() (+15 more)
+Cohesion: 0.17
+Nodes (19): deleteCharacter(), apiDelete(), apiGet(), apiPost(), deleteProvider(), fetchProviderModels(), fetchProviders(), ProviderModel (+11 more)
 
 ### Community 16 - "WorkspacePicker.vue"
 Cohesion: 0.29
 Nodes (6): capMessage(), clampPercent(), toMessage(), UpdateManager, UpdateManagerOptions, UpdateState
 
 ### Community 17 - "tools.ts"
-Cohesion: 0.18
-Nodes (7): CancelScope, completeRun(), executeRun(), QueuedRun, runCoordinator, SessionEntry, sessions
+Cohesion: 0.15
+Nodes (8): CancelScope, completeRun(), executeRun(), QueuedRun, runCoordinator, SessionEntry, sessions, runStore
 
 ### Community 18 - "compilerOptions"
 Cohesion: 0.08
 Nodes (23): DOM, DOM.Iterable, ES2020, compilerOptions, allowImportingTsExtensions, isolatedModules, jsx, lib (+15 more)
 
 ### Community 19 - "useChatStore"
-Cohesion: 0.19
-Nodes (14): createCharacter(), fetchCharacter(), fetchCharacterStats(), updateCharacter(), updateCharacterSkillBinding(), EditFieldProps, dedupeToolBindings(), getUnboundTools() (+6 more)
+Cohesion: 0.14
+Nodes (21): characterAssetUrl(), CharacterMotionBinding, createCharacter(), exportCharacterPackage(), fetchCharacter(), fetchCharacterStats(), importCharacterPackage(), publishCharacterRevision() (+13 more)
 
 ### Community 20 - "system-cache.ts"
-Cohesion: 0.19
-Nodes (13): ChatArea(), dirOf(), extractPath(), FileEntry, FilePanel(), openDirectory(), isCompact(), MessageList() (+5 more)
+Cohesion: 0.18
+Nodes (11): ChatArea(), dirOf(), extractPath(), FileEntry, FilePanel(), openDirectory(), isCompact(), MessageList() (+3 more)
 
 ### Community 21 - "characterStore.ts"
-Cohesion: 0.21
-Nodes (13): AttachmentRecord, ContentPart, isImage(), isTextExtension(), isTextLike(), lowerContentToProvider(), mediaPart, ProviderContentBlock (+5 more)
+Cohesion: 0.32
+Nodes (11): configPath(), ensureMcpDir(), findById(), findDirById(), MCP_DIR(), MCPServerRecord, migrateFromOldFile(), OLD_FILE() (+3 more)
 
 ### Community 22 - "loop.test.ts"
-Cohesion: 0.22
-Nodes (6): markdown-it, markdown-it, MarkdownContent(), md, Props, Props
+Cohesion: 0.33
+Nodes (5): messageStore, providerStore, sessionStore, router, router
 
 ### Community 23 - "eventExecutor.ts"
 Cohesion: 0.20
 Nodes (12): CronFields, dayOfWeek(), daysInMonth(), LocalParts, NextFireOptions, nextFireTime(), normalizeClock(), parseCronExpression() (+4 more)
 
 ### Community 24 - "EventsPage.tsx"
-Cohesion: 0.16
-Nodes (23): apiPost(), archiveEventDefinition(), createEventDefinition(), CreateEventDefinitionInput, deleteEventDefinition(), EventDefinition, EventOccurrence, fetchEventDefinitions() (+15 more)
+Cohesion: 0.21
+Nodes (18): archiveEventDefinition(), createEventDefinition(), CreateEventDefinitionInput, deleteEventDefinition(), EventDefinition, EventOccurrence, fetchEventDefinitions(), fetchEventOccurrences() (+10 more)
 
 ### Community 25 - "apiGet"
-Cohesion: 0.15
-Nodes (9): ToolCallRecord, detectDoomLoop(), evaluateFinalAnswer(), evaluateSubmission(), FinalAnswerDecision, hasRepeatingPattern(), SubmissionCheckInput, LoopEngineResult (+1 more)
+Cohesion: 0.14
+Nodes (19): ToolCallRecord, detectDoomLoop(), evaluateFinalAnswer(), FinalAnswerDecision, hasRepeatingPattern(), SubmissionCheckInput, handleAskUser(), handleCreatePlan() (+11 more)
 
 ### Community 26 - "loop.test.ts"
 Cohesion: 0.42
 Nodes (10): buildCompactionSummary(), compactHistory(), CompactResult, extractPreviousSummary(), llmSummarize(), selectAndSummarize(), selectEntries(), serializeForSummary() (+2 more)
 
 ### Community 27 - "SettingsPage.tsx"
-Cohesion: 0.15
-Nodes (27): fetchDataspace(), reloadDataspace(), saveDataspace(), clearEvolutionConfig(), fetchEvolutionConfig(), fetchDefaultPrompt(), testProvider(), applyDisplayPreferences() (+19 more)
+Cohesion: 0.14
+Nodes (30): apiPut(), reloadDataspace(), saveDataspace(), clearEvolutionConfig(), EvolutionConfig, fetchEvolutionConfig(), saveEvolutionConfig(), fetchDefaultPrompt() (+22 more)
 
 ### Community 28 - "goals.ts"
 Cohesion: 0.22
 Nodes (14): apiPatch(), createGoal(), fetchActivePlan(), fetchGoals(), Goal, patchGoal(), pauseGoal(), Plan (+6 more)
 
 ### Community 29 - "index.ts"
-Cohesion: 0.26
-Nodes (7): fetchCharacterPresence(), connectSocket(), ChatInput(), EVENT_TYPES, eventMotion(), SemanticEvent, useCharacterPresence()
+Cohesion: 0.29
+Nodes (6): fetchCharacterPresence(), ChatInput(), EVENT_TYPES, eventMotion(), SemanticEvent, useCharacterPresence()
 
 ### Community 30 - "context-builder.ts"
-Cohesion: 0.08
-Nodes (23): 10.1 单元测试, 10.2 构建验证, 10.3 手工验收矩阵, 10. 测试计划, 11. 验收标准, 12. 推荐实施顺序, 13. 实施约束, 1. 开发目标 (+15 more)
+Cohesion: 0.22
+Nodes (8): 10. Dream Skin 风格装饰主题阶段, 11. 第三方主题的后续边界, 14. 验收标准, 15. 推荐实施顺序, 16. 开发约束, 1. 目标, 5. 目标数据模型, 天枢主题切换开发计划
 
 ### Community 31 - "tools.ts"
 Cohesion: 0.13
 Nodes (19): createMCPServer(), deleteMCPServer(), DiscoveredMCPServer, discoverMCPServers(), DiscoverResult, fetchTools(), ImportMCPResult, importMCPServers() (+11 more)
 
 ### Community 32 - "ChatInput.tsx"
-Cohesion: 0.11
-Nodes (26): CharacterSnapshotContent, CharacterRevisionSnapshot, makeSnapshot(), readVisual(), CHAR_DIR(), characterContentStore, readMdOrLegacy(), CHAR_DIR() (+18 more)
+Cohesion: 0.27
+Nodes (10): CHAR_DIR(), CharacterMemory, ensureCharDir(), normalizeRecord(), pathFor(), readAll(), removeDir(), SkillBinding (+2 more)
 
 ### Community 33 - "checkpoint-store.ts"
-Cohesion: 0.09
-Nodes (22): 10. 建议实施顺序, 1. 目标, 2. 本次事故结论, 3.1 默认 AI SDK 链路, 3.2 流错误与中断工具清理, 3.3 OpenCode 实验性原生 LLM 链路, 3.4 OpenCode write 工具与天枢的差异, 3. OpenCode 的处理方式 (+14 more)
+Cohesion: 0.39
+Nodes (8): Config, configFilePath(), __dirname, isConfigured(), legacyHasData(), loadConfig(), setDataDir(), writeConfig()
 
 ### Community 34 - "Sidebar.vue"
 Cohesion: 0.12
@@ -322,24 +329,24 @@ Cohesion: 0.13
 Nodes (25): CLAUDE_SPEC, collect(), configPaths(), CURSOR_SPEC, dedupe(), discoverClaudeServers(), discoverCursorServers(), DiscoveredMCPServer (+17 more)
 
 ### Community 37 - "cronRegistry.ts"
-Cohesion: 0.18
-Nodes (10): ALLOWED_TRANSITIONS, RunRow, RunStatus, TERMINAL, CharacterBinding, resolveCharacterBinding(), ResolvedCharacterBinding, CharacterRevisionRow (+2 more)
+Cohesion: 0.20
+Nodes (9): ALLOWED_TRANSITIONS, RunRow, RunStatus, TERMINAL, CharacterBinding, resolveCharacterBinding(), ResolvedCharacterBinding, CharacterRevisionRow (+1 more)
 
 ### Community 38 - "validate.ts"
-Cohesion: 0.12
-Nodes (10): tool, tool, fuzzySuggest(), similarity(), tool, coerceBoolean, coerceNumber, validate() (+2 more)
+Cohesion: 0.09
+Nodes (12): tool, tool, fuzzySuggest(), similarity(), tool, coerceBoolean, coerceNumber, validate() (+4 more)
 
 ### Community 39 - "CharacterSelector.vue"
-Cohesion: 0.13
-Nodes (18): DEV_CORS_ORIGINS, isLoopbackOrigin(), MIME, serveClientHandler(), StartServerOptions, startTianshuServer(), TianshuServer, stopAssetGC() (+10 more)
+Cohesion: 0.16
+Nodes (16): DEV_CORS_ORIGINS, isLoopbackOrigin(), MIME, serveClientHandler(), StartServerOptions, startTianshuServer(), TianshuServer, stopAssetGC() (+8 more)
 
 ### Community 40 - "InputToolbar.vue"
-Cohesion: 0.19
-Nodes (18): checkStrategy(), checkToolBinding(), estimateTokenCount(), innerLoop(), READ_ONLY_TOOLS, SubAgentRequestData, CONTROL_TOOL_NAMES, CONTROL_TOOL_SET (+10 more)
+Cohesion: 0.10
+Nodes (33): checkStrategy(), checkToolBinding(), deepCloneToolCall(), estimateTokenCount(), innerLoop(), InnerResult, matchToolCall(), READ_ONLY_TOOLS (+25 more)
 
 ### Community 41 - "MessageItem.vue"
 Cohesion: 0.20
-Nodes (3): App(), navItems, KnowledgePage()
+Nodes (4): fetchDataspace(), App(), navItems, KnowledgePage()
 
 ### Community 42 - "sub-agent.ts"
 Cohesion: 0.12
@@ -354,28 +361,28 @@ Cohesion: 0.17
 Nodes (14): assetsDir, chunk(), clamp(), crc32(), CRC_TABLE, __dirname, drawIcon(), encodePNG() (+6 more)
 
 ### Community 46 - "skill-loader.ts"
-Cohesion: 0.10
-Nodes (38): SessionSkillActivation, sessionSkillStore, ensureInside(), fileType(), findSkillPackage(), listFiles(), listSkillPackages(), parseSkillFrontmatter() (+30 more)
+Cohesion: 0.09
+Nodes (39): SessionSkillActivation, sessionSkillStore, ensureInside(), fileType(), findSkillPackage(), listFiles(), listSkillPackages(), parseSkillFrontmatter() (+31 more)
 
 ### Community 47 - "context-compactor.ts"
 Cohesion: 0.13
 Nodes (15): tsx, @types/better-sqlite3, @types/glob, @types/jsdom, @types/turndown, devDependencies, tsx, @types/better-sqlite3 (+7 more)
 
 ### Community 48 - "context-references.ts"
-Cohesion: 0.15
-Nodes (13): @types/react, @types/react-dom, vite, @vitejs/plugin-react, devDependencies, @types/react, @types/react-dom, typescript (+5 more)
+Cohesion: 0.05
+Nodes (39): markdown-it, react, react-dom, react-router-dom, socket.io-client, @types/react, @types/react-dom, vite (+31 more)
 
 ### Community 49 - "providerStore.ts"
 Cohesion: 0.36
 Nodes (6): ApprovalChoice, approvalRegistry, PendingApproval, pendingBySession, assert(), main()
 
 ### Community 50 - "goals.ts"
-Cohesion: 0.20
-Nodes (9): name, private, scripts, build, dev, preview, test, type (+1 more)
+Cohesion: 0.44
+Nodes (8): DATA_DIR(), ensureDataDir(), ensureIds(), FILE(), ModelInfo, ProviderRecord, readAll(), writeAll()
 
 ### Community 51 - "types.ts"
 Cohesion: 0.17
-Nodes (7): plugin, plugin, plugin, plugin, ModelCapabilities, ModelDefinition, ProviderFormat
+Nodes (5): plugin, plugin, plugin, pluginIndex, plugins
 
 ### Community 52 - "utils.ts"
 Cohesion: 0.21
@@ -386,8 +393,8 @@ Cohesion: 0.17
 Nodes (11): compilerOptions, esModuleInterop, module, moduleResolution, outDir, rootDir, skipLibCheck, strict (+3 more)
 
 ### Community 55 - "MarkdownRenderer.vue"
-Cohesion: 0.05
-Nodes (60): ContextReference, ContextReferenceResult, estimateTokenCount(), expandFileReference(), expandFolderReference(), expandUrlReference(), formatFileTree(), isSensitive() (+52 more)
+Cohesion: 0.26
+Nodes (13): ContextReference, ContextReferenceResult, estimateTokenCount(), expandFileReference(), expandFolderReference(), expandUrlReference(), formatFileTree(), isSensitive() (+5 more)
 
 ### Community 56 - "GeneralEventSettings.vue"
 Cohesion: 0.29
@@ -398,11 +405,11 @@ Cohesion: 0.33
 Nodes (3): db, NOW, tmpData
 
 ### Community 58 - "compose.ts"
-Cohesion: 0.28
-Nodes (5): composeMessages(), lastUserIdx(), messages, regular, thinking
+Cohesion: 0.14
+Nodes (10): ComposeContext, composeMessages(), lastUserIdx(), messages, regular, thinking, LLMOptions, LLMUsage (+2 more)
 
 ### Community 59 - "App.tsx"
-Cohesion: 0.22
+Cohesion: 0.24
 Nodes (15): server, EventDefinitionRow, eventDefinitionStore, broadcastSocket(), drainQueue(), executeOccurrence(), scheduleOccurrence(), claimDue() (+7 more)
 
 ### Community 60 - "ProviderPlugin"
@@ -410,16 +417,16 @@ Cohesion: 0.18
 Nodes (6): plugin, plugin, plugin, plugin, ProviderPlugin, plugin
 
 ### Community 61 - "index.ts"
-Cohesion: 0.18
-Nodes (4): pluginIndex, plugins, plugin, plugin
+Cohesion: 0.17
+Nodes (7): plugin, plugin, plugin, ModelCapabilities, ModelDefinition, ProviderFormat, plugin
 
 ### Community 62 - "run-store.ts"
 Cohesion: 0.15
-Nodes (15): executeTool(), parseMCPToolName(), tool, tool, byName, execute(), getFilteredDefinitions(), IGNORE_DIRS (+7 more)
+Nodes (15): tool, parseSkillNames(), parsed, toolBindings, updated, updateNamedBindings(), updateSkillNames(), tool (+7 more)
 
 ### Community 65 - "toolStore.ts"
 Cohesion: 0.33
-Nodes (6): MessageItem(), Props, showReasoning(), icons, Props, Message
+Nodes (7): defaults, ensureDataDir(), EvolutionConfig, FILE(), read(), write(), router
 
 ### Community 66 - "index.ts"
 Cohesion: 0.14
@@ -430,24 +437,24 @@ Cohesion: 0.22
 Nodes (13): assertInsideDesktop(), cacheDir, desktopDir, devRoot, __dirname, download(), ensureDownloaded(), log() (+5 more)
 
 ### Community 69 - "definitions.ts"
-Cohesion: 0.19
-Nodes (14): ProviderCapability, reconstructParts(), resolveProviderFormat(), textPart, buildInitialMessages(), DEFAULT_PROMPT_FILE(), expandContextReferences(), fixOrphanToolCalls() (+6 more)
+Cohesion: 0.10
+Nodes (30): AttachmentRecord, ContentPart, isImage(), isTextExtension(), isTextLike(), lowerContentToProvider(), mediaPart, ProviderCapability (+22 more)
 
 ### Community 71 - "approval-registry.ts"
-Cohesion: 0.20
-Nodes (12): fetchCharacters(), updateSession(), fetchSkillPackages(), CharacterPicker(), Props, CharactersPage(), previewMotions, roleLabels (+4 more)
+Cohesion: 0.13
+Nodes (21): CharacterAssetRef, CharacterMotion, CharacterVisualResponse, fetchCharacters(), fetchCharacterVisual(), updateSession(), fetchSkillPackages(), CharacterPicker() (+13 more)
 
 ### Community 72 - "providerStore.ts"
-Cohesion: 0.23
-Nodes (12): fallbackSessionTitle(), generateSessionTitle(), normalizeGeneratedTitle(), truncateChars(), LLMChunk, collect(), lastOf(), main() (+4 more)
+Cohesion: 0.12
+Nodes (17): fallbackSessionTitle(), generateSessionTitle(), normalizeGeneratedTitle(), truncateChars(), LLMChunk, collect(), lastOf(), main() (+9 more)
 
 ### Community 73 - "llm-logger.ts"
 Cohesion: 0.31
 Nodes (7): DesktopAppInfo, UpdatePhase, formatBytes(), formatSpeed(), UpdatePanel(), DISABLED, useDesktopUpdater()
 
 ### Community 74 - "config.ts"
-Cohesion: 0.16
-Nodes (13): ContextMenu, ChatState, CharacterStats, Event, ProviderModel, Session, SessionSummary, Skill (+5 more)
+Cohesion: 0.13
+Nodes (18): MessageItem(), Props, showReasoning(), ContextMenu, icons, Props, ChatState, Event (+10 more)
 
 ### Community 75 - "normalize-skill-frontmatter.mjs"
 Cohesion: 0.83
@@ -458,12 +465,12 @@ Cohesion: 0.27
 Nodes (5): ServerManagerOptions, fixtures, DesktopMessage, ServerMessage, serverRoot
 
 ### Community 77 - "errors.ts"
-Cohesion: 0.24
-Nodes (6): describeTransportError(), getErrorCode(), IncompleteLLMStreamError, isTransientLLMError(), MalformedSSEError, described
+Cohesion: 0.29
+Nodes (7): 12. 分阶段实施任务, P0：测试先行与现状基线, P1：主题核心, P1：核心页面 Token 化, P1：设置页与快捷入口, P2：全部页面与装饰主题, P3：可选主题包
 
 ### Community 78 - "asset-gc.ts"
-Cohesion: 0.27
-Nodes (7): CanonicalToolCall, NormalizeFailure, NormalizeResult, normalizeToolCalls(), parseArgs(), safeSnippet(), tc()
+Cohesion: 0.29
+Nodes (7): 2.1 它解决的问题与天枢不同, 2.2 主题契约, 2.3 CSS 变量与公开部件, 2.4 自适应背景与可读性, 2.5 保存、应用与回滚, 2.6 不应照搬的部分, 2. Codex Dream Skin 研究结论
 
 ### Community 79 - "smoke-packaged.mjs"
 Cohesion: 0.25
@@ -486,12 +493,12 @@ Cohesion: 0.29
 Nodes (6): engines, node, name, private, type, version
 
 ### Community 87 - "providersStore.ts"
-Cohesion: 0.48
-Nodes (5): updateProvider(), EditProviderDialog(), Props, ProvidersState, Provider
+Cohesion: 0.19
+Nodes (13): createProvider(), fetchBuiltinProviders(), ProviderPreset, updateProvider(), AddProviderDialog(), formatLabel, Props, EditProviderDialog() (+5 more)
 
 ### Community 88 - "workspace.ts"
-Cohesion: 0.33
-Nodes (6): deepCloneToolCall(), matchToolCall(), attemptIsolation(), retries, sleep(), streamWithRetry()
+Cohesion: 0.29
+Nodes (6): Provider 预设目录（Provider Catalog）, 协议, 图标, 排序, 构建与打包, 运行时校验
 
 ### Community 89 - "media-store.ts"
 Cohesion: 0.48
@@ -505,49 +512,85 @@ Nodes (5): scripts, build, dev, start, test
 Cohesion: 0.50
 Nodes (3): desktopPkg, devRoot, __dirname
 
+### Community 94 - "cloudflare-ai-gateway.ts"
+Cohesion: 0.29
+Nodes (4): DirEntry, HOME, QUICK_ACCESS, workspaceRouter
+
+### Community 116 - "index.ts"
+Cohesion: 0.33
+Nodes (6): 13.1 单元测试, 13.2 组件测试, 13.3 手工与浏览器视觉测试, 13.4 可访问性, 13.5 构建验证, 13. 测试计划
+
 ### Community 128 - "run-store.ts"
-Cohesion: 0.17
-Nodes (21): ComposeContext, handleAskUser(), handleCreatePlan(), handleTaskComplete(), handleUpdatePlanStep(), isReasoningModel(), LoopEngineContext, persistComposeChanges() (+13 more)
+Cohesion: 0.40
+Nodes (5): copyAsset(), dest, __dirname, src, walk()
 
 ### Community 129 - "control-router.ts"
-Cohesion: 0.17
-Nodes (15): InnerResult, SubmissionCheckResult, AskUserOutcome, CreatePlanOutcome, handleSubAgentRequest(), SubAgentOutcome, SubmitResultOutcome, UpdatePlanStepOutcome (+7 more)
+Cohesion: 0.14
+Nodes (20): evaluateSubmission(), SubmissionCheckResult, AskUserOutcome, CreatePlanOutcome, handleSubAgentRequest(), handleTaskComplete(), SubAgentOutcome, SubmitResultOutcome (+12 more)
 
 ### Community 130 - "sub-agent.ts"
-Cohesion: 0.70
-Nodes (4): ensureDir(), getOutputDir(), truncateError(), truncateToolOutput()
+Cohesion: 0.20
+Nodes (13): getDataDir(), DEBUG_DIR(), deleteOldDebugSessions(), mergeOldDebugTurns(), mergeContent(), DEFAULT_PROMPT_FILE(), router, DEBUG_DIR() (+5 more)
 
 ### Community 131 - "toolStore.ts"
 Cohesion: 0.83
 Nodes (3): DEBUG_DIR(), logLLMCall(), systemPromptFingerprint()
 
 ### Community 132 - "definitions.ts"
-Cohesion: 0.24
-Nodes (11): mergeContent(), getCharacterToolDefinitions(), getDangerousTools(), matchPath(), parseFileSize(), resolveCharacterTools(), validateByRule(), validateConstraints() (+3 more)
+Cohesion: 0.15
+Nodes (17): getCharacterToolDefinitions(), getDangerousTools(), matchPath(), parseFileSize(), resolveCharacterTools(), validateByRule(), validateConstraints(), executeTool() (+9 more)
+
+### Community 133 - "checkpoint-store.ts"
+Cohesion: 0.47
+Nodes (4): checkpointService, PendingApprovalState, CheckpointRow, checkpointStore
+
+### Community 134 - "7. 初始化与切换流程"
+Cohesion: 0.40
+Nodes (5): 7.1 启动前初始化, 7.2 运行时切换, 7.3 跟随系统, 7.4 跨窗口同步, 7. 初始化与切换流程
 
 ### Community 135 - "avatarCropStyle"
-Cohesion: 0.47
-Nodes (7): AvatarCrop, avatarCropStyle(), clamp(), normalizeAvatarCrop(), AvatarCropDialog(), clamp(), Props
+Cohesion: 0.40
+Nodes (5): 9. CSS 与组件改造范围, P0：Token 审计, P1：核心页面, P2：管理页面, 硬编码整改重点
+
+### Community 136 - "Provider Catalog 图标许可证与来源记录"
+Cohesion: 0.40
+Nodes (4): Provider Catalog 图标许可证与来源记录, 商标声明, 来源, 许可证
+
+### Community 137 - "4. 产品范围建议"
+Cohesion: 0.50
+Nodes (4): 4.1 首版内置主题, 4.2 入口, 4.3 装饰背景规则, 4. 产品范围建议
+
+### Community 138 - "6. 主题 Token 设计"
+Cohesion: 0.50
+Nodes (4): 6.1 分层原则, 6.2 作用域, 6.3 文字颜色与主题的优先级, 6. 主题 Token 设计
+
+### Community 139 - "8. UI 开发计划"
+Cohesion: 0.50
+Nodes (4): 8.1 设置页, 8.2 导航快捷切换, 8.3 主题预览, 8. UI 开发计划
+
+### Community 140 - "3. 天枢当前状态"
+Cohesion: 0.67
+Nodes (3): 3.1 已存在的代码, 3.2 当前缺陷, 3. 天枢当前状态
 
 ## Knowledge Gaps
-- **468 isolated node(s):** `name`, `version`, `description`, `author`, `private` (+463 more)
+- **503 isolated node(s):** `name`, `version`, `description`, `author`, `private` (+498 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `stableJson()` connect `registry.ts` to `ChatInput.tsx`?**
-  _High betweenness centrality (0.313) - this node is a cross-community bridge._
+- **Why does `stableJson()` connect `registry.ts` to `SkillSettings.vue`?**
+  _High betweenness centrality (0.330) - this node is a cross-community bridge._
 - **Why does `FilePanel()` connect `system-cache.ts` to `registry.ts`?**
-  _High betweenness centrality (0.213) - this node is a cross-community bridge._
+  _High betweenness centrality (0.215) - this node is a cross-community bridge._
+- **Why does `MemoryStorage` connect `registry.ts` to `SettingsPage.tsx`?**
+  _High betweenness centrality (0.119) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `description` to the rest of the system?**
-  _468 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _503 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
 - **Should `SkillSettings.vue` be split into smaller, more focused modules?**
-  _Cohesion score 0.12688172043010754 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.10128205128205128 - nodes in this community are weakly interconnected._
 - **Should `EventsView.vue` be split into smaller, more focused modules?**
-  _Cohesion score 0.08 - nodes in this community are weakly interconnected._
-- **Should `toolStore.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.08 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04878048780487805 - nodes in this community are weakly interconnected._

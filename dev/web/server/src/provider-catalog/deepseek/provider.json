@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "deepseek",
+  "name": "DeepSeek",
+  "description": "DeepSeek API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "deepseek"
+  },
+  "baseUrl": "https://api.deepseek.com/v1/",
+  "env": [
+    "DEEPSEEK_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://platform.deepseek.com/",
+  "docsUrl": "https://api-docs.deepseek.com/",
+  "popular": false,
+  "sortOrder": 80,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "sk-..."
+    }
+  ]
+}

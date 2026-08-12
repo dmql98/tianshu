@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "opencode-go",
+  "name": "OpenCode Go",
+  "description": "OpenCode Go API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "opencode-go"
+  },
+  "baseUrl": "https://opencode.ai/zen/go/v1/",
+  "env": [
+    "OPENCODE_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://opencode.ai/",
+  "docsUrl": "https://opencode.ai/docs",
+  "popular": true,
+  "sortOrder": 70,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "oc_..."
+    }
+  ]
+}

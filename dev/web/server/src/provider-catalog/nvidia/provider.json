@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "nvidia",
+  "name": "NVIDIA",
+  "description": "NVIDIA API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "nvidia"
+  },
+  "baseUrl": "https://integrate.api.nvidia.com/v1/",
+  "env": [
+    "NVIDIA_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://build.nvidia.com/",
+  "docsUrl": "https://docs.api.nvidia.com/",
+  "popular": false,
+  "sortOrder": 140,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "nvapi-..."
+    }
+  ]
+}

@@ -132,5 +132,13 @@
   "130": "sub-agent.ts",
   "131": "toolStore.ts",
   "132": "definitions.ts",
-  "135": "avatarCropStyle"
+  "133": "checkpoint-store.ts",
+  "134": "7. 初始化与切换流程",
+  "135": "avatarCropStyle",
+  "136": "Provider Catalog 图标许可证与来源记录",
+  "137": "4. 产品范围建议",
+  "138": "6. 主题 Token 设计",
+  "139": "8. UI 开发计划",
+  "140": "3. 天枢当前状态",
+  "141": "provider-api.test.ts"
 }

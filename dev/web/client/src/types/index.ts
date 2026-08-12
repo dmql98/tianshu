@@ -150,6 +150,8 @@ export interface Provider {
   models: ProviderModel[]
   enabled_models?: string[]
   is_builtin?: boolean
+  preset_id?: string
+  runtime_plugin?: string
 }
 
 // Socket 事件

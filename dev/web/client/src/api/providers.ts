@@ -7,11 +7,36 @@ export interface ProviderModel {
   context_window?: number
 }
 
+export interface ProviderPresetField {
+  key: string
+  type: 'text' | 'password' | 'select'
+  label: string
+  required?: boolean
+  placeholder?: string
+  defaultValue?: string
+  options?: Array<{ label: string; value: string }>
+}
+
+export interface ProviderPreset {
+  id: string
+  name: string
+  description?: string
+  format: 'openai' | 'anthropic' | 'gemini'
+  runtime_plugin: string
+  base_url: string
+  env: string[]
+  env_available: boolean
+  icon_url: string
+  popular: boolean
+  sort_order: number
+  fields: ProviderPresetField[]
+  /** 是否已被当前用户添加。 */
+  added: boolean
+}
+
 export const fetchProviders = () => apiGet<Provider[]>('/api/providers')
 
-export const fetchBuiltinProviders = () => apiGet<Provider[]>('/api/providers/builtin')
-
-export const fetchCustomProviders = () => apiGet<Provider[]>('/api/providers/custom')
+export const fetchBuiltinProviders = () => apiGet<ProviderPreset[]>('/api/providers/builtin')
 
 export const createProvider = (data: Partial<Provider> & { id: string }) =>
   apiPost<Provider>('/api/providers', data)

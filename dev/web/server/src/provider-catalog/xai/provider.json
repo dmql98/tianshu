@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "xai",
+  "name": "xAI",
+  "description": "xAI API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "xai"
+  },
+  "baseUrl": "https://api.x.ai/v1/",
+  "env": [
+    "XAI_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://x.ai/",
+  "docsUrl": "https://docs.x.ai/",
+  "popular": false,
+  "sortOrder": 130,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "xai-..."
+    }
+  ]
+}

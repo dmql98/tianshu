@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
+import { readFileSync, statSync } from 'fs'
 import { providerStore } from '../db/providerStore.js'
+import { loadCatalog, getPreset, getIconPath } from '../provider-catalog/loader.js'
 
 const router = new Hono()
 
@@ -30,10 +32,73 @@ async function getModelCatalog(): Promise<Record<string, number>> {
   }
 }
 
+/** 环境变量可用性：只返回布尔值，绝不返回实际值。 */
+function envAvailable(preset: ReturnType<typeof loadCatalog>['presets'][number]): boolean {
+  return (preset.env ?? []).some(name => {
+    const v = process.env[name]
+    return v !== undefined && v !== ''
+  })
+}
+
+/**
+ * GET /api/providers/builtin — 返回标准化预设列表。
+ * 安全：不返回环境变量实际值、不返回已保存的 API Key、不写 providers.json。
+ */
+router.get('/builtin', (c) => {
+  const { presets } = loadCatalog()
+  const userIds = new Set(providerStore.getAll().map(p => p.preset_id).filter(Boolean))
+  return c.json(presets.map(p => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    format: p.format,
+    runtime_plugin: p.runtime.plugin,
+    base_url: p.baseUrl,
+    env: p.env ?? [],
+    env_available: envAvailable(p),
+    icon_url: `/api/providers/builtin/${encodeURIComponent(p.id)}/icon`,
+    popular: p.popular ?? false,
+    sort_order: p.sortOrder ?? Number.MAX_SAFE_INTEGER,
+    fields: p.fields ?? [],
+    added: userIds.has(p.id),
+  })))
+})
+
+/**
+ * GET /api/providers/builtin/:id/icon — 返回预设图标。
+ * 只允许访问 loader 已注册的图标，禁止路径拼接；未知 Provider 返回 404。
+ */
+router.get('/builtin/:id/icon', (c) => {
+  const id = c.req.param('id')
+  const preset = getPreset(id)
+  const iconPath = getIconPath(id)
+  if (!preset || !iconPath) return c.json({ error: 'Not found' }, 404)
+  let body: string
+  let mtimeMs: number
+  try {
+    body = readFileSync(iconPath, 'utf-8')
+    mtimeMs = statSync(iconPath).mtimeMs
+  } catch {
+    return c.json({ error: 'Not found' }, 404)
+  }
+  const etag = `"${Buffer.from(body).toString('base64').slice(0, 27)}"`
+  c.header('Content-Type', 'image/svg+xml')
+  c.header('X-Content-Type-Options', 'nosniff')
+  c.header('Cache-Control', 'public, max-age=86400')
+  c.header('ETag', etag)
+  c.header('Last-Modified', new Date(mtimeMs).toUTCString())
+  if (c.req.header('If-None-Match') === etag) {
+    return c.body(null, 304)
+  }
+  return c.body(body)
+})
+
 router.get('/', (c) => c.json(providerStore.getAll()))
 router.post('/', async (c) => {
   const body = await c.req.json()
-  return c.json(providerStore.create(body), 201)
+  const { conflict, record } = providerStore.create(body)
+  if (conflict) return c.json({ error: '该预设服务商已添加', conflict: true }, 409)
+  return c.json(record, 201)
 })
 router.put('/:id', async (c) => {
   const body = await c.req.json()

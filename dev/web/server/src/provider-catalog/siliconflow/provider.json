@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "siliconflow",
+  "name": "SiliconFlow",
+  "description": "SiliconFlow API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "siliconflow"
+  },
+  "baseUrl": "https://api.siliconflow.cn/v1/",
+  "env": [
+    "SILICONFLOW_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://siliconflow.cn/",
+  "docsUrl": "https://docs.siliconflow.cn/",
+  "popular": false,
+  "sortOrder": 100,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "sk-..."
+    }
+  ]
+}

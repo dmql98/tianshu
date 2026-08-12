@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "groq",
+  "name": "Groq",
+  "description": "Groq API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "groq"
+  },
+  "baseUrl": "https://api.groq.com/openai/v1/",
+  "env": [
+    "GROQ_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://groq.com/",
+  "docsUrl": "https://console.groq.com/docs",
+  "popular": false,
+  "sortOrder": 110,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "gsk_..."
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "mistral",
+  "name": "Mistral",
+  "description": "Mistral API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "mistral"
+  },
+  "baseUrl": "https://api.mistral.ai/v1/",
+  "env": [
+    "MISTRAL_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://mistral.ai/",
+  "docsUrl": "https://docs.mistral.ai/",
+  "popular": false,
+  "sortOrder": 120,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "..."
+    }
+  ]
+}

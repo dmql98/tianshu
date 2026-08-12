@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "openrouter",
+  "name": "OpenRouter",
+  "description": "OpenRouter API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "openrouter"
+  },
+  "baseUrl": "https://openrouter.ai/api/v1/",
+  "env": [
+    "OPENROUTER_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://openrouter.ai/",
+  "docsUrl": "https://openrouter.ai/docs",
+  "popular": true,
+  "sortOrder": 40,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "sk-or-..."
+    }
+  ]
+}

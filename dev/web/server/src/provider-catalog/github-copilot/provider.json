@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "github-copilot",
+  "name": "GitHub Copilot",
+  "description": "GitHub Copilot API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "github-copilot"
+  },
+  "baseUrl": "https://api.githubcopilot.com/",
+  "env": [
+    "GITHUB_TOKEN"
+  ],
+  "icon": "icon.svg",
+  "website": "https://github.com/features/copilot",
+  "docsUrl": "https://docs.github.com/en/copilot",
+  "popular": true,
+  "sortOrder": 50,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "GitHub Token"
+    }
+  ]
+}

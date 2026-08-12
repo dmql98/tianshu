@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "perplexity",
+  "name": "Perplexity",
+  "description": "Perplexity API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "perplexity"
+  },
+  "baseUrl": "https://api.perplexity.ai/v1/",
+  "env": [
+    "PERPLEXITY_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://www.perplexity.ai/",
+  "docsUrl": "https://docs.perplexity.ai/",
+  "popular": false,
+  "sortOrder": 160,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "pplx-..."
+    }
+  ]
+}

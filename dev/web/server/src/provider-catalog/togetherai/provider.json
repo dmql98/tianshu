@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "togetherai",
+  "name": "Together AI",
+  "description": "Together AI API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "togetherai"
+  },
+  "baseUrl": "https://api.together.xyz/v1/",
+  "env": [
+    "TOGETHER_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://www.together.ai/",
+  "docsUrl": "https://docs.together.ai/",
+  "popular": false,
+  "sortOrder": 150,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "..."
+    }
+  ]
+}

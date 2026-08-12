@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "google",
+  "name": "Google Gemini",
+  "description": "Google Gemini API",
+  "format": "gemini",
+  "runtime": {
+    "plugin": "google"
+  },
+  "baseUrl": "https://generativelanguage.googleapis.com/v1/",
+  "env": [
+    "GOOGLE_GENERATIVE_AI_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://ai.google.dev/",
+  "docsUrl": "https://ai.google.dev/gemini-api/docs",
+  "popular": true,
+  "sortOrder": 30,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "AIza..."
+    }
+  ]
+}

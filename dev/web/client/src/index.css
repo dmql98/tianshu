@@ -738,6 +738,7 @@ textarea:focus{border-color:var(--gold)}
 .provider-list-item:hover{background:var(--bg-hover);border-color:var(--border)}
 .provider-list-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--bg-input);border-radius:8px;overflow:hidden}
 .provider-list-icon svg{width:24px;height:24px}
+.provider-list-icon img{width:24px;height:24px}
 .provider-list-info{flex:1;min-width:0}
 .provider-list-name{font-size:calc(14px * var(--ui-font-scale));font-weight:500;color:var(--ink-deep);margin-bottom:2px}
 .provider-list-desc{font-size:calc(12px * var(--ui-font-scale));color:var(--ink-light)}

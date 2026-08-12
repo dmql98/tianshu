@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "alibaba",
+  "name": "阿里云百炼",
+  "description": "阿里云百炼 API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "alibaba"
+  },
+  "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1/",
+  "env": [
+    "DASHSCOPE_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://www.alibabacloud.com/product/model-studio",
+  "docsUrl": "https://help.aliyun.com/zh/model-studio/",
+  "popular": false,
+  "sortOrder": 90,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "sk-..."
+    }
+  ]
+}

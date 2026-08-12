@@ -52,7 +52,7 @@ export default function EditProviderDialog({ provider, onClose }: Props) {
             </div>
             <div className="provider-form-field">
               <label>API 地址</label>
-              <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} disabled={!!provider.is_builtin} />
+              <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="支持代理、私有网关或兼容端点" />
             </div>
             <div className="provider-form-field">
               <label>API Key</label>
