@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, renameSync } from 'fs'
 import { resolve } from 'path'
-import { getDataDir } from '../config.js'
+import { getDataDir, getSystemRunPolicy } from '../config.js'
 import { normalizeStrategy, type Strategy, type StrategyInput } from '../agent/strategy.js'
+import { normalizeCharacterRunPolicy, migrateCharacterRunPolicy, type CharacterRunPolicy } from '../agent/loop/run-policy.js'
 
 const CHAR_DIR = () => resolve(getDataDir(), 'characters')
 
@@ -40,6 +41,7 @@ export interface CharacterRecord {
   provider?: string
   tools?: ToolBinding[]
   maxSteps?: number
+  runPolicy?: CharacterRunPolicy
   role?: 'main' | 'sub' | 'both'
   groups?: string[]
   default_strategy?: Strategy
@@ -56,12 +58,21 @@ function pathFor(id: string): string {
   return resolve(dir, id, 'character.json')
 }
 
+/**
+ * Normalize a character record on load. `runPolicy` is normalized when present;
+ * legacy `maxSteps` is migrated into `runPolicy` (read-time, phase 1). `maxSteps`
+ * itself is retained as a read-only compatibility field during the transition.
+ */
 function normalizeRecord(record: CharacterRecord & { default_strategy?: StrategyInput }): CharacterRecord {
   const skillBindings = record.skillBindings || []
+  const systemAbs = getSystemRunPolicy().maxAbsoluteTurnsPerRun
+  const runPolicy = normalizeCharacterRunPolicy(record.runPolicy)
+    ?? migrateCharacterRunPolicy(record.maxSteps, systemAbs)
   return {
     ...record,
     skills: skillBindings.map(binding => binding.packageId),
     skillBindings,
+    runPolicy,
     ...(record.default_strategy
       ? { default_strategy: normalizeStrategy(record.default_strategy, 'Ask Risky') }
       : {}),

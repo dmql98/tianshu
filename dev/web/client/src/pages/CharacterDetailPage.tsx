@@ -41,6 +41,11 @@ export default function CharacterDetailPage() {
   const [strategy, setStrategy] = useState<Strategy>('Ask Risky')
   const [stepsEnabled, setStepsEnabled] = useState(false)
   const [maxSteps, setMaxSteps] = useState(50)
+  const [rpSoft, setRpSoft] = useState<string>('')
+  const [rpGrace, setRpGrace] = useState<string>('')
+  const [rpAutoContinuation, setRpAutoContinuation] = useState<'inherit' | 'enabled' | 'disabled'>('inherit')
+  const [rpMaxAuto, setRpMaxAuto] = useState<string>('')
+  const [rpEffective, setRpEffective] = useState<Character['runPolicy'] | undefined>(undefined)
   const [groups, setGroups] = useState<string[]>([])
   const [selfEvolution, setSelfEvolution] = useState(false)
 
@@ -105,6 +110,13 @@ export default function CharacterDetailPage() {
       setStrategy(normalizeStrategy(c.default_strategy))
       setStepsEnabled(!!c.maxSteps && c.maxSteps < 999)
       setMaxSteps(c.maxSteps && c.maxSteps < 999 ? c.maxSteps : 50)
+      // Run policy (new) — configured values from the server preview.
+      const rp = c.runPolicy?.configured
+      setRpSoft(rp?.softTurns != null ? String(rp.softTurns) : '')
+      setRpGrace(rp?.graceTurns != null ? String(rp.graceTurns) : '')
+      setRpAutoContinuation(rp?.autoContinuation ?? 'inherit')
+      setRpMaxAuto(rp?.maxAutoContinuations != null ? String(rp.maxAutoContinuations) : '')
+      setRpEffective(c.runPolicy)
       setGroups(c.groups ? [...c.groups] : [])
       setSelfEvolution(c.memory?.selfEvolution ?? false)
       setSoul(c.soul ?? '')
@@ -180,7 +192,6 @@ export default function CharacterDetailPage() {
       enabled,
       role,
       default_strategy: strategy,
-      maxSteps: stepsEnabled ? maxSteps : 999,
       groups,
       memory: { enabled: memoryEnabled, selfEvolution, charLimit },
       soul,
@@ -191,7 +202,42 @@ export default function CharacterDetailPage() {
       skills: boundSkills,
       skillBindings: boundSkills.map(packageId => ({ packageId, enabled: true, preloadSkills: [] })),
     }
+    // Run policy (replaces the legacy maxSteps toggle, §13.2).
+    const rp: Record<string, unknown> = { version: 1 }
+    if (rpSoft.trim() !== '') rp.softTurns = clampInt(rpSoft, 1, 999)
+    if (rpGrace.trim() !== '') rp.graceTurns = clampInt(rpGrace, 0, 999)
+    if (rpAutoContinuation !== 'inherit') rp.autoContinuation = rpAutoContinuation
+    if (rpMaxAuto.trim() !== '') rp.maxAutoContinuations = clampInt(rpMaxAuto, 0, 50)
+    if (Object.keys(rp).length > 1) base.runPolicy = rp
+    else base.runPolicy = null
     return base
+  }
+
+  function clampInt(v: string, min: number, max: number): number {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return min
+    return Math.min(max, Math.max(min, Math.trunc(n)))
+  }
+
+  /** Persist a run-policy override; null clears it ("恢复继承"). */
+  async function saveRunPolicy(rp: Record<string, unknown> | null) {
+    const cid = currentIdRef.current
+    if (!cid || cid === 'new') return
+    try {
+      const updated = await updateCharacter(cid, { runPolicy: rp as any })
+      setRpEffective(updated.runPolicy as Character['runPolicy'])
+    } catch {
+      alert('运行策略保存失败')
+    }
+  }
+
+  function autoSaveRunPolicy() {
+    const rp: Record<string, unknown> = { version: 1 }
+    if (rpSoft.trim() !== '') rp.softTurns = clampInt(rpSoft, 1, 999)
+    if (rpGrace.trim() !== '') rp.graceTurns = clampInt(rpGrace, 0, 999)
+    if (rpAutoContinuation !== 'inherit') rp.autoContinuation = rpAutoContinuation
+    if (rpMaxAuto.trim() !== '') rp.maxAutoContinuations = clampInt(rpMaxAuto, 0, 50)
+    saveRunPolicy(Object.keys(rp).length > 1 ? rp : null)
   }
 
   async function handleCreate() {
@@ -415,29 +461,67 @@ export default function CharacterDetailPage() {
                   <div className="tool-name">自我进化</div>
                   <div className={`toggle ${selfEvolution ? 'on' : ''}`} onClick={() => { setSelfEvolution(!selfEvolution); autoSave({ memory: { enabled: memoryEnabled, selfEvolution: !selfEvolution, charLimit } }) }}></div>
                 </div>
-                <div className="tool-item">
-                  <div className="tool-name">限制最大步数</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div className={`toggle ${stepsEnabled ? 'on' : ''}`} onClick={() => { setStepsEnabled(!stepsEnabled); autoSave({ maxSteps: !stepsEnabled ? maxSteps : 999 }) }}></div>
-                    <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{stepsEnabled ? `${maxSteps} 步` : '不限制'}</span>
+                <div className="tool-item" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8, padding: '12px 0' }}>
+                  <div className="tool-name">运行策略</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%' }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
+                      收敛起始轮次（空=继承）
+                      <input
+                        type="number" min={1} max={999} value={rpSoft} placeholder="继承"
+                        onChange={e => setRpSoft(e.target.value)}
+                        onBlur={autoSaveRunPolicy}
+                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
+                      />
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
+                      宽限轮次（空=继承）
+                      <input
+                        type="number" min={0} max={999} value={rpGrace} placeholder="继承"
+                        onChange={e => setRpGrace(e.target.value)}
+                        onBlur={autoSaveRunPolicy}
+                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
+                      />
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
+                      自动续跑
+                      <select
+                        value={rpAutoContinuation}
+                        onChange={e => { setRpAutoContinuation(e.target.value as any); autoSaveRunPolicy() }}
+                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))', fontFamily: 'inherit' }}
+                      >
+                        <option value="inherit">继承系统</option>
+                        <option value="enabled">允许</option>
+                        <option value="disabled">禁止</option>
+                      </select>
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
+                      最多自动续跑（空=继承）
+                      <input
+                        type="number" min={0} max={50} value={rpMaxAuto} placeholder="继承"
+                        onChange={e => setRpMaxAuto(e.target.value)}
+                        onBlur={autoSaveRunPolicy}
+                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
+                      />
+                    </label>
                   </div>
-                </div>
-                {stepsEnabled && (
-                  <div className="tool-item">
-                    <div className="tool-name">步数上限</div>
-                    <EditField
-                      value={String(maxSteps)}
-                      onSave={v => { const n = Number(v); const limit = Number.isFinite(n) ? Math.max(1, Math.min(999, Math.round(n))) : maxSteps; setMaxSteps(limit); autoSave({ maxSteps: limit }) }}
-                      renderInput={(v, onChange) => (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-                          <input type="range" min={1} max={999} value={v} onChange={e => onChange(e.target.value)} style={{ flex: 1, accentColor: 'var(--gold)' }} />
-                          <input type="number" min={1} max={999} value={v} onChange={e => onChange(e.target.value)} style={{ width: 56, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(12px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', textAlign: 'center' }} />
-                        </div>
+                  {rpEffective?.effectivePreview && (
+                    <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-mid)', background: 'rgba(42,157,92,0.05)', border: '1px solid rgba(42,157,92,0.15)', borderRadius: 8, padding: '6px 10px', width: '100%', boxSizing: 'border-box' }}>
+                      当前有效：{rpEffective.effectivePreview.softTurns} + {rpEffective.effectivePreview.graceTurns} 轮宽限 · 自动续跑 {rpEffective.effectivePreview.autoContinuation ? '开' : '关'}
+                      {rpEffective.constrainedFields && rpEffective.constrainedFields.length > 0 && (
+                        <div style={{ color: 'var(--cinnabar)', marginTop: 2 }}>受限字段：{rpEffective.constrainedFields.join('、')}（被系统上限约束）</div>
                       )}
-                      display={<span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{maxSteps} 步</span>}
-                    />
-                  </div>
-                )}
+                    </div>
+                  )}
+                  {rpEffective?.configured == null && (
+                    <button
+                      className="btn sm"
+                      onClick={() => { setRpSoft(''); setRpGrace(''); setRpAutoContinuation('inherit'); setRpMaxAuto(''); saveRunPolicy(null) }}
+                      style={{ fontSize: 'calc(11px * var(--ui-font-scale))' }}
+                    >
+                      恢复继承
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

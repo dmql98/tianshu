@@ -25,7 +25,7 @@ import { init as initTools } from './tools/registry.js'
 import { startEventScheduler, stopEventScheduler } from './event/event-scheduler.js'
 import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
 import { runStore } from './agent/runtime/run-store.js'
-import { forceCancelSessionRuns } from './agent/runtime/run-event-store.js'
+import { forceCancelSessionRuns, recoverContinuationState } from './agent/runtime/run-event-store.js'
 
 export interface StartServerOptions {
   host?: string
@@ -177,6 +177,14 @@ export async function startTianshuServer(
         console.log(`[startup] reclaimed ${cancelled.length} orphaned run(s) for session ${row.session_id}`)
       }
     }
+  }
+  // Continuation chain recovery (§11.4): interrupt orphaned running/preparing
+  // runs and repair missing `run.queued` durable events. Never re-executes
+  // tools or resurrects historical max_turns runs.
+  {
+    const { interrupted, repairedEvents } = recoverContinuationState()
+    if (interrupted.length > 0) console.log(`[startup] interrupted ${interrupted.length} orphaned run(s)`)
+    if (repairedEvents.length > 0) console.log(`[startup] repaired ${repairedEvents.length} queued run event(s)`)
   }
 
   const app = new Hono()

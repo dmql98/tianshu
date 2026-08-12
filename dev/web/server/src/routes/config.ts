@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import { getDataDir, setDataDir, isConfigured } from '../config.js'
+import { getDataDir, setDataDir, isConfigured, getSystemRunPolicy, setSystemRunPolicy, resetSystemRunPolicy } from '../config.js'
+import { DEFAULT_SYSTEM_RUN_POLICY, type SystemRunPolicy } from '../agent/loop/run-policy.js'
 import { existsSync, mkdirSync } from 'fs'
 import { getDb, closeDb } from '../db/schema.js'
 
@@ -23,6 +24,34 @@ router.put('/dataspace', async (c) => {
   }
   setDataDir(path)
   return c.json({ ok: true, dataDir: path })
+})
+
+// ── System run policy (RUN_LIMIT_POLICY_PLAN §12.1) ──
+
+router.get('/run-policy', (c) => {
+  return c.json<{ policy: SystemRunPolicy; defaults: SystemRunPolicy }>({
+    policy: getSystemRunPolicy(),
+    defaults: DEFAULT_SYSTEM_RUN_POLICY,
+  })
+})
+
+router.put('/run-policy', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const policy = setSystemRunPolicy(body?.policy ?? body)
+  return c.json<{ ok: true; policy: SystemRunPolicy; defaults: SystemRunPolicy }>({
+    ok: true,
+    policy,
+    defaults: DEFAULT_SYSTEM_RUN_POLICY,
+  })
+})
+
+router.post('/run-policy/reset', (c) => {
+  const policy = resetSystemRunPolicy()
+  return c.json<{ ok: true; policy: SystemRunPolicy; defaults: SystemRunPolicy }>({
+    ok: true,
+    policy,
+    defaults: DEFAULT_SYSTEM_RUN_POLICY,
+  })
 })
 
 router.post('/reload', (c) => {

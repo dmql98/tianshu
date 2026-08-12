@@ -13,6 +13,8 @@ import { selectAndSummarize } from './context-compactor.js'
 import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
+import type { RunPolicySnapshot } from './run-policy.js'
+import { assessProgress, createRuntimeState, type RunLimitSummary, type RunLimitRuntimeState } from './loop-policy.js'
 
 /**
  * Loop engine: the bounded model/tool turn loop. Migrated from the body of
@@ -54,6 +56,7 @@ export interface LoopEngineContext {
   mcpClients: Map<string, MCPClient>
   contextWindow: number
   maxTurns: number
+  policy: RunPolicySnapshot
   messages: LLMMessage[]
   composeCtx: ComposeContext
   opts: { thinking?: boolean; reasoning_effort?: string }
@@ -81,13 +84,54 @@ export interface LoopEngineResult {
   toolCallHistory: ToolCallRecord[]
   prevPrefixShape: PrefixShape | undefined
   turn: number
+  limitSummary?: RunLimitSummary
+}
+
+/** Snapshot of plan-step statuses used to detect real plan progress. */
+function snapshotPlanSteps(sessionId: string): Map<string, string> {
+  const out = new Map<string, string>()
+  const active = planStore.getActive(sessionId)
+  if (!active) return out
+  for (const step of planStore.steps(active.id)) out.set(step.id, step.status)
+  return out
+}
+
+function planStepChanged(before: Map<string, string>, sessionId: string): boolean {
+  const active = planStore.getActive(sessionId)
+  if (!active) return false
+  for (const step of planStore.steps(active.id)) {
+    const prev = before.get(step.id)
+    if (prev !== undefined && prev !== step.status) return true
+  }
+  return false
+}
+
+
+function buildLimitSummary(
+  reason: 'no_progress_after_soft_limit' | 'absolute_limit' | 'repeated_tool_loop' | 'continuation_limit',
+  policy: RunPolicySnapshot,
+  turn: number,
+  runtime: RunLimitRuntimeState,
+  softTurns: number,
+  absoluteTurns: number,
+): RunLimitSummary {
+  return {
+    reason,
+    policyVersion: policy.policyVersion,
+    softTurns,
+    absoluteTurns,
+    turnsUsed: turn,
+    graceTurnsUsed: runtime.graceStarted ? Math.max(0, turn - softTurns) : 0,
+    noProgressStreak: runtime.consecutiveNoProgress,
+    continuationScheduled: false,
+  }
 }
 
 export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineResult> {
   const {
     sessionId, runId, socket, io, signal, provider, model, characterId,
     workspace, workspaces, dataspace, cap, tools, mcpClients,
-    contextWindow, maxTurns, messages, composeCtx, opts, session,
+    contextWindow, maxTurns, policy, messages, composeCtx, opts, session,
     executionMode, goal,
   } = ctx
 
@@ -100,8 +144,14 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   let overflowCompacted = false
   const toolCallHistory: ToolCallRecord[] = []
   let prevPrefixShape: PrefixShape | undefined
+  let limitSummary: RunLimitSummary | undefined
 
-  const policy = executionMode === 'direct' ? 'Direct' : executionMode === 'plan_first' ? 'Plan-first' : 'Goal'
+  const runtime: RunLimitRuntimeState = createRuntimeState()
+  const limit = policy.effective
+  const dynamic = policy.system.dynamicLimitEnabled
+  const { softTurns, absoluteTurns } = limit
+
+  const policyLabel = executionMode === 'direct' ? 'Direct' : executionMode === 'plan_first' ? 'Plan-first' : 'Goal'
   // Pin the plan to this Run. Once its last step completes its DB status is no
   // longer "active", but submit_result must still validate that same plan.
   let currentPlanId = planStore.getActive(sessionId)?.id || null
@@ -111,8 +161,28 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
 
   socket?.emit('run.started', { session_id: sessionId, run_id: runId, context_window: contextWindow, execution_mode: executionMode })
 
-  while (turn < maxTurns && !signal?.aborted) {
+  let prevFingerprint: string | undefined
+  let planSnapshot = snapshotPlanSteps(sessionId)
+
+  while (turn < absoluteTurns && !signal?.aborted) {
     turn++
+
+    // Soft limit reached for the first time: warn + inject a single convergence
+    // prompt (RUN_LIMIT_POLICY_PLAN §9.2). Only when dynamic limits are on.
+    if (dynamic && !runtime.warningEmitted && turn >= softTurns) {
+      runtime.warningEmitted = true
+      runtime.graceStarted = true
+      socket?.emit('run.limit_warning', {
+        session_id: sessionId,
+        run_id: runId,
+        soft_turns: softTurns,
+        absolute_turns: absoluteTurns,
+        turn,
+      })
+      composeCtx.systemAlerts!.push(
+        `[System Alert] 已接近本轮软上限（${softTurns} 轮）。请优先完成当前步骤、保存验证证据、提交结果或说明阻塞；不要重复相同的工具调用。`,
+      )
+    }
 
     // Log memory every 5 turns
     if (turn % 5 === 0) {
@@ -128,16 +198,16 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     // persisted plan; Goal mode re-anchors the model to the outcome.
     const plan = currentPlan()
     if (!plan) {
-      if (policy !== 'Direct') {
-        composeCtx.systemAlerts!.push(`[Policy ${policy}] 当前没有有效计划。先调用 create_plan 把任务拆成有序步骤并注明验证方式，再执行步骤。`)
+      if (policyLabel !== 'Direct') {
+        composeCtx.systemAlerts!.push(`[Policy ${policyLabel}] 当前没有有效计划。先调用 create_plan 把任务拆成有序步骤并注明验证方式，再执行步骤。`)
       }
     } else {
       const steps = planStore.steps(plan.id)
-      const planRule = policy === 'Direct'
+      const planRule = policyLabel === 'Direct'
         ? '\n这是可选计划：可以继续按计划推进，也可以直接完成任务；若推进计划，请用 update_plan_step 同步状态。'
         : '\n开始步骤前调用 update_plan_step 标记 in_progress；验证完成后调用 update_plan_step 标记 completed 并附 evidence。'
       composeCtx.systemAlerts!.push(
-        `[Policy ${policy}] 当前计划 v${plan.version}：\n` +
+        `[Policy ${policyLabel}] 当前计划 v${plan.version}：\n` +
         steps.map(step => `${step.ordinal}. [${step.status}] ${step.title}${step.verification ? `（验证：${step.verification}）` : ''}`).join('\n') +
         planRule,
       )
@@ -319,12 +389,28 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       })
       if (outcome.planId) currentPlanId = outcome.planId
       messages.push(...outcome.messages)
+      // Plan creation is strong progress: reset convergence counters.
+      if (dynamic) {
+        runtime.consecutiveNoProgress = 0
+        runtime.consecutiveWeakOnly = 0
+        runtime.lastStrongProgressTurn = turn
+        prevFingerprint = undefined
+      }
+      planSnapshot = snapshotPlanSteps(sessionId)
       continue
     }
 
     if (result.type === 'update_plan_step') {
       const outcome = await handleUpdatePlanStep({ result, sessionId, runId, socket })
       messages.push(...outcome.messages)
+      // A real step status change is strong progress; reset the streak.
+      if (dynamic && outcome.updated) {
+        runtime.consecutiveNoProgress = 0
+        runtime.consecutiveWeakOnly = 0
+        runtime.lastStrongProgressTurn = turn
+        prevFingerprint = undefined
+      }
+      planSnapshot = snapshotPlanSteps(sessionId)
       continue
     }
 
@@ -356,13 +442,61 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       }
     }
 
+    // ── Dynamic convergence: assess this turn's progress (§8–§9) ──
+    if (dynamic) {
+      const planChanged = planStepChanged(planSnapshot, sessionId)
+      planSnapshot = snapshotPlanSteps(sessionId)
+      const assessment = assessProgress({
+        toolCalls: result.toolCallRecords || [],
+        planStepChanged: planChanged,
+        verificationEvidenceAdded: planChanged,
+        databaseObjectChanged: planChanged,
+        fileChanged: (result.toolCallRecords || []).some(r => r.changed === true),
+        testFailuresReduced: false,
+        firstEvidence: false,
+        submitSucceeded: false,
+        firstNewRead: false,
+        newErrorCategory: false,
+        toolCategorySwitched: false,
+        compactionSucceeded: false,
+        textGrowthOnly: result.type === 'final_answer' && !!result.fullText && (!result.toolCalls || result.toolCalls.length === 0),
+      }, prevFingerprint)
+      prevFingerprint = assessment.fingerprint
+
+      if (assessment.level === 'strong') {
+        runtime.consecutiveNoProgress = 0
+        runtime.consecutiveWeakOnly = 0
+        runtime.lastStrongProgressTurn = turn
+      } else if (assessment.level === 'weak') {
+        runtime.consecutiveWeakOnly++
+        runtime.consecutiveNoProgress = 0
+      } else {
+        runtime.consecutiveNoProgress++
+        runtime.consecutiveWeakOnly = 0
+      }
+
+      // Doom-loop merge: repeated fingerprint is a hard `none` signal and can
+      // stop the Run before the absolute limit (§9.3).
+      const doomRepeated = assessment.repeatedFingerprint
+        && runtime.consecutiveNoProgress >= limit.repeatedToolLoopThreshold
+      const weakExceeded = runtime.consecutiveWeakOnly >= limit.weakProgressThreshold
+      const noProgressExceeded = runtime.consecutiveNoProgress >= limit.noProgressThreshold
+      if (turn >= softTurns && (doomRepeated || weakExceeded || noProgressExceeded)) {
+        limitSummary = buildLimitSummary(
+          doomRepeated ? 'repeated_tool_loop' : 'no_progress_after_soft_limit',
+          policy, turn, runtime, softTurns, absoluteTurns,
+        )
+        break
+      }
+    }
+
     if (result.type === 'aborted') break
     if (result.type === 'final_answer') {
       if (executionMode === 'plan_first' || executionMode === 'goal') {
         const plan = currentPlan()
         const planDone = plan ? planStore.allCompleted(plan.id) : false
         if (!planDone) {
-          composeCtx.systemAlerts!.push(`[Policy ${policy}] 计划尚未完成，最终回答不能结束任务。检查未完成步骤；需要交付时调用 submit_result 提交结果。`)
+          composeCtx.systemAlerts!.push(`[Policy ${policyLabel}] 计划尚未完成，最终回答不能结束任务。检查未完成步骤；需要交付时调用 submit_result 提交结果。`)
           continue
         }
       }
@@ -387,6 +521,23 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     }
   }
 
-  const status: 'cancelled' | 'max_turns' | 'stop' = signal?.aborted ? 'cancelled' : turn >= maxTurns ? 'max_turns' : 'stop'
-  return { status, sessionId, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn }
+  const status: 'cancelled' | 'max_turns' | 'stop' = signal?.aborted
+    ? 'cancelled'
+    : turn >= absoluteTurns
+      ? 'max_turns'
+      : limitSummary
+        ? 'max_turns'
+        : 'stop'
+
+  // Absolute limit reached without a more specific reason.
+  if (status === 'max_turns' && !limitSummary) {
+    limitSummary = buildLimitSummary('absolute_limit', policy, turn, runtime, softTurns, absoluteTurns)
+  }
+
+  return {
+    status, sessionId,
+    totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+    toolCallHistory, prevPrefixShape, turn,
+    limitSummary,
+  }
 }

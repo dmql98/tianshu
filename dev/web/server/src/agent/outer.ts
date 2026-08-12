@@ -20,7 +20,7 @@ import type { MCPClient } from '../tools/mcp-client.js'
 import { runStore } from './runtime/run-store.js'
 import { characterRevisionStore, type CharacterRevisionSnapshot } from '../character/revision-store.js'
 import {
-  DEFAULT_MAX_TURNS, DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_CONTEXT_WINDOW,
   SOFT_COMPACT_RATIO, COMPACT_THRESHOLD, COLD_RESUME_MS,
   estimateTokens, shouldSnip, systemMessageEnd, trimToolResults,
 } from './loop/loop-policy.js'
@@ -33,6 +33,11 @@ import { runLoopEngine } from './loop/loop-engine.js'
 import { getControlToolDefinitions } from './loop/control-registry.js'
 import { goalStore } from './plan/plan-store.js'
 import { sessionSkillStore } from './session-skill-store.js'
+import { resolveRunPolicy } from './loop/run-policy-resolver.js'
+import { getSystemRunPolicy } from '../config.js'
+import { evaluateAutoContinuation, createResumedRun } from './runtime/run-resume-service.js'
+import { publishRunEvent, createDurableSocket, unwrapDurableSocket } from './runtime/run-event-store.js'
+import { enqueueRun } from './session-runner.js'
 
 function persistComposeChanges(master: LLMMessage[], composed: LLMMessage[]): void {
   if (master.length !== composed.length) return
@@ -90,7 +95,14 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   const workspace = resolveWorkspace(session.workspace)
   const dataspace = resolveDataspace(session.dataspace)
 
-  const maxTurns = charMeta.maxSteps || DEFAULT_MAX_TURNS
+  // Run policy is frozen at Run creation (RUN_LIMIT_POLICY_PLAN §5.2). The
+  // persisted snapshot is the source of truth; fall back to a fresh resolution
+  // only for runs created before the policy feature landed.
+  let runPolicy = persistedRun ? runStore.policySnapshot(runId) : null
+  if (!runPolicy) {
+    runPolicy = resolveRunPolicy(getSystemRunPolicy(), pinnedSnapshot?.meta?.runPolicy as never)
+  }
+  const maxTurns = runPolicy.effective.absoluteTurns
 
   const toolDefs = getCharacterToolDefinitions(charMeta.tools)
 
@@ -255,6 +267,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     mcpClients,
     contextWindow,
     maxTurns,
+    policy: runPolicy,
     messages,
     composeCtx,
     opts,
@@ -263,7 +276,73 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     goal: activeGoal,
   })
   const { totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn } = loopResult
+  let limitSummary = loopResult.limitSummary
   const completedStatus = loopResult.status
+
+  // ── #5 Auto continuation (§10) ──
+  // When the loop hits its limit in a continuable mode, schedule a successor
+  // before publishing the terminal event so the client never observes a gap.
+  let continuationScheduled = false
+  let nextRunId: string | undefined
+  if (completedStatus === 'max_turns' && persistedRun) {
+    try {
+      const eligibility = evaluateAutoContinuation(persistedRun)
+      if (eligibility.eligible) {
+        const resumed = createResumedRun({
+          previousRunId: persistedRun.id,
+          trigger: 'auto_limit',
+          instruction: `[System] 上一轮运行达到软上限。继续完成剩余计划步骤（第 ${(persistedRun.continuation_index || 0) + 1} 次自动续跑）。`,
+          createUserTurn: false,
+        })
+        continuationScheduled = true
+        nextRunId = resumed.run.id
+
+        // Publish the successor's queued event and enqueue it.
+        const rawSocket = unwrapDurableSocket(socket) || socket
+        publishRunEvent(rawSocket, resumed.run.id, 'run.queued', {
+          session_id: sessionId,
+          run_id: resumed.run.id,
+          character_id: resumed.run.character_id,
+          character_revision_id: resumed.run.character_revision_id,
+          resumed_from_run_id: persistedRun.id,
+          trigger: 'auto_limit',
+        })
+        socket.emit('run.continuation_queued', {
+          session_id: sessionId,
+          run_id: runId,
+          next_run_id: resumed.run.id,
+          continuation_index: resumed.run.continuation_index,
+        })
+        const nextRunIdLocal = resumed.run.id
+        const nextDurableSocket = createDurableSocket(rawSocket, nextRunIdLocal)
+        enqueueRun(sessionId, nextRunIdLocal, async signal => {
+          try {
+            await sessionLoop(io, nextDurableSocket, sessionId, signal, { run_id: nextRunIdLocal })
+          } catch (error: any) {
+            publishRunEvent(rawSocket, nextRunIdLocal, 'run.failed', {
+              session_id: sessionId,
+              run_id: nextRunIdLocal,
+              error: error.message || String(error),
+            })
+          }
+        }, () => {
+          publishRunEvent(rawSocket, nextRunIdLocal, 'run.cancelled', {
+            session_id: sessionId,
+            run_id: nextRunIdLocal,
+            status: 'cancelled',
+            reason: 'queue_cleared',
+          })
+        })
+      }
+    } catch (error: any) {
+      // Continuation creation failure must NOT break the finished run.
+      console.warn(`[session] ${sessionId} auto-continuation failed: ${error.message || error}`)
+    }
+  }
+
+  if (limitSummary && continuationScheduled) {
+    limitSummary = { ...limitSummary, continuationScheduled, nextRunId }
+  }
 
   // ── #1 Cache diagnostics ──
   const detail = toolCallHistory.length === 0 ? 'stop (no tools used)' : completedStatus
@@ -272,12 +351,23 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   const finalShape = prevPrefixShape
   console.log(`[session] ${sessionId} completed: ${detail} (${turn} turns, ${toolCallHistory.length} tool calls)`)
   console.log(`[cache] ${sessionId}: hit=${totalCacheHitTokens} miss=${totalCacheMissTokens} ratio=${hitRatio}% system=${finalShape?.systemHash?.slice(0,8)||'?'} tools=${finalShape?.toolsHash?.slice(0,8)||'?'}`)
-  const terminalEvent = completedStatus === 'cancelled' ? 'run.cancelled' : 'run.completed'
+  const terminalEvent = completedStatus === 'cancelled'
+    ? 'run.cancelled'
+    : limitSummary
+      ? 'run.max_turns'
+      : 'run.completed'
   socket.emit(terminalEvent, {
     session_id: sessionId,
     run_id: runId,
     status: completedStatus,
     ...(completedStatus === 'cancelled' ? { reason: 'user_requested' } : {}),
+    ...(limitSummary ? {
+      limit_summary: limitSummary,
+      result: {
+        limitSummary,
+        ...(continuationScheduled ? { continuationScheduled, nextRunId } : {}),
+      },
+    } : {}),
     usage: { input_tokens: totalInputTokens, output_tokens: totalOutputTokens },
     cache: { hitTokens: totalCacheHitTokens, missTokens: totalCacheMissTokens, hitRatio },
   })

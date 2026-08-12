@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { normalizeStrategy, type Session, type Message, type RunEvent, type Strategy, type WorkspaceGroup } from '@/types'
+import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy, type WorkspaceGroup } from '@/types'
 import * as sessionsApi from '@/api/sessions'
-import { fetchRecentRuns, fetchRunEvents, cancelRun } from '@/api/runs'
+import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { connectSocket, getSocket } from '@/api/socket'
 import { useProvidersStore } from './providersStore'
 
@@ -20,7 +20,6 @@ const PARKED_RUN_STATUS = new Set(['awaiting_approval', 'awaiting_input', 'pause
 const TERMINAL_EVENT_TYPES = new Set([
   'run.completed', 'run.failed', 'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
 ])
-
 // Highest persisted event seq seen per run (survives reconnects to resume replay)
 const runSeqByRunId = new Map<string, number>()
 
@@ -87,6 +86,16 @@ function savePersistedDefaults(data: Record<string, string | undefined>) {
 
 // ── Store ──
 
+export type ActiveRunPhase = 'idle' | 'running' | 'continuation_pending' | 'parked'
+
+export interface ActiveRunState {
+  runId: string | null
+  continuationRootRunId: string | null
+  phase: ActiveRunPhase
+  nextRunId: string | null
+  limitWarning?: RunLimitSummary | null
+}
+
 interface ChatState {
   // Sessions
   sessions: Session[]
@@ -94,6 +103,10 @@ interface ChatState {
   isStreaming: boolean
   pendingApproval: PendingApproval | null
   pendingAskUser: { run_id: string; session_id: string; question: string } | null
+
+  // Cross-run active state (RUN_LIMIT_POLICY_PLAN §14)
+  activeRun: ActiveRunState
+  limitNotice: { text: string; tone?: 'warn' | 'info' } | null
 
   // UI state
   collapsedWorkspaces: Set<string>
@@ -139,6 +152,8 @@ interface ChatState {
   respondApproval: (choice: 'once' | 'always' | 'reject') => void
   clearAskUser: () => void
   resumeActiveRun: (sessionId: string) => Promise<void>
+  setActiveRunPhase: (phase: ActiveRunPhase, patch?: Partial<ActiveRunState>) => void
+  clearLimitNotice: () => void
 
   // Attachments
   addAttachment: (name: string, mime: string, data: string, dataUrl?: string) => void
@@ -170,7 +185,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     // Track the highest seq seen per run so reconnects can resume replay.
     const TRACKED_EVENTS = [
       'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
-      'run.interrupted', 'run.max_turns', 'message.delta', 'message.metrics',
+      'run.interrupted', 'run.max_turns', 'run.limit_warning', 'run.grace_started',
+      'run.continuation_queued', 'message.delta', 'message.metrics',
       'tool.started', 'tool.completed', 'tool.output', 'approval.requested', 'usage',
       'ask_user',
     ]
@@ -397,8 +413,21 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (last?.is_streaming) messages[messages.length - 1] = { ...last, is_streaming: false }
         return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
       })
-      if (data.session_id === get().activeSessionId) set({ isStreaming: false })
-      if (data.run_id && data.run_id === get()._activeRunId) set({ _activeRunId: null })
+      handleTerminalForContinuation(data)
+      if (data.run_id && data.run_id === get()._activeRunId && !get().isStreaming) set({ _activeRunId: null })
+    })
+
+    socket.off('run.max_turns')
+    socket.on('run.max_turns', (data: RunEvent) => {
+      if (isHandledByTemporaryListener(data)) return
+      updateSessionMessage(data.session_id, sess => {
+        const messages = [...sess.messages]
+        const last = messages[messages.length - 1]
+        if (last?.is_streaming) messages[messages.length - 1] = { ...last, is_streaming: false }
+        return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
+      })
+      handleTerminalForContinuation(data)
+      if (data.run_id && data.run_id === get()._activeRunId && !get().isStreaming) set({ _activeRunId: null })
     })
 
     socket.off('run.cancelled')
@@ -410,8 +439,23 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (last?.is_streaming) messages[messages.length - 1] = { ...last, is_streaming: false }
         return { ...sess, messages }
       })
-      if (data.session_id === get().activeSessionId) set({ isStreaming: false })
-      if (data.run_id && data.run_id === get()._activeRunId) set({ _activeRunId: null })
+      handleTerminalForContinuation(data)
+      if (data.run_id && data.run_id === get()._activeRunId && !get().isStreaming) set({ _activeRunId: null })
+    })
+
+    socket.off('run.limit_warning')
+    socket.on('run.limit_warning', (data: RunEvent) => {
+      if (data.session_id !== get().activeSessionId) return
+      set(state => ({
+        activeRun: { ...state.activeRun, phase: state.activeRun.phase === 'idle' ? 'running' : state.activeRun.phase, limitWarning: undefined },
+        limitNotice: { text: '已接近本轮上限，正在优先收敛当前步骤', tone: 'warn' },
+      }))
+    })
+
+    socket.off('run.continuation_queued')
+    socket.on('run.continuation_queued', (data: RunEvent) => {
+      if (isHandledByTemporaryListener(data)) return
+      handleContinuationQueued(data)
     })
 
     socket.off('run.compacted')
@@ -434,13 +478,29 @@ export const useChatStore = create<ChatState>((set, get) => {
           timestamp: Date.now(),
         }],
       }))
-      if (data.session_id === get().activeSessionId) set({ isStreaming: false })
+      if (data.session_id === get().activeSessionId) {
+        set(state => ({
+          activeRun: { runId: null, continuationRootRunId: null, phase: 'idle', nextRunId: null, limitWarning: null },
+          isStreaming: false,
+        }))
+      }
       if (data.run_id && data.run_id === get()._activeRunId) set({ _activeRunId: null })
     })
 
     socket.off('run.started')
     socket.on('run.started', (data: RunEvent & { context_window?: number }) => {
-      if (data.session_id === get().activeSessionId) set({ isStreaming: true })
+      if (data.session_id === get().activeSessionId) {
+        set(state => ({
+          activeRun: {
+            ...state.activeRun,
+            runId: data.run_id || state.activeRun.runId,
+            phase: 'running',
+            nextRunId: null,
+          },
+          isStreaming: true,
+        }))
+        if (data.run_id) set({ _activeRunId: data.run_id })
+      }
       if (data.context_window) {
         set(state => ({
           sessions: state.sessions.map(s =>
@@ -448,6 +508,11 @@ export const useChatStore = create<ChatState>((set, get) => {
           ),
         }))
       }
+    })
+
+    socket.off('run.queued')
+    socket.on('run.queued', (data: RunEvent) => {
+      handleAutoSuccessorQueued(data)
     })
 
     socket.off('run.retrying')
@@ -487,6 +552,103 @@ export const useChatStore = create<ChatState>((set, get) => {
   function updateSessionMessage(sessionId: string, updater: (session: Session) => Session) {
     set(state => ({
       sessions: state.sessions.map(s => s.id === sessionId ? updater(s) : s),
+    }))
+  }
+
+  // ── ActiveRunState coordination (§14) ──
+  // Terminal event may carry `limit_summary.continuationScheduled` / `nextRunId`
+  // (or `result.nextRunId`). When it does, the run is NOT done from the client's
+  // perspective: keep the active phase in `continuation_pending` and follow the
+  // successor via `run.continuation_queued` / the next `run.queued`.
+  function handleTerminalForContinuation(data: RunEvent) {
+    const state = get()
+    if (data.session_id !== state.activeSessionId) return
+    const activeRunId = state._activeRunId
+    // Only the currently-active run's terminal may clear it (§14.3).
+    if (!data.run_id || (activeRunId && data.run_id !== activeRunId)) return
+
+    const summary = data.limit_summary || data.result?.limitSummary
+    const continuationScheduled = !!summary?.continuationScheduled
+      || !!data.continuationScheduled
+      || !!data.result?.continuationScheduled
+      || !!data.next_run_id
+      || !!data.result?.nextRunId
+    const nextRunId = summary?.nextRunId || data.next_run_id || data.result?.nextRunId || null
+
+    if (continuationScheduled && nextRunId) {
+      set(state => ({
+        activeRun: {
+          runId: nextRunId,
+          continuationRootRunId: state.activeRun.continuationRootRunId || data.run_id || null,
+          phase: 'continuation_pending',
+          nextRunId: nextRunId,
+          limitWarning: summary || state.activeRun.limitWarning,
+        },
+        _activeRunId: nextRunId,
+        isStreaming: true,
+      }))
+      setLimitNoticeFromSummary(summary, true)
+      return
+    }
+
+    // No continuation: the run is truly finished.
+    set(state => ({
+      activeRun: { runId: null, continuationRootRunId: null, phase: 'idle', nextRunId: null, limitWarning: null },
+      _activeRunId: null,
+      isStreaming: false,
+    }))
+    if (summary) setLimitNoticeFromSummary(summary, false)
+  }
+
+  function setLimitNoticeFromSummary(summary: RunLimitSummary | undefined, continuing: boolean) {
+    if (!summary) return
+    let text: string
+    if (continuing) text = `本轮已结束，正在继续剩余步骤`
+    else text = REASON_LABELS[summary.reason] || '运行已停止'
+    set({ limitNotice: { text, tone: summary.reason === 'absolute_limit' || summary.reason === 'continuation_limit' ? 'warn' : 'info' } })
+    if (!continuing) {
+      const timerRef = get()._notificationTimer
+      if (timerRef) clearTimeout(timerRef)
+      const timer = setTimeout(() => set({ limitNotice: null }), 8000)
+      set({ _notificationTimer: timer })
+    }  }
+
+  // `run.continuation_queued` from the previous run: record the pending target.
+  function handleContinuationQueued(data: RunEvent) {
+    const state = get()
+    if (data.session_id !== state.activeSessionId) return
+    if (!data.run_id || (state._activeRunId && data.run_id !== state._activeRunId)) return
+    if (!data.next_run_id) return
+    const queuedRunId: string | null = state._activeRunId || data.run_id || null
+    const queuedNextId: string | null = data.next_run_id
+    set(state => ({
+      activeRun: {
+        ...state.activeRun,
+        runId: queuedRunId,
+        phase: 'continuation_pending',
+        nextRunId: queuedNextId,
+      },
+      isStreaming: true,
+    }))
+  }
+
+  // A successor `run.queued` with trigger auto_limit takes over as the active run.
+  function handleAutoSuccessorQueued(data: RunEvent) {
+    const state = get()
+    if (data.session_id !== state.activeSessionId) return
+    if (data.trigger !== 'auto_limit' && data.trigger !== undefined) return
+    const pending = state.activeRun.nextRunId
+    if (!data.run_id || !pending || data.run_id !== pending) return
+    const successorId: string = data.run_id
+    set(state => ({
+      activeRun: {
+        ...state.activeRun,
+        runId: successorId,
+        phase: 'running',
+        nextRunId: null,
+      },
+      _activeRunId: successorId,
+      isStreaming: true,
     }))
   }
 
@@ -590,6 +752,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     isStreaming: false,
     pendingApproval: null,
     pendingAskUser: null,
+    activeRun: { runId: null, continuationRootRunId: null, phase: 'idle', nextRunId: null, limitWarning: null },
+    limitNotice: null,
     collapsedWorkspaces: new Set<string>(),
     toolExpandAll: false,
     isBatchMode: false,
@@ -988,6 +1152,18 @@ export const useChatStore = create<ChatState>((set, get) => {
       const onRunStarted = (data: RunEvent & { context_window?: number }) => {
         if (!belongsToRun(data)) return
         set({ tokenUsage: { input: 0, output: 0, total: 0 } })
+        if (data.session_id === session!.id) {
+          set(state => ({
+            activeRun: {
+              ...state.activeRun,
+              runId: data.run_id || state.activeRun.runId,
+              phase: 'running',
+              nextRunId: null,
+            },
+            _activeRunId: data.run_id || state._activeRunId,
+            isStreaming: true,
+          }))
+        }
         if (data.context_window) {
           const s = findSession(data.session_id)
           if (s) {
@@ -1134,7 +1310,31 @@ export const useChatStore = create<ChatState>((set, get) => {
           return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
         })
         if (data.session_id === session!.id) {
-          set({ isStreaming: false })
+          const summary = data.limit_summary || data.result?.limitSummary
+          const continuationScheduled = !!summary?.continuationScheduled
+            || !!data.continuationScheduled || !!data.result?.continuationScheduled
+            || !!data.next_run_id || !!data.result?.nextRunId
+          const nextRunId = summary?.nextRunId || data.next_run_id || data.result?.nextRunId || null
+          if (continuationScheduled && nextRunId) {
+            // Keep streaming across the continuation boundary (§14.3).
+            const rootId: string | null = state.activeRun.continuationRootRunId || data.run_id || null
+            set(state => ({
+              activeRun: {
+                runId: nextRunId,
+                continuationRootRunId: rootId,
+                phase: 'continuation_pending',
+                nextRunId,
+                limitWarning: summary || state.activeRun.limitWarning,
+              },
+              _activeRunId: nextRunId,
+              isStreaming: true,
+            }))
+            return
+          }
+          set(state => ({
+            activeRun: { runId: null, continuationRootRunId: null, phase: 'idle', nextRunId: null, limitWarning: null },
+            isStreaming: false,
+          }))
           cleanup()
         }
       }
@@ -1164,7 +1364,10 @@ export const useChatStore = create<ChatState>((set, get) => {
           }],
         }))
         if (data.session_id === session!.id) {
-          set({ isStreaming: false })
+          set(state => ({
+            activeRun: { runId: null, continuationRootRunId: null, phase: 'idle', nextRunId: null, limitWarning: null },
+            isStreaming: false,
+          }))
           cleanup()
         }
       }
@@ -1223,8 +1426,33 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
       const active = runs.find(r => !TERMINAL_RUN_STATUS.has(r.status))
       if (!active) {
-        // No live run for this session — ensure UI reflects idle.
-        set({ _activeRunId: null, isStreaming: false })
+        // No live run for this session — but the newest terminal run may point
+        // to a queued successor (auto continuation awaiting execution after a
+        // reconnect, §14.6).
+        const newest = runs[0]
+        if (newest?.result) {
+          try {
+            const result = JSON.parse(newest.result) as RunResultShape
+            if (result.continuationScheduled && result.nextRunId) {
+              const next = runs.find(r => r.id === result.nextRunId)
+              if (next && !TERMINAL_RUN_STATUS.has(next.status)) {
+                set({
+                  _activeRunId: next.id,
+                  isStreaming: true,
+                  activeRun: {
+                    runId: next.id,
+                    continuationRootRunId: next.continuation_root_run_id || newest.id,
+                    phase: next.status === 'queued' ? 'continuation_pending' : 'running',
+                    nextRunId: null,
+                    limitWarning: result.limitSummary || null,
+                  },
+                })
+                return
+              }
+            }
+          } catch { /* ignore */ }
+        }
+        set({ _activeRunId: null, isStreaming: false, activeRun: { runId: null, continuationRootRunId: null, phase: 'idle', nextRunId: null, limitWarning: null } })
         return
       }
 
@@ -1253,11 +1481,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       // A parked run is waiting for the user (approval/input/pause), not
       // streaming. Show idle so the stop button is not stuck "working".
       if (PARKED_RUN_STATUS.has(active.status)) {
-        set({ _activeRunId: active.id, isStreaming: false })
+        set({ _activeRunId: active.id, isStreaming: false, activeRun: { runId: active.id, continuationRootRunId: active.continuation_root_run_id || active.id, phase: 'parked', nextRunId: null, limitWarning: null } })
         return
       }
       // Live streaming continues through the persistent listeners.
-      set({ _activeRunId: active.id, isStreaming: true })
+      set({ _activeRunId: active.id, isStreaming: true, activeRun: { runId: active.id, continuationRootRunId: active.continuation_root_run_id || active.id, phase: 'running', nextRunId: null, limitWarning: null } })
     },
 
     abortRun: () => {
@@ -1266,9 +1494,25 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (socket?.connected && state.activeSessionId) {
         socket.emit('abort', { session_id: state.activeSessionId })
       } else if (state._activeRunId) {
-        void cancelRun(state._activeRunId).catch(() => {})
+        // Whole-chain cancel: auto continuations under the same root are stopped
+        // too (§11.1).
+        void cancelRun(state._activeRunId, true).catch(() => {})
       }
+      set(state => ({
+        activeRun: { runId: null, continuationRootRunId: null, phase: 'idle', nextRunId: null, limitWarning: null },
+        _activeRunId: null,
+        isStreaming: false,
+      }))
     },
+
+    setActiveRunPhase: (phase, patch = {}) => {
+      set(state => ({
+        activeRun: { ...state.activeRun, ...patch, phase },
+        isStreaming: phase === 'running' || phase === 'continuation_pending',
+      }))
+    },
+
+    clearLimitNotice: () => set({ limitNotice: null }),
 
     setStrategy: (strategy: Strategy) => {
       const socket = getSocket()

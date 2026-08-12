@@ -2,7 +2,49 @@ import type { ToolBinding, ToolModule } from '../types.js'
 import { characterMetaStore } from '../../db/characterStore.js'
 import { characterContentStore } from '../../character/store.js'
 import { normalizeStrategy } from '../../agent/strategy.js'
+import { normalizeCharacterRunPolicy, type CharacterRunPolicy } from '../../agent/loop/run-policy.js'
 import { parseSkillNames, updateNamedBindings, updateSkillNames } from './skills.js'
+
+/**
+ * Build the runPolicy override from the character_manager action args. Prefers
+ * run_policy_json; individual soft_turns / grace_turns / auto_continuation /
+ * character_max_auto_continuations merge on top. `runPolicyReset` clears it.
+ */
+function resolveRunPolicyArgs(args: Record<string, string>): { runPolicy?: CharacterRunPolicy; reset?: boolean } {
+  if (args.run_policy_reset === 'true' || args.runPolicyReset === 'true') {
+    return { reset: true }
+  }
+  let base: Record<string, unknown> | undefined
+  if (typeof args.run_policy_json === 'string' && args.run_policy_json.trim()) {
+    try {
+      const parsed = JSON.parse(args.run_policy_json)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        base = parsed
+      } else {
+        throw new Error('run_policy_json must be a JSON object')
+      }
+    } catch (error: any) {
+      throw new Error(`Invalid run_policy_json: ${error.message}`)
+    }
+  }
+  const patch: Record<string, unknown> = base ? { ...base } : {}
+  const setOpt = (key: string, field: string) => {
+    const value = args[key]
+    if (value === undefined || value === '') return
+    const n = Number(value)
+    if (!Number.isFinite(n)) throw new Error(`Invalid ${key}: "${value}"`)
+    patch[field] = Math.trunc(n)
+  }
+  setOpt('soft_turns', 'softTurns')
+  setOpt('grace_turns', 'graceTurns')
+  setOpt('character_max_auto_continuations', 'maxAutoContinuations')
+  if (args.auto_continuation === 'inherit' || args.auto_continuation === 'enabled' || args.auto_continuation === 'disabled') {
+    patch.autoContinuation = args.auto_continuation
+  }
+  if (Object.keys(patch).length === 0 && !base) return {}
+  const normalized = normalizeCharacterRunPolicy({ version: 1, ...patch })
+  return { runPolicy: normalized }
+}
 
 export const tool: ToolModule = {
   name: 'character_manager',
@@ -105,7 +147,28 @@ export const tool: ToolModule = {
       },
       maxSteps: {
         type: 'string',
-        description: 'Maximum turns per session (default: "50").',
+        description: '[legacy] Maximum turns per session (default: "50"). Prefer runPolicy.soft_turns.',
+      },
+      run_policy_json: {
+        type: 'string',
+        description: 'JSON object for the character run policy: { "version": 1, "softTurns": 80, "graceTurns": 15, "autoContinuation": "inherit" | "enabled" | "disabled", "maxAutoContinuations": 1 }. Empty string resets the override (inherit system).',
+      },
+      soft_turns: {
+        type: 'string',
+        description: 'Preferred turns before the run starts converging (1..999). Empty removes the override.',
+      },
+      grace_turns: {
+        type: 'string',
+        description: 'Requested grace turns after the soft limit (0..999). Empty removes the override.',
+      },
+      auto_continuation: {
+        type: 'string',
+        enum: ['inherit', 'enabled', 'disabled'],
+        description: 'Whether this character may auto-continue across runs. System switch still gates it.',
+      },
+      character_max_auto_continuations: {
+        type: 'string',
+        description: 'Max auto-continuations this character requests (0..50). Empty removes the override.',
       },
       provider: {
         type: 'string',
@@ -164,6 +227,7 @@ export const tool: ToolModule = {
         ? args.groups.split(',').map(g => g.trim()).filter(Boolean)
         : undefined
       const maxSteps = args.maxSteps ? parseInt(args.maxSteps, 10) || 50 : 50
+      const { runPolicy: createRunPolicy } = resolveRunPolicyArgs(args)
 
       const record = characterMetaStore.create({
         name: args.name,
@@ -176,6 +240,7 @@ export const tool: ToolModule = {
         skills,
         skillBindings: skills?.map(packageId => ({ packageId, enabled: true, preloadSkills: [] })),
         groups,
+        runPolicy: createRunPolicy,
         maxSteps,
         default_strategy: normalizeStrategy(args.default_strategy, 'Ask Risky'),
         enabled: true,
@@ -209,6 +274,15 @@ export const tool: ToolModule = {
       if (args.role !== undefined) patch.role = args.role
       if (args.default_strategy !== undefined) patch.default_strategy = normalizeStrategy(args.default_strategy, 'Ask Risky')
       if (args.maxSteps !== undefined) patch.maxSteps = parseInt(args.maxSteps) || 50
+      const runPolicyArgs = resolveRunPolicyArgs(args)
+      if (runPolicyArgs.reset) {
+        patch.runPolicy = undefined
+        // Clear the legacy field too so the read-time migration does not
+        // immediately re-create an override (RUN_LIMIT_POLICY_PLAN §4.4).
+        patch.maxSteps = undefined
+      } else if (runPolicyArgs.runPolicy !== undefined) {
+        patch.runPolicy = runPolicyArgs.runPolicy
+      }
       if (args.provider !== undefined) patch.provider = args.provider || undefined
       if (args.model !== undefined) patch.model = args.model || undefined
       if ((args.tools !== undefined || args.tools_json !== undefined) && args.tools_mode !== 'replace') {

@@ -38,10 +38,13 @@ export default function ChatInput() {
   const [isFocused, setIsFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment } = useChatStore()
+  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice } = useChatStore()
   const session = sessions.find(s => s.id === activeSessionId)
   const presence = useCharacterPresence(session?.character_id ?? '', activeSessionId ?? undefined)
   const inputMotion = isFocused && presence === 'idle' ? 'listening' : undefined
+  // Cross-run phases: continuation_pending keeps sending disabled while the
+  // successor run is still queued/starting (§14.4).
+  const blockInput = isStreaming || activeRun.phase === 'continuation_pending'
 
   // Load current character. Reset synchronously when the session switches so
   // the previous session's avatar never lingers.
@@ -63,7 +66,7 @@ export default function ChatInput() {
   }, [input])
 
   const handleSend = () => {
-    if ((!input.trim() && attachments.length === 0) || isStreaming) return
+    if ((!input.trim() && attachments.length === 0) || blockInput) return
     sendMessage(input.trim())
     setInput('')
   }
@@ -102,7 +105,7 @@ export default function ChatInput() {
 
   const starName = character?.name || '天枢'
   const starColor = character?.color || 'var(--gold)'
-  const canSend = (input.trim().length > 0 || attachments.length > 0) && !isStreaming
+  const canSend = (input.trim().length > 0 || attachments.length > 0) && !blockInput
 
   return (
     <div className="input-area">
@@ -163,8 +166,8 @@ export default function ChatInput() {
             <input ref={fileInputRef} type="file" multiple hidden onChange={onFilePicked} />
           </div>
           <div className="input-actions">
-            {isStreaming ? (
-              <button className="send-btn" onClick={abortRun} title="停止" style={{ background: 'var(--cinnabar)' }}>
+            {blockInput ? (
+              <button className="send-btn" onClick={abortRun} title="停止整条自动续跑链" style={{ background: 'var(--cinnabar)' }}>
                 ⏹
               </button>
             ) : (
@@ -178,6 +181,22 @@ export default function ChatInput() {
               </button>
             )}
           </div>
+          {limitNotice && (
+            <div
+              onClick={clearLimitNotice}
+              style={{
+                position: 'absolute', bottom: 'calc(100% + 8px)', left: 16, right: 16,
+                padding: '6px 12px', borderRadius: 8, fontSize: 'calc(12px * var(--ui-font-scale))',
+                background: limitNotice.tone === 'warn' ? 'rgba(200,60,40,0.1)' : 'rgba(42,157,92,0.08)',
+                border: `1px solid ${limitNotice.tone === 'warn' ? 'rgba(200,60,40,0.3)' : 'rgba(42,157,92,0.25)'}`,
+                color: limitNotice.tone === 'warn' ? 'var(--cinnabar)' : 'var(--jade)',
+                cursor: 'pointer',
+                zIndex: 20,
+              }}
+            >
+              {limitNotice.text}
+            </div>
+          )}
         </div>
       </div>
     </div>

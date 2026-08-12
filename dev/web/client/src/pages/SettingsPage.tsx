@@ -10,6 +10,7 @@ import type { DesktopServerStatus } from '../../../../shared/desktop-contract.js
 import UpdatePanel from '@/features/update/UpdatePanel'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
+import SystemRunPolicySettings from '@/features/run-policy/SystemRunPolicySettings'
 import {
   DEFAULT_DISPLAY_PREFERENCES,
   applyDisplayPreferences,
@@ -402,6 +403,8 @@ export default function SettingsPage() {
               {promptDirty && <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)'}}>未保存</span>}
             </div>
           </div>
+
+          <SystemRunPolicySettings showToast={showToast} />
         </div>
 
         {/* 显示 */}

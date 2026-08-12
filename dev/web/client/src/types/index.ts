@@ -88,8 +88,33 @@ export interface Character {
   memoryContent?: string
   customPrompt?: string
   memory?: { enabled: boolean; selfEvolution: boolean; charLimit: number }
+  runPolicy?: CharacterRunPolicyView
   createdAt?: number
   updatedAt?: number
+}
+
+export interface CharacterRunPolicyView {
+  configured?: {
+    version: 1
+    softTurns?: number
+    graceTurns?: number
+    autoContinuation?: 'inherit' | 'enabled' | 'disabled'
+    maxAutoContinuations?: number
+  }
+  effectivePreview?: {
+    softTurns: number
+    graceTurns: number
+    absoluteTurns: number
+    autoContinuation: boolean
+    maxAutoContinuations: number
+    maxChainTurns: number
+    maxChainTokens: number
+    maxChainWallTimeMs: number
+    noProgressThreshold: number
+    weakProgressThreshold: number
+    repeatedToolLoopThreshold: number
+  }
+  constrainedFields?: string[]
 }
 
 export interface SkillBinding {
@@ -186,6 +211,40 @@ export interface RunEvent {
   approval_kind?: 'workspace' | 'risk'
   requested_path?: string
   permission_root?: string
+  limit_summary?: RunLimitSummary
+  result?: { limitSummary?: RunLimitSummary; continuationScheduled?: boolean; nextRunId?: string }
+  continuationScheduled?: boolean
+  next_run_id?: string
+  continuation_index?: number
+  trigger?: 'manual' | 'user_input' | 'auto_limit'
+  reason?: string
+  soft_turns?: number
+  absolute_turns?: number
+}
+
+export type RunLimitReason =
+  | 'no_progress_after_soft_limit'
+  | 'absolute_limit'
+  | 'repeated_tool_loop'
+  | 'continuation_limit'
+
+export interface RunLimitSummary {
+  reason: RunLimitReason
+  policyVersion: number
+  softTurns: number
+  absoluteTurns: number
+  turnsUsed: number
+  graceTurnsUsed: number
+  noProgressStreak: number
+  continuationScheduled: boolean
+  nextRunId?: string
+}
+
+export const REASON_LABELS: Record<RunLimitReason, string> = {
+  no_progress_after_soft_limit: '连续多轮没有可验证进展，本轮已停止',
+  absolute_limit: '已达到系统单轮安全上限',
+  repeated_tool_loop: '检测到重复工具循环，本轮已停止',
+  continuation_limit: '已达到自动续跑安全预算，可手动检查后继续',
 }
 
 // 工作区

@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from './client'
-import type { RunEvent } from '@/types'
+import type { RunEvent, RunLimitSummary } from '@/types'
 
 export interface RunRow {
   id: string
@@ -16,10 +16,23 @@ export interface RunRow {
   execution_mode: string
   turn_no: number
   max_turns: number
+  run_policy_snapshot: string | null
+  soft_turns: number | null
+  absolute_turns: number | null
+  continuation_root_run_id: string | null
+  continuation_index: number
+  resume_trigger: string | null
+  result: string | null
   queued_at: number
   started_at: number | null
   finished_at: number | null
   updated_at: number
+}
+
+export interface RunResultShape {
+  limitSummary?: RunLimitSummary
+  continuationScheduled?: boolean
+  nextRunId?: string
 }
 
 export const fetchRecentRuns = (sessionId: string, limit = 10) =>
@@ -31,5 +44,5 @@ export const fetchRunEvents = (runId: string, afterSeq: number) =>
 export const submitRunInput = (runId: string, answer: string) =>
   apiPost<{ run_id: string; status: string }>(`/api/runs/${runId}/inputs`, { answer })
 
-export const cancelRun = (runId: string) =>
-  apiPost<{ cancelled: boolean }>(`/api/runs/${runId}/cancel`)
+export const cancelRun = (runId: string, chain = false) =>
+  apiPost<{ cancelled: boolean }>(`/api/runs/${runId}/cancel${chain ? '?chain=true' : ''}`)

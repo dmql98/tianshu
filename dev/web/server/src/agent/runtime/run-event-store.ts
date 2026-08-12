@@ -170,3 +170,47 @@ export function forceCancelSessionRuns(sessionId: string, reason = 'user_request
 function isTerminalStatus(status: string): boolean {
   return ['completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted'].includes(status)
 }
+
+/**
+ * Startup recovery for the continuation chain (§11.4). Runs at boot, before any
+ * traffic, so a previous process crash cannot leave the durable event log and
+ * run rows inconsistent.
+ *
+ * Returns a summary of what was repaired.
+ */
+export function recoverContinuationState(): { interrupted: string[]; repairedEvents: string[] } {
+  const interrupted: string[] = []
+  const repairedEvents: string[] = []
+
+  // 1. Orphaned running/preparing runs (their in-memory coordinator + run
+  //    closures died with the previous process). Mark interrupted rather than
+  //    re-executing tools — never duplicate side effects. append() performs the
+  //    status transition to `interrupted` and persists the durable event.
+  const orphans = getDb().prepare(
+    `SELECT id FROM runs WHERE status IN ('running', 'preparing')`,
+  ).all() as Array<{ id: string }>
+  for (const row of orphans) {
+    const event = runEventStore.append(row.id, 'run.interrupted', { reason: 'orphaned_after_restart' })
+    if (event) interrupted.push(row.id)
+  }
+
+  // 2. Repair missing `run.queued` durable events for queued runs (mapping
+  //    exists in runs, but the event row was lost). Idempotent.
+  const queued = getDb().prepare(
+    `SELECT id FROM runs WHERE status = 'queued'`,
+  ).all() as Array<{ id: string }>
+  for (const row of queued) {
+    const hasQueued = getDb().prepare(
+      `SELECT 1 FROM run_events WHERE run_id = ? AND type = 'run.queued' LIMIT 1`,
+    ).get(row.id)
+    if (!hasQueued) {
+      runEventStore.append(row.id, 'run.queued', {
+        run_id: row.id,
+        status: 'queued',
+      })
+      repairedEvents.push(row.id)
+    }
+  }
+
+  return { interrupted, repairedEvents }
+}

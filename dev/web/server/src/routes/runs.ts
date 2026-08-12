@@ -7,6 +7,7 @@ import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { createDurableSocket, publishRunEvent, forceCancelRun } from '../agent/runtime/run-event-store.js'
+import { createResumedRun } from '../agent/runtime/run-resume-service.js'
 import { sessionLoop } from '../agent/loop.js'
 import type { Server } from 'socket.io'
 
@@ -72,6 +73,7 @@ router.get('/:id/checkpoints', (c) => {
 router.post('/:id/cancel', (c) => {
   const run = runStore.get(c.req.param('id'))
   if (!run) return c.json({ error: 'Not found' }, 404)
+  const chain = c.req.query('chain') === 'true'
   const accepted = abortSession(run.session_id)
   // Fallback for orphaned/stuck runs (awaiting_approval with no in-memory
   // coordinator entry, e.g. after a restart): force the DB to terminal and
@@ -86,13 +88,38 @@ router.post('/:id/cancel', (c) => {
       ...JSON.parse(forceEvent.payload),
     })
   }
+  // Whole-chain cancel: also terminal any queued/preparing auto successors so
+  // they never fire after the user cancelled the chain (§11.1).
+  if (chain) {
+    const rootId = runStore.chainRootId(run.id)
+    for (const member of runStore.listChain(rootId)) {
+      if (member.status === 'queued' || member.status === 'preparing') {
+        if (member.id !== run.id) {
+          const ev = runEventStore.append(member.id, 'run.cancelled', { status: 'cancelled', reason: 'chain_cancelled' })
+          if (ev) publishRunEvent(broadcastSocket(ioRef!), member.id, 'run.cancelled', { ...JSON.parse(ev.payload) })
+        }
+      }
+    }
+    // Mark the root result as cancelled so no recovery resurrects the chain.
+    const root = runStore.get(rootId)
+    if (root?.result) {
+      try {
+        const parsed = JSON.parse(root.result)
+        parsed.cancelled = true
+        runStore.finish(root.id, root.status as any, { result: parsed })
+      } catch { /* ignore */ }
+    } else if (root) {
+      runStore.finish(root.id, root.status as any, { result: { cancelled: true } })
+    }
+  }
   return c.json({ ok: true })
 })
 
 /**
  * POST /:id/inputs — resume a run parked at an ask_user checkpoint with the
  * user's answer. A fresh Run (resumed_from_run_id) carries the answer into the
- * session so the model can continue.
+ * session so the model can continue. Uses the shared resume service so trigger
+ * semantics stay identical to auto continuation (§10.1).
  */
 router.post('/:id/inputs', async (c) => {
   const io = ioRef
@@ -114,53 +141,45 @@ router.post('/:id/inputs', async (c) => {
     question = raw.question || ''
   } catch { /* keep empty */ }
 
-  const session = sessionStore.getById(run.session_id)
-  if (!session) return c.json({ error: 'Session not found' }, 404)
-
   // The answer must be processed immediately: cancel the currently running
   // run (and any queued runs) so the resumed run starts right away instead
   // of waiting behind an unbounded loop.
   abortSession(run.session_id)
 
-  const turn = turnStore.create(session.id, 'user')
-  const resumedRun = runStore.create(session, {
-    turnId: turn.id,
-    resumedFromRunId: run.id,
-    source: 'chat',
-  })
   const instruction = `用户回答了之前的问题${question ? `（问题：${question}）` : ''}：\n${answer}`
-  const userMessage = messageStore.addMessage(session.id, {
-    role: 'user',
-    content: instruction,
-    turn_id: turn.id,
-    run_id: resumedRun.id,
+  const resumed = createResumedRun({
+    previousRunId: run.id,
+    trigger: 'user_input',
+    instruction,
+    createUserTurn: true,
   })
-  turnStore.attachUserMessage(turn.id, userMessage.id)
   checkpointStore.clearForRun(run.id, 'ask_user')
 
+  const resumedRun = resumed.run
   const rawSocket = broadcastSocket(io)
   publishRunEvent(rawSocket, resumedRun.id, 'run.queued', {
-    session_id: session.id,
+    session_id: resumed.session.id,
     run_id: resumedRun.id,
     character_id: resumedRun.character_id,
     character_revision_id: resumedRun.character_revision_id,
     resumed_from_run_id: run.id,
+    trigger: 'user_input',
   })
   const durableSocket = createDurableSocket(rawSocket, resumedRun.id)
   const runId = resumedRun.id
-  enqueueRun(session.id, resumedRun.id, async signal => {
+  enqueueRun(resumed.session.id, resumedRun.id, async signal => {
     try {
-      await sessionLoop(io, durableSocket, session.id, signal, { run_id: runId })
+      await sessionLoop(io, durableSocket, resumed.session.id, signal, { run_id: runId })
     } catch (error: any) {
       publishRunEvent(rawSocket, runId, 'run.failed', {
-        session_id: session.id,
+        session_id: resumed.session.id,
         run_id: runId,
         error: error.message || String(error),
       })
     }
   }, () => {
     publishRunEvent(rawSocket, runId, 'run.cancelled', {
-      session_id: session.id,
+      session_id: resumed.session.id,
       run_id: runId,
       status: 'cancelled',
       reason: 'queue_cleared',

@@ -21,8 +21,33 @@ import { isTransientLLMError } from '../llm/errors.js'
 import { approvalRegistry } from './runtime/approval-registry.js'
 import { CONTROL_TOOL_SET } from './loop/control-registry.js'
 import { normalizeToolCalls, buildInvalidToolCall } from './tool-call-normalizer.js'
+import { stableArgsHash } from './loop/loop-policy.js'
 
 const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch'])
+
+/** Outcome category of a tool call for progress assessment (§8.5). */
+function outcomeKindFor(name: string): ToolCallRecord['outcomeKind'] {
+  if (READ_ONLY_TOOLS.has(name)) return 'read'
+  if (name === 'write' || name === 'edit' || name === 'bash') return 'write'
+  if (name === 'update_plan_step' || name === 'create_plan' || name === 'submit_result') return 'state_change'
+  if (name === 'submit_result' || name === 'update_plan_step') return 'verification'
+  if (name.startsWith('mcp__')) return 'other'
+  return 'other'
+}
+
+/**
+ * Write tools report whether they actually changed state via metadata. Exit
+ * code alone is not enough (a successful no-op write must NOT count as
+ * progress). Defaults to `true` only for tools we know mutate state.
+ */
+function determineToolChanged(name: string, result: ToolResult): boolean {
+  const status = result.metadata?.status
+  if (status === 'noop') return false
+  if (status === 'updated' || status === 'created') return true
+  if (result.metadata?.changed === true) return true
+  if (result.metadata?.changed === false) return false
+  return (name === 'update_plan_step' || name === 'create_plan') && !result.error
+}
 
 function estimateTokenCount(text: string): number {
   const cjk = (text.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length
@@ -31,11 +56,20 @@ function estimateTokenCount(text: string): number {
   return cjk + Math.ceil(words * 0.75)
 }
 
+export type ToolOutcomeKind = 'read' | 'write' | 'state_change' | 'verification' | 'control' | 'other'
+
 export interface ToolCallRecord {
   toolName: string
   hasError: boolean
   error?: string
   args?: string
+  normalizedArgsHash?: string
+  outcomeKind?: ToolOutcomeKind
+  resultHash?: string
+  /** Write tools: true when the executor reports an actual state change. */
+  changed?: boolean
+  /** Verification evidence key when this call produced verifiable evidence. */
+  evidenceKey?: string
 }
 
 export { detectDoomLoop } from './loop/completion-evaluator.js'
@@ -400,6 +434,8 @@ export async function innerLoop(
         hasError: true,
         error,
         args: tc.function.arguments,
+        normalizedArgsHash: stableArgsHash(JSON.parse(tc.function.arguments)),
+        outcomeKind: 'control' as const,
       })),
     }
   }
@@ -504,7 +540,11 @@ export async function innerLoop(
   const invalidCalls = toolCallsAcc.filter(tc => tc.function.name === 'invalid_tool_call')
   for (const tc of invalidCalls) {
     const errorText = `模型生成了无效工具参数：${tc.function.arguments}`
-    toolCallRecords.push({ toolName: 'invalid_tool_call', hasError: true, error: errorText, args: tc.function.arguments })
+    toolCallRecords.push({
+      toolName: 'invalid_tool_call', hasError: true, error: errorText, args: tc.function.arguments,
+      normalizedArgsHash: stableArgsHash(JSON.parse(tc.function.arguments)),
+      outcomeKind: 'control',
+    })
     if (sessionId) {
       messageStore.addMessage(sessionId, {
         role: 'tool', content: JSON.stringify({ error: errorText }),
@@ -573,7 +613,11 @@ export async function innerLoop(
   // Phase 3: emit skip results immediately
   for (const p of prechecked) {
     if (!p.skip) continue
-    const rec: ToolCallRecord = { toolName: p.name, hasError: true, error: p.skipReason!, args: p.argsStr }
+    const rec: ToolCallRecord = {
+      toolName: p.name, hasError: true, error: p.skipReason!, args: p.argsStr,
+      normalizedArgsHash: stableArgsHash(p.args),
+      outcomeKind: outcomeKindFor(p.name),
+    }
     toolCallRecords.push(rec)
     if (sessionId) {
       messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: p.skipReason!, tool_status: 'error' })
@@ -656,7 +700,24 @@ export async function innerLoop(
 
     const duration = Date.now() - startTime
 
-    const rec: ToolCallRecord = { toolName: p.name, hasError: !!result.error, error: result.error, args: p.argsStr }
+    // Result hash: stable over the tool outcome so identical calls with the
+    // same result are recognized as repeats. Full outputs never enter the
+    // record (RUN_LIMIT_POLICY_PLAN §8.5).
+    const outcomeHash = result.metadata?.hash
+      ? String(result.metadata.hash)
+      : result.error
+        ? `err:${stableArgsHash(result.error.slice(0, 500))}`
+        : stableArgsHash(result.output.slice(0, 2000))
+    const changed = determineToolChanged(p.name, result)
+
+    const rec: ToolCallRecord = {
+      toolName: p.name, hasError: !!result.error, error: result.error, args: p.argsStr,
+      normalizedArgsHash: stableArgsHash(p.args),
+      outcomeKind: outcomeKindFor(p.name),
+      resultHash: outcomeHash,
+      changed,
+      evidenceKey: result.metadata?.evidence_key ? String(result.metadata.evidence_key) : undefined,
+    }
     toolCallRecords.push(rec)
 
     const toolStatus = result.error ? 'error' : result.escaped ? 'denied' : 'success'

@@ -76,9 +76,15 @@ export default function RightPanel() {
   const contextPct = Math.min(100, Math.round((tokenEst / contextWindow) * 100))
   const totalTokens = tokenUsage.total || ((session.input_tokens || 0) + (session.output_tokens || 0))
 
-  // Step limit display
+  // Step limit display (run policy §13.2 summary)
   const maxSteps = character?.maxSteps
-  const stepLimitText = !maxSteps || maxSteps >= 999 ? '不限制' : `${maxSteps} 步`
+  const rpEff = character?.runPolicy?.effectivePreview
+  const stepLimitText = rpEff
+    ? `${rpEff.softTurns} + ${rpEff.graceTurns} 轮宽限`
+    : !maxSteps || maxSteps >= 999 ? '高上限' : `${maxSteps} 步`
+  const autoText = rpEff
+    ? rpEff.autoContinuation ? `自动续跑：开（最多 ${rpEff.maxAutoContinuations} 次）` : '自动续跑：关'
+    : ''
 
   function formatTokens(n: number): string {
     if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
@@ -269,6 +275,7 @@ export default function RightPanel() {
           </div>
           <div className="rp-row"><span className="label">角色类型</span><span className="value">{character?.role === 'both' ? '主/子 Agent' : character?.role === 'main' ? '主 Agent' : character?.role === 'sub' ? '子 Agent' : '--'}</span></div>
           <div className="rp-row"><span className="label">步数限制</span><span className="value">{stepLimitText}</span></div>
+          {autoText && <div className="rp-row"><span className="label">自动续跑</span><span className="value">{autoText}</span></div>}
         </div>
 
         {/* 项目区 — bound at creation, read-only */}

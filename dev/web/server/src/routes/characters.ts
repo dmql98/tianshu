@@ -13,12 +13,29 @@ import { characterVisualStore, type CharacterVisual, type CharacterAssetKind } f
 import { characterPresenceProjector } from '../character/presence-projector.js'
 import { touchPlayerLease } from '../character/asset-refs.js'
 import { gzipSync, gunzipSync } from 'zlib'
+import { getSystemRunPolicy } from '../config.js'
+import { resolveRunPolicy } from '../agent/loop/run-policy-resolver.js'
+import { normalizeCharacterRunPolicy } from '../agent/loop/run-policy.js'
+
+/** Effective-policy preview used by the edit UI. True Run still resolves at
+ *  creation from the pinned revision (§13.1). */
+function runPolicyView(meta: CharacterRecord) {
+  const system = getSystemRunPolicy()
+  const configured = normalizeCharacterRunPolicy(meta.runPolicy) || undefined
+  const snapshot = resolveRunPolicy(system, configured)
+  const constrainedFields: string[] = []
+  if (configured?.softTurns != null && configured.softTurns > system.maxAbsoluteTurnsPerRun) constrainedFields.push('softTurns')
+  if (configured?.graceTurns != null && configured.graceTurns > system.maxGraceTurns) constrainedFields.push('graceTurns')
+  if (configured?.maxAutoContinuations != null && configured.maxAutoContinuations > system.maxAutoContinuations) constrainedFields.push('maxAutoContinuations')
+  if (configured?.autoContinuation === 'enabled' && !system.autoContinuationEnabled) constrainedFields.push('autoContinuation')
+  return { configured, effectivePreview: snapshot.effective, constrainedFields }
+}
 
 function mergeContent(meta: CharacterRecord, id: string) {
   const content = characterContentStore.get(id)
   const promptFile = resolve(getDataDir(), 'characters', id, 'prompt.md')
   const customPrompt = existsSync(promptFile) ? readFileSync(promptFile, 'utf-8') : ''
-  return { ...meta, tools: resolveCharacterTools(meta.tools), soul: content.soul, userProfile: content.user, memoryContent: content.memory, customPrompt }
+  return { ...meta, tools: resolveCharacterTools(meta.tools), soul: content.soul, userProfile: content.user, memoryContent: content.memory, customPrompt, runPolicy: runPolicyView(meta) }
 }
 
 const router = new Hono()

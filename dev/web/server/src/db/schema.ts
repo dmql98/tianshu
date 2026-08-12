@@ -194,6 +194,13 @@ export function getDb(): Database.Database {
       execution_mode TEXT NOT NULL,
       turn_no INTEGER NOT NULL DEFAULT 0,
       max_turns INTEGER NOT NULL DEFAULT 50,
+      run_policy_snapshot TEXT,
+      configured_max_turns INTEGER,
+      soft_turns INTEGER,
+      absolute_turns INTEGER,
+      continuation_root_run_id TEXT,
+      continuation_index INTEGER NOT NULL DEFAULT 0,
+      resume_trigger TEXT,
       usage TEXT,
       result TEXT,
       error TEXT,
@@ -206,7 +213,77 @@ export function getDb(): Database.Database {
       ON runs(session_id, queued_at DESC);
     CREATE INDEX IF NOT EXISTS idx_runs_status
       ON runs(status, updated_at);
-
+  `)
+  // Run policy columns (RUN_LIMIT_POLICY_PLAN §6). Added idempotently; the
+  // backfill below only runs once, gated on run_policy_snapshot being empty.
+  const runPolicyColumns = [
+    'ALTER TABLE runs ADD COLUMN run_policy_snapshot TEXT',
+    'ALTER TABLE runs ADD COLUMN configured_max_turns INTEGER',
+    'ALTER TABLE runs ADD COLUMN soft_turns INTEGER',
+    'ALTER TABLE runs ADD COLUMN absolute_turns INTEGER',
+    'ALTER TABLE runs ADD COLUMN continuation_root_run_id TEXT',
+    'ALTER TABLE runs ADD COLUMN continuation_index INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE runs ADD COLUMN resume_trigger TEXT',
+  ]
+  for (const statement of runPolicyColumns) {
+    try { db.exec(statement) } catch { /* column already exists */ }
+  }
+  // Historical migration: legacy runs get a version:1 snapshot mirroring
+  // max_turns, dynamic limits and auto continuation off, and root themselves.
+  db.exec(`
+    UPDATE runs
+    SET run_policy_snapshot = CASE
+          WHEN run_policy_snapshot IS NULL OR run_policy_snapshot = '' THEN
+            json_object(
+              'version', 1,
+              'policyVersion', 1,
+              'system', json_object(
+                'dynamicLimitEnabled', 0,
+                'autoContinuationEnabled', 0,
+                'maxAbsoluteTurnsPerRun', max_turns,
+                'maxGraceTurns', 0,
+                'noProgressThreshold', 0,
+                'weakProgressThreshold', 0,
+                'repeatedToolLoopThreshold', 0,
+                'maxAutoContinuations', 0,
+                'maxChainTurns', 0,
+                'maxChainTokens', 0,
+                'maxChainWallTimeMs', 0
+              ),
+              'character', json_object('autoContinuation', 'inherit'),
+              'effective', json_object(
+                'softTurns', max_turns,
+                'graceTurns', 0,
+                'absoluteTurns', max_turns,
+                'autoContinuation', 0,
+                'maxAutoContinuations', 0,
+                'maxChainTurns', 0,
+                'maxChainTokens', 0,
+                'maxChainWallTimeMs', 0,
+                'noProgressThreshold', 0,
+                'weakProgressThreshold', 0,
+                'repeatedToolLoopThreshold', 0
+              )
+            )
+          ELSE run_policy_snapshot
+        END,
+        configured_max_turns = CASE WHEN configured_max_turns IS NULL THEN max_turns ELSE configured_max_turns END,
+        soft_turns = CASE WHEN soft_turns IS NULL THEN max_turns ELSE soft_turns END,
+        absolute_turns = CASE WHEN absolute_turns IS NULL THEN max_turns ELSE absolute_turns END,
+        continuation_root_run_id = CASE WHEN continuation_root_run_id IS NULL OR continuation_root_run_id = '' THEN id ELSE continuation_root_run_id END,
+        continuation_index = COALESCE(continuation_index, 0)
+    WHERE run_policy_snapshot IS NULL OR run_policy_snapshot = ''
+  `)
+  // Auto-continuation uniqueness: at most one `auto_limit` successor per
+  // predecessor run (§6.3).
+  try {
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_auto_continuation_once
+      ON runs(resumed_from_run_id, resume_trigger)
+      WHERE resume_trigger = 'auto_limit'
+    `)
+  } catch { /* unique index may already exist with same semantics */ }
+  db.exec(`
     CREATE TABLE IF NOT EXISTS run_events (
       event_id TEXT PRIMARY KEY,
       run_id TEXT NOT NULL REFERENCES runs(id),
