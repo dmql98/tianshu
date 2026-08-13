@@ -1,3 +1,5 @@
+import { contrastRatio } from '../theme/contrast'
+
 export type FontFamilyId = 'wenkai' | 'system-sans' | 'system-serif' | 'monospace'
 
 export type TextColorMode = 'theme' | 'custom'
@@ -115,6 +117,15 @@ export function deriveTextColors(textColor: string): Record<'deep' | 'mid' | 'li
     light: offsetColor(normalized, [94, 89, 80]),
     faint: offsetColor(normalized, [140, 132, 120]),
   }
+}
+
+/**
+ * 自定义文字颜色与给定背景的 WCAG 对比度（用于设置页提示）。
+ * 只接受 #RRGGBB；非法输入返回 0。
+ */
+export function textColorContrastOn(textColor: string, background: string): number {
+  if (!isValidHexColor(textColor) || !/^#[0-9a-f]{6}$/i.test(background)) return 0
+  return contrastRatio(textColor.toLowerCase(), background.toLowerCase())
 }
 
 export function applyDisplayPreferences(

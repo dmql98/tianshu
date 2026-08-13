@@ -1,26 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
-import {
-  BUILTIN_THEME_NIGHT,
-  BUILTIN_THEME_PAPER,
-  BUILTIN_THEME_PAPER_ID,
-  BUILTIN_THEME_NIGHT_ID,
-} from './themeDefinitions'
+import { describe, expect, it } from 'vitest'
+import { BUILTIN_THEME_DARK_ID, BUILTIN_THEME_LIGHT_ID } from './themeDefinitions'
 import {
   LEGACY_THEME_STORAGE_KEY,
   THEME_PREFERENCES_STORAGE_KEY,
-  applyResolvedTheme,
-  createCustomTheme,
-  deleteCustomTheme,
-  getThemeDefinition,
-  initializeThemePreferences,
   loadThemePreferences,
   migrateLegacyThemeSelection,
   normalizeThemePreferences,
-  resetThemePreferences,
-  resolveTheme,
+  normalizeThemeSelection,
   saveThemePreferences,
-  setThemeSelection,
-  upsertCustomTheme,
   type ThemePreferences,
 } from './themePreferences'
 
@@ -35,213 +22,120 @@ class MemoryStorage implements Storage {
   setItem(key: string, value: string) { this.values.set(key, value) }
 }
 
-function makeRoot() {
-  const attributes = new Map<string, string>()
-  const properties = new Map<string, string>()
-  return {
-    setAttribute: (key: string, value: string) => { attributes.set(key, value) },
-    getAttribute: (key: string) => attributes.get(key) ?? null,
-    style: {
-      colorScheme: '',
-      setProperty: (key: string, value: string) => { properties.set(key, value) },
-      getPropertyValue: (key: string) => properties.get(key) ?? '',
-    },
-  }
-}
-
-const customTheme = createCustomTheme({
-  name: '星海',
-  appearance: 'dark',
-  accent: '#3b82f6',
-  background: { source: 'data', url: 'data:image/png;base64,AAAA' },
-  panelOpacity: 0.8,
-  dim: 0.4,
-  focusX: 0.3,
-  focusY: 0.7,
-})
-
-const prefsWithCustom: ThemePreferences = {
-  version: 1,
-  selection: { mode: 'fixed', themeId: customTheme.id },
-  customThemes: [customTheme],
-}
-
-describe('themePreferences: 存储与回退', () => {
+describe('themePreferences v2: 存储与回退', () => {
   it('空存储返回 system 默认', () => {
     const storage = new MemoryStorage()
-    expect(loadThemePreferences(storage)).toEqual({ version: 1, selection: { mode: 'system' }, customThemes: [] })
+    expect(loadThemePreferences(storage)).toEqual({ version: 2, selection: { mode: 'system' } })
   })
 
-  it('损坏 JSON、未知字段安全回退', () => {
+  it('损坏 JSON 安全回退 system', () => {
     const storage = new MemoryStorage()
     storage.setItem(THEME_PREFERENCES_STORAGE_KEY, '{broken')
     expect(loadThemePreferences(storage).selection).toEqual({ mode: 'system' })
+  })
 
+  it('未知版本回退 system', () => {
+    const storage = new MemoryStorage()
     storage.setItem(THEME_PREFERENCES_STORAGE_KEY, JSON.stringify({
       version: 99,
-      selection: { mode: 'fixed', themeId: 'no-such-theme' },
-      customThemes: [{ id: 42 }],
+      selection: { mode: 'builtin', themeId: 'tianshu-light' },
     }))
-    const loaded = loadThemePreferences(storage)
-    // normalize 保留结构（id 存在性由 resolve 阶段校验）；非法 custom theme 被过滤
-    expect(loaded.customThemes).toEqual([])
-    // 未知 themeId 在 resolve 时安全回退 system
-    expect(resolveTheme(loaded, false).id).toBe(BUILTIN_THEME_PAPER_ID)
+    // 未来版本格式未知：安全回退 system
+    expect(loadThemePreferences(storage).selection).toEqual({ mode: 'system' })
   })
 
-  it('未知 themeId 的 fixed selection 归一化后回退 system', () => {
-    const prefs = normalizeThemePreferences({
-      selection: { mode: 'fixed', themeId: 'ghost' },
-      customThemes: [],
-    })
-    expect(prefs.selection).toEqual({ mode: 'fixed', themeId: 'ghost' })
-    // resolve 阶段回退
-    expect(resolveTheme(prefs, false).id).toBe(BUILTIN_THEME_PAPER_ID)
-    expect(resolveTheme(prefs, true).id).toBe(BUILTIN_THEME_NIGHT_ID)
+  it('未知 builtin themeId 回退 system', () => {
+    expect(normalizeThemeSelection({ mode: 'builtin', themeId: 'ghost-theme' })).toEqual({ mode: 'system' })
+    expect(normalizeThemeSelection({ mode: 'builtin', themeId: 'tianshu-starry' })).toEqual({ mode: 'system' })
   })
 
-  it('保存后可原样加载', () => {
+  it('custom selection 拒绝路径/URL 型 ID', () => {
+    expect(normalizeThemeSelection({ mode: 'custom', themeId: '../../etc/passwd' })).toEqual({ mode: 'system' })
+    expect(normalizeThemeSelection({ mode: 'custom', themeId: 'https://evil.example/x' })).toEqual({ mode: 'system' })
+    expect(normalizeThemeSelection({ mode: 'custom', themeId: 'custom-forest' })).toEqual({ mode: 'custom', themeId: 'custom-forest' })
+  })
+
+  it('保存后 round-trip 一致', () => {
     const storage = new MemoryStorage()
-    saveThemePreferences(prefsWithCustom, storage)
-    expect(loadThemePreferences(storage)).toEqual(prefsWithCustom)
+    const prefs: ThemePreferences = { version: 2, selection: { mode: 'builtin', themeId: 'tianshu-dark' } }
+    saveThemePreferences(prefs, storage)
+    expect(loadThemePreferences(storage)).toEqual(prefs)
+  })
+
+  it('v2 偏好只包含轻量 selection（不携带自定义主题内容）', () => {
+    const storage = new MemoryStorage()
+    saveThemePreferences({ version: 2, selection: { mode: 'custom', themeId: 'custom-forest' } }, storage)
+    const raw = storage.getItem(THEME_PREFERENCES_STORAGE_KEY)!
+    const parsed = JSON.parse(raw)
+    expect(parsed).toEqual({ version: 2, selection: { mode: 'custom', themeId: 'custom-forest' } })
+    expect(parsed.customThemes).toBeUndefined()
   })
 })
 
-describe('themePreferences: 旧键迁移', () => {
-  it('light -> fixed paper；dark -> fixed night；system -> system', () => {
+describe('themePreferences v2: 旧键迁移', () => {
+  it('tianshu:theme=light → builtin tianshu-light', () => {
     const storage = new MemoryStorage()
     storage.setItem(LEGACY_THEME_STORAGE_KEY, 'light')
-    expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'fixed', themeId: BUILTIN_THEME_PAPER_ID })
+    expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'builtin', themeId: BUILTIN_THEME_LIGHT_ID })
+  })
 
+  it('tianshu:theme=dark → builtin tianshu-dark', () => {
+    const storage = new MemoryStorage()
     storage.setItem(LEGACY_THEME_STORAGE_KEY, 'dark')
-    expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'fixed', themeId: BUILTIN_THEME_NIGHT_ID })
+    expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'builtin', themeId: BUILTIN_THEME_DARK_ID })
+  })
 
+  it('tianshu:theme=system → system', () => {
+    const storage = new MemoryStorage()
     storage.setItem(LEGACY_THEME_STORAGE_KEY, 'system')
     expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'system' })
   })
 
-  it('无旧键时不产生迁移', () => {
+  it('旧计划 ID tianshu-paper → tianshu-light', () => {
+    const storage = new MemoryStorage()
+    storage.setItem(LEGACY_THEME_STORAGE_KEY, 'tianshu-paper')
+    expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'builtin', themeId: BUILTIN_THEME_LIGHT_ID })
+  })
+
+  it('旧计划 ID tianshu-night → tianshu-dark', () => {
+    const storage = new MemoryStorage()
+    storage.setItem(LEGACY_THEME_STORAGE_KEY, 'tianshu-night')
+    expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'builtin', themeId: BUILTIN_THEME_DARK_ID })
+  })
+
+  it('旧计划 ID tianshu-starry（不再内置）→ system', () => {
+    const storage = new MemoryStorage()
+    storage.setItem(LEGACY_THEME_STORAGE_KEY, 'tianshu-starry')
+    expect(migrateLegacyThemeSelection(storage)?.selection).toEqual({ mode: 'system' })
+  })
+
+  it('无旧键返回 null（不写新键）', () => {
     const storage = new MemoryStorage()
     expect(migrateLegacyThemeSelection(storage)).toBeNull()
   })
-})
 
-describe('themePreferences: 解析', () => {
-  it('system 跟随 prefersDark', () => {
-    const prefs = { version: 1 as const, selection: { mode: 'system' as const }, customThemes: [] }
-    expect(resolveTheme(prefs, false).id).toBe(BUILTIN_THEME_PAPER_ID)
-    expect(resolveTheme(prefs, true).id).toBe(BUILTIN_THEME_NIGHT_ID)
-  })
-
-  it('fixed 主题不随系统变化', () => {
-    const prefs = { version: 1 as const, selection: { mode: 'fixed' as const, themeId: BUILTIN_THEME_PAPER_ID }, customThemes: [] }
-    expect(resolveTheme(prefs, true).id).toBe(BUILTIN_THEME_PAPER_ID)
-  })
-
-  it('fixed 自定义主题可解析，删除后回退 system', () => {
-    expect(getThemeDefinition(prefsWithCustom, customTheme.id)).toEqual(customTheme)
-    const afterDelete = deleteCustomTheme(prefsWithCustom, customTheme.id)
-    expect(afterDelete.selection).toEqual({ mode: 'system' })
-    expect(resolveTheme(afterDelete, true).id).toBe(BUILTIN_THEME_NIGHT_ID)
-  })
-})
-
-describe('themePreferences: 自定义主题 CRUD', () => {
-  it('创建时生成唯一 custom id 并保留参数', () => {
-    expect(customTheme.id.startsWith('custom:')).toBe(true)
-    expect(customTheme.name).toBe('星海')
-    expect(customTheme.background?.source).toBe('data')
-    expect(customTheme.panelOpacity).toBe(0.8)
-    expect(customTheme.dim).toBe(0.4)
-  })
-
-  it('upsert 同 id 覆盖，不同 id 追加', () => {
-    const updated = { ...customTheme, name: '星海 v2' }
-    const a = upsertCustomTheme(prefsWithCustom, updated)
-    expect(a.customThemes).toHaveLength(1)
-    expect(a.customThemes[0].name).toBe('星海 v2')
-
-    const another = createCustomTheme({ name: '晨曦', appearance: 'light', accent: '#c8960a', panelOpacity: 1, dim: 0, focusX: 0.5, focusY: 0.5 })
-    const b = upsertCustomTheme(prefsWithCustom, another)
-    expect(b.customThemes).toHaveLength(2)
-  })
-})
-
-describe('themePreferences: 应用', () => {
-  it('写入正确的 data attributes 与 color-scheme', () => {
-    const root = makeRoot() as unknown as HTMLElement
-    applyResolvedTheme(BUILTIN_THEME_NIGHT, { mode: 'fixed', themeId: BUILTIN_THEME_NIGHT_ID }, root)
-    expect(root.getAttribute('data-theme-selection')).toBe('fixed')
-    expect(root.getAttribute('data-theme-id')).toBe(BUILTIN_THEME_NIGHT_ID)
-    expect(root.getAttribute('data-color-scheme')).toBe('dark')
-    expect(root.getAttribute('data-has-backdrop')).toBe('false')
-    expect(root.style.colorScheme).toBe('dark')
-  })
-
-  it('背景主题写入 backdrop 变量与强调色', () => {
-    const root = makeRoot() as unknown as HTMLElement
-    applyResolvedTheme(customTheme, { mode: 'fixed', themeId: customTheme.id }, root)
-    expect(root.getAttribute('data-has-backdrop')).toBe('true')
-    const style = root.style as unknown as { getPropertyValue(key: string): string }
-    expect(style.getPropertyValue('--theme-backdrop-image')).toContain('data:image/png')
-    expect(style.getPropertyValue('--theme-backdrop-dim')).toBe('0.4')
-    expect(style.getPropertyValue('--theme-panel-opacity')).toBe('0.8')
-    expect(style.getPropertyValue('--theme-accent')).toBe('#3b82f6')
-    expect(style.getPropertyValue('--gold')).toBe('#3b82f6')
-    expect(style.getPropertyValue('--theme-backdrop-focus-x')).toBe('30%')
-  })
-
-  it('setThemeSelection 持久化并 dispatch 事件', () => {
+  it('load 在 v2 键缺失时走旧键迁移', () => {
     const storage = new MemoryStorage()
-    const listener = vi.fn()
-    const originalDispatch = globalThis.window?.dispatchEvent
-    const fakeWindow = {
-      matchMedia: () => ({ matches: false }),
-      dispatchEvent: listener,
-    }
-    vi.stubGlobal('window', fakeWindow)
-    try {
-      const next = setThemeSelection({ version: 1, selection: { mode: 'system' }, customThemes: [] }, { mode: 'fixed', themeId: BUILTIN_THEME_PAPER_ID }, storage)
-      expect(next.selection).toEqual({ mode: 'fixed', themeId: BUILTIN_THEME_PAPER_ID })
-      const saved = JSON.parse(storage.getItem(THEME_PREFERENCES_STORAGE_KEY)!)
-      expect(saved.selection.mode).toBe('fixed')
-      expect(listener).toHaveBeenCalled()
-    } finally {
-      if (originalDispatch) vi.stubGlobal('window', originalDispatch)
-      else vi.unstubAllGlobals()
-    }
-  })
-
-  it('reset 恢复默认且不触碰自定义主题之外的设置', () => {
-    const storage = new MemoryStorage()
-    saveThemePreferences({ version: 1, selection: { mode: 'fixed', themeId: customTheme.id }, customThemes: [customTheme] }, storage)
-    const defaults = resetThemePreferences(storage)
-    expect(defaults.selection).toEqual({ mode: 'system' })
-    const saved = JSON.parse(storage.getItem(THEME_PREFERENCES_STORAGE_KEY)!)
-    expect(saved.selection).toEqual({ mode: 'system' })
+    storage.setItem(LEGACY_THEME_STORAGE_KEY, 'dark')
+    const loaded = loadThemePreferences(storage)
+    expect(loaded.selection).toEqual({ mode: 'builtin', themeId: BUILTIN_THEME_DARK_ID })
+    expect(storage.getItem(THEME_PREFERENCES_STORAGE_KEY)).toBeTruthy()
   })
 })
 
-describe('themePreferences: 初始化', () => {
-  it('无浏览器环境时返回空 cleanup', () => {
-    const cleanup = initializeThemePreferences()
-    expect(typeof cleanup).toBe('function')
+describe('themePreferences v2: 规范化', () => {
+  it('normalizeThemePreferences 丢弃未知字段', () => {
+    const prefs = normalizeThemePreferences({
+      version: 2,
+      selection: { mode: 'system' },
+      customThemes: [{ id: 'x', name: 'y' }],
+      extra: 42,
+    } as unknown)
+    expect(prefs).toEqual({ version: 2, selection: { mode: 'system' } })
   })
 
-  it('浏览器环境注册监听并返回 cleanup（可重复调用）', () => {
-    const addEventListener = vi.fn()
-    const removeEventListener = vi.fn()
-    const matchMedia = vi.fn(() => ({ matches: false, addEventListener, removeEventListener }))
-    vi.stubGlobal('window', { matchMedia, addEventListener, removeEventListener })
-    vi.stubGlobal('document', { documentElement: makeRoot() })
-    try {
-      const cleanup = initializeThemePreferences()
-      expect(matchMedia).toHaveBeenCalledWith('(prefers-color-scheme: dark)')
-      expect(addEventListener).toHaveBeenCalled()
-      cleanup()
-      expect(removeEventListener).toHaveBeenCalled()
-    } finally {
-      vi.unstubAllGlobals()
-    }
+  it('非对象输入回退默认', () => {
+    expect(normalizeThemePreferences(null)).toEqual({ version: 2, selection: { mode: 'system' } })
+    expect(normalizeThemePreferences('nope')).toEqual({ version: 2, selection: { mode: 'system' } })
   })
 })

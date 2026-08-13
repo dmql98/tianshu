@@ -662,7 +662,7 @@ export default function CharacterDetailPage() {
                           <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{t.name.replace(/^mcp:/, '')}</div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <span className={`tool-source ${t.name.startsWith('mcp:') ? 'mcp' : 'builtin'}`} style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4 }}>{t.name.startsWith('mcp:') ? 'MCP' : '内置'}</span>
-                            <button onClick={() => removeTool(t.name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
+                            <button onClick={() => removeTool(t.name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: 'var(--cinnabar)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                           </div>
                         </div>
                         {meta && <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>}
@@ -710,9 +710,9 @@ export default function CharacterDetailPage() {
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{meta?.name || name}</div>
-                            {meta && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{meta.category}</span>}
+                            {meta && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: 'var(--star-ziwei)' }}>{meta.category}</span>}
                           </div>
-                          <button onClick={() => toggleSkill(name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
+                          <button onClick={() => toggleSkill(name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: 'var(--cinnabar)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                         </div>
                         {meta && <>
                           <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>
@@ -736,7 +736,7 @@ export default function CharacterDetailPage() {
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                           <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{s.name}</div>
-                          <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{s.category}</span>
+                          <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: 'var(--star-ziwei)' }}>{s.category}</span>
                         </div>
                         <button onClick={() => toggleSkill(s.id)} title="绑定技能包" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                       </div>

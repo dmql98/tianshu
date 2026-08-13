@@ -1,28 +1,27 @@
 /**
- * 主题偏好：存储、迁移、校验、解析、应用与跨窗口同步。
+ * 主题偏好 v2：轻量选择存储、迁移、校验与跨窗口同步。
  *
- * 存储键 `tianshu:themePreferences`（versioned JSON），兼容旧键 `tianshu:theme`
- * （light/dark/system）。损坏、未知版本、未知 themeId 一律安全回退 system。
+ * 存储键 `tianshu:themePreferences`（versioned JSON）。**只保存轻量 selection**；
+ * 自定义主题完整定义与图片事实来源在服务端 <dataDir>/themes，绝不写入 localStorage
+ * （TIANSHU_THEME_SWITCHING_PLAN §6 / 产品目标 5）。
  *
- * 应用规则：
- * - `<html>` 写 data-theme-selection / data-theme-id / data-color-scheme / data-has-backdrop。
- * - 主题装饰参数（背景图、暗化、面板透明度、焦点、强调色）写为 CSS 变量，
- *   基础 light/dark token 由 index.css 按 data-color-scheme 提供。
+ * 迁移：
+ * - 旧键 `tianshu:theme`（light/dark/system）→ v2 selection。
+ * - 旧内置 ID `tianshu-paper` → `tianshu-light`；`tianshu-night` → `tianshu-dark`。
+ * - `tianshu-starry` 不再是内置主题：builtin 选择回退 system，custom 由 resolve 阶段回退。
+ * - JSON 损坏、版本未知、未知 themeId 一律安全回退 `{ mode: 'system' }`。
  */
 import {
-  BUILTIN_THEME_NIGHT,
-  BUILTIN_THEME_PAPER,
-  BUILTIN_THEMES,
-  normalizeThemeDefinition,
-  type ThemeDefinition,
+  DEFAULT_THEME_SELECTION,
+  isBuiltinThemeId,
+  isThemeSelection,
+  migrateLegacyBuiltinId,
+  type ThemeSelection,
 } from './themeDefinitions'
 
-export type ThemeSelection = { mode: 'system' } | { mode: 'fixed'; themeId: string }
-
 export interface ThemePreferences {
-  version: 1
+  version: 2
   selection: ThemeSelection
-  customThemes: ThemeDefinition[]
 }
 
 export const THEME_PREFERENCES_STORAGE_KEY = 'tianshu:themePreferences'
@@ -30,91 +29,74 @@ export const LEGACY_THEME_STORAGE_KEY = 'tianshu:theme'
 export const THEME_CHANGED_EVENT = 'tianshu:theme-changed'
 
 export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
-  version: 1,
-  selection: { mode: 'system' },
-  customThemes: [],
+  version: 2,
+  selection: DEFAULT_THEME_SELECTION,
 }
 
-const HEX_PATTERN = /^#[0-9a-f]{6}$/i
-
-export function isValidHexColor(value: unknown): value is string {
-  return typeof value === 'string' && HEX_PATTERN.test(value)
-}
-
-function getDefaultStorage(): Storage | null {
+export function getDefaultStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage
-}
-
-function getDefaultRoot(): HTMLElement | null {
-  return typeof document === 'undefined' ? null : document.documentElement
-}
-
-// ── 颜色工具 ──
-
-export function hexToRgb(hex: string): [number, number, number] {
-  const normalized = isValidHexColor(hex) ? hex : '#c8960a'
-  return [
-    Number.parseInt(normalized.slice(1, 3), 16),
-    Number.parseInt(normalized.slice(3, 5), 16),
-    Number.parseInt(normalized.slice(5, 7), 16),
-  ]
-}
-
-/** 与白色混合（percent 0-1），用于衍生浅色强调色。 */
-export function mixWithWhite(hex: string, percent: number): string {
-  const [r, g, b] = hexToRgb(hex)
-  const mix = (channel: number) => Math.round(channel + (255 - channel) * percent)
-  const toHex = (v: number) => v.toString(16).padStart(2, '0')
-  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`
-}
-
-export function rgba(hex: string, alpha: number): string {
-  const [r, g, b] = hexToRgb(hex)
-  return `rgba(${r},${g},${b},${alpha})`
 }
 
 // ── 规范化 ──
 
+/**
+ * 校验并规范化 selection。未知内置 ID 迁移旧名；无法识别的值回退 system。
+ */
 export function normalizeThemeSelection(value: unknown): ThemeSelection {
-  if (value && typeof value === 'object') {
-    const candidate = value as Partial<ThemeSelection>
-    if (candidate.mode === 'fixed' && typeof candidate.themeId === 'string' && candidate.themeId) {
-      return { mode: 'fixed', themeId: candidate.themeId }
+  if (!value || typeof value !== 'object') return { mode: 'system' }
+  const candidate = value as { mode?: unknown; themeId?: unknown }
+
+  if (candidate.mode === 'system') return { mode: 'system' }
+
+  if (candidate.mode === 'builtin') {
+    if (typeof candidate.themeId === 'string') {
+      const migrated = migrateLegacyBuiltinId(candidate.themeId)
+      if (migrated) return { mode: 'builtin', themeId: migrated }
     }
+    return { mode: 'system' }
   }
+
+  if (candidate.mode === 'custom') {
+    if (typeof candidate.themeId === 'string' && candidate.themeId.length > 0 && candidate.themeId.length <= 128) {
+      // 只允许安全的 ID 形状，防止把路径/URL 当主题 ID 持久化
+      if (/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(candidate.themeId)) {
+        return { mode: 'custom', themeId: candidate.themeId }
+      }
+    }
+    return { mode: 'system' }
+  }
+
   return { mode: 'system' }
 }
 
 export function normalizeThemePreferences(value: unknown): ThemePreferences {
   if (value && typeof value === 'object') {
     const candidate = value as Partial<ThemePreferences>
-    const customThemes = Array.isArray(candidate.customThemes)
-      ? candidate.customThemes
-          .map(normalizeThemeDefinition)
-          .filter((t): t is ThemeDefinition => t !== null && !t.builtin)
-      : []
+    // 版本已知且不是 v2：视为未来/未知格式，安全回退 system
+    if (candidate.version !== undefined && candidate.version !== 2) {
+      return { ...DEFAULT_THEME_PREFERENCES }
+    }
     return {
-      version: 1,
+      version: 2,
       selection: normalizeThemeSelection(candidate.selection),
-      customThemes,
     }
   }
-  return { ...DEFAULT_THEME_PREFERENCES, customThemes: [] }
+  return { ...DEFAULT_THEME_PREFERENCES }
 }
 
 // ── 存储 ──
 
 export function loadThemePreferences(storage: Storage | null = getDefaultStorage()): ThemePreferences {
-  if (!storage) return { ...DEFAULT_THEME_PREFERENCES, customThemes: [] }
+  if (!storage) return { ...DEFAULT_THEME_PREFERENCES }
   try {
     const raw = storage.getItem(THEME_PREFERENCES_STORAGE_KEY)
     if (raw) return normalizeThemePreferences(JSON.parse(raw))
   } catch {
-    /* 损坏数据回退默认 */
+    /* 损坏数据回退迁移/默认 */
   }
   const migrated = migrateLegacyThemeSelection(storage)
   if (migrated) return migrated
-  return { ...DEFAULT_THEME_PREFERENCES, customThemes: [] }
+  return { ...DEFAULT_THEME_PREFERENCES }
 }
 
 export function saveThemePreferences(
@@ -126,192 +108,39 @@ export function saveThemePreferences(
   return normalized
 }
 
-/** 旧键 `tianshu:theme`（light/dark/system）迁移为 versioned JSON；不删除旧键以便回滚。 */
+/**
+ * 旧键 `tianshu:theme`（light/dark/system）迁移为 v2 JSON。
+ * 不删除旧键，便于回滚与审计。
+ */
 export function migrateLegacyThemeSelection(storage: Storage | null = getDefaultStorage()): ThemePreferences | null {
   if (!storage) return null
   const legacy = storage.getItem(LEGACY_THEME_STORAGE_KEY)
   if (legacy === null) return null
-  const selection: ThemeSelection =
-    legacy === 'light'
-      ? { mode: 'fixed', themeId: BUILTIN_THEME_PAPER.id }
-      : legacy === 'dark'
-        ? { mode: 'fixed', themeId: BUILTIN_THEME_NIGHT.id }
-        : { mode: 'system' }
-  const migrated: ThemePreferences = { version: 1, selection, customThemes: [] }
-  return saveThemePreferences(migrated, storage)
-}
-
-// ── 解析与查找 ──
-
-export function getThemeDefinition(preferences: ThemePreferences, themeId: string): ThemeDefinition | null {
-  if (themeId.startsWith('custom:')) {
-    return preferences.customThemes.find(t => t.id === themeId) ?? null
+  let selection: ThemeSelection
+  if (legacy === 'light') selection = { mode: 'builtin', themeId: 'tianshu-light' }
+  else if (legacy === 'dark') selection = { mode: 'builtin', themeId: 'tianshu-dark' }
+  else if (legacy === 'system') selection = { mode: 'system' }
+  else {
+    // 旧计划主题 ID（tianshu-paper / tianshu-night / tianshu-starry）
+    const migrated = migrateLegacyBuiltinId(legacy)
+    selection = migrated ? { mode: 'builtin', themeId: migrated } : { mode: 'system' }
   }
-  return BUILTIN_THEMES.find(t => t.id === themeId) ?? null
+  const migratedPrefs: ThemePreferences = { version: 2, selection }
+  return saveThemePreferences(migratedPrefs, storage)
 }
 
-/** 将用户选择解析为实际主题：system 跟随 prefersDark。 */
-export function resolveTheme(
-  preferences: ThemePreferences,
-  prefersDark: boolean,
-): ThemeDefinition {
-  if (preferences.selection.mode === 'fixed') {
-    const fixed = getThemeDefinition(preferences, preferences.selection.themeId)
-    if (fixed) return fixed
-  }
-  return prefersDark ? BUILTIN_THEME_NIGHT : BUILTIN_THEME_PAPER
+/** 兼容旧调用：旧版本曾直接保存自定义主题定义数组；v2 丢弃该字段（只留选择）。 */
+export function normalizeLegacyPreferencesWithCustomThemes(value: unknown): ThemePreferences {
+  return normalizeThemePreferences(value)
 }
 
-export function resolvedAppearance(theme: ThemeDefinition): 'light' | 'dark' {
-  return theme.appearance
+export function isThemePreferences(value: unknown): value is ThemePreferences {
+  return isThemeSelection(value && typeof value === 'object' ? (value as ThemePreferences).selection : null)
 }
 
-// ── 自定义主题管理 ──
+// ── 校验 helper ──
 
-export interface CustomThemeInput {
-  name: string
-  appearance: 'light' | 'dark'
-  accent: string
-  background?: ThemeDefinition['background']
-  panelOpacity: number
-  dim: number
-  focusX: number
-  focusY: number
-}
-
-export function createCustomTheme(input: CustomThemeInput): ThemeDefinition {
-  const suffix = Math.random().toString(36).slice(2, 10)
-  const id = `custom:${Date.now().toString(36)}-${suffix}`
-  return {
-    id,
-    name: input.name.trim() || '自定义主题',
-    appearance: input.appearance,
-    accent: isValidHexColor(input.accent) ? input.accent.toLowerCase() : '#c8960a',
-    background: input.background,
-    panelOpacity: input.panelOpacity,
-    dim: input.dim,
-    focusX: input.focusX,
-    focusY: input.focusY,
-    builtin: false,
-  }
-}
-
-export function upsertCustomTheme(preferences: ThemePreferences, theme: ThemeDefinition): ThemePreferences {
-  const index = preferences.customThemes.findIndex(t => t.id === theme.id)
-  const customThemes = [...preferences.customThemes]
-  if (index >= 0) customThemes[index] = theme
-  else customThemes.push(theme)
-  return { ...preferences, customThemes }
-}
-
-export function deleteCustomTheme(preferences: ThemePreferences, themeId: string): ThemePreferences {
-  const customThemes = preferences.customThemes.filter(t => t.id !== themeId)
-  const selection: ThemeSelection =
-    preferences.selection.mode === 'fixed' && preferences.selection.themeId === themeId
-      ? { mode: 'system' }
-      : preferences.selection
-  return { ...preferences, customThemes, selection }
-}
-
-// ── 应用 ──
-
-export interface ResolvedThemeState {
-  theme: ThemeDefinition
-  selection: ThemeSelection
-}
-
-export function applyResolvedTheme(
-  theme: ThemeDefinition,
-  selection: ThemeSelection,
-  root: HTMLElement | null = getDefaultRoot(),
-): void {
-  if (!root) return
-
-  root.setAttribute('data-theme-selection', selection.mode)
-  root.setAttribute('data-theme-id', theme.id)
-  root.setAttribute('data-color-scheme', theme.appearance)
-  root.setAttribute('data-has-backdrop', theme.background ? 'true' : 'false')
-  root.style.colorScheme = theme.appearance
-
-  const style = root.style
-  style.setProperty('--theme-accent', theme.accent)
-  style.setProperty('--gold', theme.accent)
-  style.setProperty('--gold-light', mixWithWhite(theme.accent, 0.55))
-  style.setProperty('--gold-soft', rgba(theme.accent, 0.1))
-  style.setProperty('--gold-mist', rgba(theme.accent, 0.06))
-  style.setProperty('--star-changgeng', theme.accent)
-  style.setProperty('--theme-panel-opacity', String(theme.panelOpacity))
-  style.setProperty('--theme-backdrop-dim', String(theme.dim))
-  style.setProperty('--theme-backdrop-focus-x', `${theme.focusX * 100}%`)
-  style.setProperty('--theme-backdrop-focus-y', `${theme.focusY * 100}%`)
-  style.setProperty(
-    '--theme-backdrop-image',
-    theme.background ? `url("${theme.background.url}")` : 'none',
-  )
-}
-
-/** 应用用户选择：resolve → apply → 持久化 → dispatch。失败回退默认。 */
-export function setThemeSelection(
-  preferences: ThemePreferences,
-  selection: ThemeSelection,
-  storage: Storage | null = getDefaultStorage(),
-  prefersDark: boolean = typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches,
-): ThemePreferences {
-  const normalized = normalizeThemePreferences({ ...preferences, selection })
-  const theme = resolveTheme(normalized, prefersDark)
-  applyResolvedTheme(theme, normalized.selection)
-  saveThemePreferences(normalized, storage)
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT, { detail: { themeId: theme.id } }))
-  }
-  return normalized
-}
-
-export function resetThemePreferences(storage: Storage | null = getDefaultStorage()): ThemePreferences {
-  const defaults = { ...DEFAULT_THEME_PREFERENCES, customThemes: [] }
-  saveThemePreferences(defaults, storage)
-  const theme = resolveTheme(defaults, matchPrefersDark())
-  applyResolvedTheme(theme, defaults.selection)
-  return defaults
-}
-
-function matchPrefersDark(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-}
-
-/**
- * 启动前初始化：load → migrate → resolve → apply，并监听系统主题变化与跨窗口 storage。
- * 返回 cleanup，供测试与 HMR 使用。
- */
-export function initializeThemePreferences(): () => void {
-  const storage = getDefaultStorage()
-  const preferences = loadThemePreferences(storage)
-  const prefersDark = matchPrefersDark()
-  const theme = resolveTheme(preferences, prefersDark)
-  applyResolvedTheme(theme, preferences.selection)
-
-  if (typeof window === 'undefined' || !window.matchMedia) return () => {}
-
-  const media = window.matchMedia('(prefers-color-scheme: dark)')
-  const onMediaChange = (event: MediaQueryListEvent) => {
-    const current = loadThemePreferences(storage)
-    if (current.selection.mode === 'system') {
-      const resolved = resolveTheme(current, event.matches)
-      applyResolvedTheme(resolved, current.selection)
-    }
-  }
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === THEME_PREFERENCES_STORAGE_KEY) {
-      const current = loadThemePreferences(storage)
-      const resolved = resolveTheme(current, matchPrefersDark())
-      applyResolvedTheme(resolved, current.selection)
-    }
-  }
-  media.addEventListener('change', onMediaChange)
-  window.addEventListener('storage', onStorage)
-  return () => {
-    media.removeEventListener('change', onMediaChange)
-    window.removeEventListener('storage', onStorage)
-  }
+/** 校验 builtin 选择的目标主题是否仍然存在（防御性：内置 ID 永不失效）。 */
+export function isKnownBuiltinSelection(selection: ThemeSelection): boolean {
+  return selection.mode !== 'builtin' || isBuiltinThemeId(selection.themeId)
 }

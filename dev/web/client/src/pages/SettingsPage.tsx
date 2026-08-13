@@ -11,6 +11,12 @@ import UpdatePanel from '@/features/update/UpdatePanel'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
 import SystemRunPolicySettings from '@/features/run-policy/SystemRunPolicySettings'
+import ThemeSelector from '@/features/theme/ThemeSelector'
+import ThemeStudio from '@/features/theme/ThemeStudio'
+import type { ThemeDefinition } from '@/features/theme/themeDefinitions'
+import { setThemeSelection } from '@/features/theme/themeRuntime'
+import { loadThemePreferences } from '@/features/theme/themePreferences'
+import { textColorContrastOn } from '@/features/display/displayPreferences'
 import {
   DEFAULT_DISPLAY_PREFERENCES,
   applyDisplayPreferences,
@@ -40,11 +46,13 @@ export default function SettingsPage() {
 
   // ── 显示设置 ──
   const [lang, setLang] = useState(ls('lang', 'zh'))
-  const [theme, setTheme] = useState(ls('theme', 'light'))
   const [notify, setNotify] = useState(lsBool('notify', true))
   const [sound, setSound] = useState(lsBool('sound', false))
   const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences)
   const [textColorDraft, setTextColorDraft] = useState(() => loadDisplayPreferences().textColor)
+  // ── 主题工作台 ──
+  const [studioOpen, setStudioOpen] = useState(false)
+  const [studioEditing, setStudioEditing] = useState<ThemeDefinition | undefined>(undefined)
 
   // ── 会话设置 ──
   const [workspace, setWorkspace] = useState(ls('defaultWorkspace', 'C:\\.Tianshu'))
@@ -110,9 +118,6 @@ export default function SettingsPage() {
     fetchCharacters().then(setCharacters).catch(() => {})
     // 从后端加载配置路径
     fetchDataspace().then(res => { setWorkspace(res.dataDir); saveLs('defaultWorkspace', res.dataDir) }).catch(() => {})
-    // 应用主题
-    const t = ls('theme', 'light')
-    applyTheme(t)
   }, [])
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
@@ -142,12 +147,14 @@ export default function SettingsPage() {
     }
   }
 
-  const applyTheme = (t: string) => {
-    let theme = t
-    if (t === 'system') {
-      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    }
-    document.documentElement.setAttribute('data-theme', theme)
+  const openStudio = (editing?: ThemeDefinition) => {
+    setStudioEditing(editing)
+    setStudioOpen(true)
+  }
+
+  const closeStudio = () => {
+    setStudioOpen(false)
+    setStudioEditing(undefined)
   }
 
   const updateDisplayPreferences = (patch: Partial<DisplayPreferences>) => {
@@ -164,7 +171,7 @@ export default function SettingsPage() {
       showToast('请输入 #RRGGBB 格式的颜色值', 'err')
       return
     }
-    const next = updateDisplayPreferences({ textColor: textColorDraft })
+    const next = updateDisplayPreferences({ textColor: textColorDraft, textColorMode: 'custom' })
     setTextColorDraft(next.textColor)
   }
 
@@ -422,16 +429,10 @@ export default function SettingsPage() {
                 </select>
               </div>
             </div>
-            <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">主题</span><span className="setting-hint">界面显示主题</span></div>
-              <div className="setting-control">
-                <select value={theme} onChange={e => { setTheme(e.target.value); saveLs('theme', e.target.value); applyTheme(e.target.value) }}>
-                  <option value="light">浅色</option>
-                  <option value="dark">深色</option>
-                  <option value="system">跟随系统</option>
-                </select>
-              </div>
-            </div>
+            <ThemeSelector
+              showToast={showToast}
+              onOpenStudio={openStudio}
+            />
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">界面字体</span><span className="setting-hint">应用到所有页面的普通界面文字</span></div>
               <div className="setting-control">
@@ -463,14 +464,14 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">字体颜色</span><span className="setting-hint">调整普通文字颜色，语义状态色保持不变</span></div>
+              <div className="setting-info"><span className="setting-label">字体颜色</span><span className="setting-hint">调整普通文字颜色，语义状态色保持不变；主题模式下由主题控制</span></div>
               <div className="setting-control font-color-control">
                 <input
                   type="color"
                   value={displayPreferences.textColor}
                   onChange={e => {
                     setTextColorDraft(e.target.value)
-                    updateDisplayPreferences({ textColor: e.target.value })
+                    updateDisplayPreferences({ textColor: e.target.value, textColorMode: 'custom' })
                   }}
                   aria-label="选择字体颜色"
                 />
@@ -490,6 +491,16 @@ export default function SettingsPage() {
                   }}
                   aria-label="字体颜色十六进制值"
                 />
+                {displayPreferences.textColorMode === 'custom' && isValidHexColor(displayPreferences.textColor) && (
+                  <span className={`font-color-contrast ${textColorContrastOn(displayPreferences.textColor, document.documentElement.style.getPropertyValue('--theme-canvas') || '#f5f0e8') >= 4.5 ? 'pass' : 'fail'}`}>
+                    与当前背景对比度 {textColorContrastOn(displayPreferences.textColor, document.documentElement.style.getPropertyValue('--theme-canvas') || '#f5f0e8').toFixed(1)}:1
+                  </span>
+                )}
+                {displayPreferences.textColorMode === 'theme' && (
+                  <button className="btn sm" type="button" onClick={() => updateDisplayPreferences({ textColorMode: 'custom' })}>
+                    自定义颜色
+                  </button>
+                )}
               </div>
             </div>
             <div className="display-preferences-preview" aria-live="polite">
@@ -677,13 +688,28 @@ export default function SettingsPage() {
 
       </div>
 
+      {/* 主题工作台 */}
+      {studioOpen && (
+        <ThemeStudio
+          editing={studioEditing}
+          onClose={closeStudio}
+          onSaved={(theme) => {
+            closeStudio()
+            // 保存成功后应用新版本（服务端 API 成功返回后才更新当前选择）
+            setThemeSelection(loadThemePreferences(), { mode: 'custom', themeId: theme.id })
+            showToast('主题已应用')
+          }}
+          showToast={showToast}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div style={{
           position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
           padding:'8px 20px', borderRadius:8, fontSize: 'calc(13px * var(--ui-font-scale))', zIndex:999,
           background: toast.type === 'ok' ? 'var(--jade)' : 'var(--cinnabar)',
-          color:'#fff', boxShadow:'0 4px 12px rgba(0,0,0,0.15)',
+          color:'var(--theme-text-on-accent)', boxShadow:'0 4px 12px var(--theme-shadow)',
         }}>
           {toast.msg}
         </div>

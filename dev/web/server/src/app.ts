@@ -19,6 +19,7 @@ import messagesRouter from './routes/messages.js'
 import eventDefinitionsRouter from './routes/event-definitions.js'
 import goalsRouter, { setGoalRuntime } from './routes/goals.js'
 import runsRouter, { setRunsRuntime } from './routes/runs.js'
+import themesRouter, { initThemeStore } from './routes/themes.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb, closeDb } from './db/schema.js'
 import { init as initTools } from './tools/registry.js'
@@ -209,6 +210,7 @@ export async function startTianshuServer(
   app.route('/api/messages', messagesRouter)
   app.route('/api/event-definitions', eventDefinitionsRouter)
   app.route('/api/goals', goalsRouter)
+  app.route('/api/themes', themesRouter)
   app.get('/health', (c) => c.json({ ok: true }))
 
   // Any unmatched /api path must return JSON 404, not the SPA shell.
@@ -249,6 +251,7 @@ export async function startTianshuServer(
   io.on('connection', (socket) => registerChatSocket(io, socket))
   startEventScheduler(io)
   startAssetGC()
+  initThemeStore()
 
   let closed = false
 

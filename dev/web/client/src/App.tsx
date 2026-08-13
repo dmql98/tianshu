@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from 'react'
-import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+﻿﻿import { useState, useEffect } from 'react'
+import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { fetchEventDefinitions } from './api/eventDefinitions'
 import { fetchDataspace } from './api/config'
 import CharacterDetailPage from './pages/CharacterDetailPage'
@@ -15,6 +15,7 @@ import MarketPage from './pages/MarketPage'
 import EventsPage from './pages/EventsPage'
 import SettingsPage from './pages/SettingsPage'
 import HomePage from './pages/HomePage'
+import ThemeBackdrop from './features/theme/ThemeBackdrop'
 
 const navItems = [
   { to: '/chat', icon: '💬', label: '会话' },
@@ -28,8 +29,13 @@ const navItems = [
 
 export default function App() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [activeEventCount, setActiveEventCount] = useState(0)
   const [setupDone, setSetupDone] = useState(true) // true = ok, false = need config
+
+  // 首页允许更明显的背景；其余页面（会话/设置/编辑）降低背景存在感
+  const backdropStrength: 'home' | 'task' =
+    location.pathname === '/' || location.pathname === '/home' ? 'home' : 'task'
 
   // Startup check: is dataspace configured?
   useEffect(() => {
@@ -48,6 +54,24 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    // 启动后拉取服务端自定义主题并重新应用当前选择（§9.1：custom 先回退内置，
+    // 拉取成功后校验并应用自定义主题，避免启动闪烁；失败保持内置回退）
+    let cancelled = false
+    import('./features/theme/themeApi').then(async ({ fetchThemes }) => {
+      try {
+        const themes = await fetchThemes()
+        if (cancelled) return
+        const [{ loadThemePreferences }, { setThemeSelection }] = await Promise.all([
+          import('./features/theme/themePreferences'),
+          import('./features/theme/themeRuntime'),
+        ])
+        setThemeSelection(loadThemePreferences(), loadThemePreferences().selection, { customThemes: themes })
+      } catch { /* 服务端不可达：保持内置回退 */ }
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
     function load() {
       fetchEventDefinitions()
         .then(defs => {
@@ -62,6 +86,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <ThemeBackdrop strength={backdropStrength} />
       <nav className="nav-rail">
         <img className="nav-logo" src="/logo.png" alt="天枢" title="天枢" onClick={() => navigate('/')} />
         {navItems.map(item => (

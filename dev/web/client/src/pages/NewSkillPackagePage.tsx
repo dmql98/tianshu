@@ -63,7 +63,7 @@ export default function NewSkillPackagePage() {
         <div className="detail-section-title">根技能说明</div>
         <textarea className="input" style={{ width: '100%', minHeight: 280, resize: 'vertical', lineHeight: 1.6 }} value={instructions} onChange={event => setInstructions(event.target.value)} placeholder="输入根技能的工作流程、规则和使用说明..." />
       </div>
-      {error && <div style={{ color: '#ef4444', marginBottom: 12 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--cinnabar)', marginBottom: 12 }}>{error}</div>}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <button className="detail-btn" onClick={() => navigate('/skills')}>取消</button>
         <button className="detail-btn primary" disabled={saving} onClick={save}>{saving ? '创建中...' : '创建标准技能包'}</button>
