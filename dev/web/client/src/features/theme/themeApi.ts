@@ -29,6 +29,7 @@ export interface ThemeDto {
     preview?: string
     focusX: number
     focusY: number
+    scale: number
     homeOpacity: number
     taskOpacity: number
     dim: number
@@ -53,6 +54,7 @@ export function toThemeDefinition(dto: ThemeDto): ThemeDefinition {
         : undefined,
       focusX: dto.artwork.focusX,
       focusY: dto.artwork.focusY,
+      scale: dto.artwork.scale,
       homeOpacity: dto.artwork.homeOpacity,
       taskOpacity: dto.artwork.taskOpacity,
       dim: dto.artwork.dim,
@@ -83,6 +85,7 @@ export interface CreateThemeInput {
   artwork: {
     focusX: number
     focusY: number
+    scale: number
     homeOpacity: number
     taskOpacity: number
     dim: number

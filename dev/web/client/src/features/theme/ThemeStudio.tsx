@@ -25,6 +25,7 @@ export interface ThemeStudioProps {
 export interface StudioArtworkState {
   focusX: number
   focusY: number
+  scale: number
   homeOpacity: number
   taskOpacity: number
   dim: number
@@ -51,6 +52,7 @@ export function snapshotEquals(a: StudioSnapshot, b: StudioSnapshot): boolean {
   }
   return a.artwork.focusX === b.artwork.focusX &&
     a.artwork.focusY === b.artwork.focusY &&
+    a.artwork.scale === b.artwork.scale &&
     a.artwork.homeOpacity === b.artwork.homeOpacity &&
     a.artwork.taskOpacity === b.artwork.taskOpacity &&
     a.artwork.dim === b.artwork.dim
@@ -71,6 +73,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
       artwork: {
         focusX: editing?.artwork?.focusX ?? 0.5,
         focusY: editing?.artwork?.focusY ?? 0.5,
+        scale: editing?.artwork?.scale ?? 1,
         homeOpacity: editing?.artwork?.homeOpacity ?? 0.8,
         taskOpacity: editing?.artwork?.taskOpacity ?? 0.35,
         dim: editing?.artwork?.dim ?? 0.2,
@@ -83,7 +86,9 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
   const [imageUrl, setImageUrl] = useState<string | undefined>(editing?.artwork?.url)
   const [imageSize, setImageSize] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [previewPage, setPreviewPage] = useState<'home' | 'task'>('home')
   const previewRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{ active: boolean }>({ active: false })
 
@@ -148,7 +153,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
           name: editing?.name ?? '我的主题',
           appearance: 'light',
           tokens: BUILTIN_THEME_LIGHT.tokens,
-          artwork: { focusX: 0.5, focusY: 0.5, homeOpacity: 0.8, taskOpacity: 0.35, dim: 0.2 },
+          artwork: { focusX: 0.5, focusY: 0.5, scale: 1, homeOpacity: 0.8, taskOpacity: 0.35, dim: 0.2 },
         })
         const appearance: Appearance = editing ? current.appearance : extracted.suggestedAppearance
         const palette = generatePalette(extracted.candidates, { appearance })
@@ -180,8 +185,25 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
     if (file) void handleImageFile(file)
   }
 
-  const reExtract = () => {
-    if (imageFile) void handleImageFile(imageFile)
+  const reExtract = async () => {
+    if (!imageUrl || extracting) return
+    setExtracting(true)
+    try {
+      if (imageFile) {
+        await handleImageFile(imageFile)
+        return
+      }
+      const response = await fetch(imageUrl)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      const type = blob.type || 'image/webp'
+      const file = new File([blob], 'theme-background', { type })
+      await handleImageFile(file)
+    } catch {
+      showToast('重新取色失败，无法读取背景图片', 'err')
+    } finally {
+      setExtracting(false)
+    }
   }
 
   // ── 外观切换（保留色板候选重新生成） ──
@@ -200,20 +222,16 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
   }
 
   // ── 对比度信息 ──
-  const contrastRows: { label: string; fg: string; bg: string }[] = [
-    { label: '正文 / 背景', fg: snapshot.tokens.textPrimary, bg: snapshot.tokens.canvas },
-    { label: '次要文字 / 背景', fg: snapshot.tokens.textSecondary, bg: snapshot.tokens.canvas },
-    { label: '强调色上的文字', fg: snapshot.tokens.textOnAccent, bg: snapshot.tokens.accent },
-    { label: '面板上的正文', fg: snapshot.tokens.textPrimary, bg: snapshot.tokens.surface1 },
+  const contrastRows: { label: string; key: keyof ThemeTokens; fg: string; bg: string }[] = [
+    { label: '正文 / 背景', key: 'textPrimary', fg: snapshot.tokens.textPrimary, bg: snapshot.tokens.canvas },
+    { label: '次要文字 / 背景', key: 'textSecondary', fg: snapshot.tokens.textSecondary, bg: snapshot.tokens.canvas },
+    { label: '强调色上的文字', key: 'textOnAccent', fg: snapshot.tokens.textOnAccent, bg: snapshot.tokens.accent },
+    { label: '面板上的正文', key: 'textPrimary', fg: snapshot.tokens.textPrimary, bg: snapshot.tokens.surface1 },
   ]
 
   const fixContrast = (key: keyof ThemeTokens, fg: string, bg: string) => {
     handleTokenColor(key, adjustToContrast(bg, fg, AA_TEXT_CONTRAST))
   }
-
-  const handleFixTextPrimary = () => fixContrast('textPrimary', snapshot.tokens.textPrimary, snapshot.tokens.canvas)
-  const handleFixTextSecondary = () => fixContrast('textSecondary', snapshot.tokens.textSecondary, snapshot.tokens.canvas)
-  const handleFixTextOnAccent = () => fixContrast('textOnAccent', snapshot.tokens.textOnAccent, snapshot.tokens.accent)
 
   // ── 焦点拖动（预览图） ──
   const updateFocusFromPointer = (e: React.PointerEvent) => {
@@ -236,6 +254,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
       const artwork = {
         focusX: snapshot.artwork.focusX,
         focusY: snapshot.artwork.focusY,
+        scale: snapshot.artwork.scale,
         homeOpacity: snapshot.artwork.homeOpacity,
         taskOpacity: snapshot.artwork.taskOpacity,
         dim: snapshot.artwork.dim,
@@ -272,6 +291,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
     '--theme-backdrop-image': imageUrl ? `url("${imageUrl}")` : 'none',
     '--theme-backdrop-focus-x': `${snapshot.artwork.focusX * 100}%`,
     '--theme-backdrop-focus-y': `${snapshot.artwork.focusY * 100}%`,
+    '--theme-backdrop-scale': String(snapshot.artwork.scale),
     '--theme-backdrop-home-opacity': String(snapshot.artwork.homeOpacity),
     '--theme-backdrop-task-opacity': String(snapshot.artwork.taskOpacity),
     '--theme-backdrop-dim': String(snapshot.artwork.dim),
@@ -288,65 +308,102 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
         <div className="theme-studio-body">
           {/* 左：真实界面预览 */}
           <div className="theme-studio-preview">
-            <div className="studio-preview-tabs">
-              <span className="studio-preview-tab active">首页预览</span>
-              <span className="studio-preview-tab">任务页预览</span>
-            </div>
-            <div className="studio-preview-stack">
-              {/* 首页强度 */}
-              <div className="studio-preview-frame" style={tokensStyle}>
-                <div className="studio-backdrop" aria-hidden="true" style={{ opacity: snapshot.artwork.homeOpacity }}>
-                  {imageUrl && <img src={imageUrl} alt="" draggable={false} />}
-                </div>
-                <div className="studio-preview-ui">
-                  <div className="studio-preview-sidebar" />
-                  <div className="studio-preview-main">
-                    <div className="studio-preview-card">
-                      <div className="studio-preview-title">天枢 · 主题预览</div>
-                      <div className="studio-preview-line" />
-                      <div className="studio-preview-line short" />
-                      <div className="studio-preview-btn" />
-                    </div>
-                    <div className="studio-preview-card wide" />
-                  </div>
-                </div>
-              </div>
-              {/* 任务页强度 */}
-              <div className="studio-preview-frame task" style={tokensStyle}>
-                <div className="studio-backdrop" aria-hidden="true" style={{ opacity: snapshot.artwork.taskOpacity }}>
-                  {imageUrl && <img src={imageUrl} alt="" draggable={false} />}
-                </div>
-                <div className="studio-preview-ui">
-                  <div className="studio-preview-sidebar" />
-                  <div className="studio-preview-main">
-                    <div className="studio-preview-card">
-                      <div className="studio-preview-title">会话预览</div>
-                      <div className="studio-preview-line" />
-                      <div className="studio-preview-btn" />
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="studio-preview-tabs" role="tablist" aria-label="预览页面">
+              <button
+                type="button" role="tab" aria-selected={previewPage === 'home'}
+                className={`studio-preview-tab ${previewPage === 'home' ? 'active' : ''}`}
+                onClick={() => setPreviewPage('home')}
+              >首页预览</button>
+              <button
+                type="button" role="tab" aria-selected={previewPage === 'task'}
+                className={`studio-preview-tab ${previewPage === 'task' ? 'active' : ''}`}
+                onClick={() => setPreviewPage('task')}
+              >任务页预览</button>
+              {imageUrl && <span className="studio-preview-help">在界面中拖动可调整背景焦点</span>}
             </div>
 
-            {/* 焦点拖动 */}
-            {imageUrl && (
+            {/* 完整应用界面预览，同时也是背景焦点编辑器。 */}
+            <div
+              className={`studio-preview-frame ${previewPage}`}
+              style={tokensStyle}
+              ref={previewRef}
+              onPointerDown={(e) => {
+                if (!imageUrl) return
+                dragState.current.active = true
+                e.currentTarget.setPointerCapture(e.pointerId)
+                updateFocusFromPointer(e)
+              }}
+              onPointerMove={(e) => { if (dragState.current.active) updateFocusFromPointer(e) }}
+              onPointerUp={(e) => {
+                dragState.current.active = false
+                if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+              }}
+              onPointerCancel={() => { dragState.current.active = false }}
+            >
               <div
-                className="studio-focus-editor"
-                ref={previewRef}
-                onPointerDown={(e) => { dragState.current.active = true; updateFocusFromPointer(e) }}
-                onPointerMove={(e) => { if (dragState.current.active) updateFocusFromPointer(e) }}
-                onPointerUp={() => { dragState.current.active = false }}
-                onPointerLeave={() => { dragState.current.active = false }}
-              >
-                <img src={imageUrl} alt="背景图焦点预览" draggable={false} />
-                <div
-                  className="studio-focus-crosshair"
-                  style={{ left: `${snapshot.artwork.focusX * 100}%`, top: `${snapshot.artwork.focusY * 100}%` }}
-                />
-                <span className="studio-focus-hint">拖动图片调节焦点</span>
+                className="studio-backdrop"
+                aria-hidden="true"
+                style={{
+                  opacity: previewPage === 'home' ? snapshot.artwork.homeOpacity : snapshot.artwork.taskOpacity,
+                  backgroundImage: imageUrl ? `url("${imageUrl}")` : 'none',
+                  transform: `scale(${snapshot.artwork.scale})`,
+                }}
+              />
+              <div className="studio-backdrop-dim" aria-hidden="true" />
+              <div className="studio-preview-ui">
+                <aside className="studio-preview-rail">
+                  <i className="studio-preview-logo">枢</i>
+                  {['●', '◆', '⚡', '✦', '▣'].map((icon, index) => <i key={index}>{icon}</i>)}
+                  <i className="bottom">⚙</i>
+                </aside>
+
+                {previewPage === 'task' && (
+                  <aside className="studio-preview-session">
+                    <strong>会话</strong><span>☰</span>
+                    <div className="studio-preview-search">搜索会话…</div>
+                    <div className="studio-preview-new">＋ 新建项目</div>
+                    <small>项目</small>
+                    <div className="studio-preview-project active">天枢主题设计</div>
+                    <div className="studio-preview-project">日常助手</div>
+                    <div className="studio-preview-project">资料整理</div>
+                  </aside>
+                )}
+
+                <main className="studio-preview-main">
+                  {previewPage === 'home' ? (
+                    <div className="studio-preview-home">
+                      <div className="studio-preview-heading">让我们干些什么吧</div>
+                      <div className="studio-preview-subheading">天枢，你的 AI Agent 系统</div>
+                      <div className="studio-preview-composer">
+                        <span>输入你的想法，让天枢来帮你实现…</span>
+                        <div><span>＋　⚡　▣</span><b>↑</b></div>
+                      </div>
+                      <div className="studio-preview-pills"><i>搜索资料</i><i>写文档</i><i>写代码</i><i>更多</i></div>
+                      <div className="studio-preview-cards"><i /><i /><i /></div>
+                    </div>
+                  ) : (
+                    <div className="studio-preview-chat">
+                      <div className="studio-preview-chat-title">天枢主题设计</div>
+                      <div className="studio-preview-message user">我想让图片成为整个应用的背景。</div>
+                      <div className="studio-preview-message assistant">
+                        <strong>天枢</strong>
+                        <span>背景会覆盖完整界面，同时保证侧栏、消息和按钮清晰可读。</span>
+                      </div>
+                      <div className="studio-preview-chat-input"><span>随便说点什么</span><b>↑</b></div>
+                    </div>
+                  )}
+                </main>
               </div>
-            )}
+              {imageUrl && (
+                <>
+                  <div
+                    className="studio-focus-crosshair"
+                    style={{ left: `${snapshot.artwork.focusX * 100}%`, top: `${snapshot.artwork.focusY * 100}%` }}
+                  />
+                  <span className="studio-focus-hint">拖动界面调整焦点</span>
+                </>
+              )}
+            </div>
 
             <div className="studio-focus-sliders">
               <label>
@@ -364,6 +421,14 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
                   onChange={e => patch(s => ({ ...s, artwork: { ...s.artwork, focusY: Number(e.target.value) / 100 } }))}
                 />
                 <output>{Math.round(snapshot.artwork.focusY * 100)}%</output>
+              </label>
+              <label>
+                背景缩放
+                <input
+                  type="range" min={100} max={250} value={Math.round(snapshot.artwork.scale * 100)}
+                  onChange={e => patch(s => ({ ...s, artwork: { ...s.artwork, scale: Number(e.target.value) / 100 } }))}
+                />
+                <output>{Math.round(snapshot.artwork.scale * 100)}%</output>
               </label>
             </div>
           </div>
@@ -406,7 +471,9 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
                   {candidates.slice(0, 6).map((c, i) => (
                     <i key={i} title={c} style={{ background: c }} />
                   ))}
-                  <button type="button" className="btn sm" onClick={reExtract}>重新取色</button>
+                  <button type="button" className="btn sm" onClick={() => void reExtract()} disabled={extracting}>
+                    {extracting ? '取色中…' : '重新取色'}
+                  </button>
                 </div>
               )}
             </div>
@@ -442,11 +509,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
                       {!pass && (
                         <button
                           type="button" className="studio-fix-btn"
-                          onClick={
-                            row.fg === snapshot.tokens.textPrimary ? handleFixTextPrimary
-                            : row.fg === snapshot.tokens.textSecondary ? handleFixTextSecondary
-                            : handleFixTextOnAccent
-                          }
+                          onClick={() => fixContrast(row.key, row.fg, row.bg)}
                         >
                           修正
                         </button>

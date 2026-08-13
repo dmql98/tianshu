@@ -48,8 +48,20 @@ export interface ResolvedTheme {
 
 // ── Token 注册表：runtime 只允许写这些变量（防任意 CSS 注入面） ──
 
-/** 可写入 root style 的注册变量前缀。 */
-export const REGISTERED_TOKEN_VARIABLES = THEME_TOKEN_NAMES.map(name => `--theme-${name}`)
+/**
+ * ThemeTokens 使用 camelCase，CSS 注册变量使用 kebab-case；数字前也需要连字符
+ * （例如 surface1 → --theme-surface-1）。
+ */
+export function tokenVariableName(name: string): string {
+  const kebab = name
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([a-zA-Z])(\d)/g, '$1-$2')
+    .toLowerCase()
+  return `--theme-${kebab}`
+}
+
+/** 可写入 root style 的注册变量白名单。 */
+export const REGISTERED_TOKEN_VARIABLES = THEME_TOKEN_NAMES.map(tokenVariableName)
 
 const BACKDROP_VARIABLES = [
   '--theme-backdrop-image',
@@ -58,11 +70,8 @@ const BACKDROP_VARIABLES = [
   '--theme-backdrop-dim',
   '--theme-backdrop-focus-x',
   '--theme-backdrop-focus-y',
+  '--theme-backdrop-scale',
 ] as const
-
-export function tokenVariableName(name: string): string {
-  return `--theme-${name}`
-}
 
 export function tokenVariableValue(tokens: ThemeTokens, name: string): string {
   return (tokens as unknown as Record<string, string>)[name] ?? ''
@@ -147,6 +156,7 @@ function applyBackdrop(artwork: ThemeArtwork | undefined, root: HTMLElement): vo
     style.setProperty('--theme-backdrop-dim', String(artwork.dim))
     style.setProperty('--theme-backdrop-focus-x', `${artwork.focusX * 100}%`)
     style.setProperty('--theme-backdrop-focus-y', `${artwork.focusY * 100}%`)
+    style.setProperty('--theme-backdrop-scale', String(artwork.scale))
   } else {
     style.removeProperty('--theme-artwork-image')
     style.removeProperty('--theme-artwork-preview')
@@ -156,6 +166,7 @@ function applyBackdrop(artwork: ThemeArtwork | undefined, root: HTMLElement): vo
     style.removeProperty('--theme-backdrop-dim')
     style.removeProperty('--theme-backdrop-focus-x')
     style.removeProperty('--theme-backdrop-focus-y')
+    style.removeProperty('--theme-backdrop-scale')
   }
 }
 

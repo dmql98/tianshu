@@ -118,57 +118,41 @@ export function adjustToContrast(
   iterations = 32,
 ): string {
   const bg = parseColor(background)
-  const bgLum = relativeLuminance(bg)
   const rgb = parseColor(candidate)
-  const startLum = relativeLuminance(rgb)
+  if (contrastRatioRgb(rgb, bg) >= target) return rgbToHex(rgb)
 
-  // 对比度 = (max+0.05)/(min+0.05)：候选比背景亮则继续变亮，比背景暗则继续变暗
-  const needsLighten = startLum > bgLum
-  // lighten: factor ∈ [0,1] 越大越接近白；darken 反之
+  // 不能只根据候选色比背景亮/暗来决定方向。例如纯白文字放在亮青色上时，
+  // 继续变亮不会产生任何变化；应先选择对比度更高的黑/白端点。
+  const black: Rgb = { r: 0, g: 0, b: 0 }
+  const white: Rgb = { r: 255, g: 255, b: 255 }
+  const endpoint = contrastRatioRgb(black, bg) >= contrastRatioRgb(white, bg) ? black : white
+  if (contrastRatioRgb(endpoint, bg) < target) return rgbToHex(endpoint)
+
+  // 在原色与端点之间二分，找到满足目标对比度的最小颜色改动。
   let lo = 0
   let hi = 1
-  let best = needsLighten ? rgbToHex(lightenTowards(rgb, 1)) : rgbToHex(darkenTowards(rgb, 0))
-  let bestRatio = contrastRatioRgb(parseColor(best), bg)
+  let best = rgbToHex(endpoint)
 
   for (let i = 0; i < iterations; i++) {
     const mid = (lo + hi) / 2
-    const adjusted = needsLighten ? lightenTowards(rgb, mid) : darkenTowards(rgb, mid)
-    const ratio = contrastRatioRgb(adjusted, bg)
+    const adjusted: Rgb = {
+      r: rgb.r + (endpoint.r - rgb.r) * mid,
+      g: rgb.g + (endpoint.g - rgb.g) * mid,
+      b: rgb.b + (endpoint.b - rgb.b) * mid,
+    }
+    // UI 与持久化使用六位 Hex，因此必须用取整后的最终颜色验收；否则浮点值
+    // 刚好达到 4.5，转成 Hex 后可能回落到 4.49，界面仍会显示失败。
+    const adjustedHex = rgbToHex(adjusted)
+    const ratio = contrastRatioRgb(parseColor(adjustedHex), bg)
     if (ratio >= target) {
-      best = rgbToHex(adjusted)
-      bestRatio = ratio
-      if (needsLighten) lo = mid
-      else hi = mid
+      best = adjustedHex
+      hi = mid
     } else {
-      if (needsLighten) hi = mid
-      else lo = mid
+      lo = mid
     }
     if (hi - lo < 1 / 65536) break
   }
-  if (bestRatio < target) {
-    // 极端（纯白/纯黑）仍不足：返回对比度最高的端点
-    return needsLighten ? '#ffffff' : '#000000'
-  }
   return best
-}
-
-/** 在保持色相/饱和度比例的前提下整体变暗 factor（0..1）。 */
-function darkenTowards(rgb: Rgb, factor: number): Rgb {
-  const f = Math.min(1, Math.max(0, factor))
-  return {
-    r: rgb.r * f,
-    g: rgb.g * f,
-    b: rgb.b * f,
-  }
-}
-
-function lightenTowards(rgb: Rgb, factor: number): Rgb {
-  const f = Math.min(1, Math.max(0, factor))
-  return {
-    r: rgb.r + (255 - rgb.r) * f,
-    g: rgb.g + (255 - rgb.g) * f,
-    b: rgb.b + (255 - rgb.b) * f,
-  }
 }
 
 /** 从背景推断深/浅外观。 */

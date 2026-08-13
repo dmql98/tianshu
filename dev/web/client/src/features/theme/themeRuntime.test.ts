@@ -134,6 +134,14 @@ describe('themeRuntime: resolve', () => {
 })
 
 describe('themeRuntime: apply', () => {
+  it('将 camelCase Token 名映射为样式表使用的 kebab-case 变量', () => {
+    expect(tokenVariableName('surface1')).toBe('--theme-surface-1')
+    expect(tokenVariableName('surfaceHover')).toBe('--theme-surface-hover')
+    expect(tokenVariableName('textPrimary')).toBe('--theme-text-primary')
+    expect(tokenVariableName('textOnAccent')).toBe('--theme-text-on-accent')
+    expect(tokenVariableName('codeBg')).toBe('--theme-code-bg')
+  })
+
   it('写入正确 attributes 与 color-scheme', () => {
     const root = makeRoot()
     applyResolvedTheme({ theme: BUILTIN_THEME_DARK, selection: { mode: 'system' } }, root as unknown as HTMLElement)
@@ -163,6 +171,7 @@ describe('themeRuntime: apply', () => {
         url: 'http://localhost/api/themes/custom-forest/assets/background.webp',
         focusX: 0.3,
         focusY: 0.7,
+        scale: 1.4,
         homeOpacity: 0.8,
         taskOpacity: 0.35,
         dim: 0.25,
@@ -173,9 +182,13 @@ describe('themeRuntime: apply', () => {
     expect(root.getAttribute('data-has-backdrop')).toBe('true')
     expect(root.style.getPropertyValue(tokenVariableName('canvas'))).toBe(custom.tokens.canvas)
     expect(root.style.getPropertyValue(tokenVariableName('accent'))).toBe(custom.tokens.accent)
+    expect(root.style.getPropertyValue('--theme-surface-1')).toBe(custom.tokens.surface1)
+    expect(root.style.getPropertyValue('--theme-text-primary')).toBe(custom.tokens.textPrimary)
+    expect(root.style.getPropertyValue('--theme-border-subtle')).toBe(custom.tokens.borderSubtle)
     expect(root.style.getPropertyValue('--theme-backdrop-image')).toContain('background.webp')
     expect(root.style.getPropertyValue('--theme-backdrop-focus-x')).toBe('30%')
     expect(root.style.getPropertyValue('--theme-backdrop-focus-y')).toBe('70%')
+    expect(root.style.getPropertyValue('--theme-backdrop-scale')).toBe('1.4')
   })
 
   it('切换 custom → builtin 时清除残留 inline token', () => {

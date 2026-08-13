@@ -61,6 +61,7 @@ describe('theme schema: 记录解析', () => {
       preview: 'preview.webp',
       focusX: 0.58,
       focusY: 0.36,
+      scale: 1.35,
       homeOpacity: 0.8,
       taskOpacity: 0.35,
       dim: 0.25,
@@ -81,6 +82,7 @@ describe('theme schema: 记录解析', () => {
     expect(record!.appearance).toBe('dark')
     expect(record!.colors.canvas).toBe('#111713')
     expect(record!.artwork?.focusX).toBeCloseTo(0.58)
+    expect(record!.artwork?.scale).toBeCloseTo(1.35)
   })
 
   it('目录名与 id 不一致时以目录名为准', () => {
@@ -120,10 +122,11 @@ describe('theme schema: 记录解析', () => {
       name: '星海',
       appearance: 'light',
       colors: { canvas: '#ffffff', textPrimary: '#111111', accent: '#3b82f6' },
-      artwork: { focusX: 0.3, focusY: 0.7, homeOpacity: 0.8, taskOpacity: 0.3, dim: 0.1 },
+      artwork: { focusX: 0.3, focusY: 0.7, scale: 5, homeOpacity: 0.8, taskOpacity: 0.3, dim: 0.1 },
     })
     expect(record.id).toBe('custom-a1b2')
     expect(record.schemaVersion).toBe(THEME_SCHEMA_VERSION)
     expect(record.updatedAt).toBeTruthy()
+    expect(record.artwork?.scale).toBe(2.5)
   })
 })

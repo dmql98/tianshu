@@ -30,6 +30,7 @@ export interface ThemeArtworkSpec {
   preview?: string
   focusX: number
   focusY: number
+  scale: number
   homeOpacity: number
   taskOpacity: number
   dim: number
@@ -89,6 +90,7 @@ function normalizeArtwork(value: unknown): ThemeArtworkSpec | undefined {
   const artwork: ThemeArtworkSpec = {
     focusX: clampNumber(candidate.focusX, 0.5, 0, 1),
     focusY: clampNumber(candidate.focusY, 0.5, 0, 1),
+    scale: clampNumber(candidate.scale, 1, 1, 2.5),
     homeOpacity: clampNumber(candidate.homeOpacity, 0.8, 0, 1),
     taskOpacity: clampNumber(candidate.taskOpacity, 0.35, 0, 1),
     dim: clampNumber(candidate.dim, 0.2, 0, 0.85),

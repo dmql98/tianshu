@@ -66,6 +66,7 @@ export interface ThemeArtwork {
   previewUrl?: string
   focusX: number
   focusY: number
+  scale: number
   homeOpacity: number
   taskOpacity: number
   dim: number
@@ -236,6 +237,7 @@ export function normalizeArtwork(value: unknown): ThemeArtwork | undefined {
     previewUrl: typeof candidate.previewUrl === 'string' ? candidate.previewUrl : undefined,
     focusX: normalizeNumber(candidate.focusX, 0.5, 0, 1),
     focusY: normalizeNumber(candidate.focusY, 0.5, 0, 1),
+    scale: normalizeNumber(candidate.scale, 1, 1, 2.5),
     homeOpacity: normalizeNumber(candidate.homeOpacity, 0.8, 0, 1),
     taskOpacity: normalizeNumber(candidate.taskOpacity, 0.35, 0, 1),
     dim: normalizeNumber(candidate.dim, 0.2, 0, 0.85),

@@ -696,7 +696,11 @@ export default function SettingsPage() {
           onSaved={(theme) => {
             closeStudio()
             // 保存成功后应用新版本（服务端 API 成功返回后才更新当前选择）
-            setThemeSelection(loadThemePreferences(), { mode: 'custom', themeId: theme.id })
+            setThemeSelection(
+              loadThemePreferences(),
+              { mode: 'custom', themeId: theme.id },
+              { customThemes: [theme] },
+            )
             showToast('主题已应用')
           }}
           showToast={showToast}

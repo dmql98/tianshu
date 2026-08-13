@@ -67,6 +67,12 @@ describe('contrast: 对比度校正', () => {
     expect(meetsContrast(adjusted, '#17130e')).toBe(true)
   })
 
+  it('亮青色背景上的纯白文字会转向深色并达到 AA 4.5', () => {
+    const adjusted = adjustToContrast('#3bc0c3', '#ffffff', AA_TEXT_CONTRAST)
+    expect(adjusted).not.toBe('#ffffff')
+    expect(meetsContrast(adjusted, '#3bc0c3')).toBe(true)
+  })
+
   it('无法满足时返回最高对比度端点', () => {
     // 在 #808080 上，#808080 无论怎么调整都不可能 >4.5（最极端是黑/白，对比 3.9x）
     const adjusted = adjustToContrast('#808080', '#808080', AA_TEXT_CONTRAST)
