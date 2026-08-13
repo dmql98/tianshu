@@ -1,7 +1,9 @@
 ﻿import { useState, useRef, useEffect } from 'react'
 import { useChatStore } from '@/stores/chatStore'
+import { useProvidersStore } from '@/stores/providersStore'
+import { updateSession } from '@/api/sessions'
 import { fetchCharacters } from '@/api/characters'
-import type { Character } from '@/types'
+import type { Character, Strategy } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import { useCharacterPresence } from '@/features/character-presence/useCharacterPresence'
 
@@ -38,7 +40,8 @@ export default function ChatInput() {
   const [isFocused, setIsFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice } = useChatStore()
+  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, setStrategy, tokenUsage } = useChatStore()
+  const { providers } = useProvidersStore()
   const session = sessions.find(s => s.id === activeSessionId)
   const presence = useCharacterPresence(session?.character_id ?? '', activeSessionId ?? undefined)
   const inputMotion = isFocused && presence === 'idle' ? 'listening' : undefined
@@ -107,23 +110,108 @@ export default function ChatInput() {
   const starColor = character?.color || 'var(--gold)'
   const canSend = (input.trim().length > 0 || attachments.length > 0) && !blockInput
 
+  // Context usage estimate (match RightPanel logic)
+  const msgs = session?.messages || []
+  let totalChars = 0
+  for (const m of msgs) {
+    if (m.role === 'tool') {
+      if (m.tool_output) totalChars += m.tool_output.length
+    } else {
+      if (m.content) totalChars += m.content.length
+    }
+    if (m.reasoning) totalChars += m.reasoning.length
+    totalChars += 16
+  }
+  const tokenEst = Math.ceil(totalChars / 4)
+  const contextWindow = session?.context_window || 200000
+  const contextPct = Math.min(100, Math.round((tokenEst / contextWindow) * 100))
+  const cacheHit = session?.cacheStats?.hitRatio || session?.cache_hit_ratio
+
+  function formatTokens(n: number): string {
+    if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
+    if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`
+    return String(n)
+  }
+
+  function handleModelChange(modelId: string) {
+    // modelId format: "providerId::modelName"
+    const [providerId, model] = modelId.split('::')
+    if (activeSessionId) {
+      updateSession(activeSessionId, { provider_id: providerId, model }).catch(() => {})
+      useChatStore.setState(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === activeSessionId ? { ...s, provider_id: providerId, model } : s
+        ),
+      }))
+    }
+  }
+
+  function handleStrategyChange(strategy: Strategy) {
+    setStrategy(strategy)
+    if (activeSessionId) {
+      updateSession(activeSessionId, { current_strategy: strategy }).catch(() => {})
+    }
+  }
+
+  function handleExecutionModeChange(mode: 'direct' | 'plan_first' | 'goal') {
+    if (activeSessionId) {
+      updateSession(activeSessionId, { execution_mode: mode }).catch(() => {})
+      useChatStore.setState(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === activeSessionId ? { ...s, execution_mode: mode } : s
+        ),
+      }))
+    }
+  }
+
+  function handleReasoningEffortChange(effort: string) {
+    if (activeSessionId) {
+      updateSession(activeSessionId, { reasoning_effort: effort }).catch(() => {})
+      useChatStore.setState(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === activeSessionId ? { ...s, reasoning_effort: effort } : s
+        ),
+      }))
+    }
+  }
+
+  // Build model options grouped by provider (only enabled models)
+  const modelOptions: { providerId: string; providerName: string; modelId: string; modelName: string }[] = []
+  for (const p of providers) {
+    const enabledSet = p.enabled_models && p.enabled_models.length > 0 ? new Set(p.enabled_models) : null
+    for (const m of p.models || []) {
+      const mid = m.id || m.name
+      if (enabledSet && !enabledSet.has(mid)) continue
+      modelOptions.push({
+        providerId: p.id,
+        providerName: p.name,
+        modelId: `${p.id}::${mid}`,
+        modelName: m.name || m.id,
+      })
+    }
+  }
+
+  const currentModelKey = `${session?.provider_id || ''}::${session?.model || ''}`
+
   return (
     <div className="input-area">
       <div className="input-main">
-        <div
-          className="input-star-avatar"
-          title={character ? `${character.name} · ${character.description}` : '当前星官'}
-          style={{ '--star-color': starColor } as React.CSSProperties}
-        >
-          <CharacterRenderer
-            characterId={session?.character_id ?? ''}
-            name={character?.name || ''}
-            legacyAvatar={character?.avatar}
-            mode="stage"
-            motion={inputMotion}
-            sessionId={activeSessionId ?? undefined}
-            className="character-renderer-input"
-          />
+        <div className="input-star-col">
+          <div
+            className="input-star-avatar"
+            title={character ? `${character.name} · ${character.description}` : '当前星官'}
+            style={{ '--star-color': starColor } as React.CSSProperties}
+          >
+            <CharacterRenderer
+              characterId={session?.character_id ?? ''}
+              name={character?.name || ''}
+              legacyAvatar={character?.avatar}
+              mode="stage"
+              motion={inputMotion}
+              sessionId={activeSessionId ?? undefined}
+              className="character-renderer-input"
+            />
+          </div>
         </div>
         <div className="input-box">
           {/* Attachment previews */}
@@ -198,6 +286,67 @@ export default function ChatInput() {
             </div>
           )}
         </div>
+      </div>
+      <div className="input-options">
+        <div className="input-ctx">
+          <div className="input-ctx-cache">缓存命中：{cacheHit || '--'}</div>
+          <div className="input-ctx-bar">
+            <div className="fill" style={{ width: `${contextPct}%` }}></div>
+            <span className="input-ctx-text">{formatTokens(tokenEst)} / {formatTokens(contextWindow)}</span>
+          </div>
+        </div>
+        <select
+          value={currentModelKey}
+          onChange={e => handleModelChange(e.target.value)}
+          title="模型"
+          className="io-select"
+        >
+          {modelOptions.length === 0 && <option value="">--</option>}
+          {providers.map(p => {
+            const enabledSet = p.enabled_models && p.enabled_models.length > 0 ? new Set(p.enabled_models) : null
+            const models = (p.models || []).filter(m => !enabledSet || enabledSet.has(m.id || m.name))
+            if (models.length === 0) return null
+            return (
+              <optgroup key={p.id} label={p.name}>
+                {models.map(m => {
+                  const key = `${p.id}::${m.id || m.name}`
+                  return <option key={key} value={key}>{m.name || m.id}</option>
+                })}
+              </optgroup>
+            )
+          })}
+        </select>
+        <select
+          value={session?.reasoning_effort || 'medium'}
+          onChange={e => handleReasoningEffortChange(e.target.value)}
+          title="思考强度"
+          className="io-select"
+        >
+          <option value="low">低</option>
+          <option value="medium">中</option>
+          <option value="high">高</option>
+          <option value="max">最高</option>
+        </select>
+        <select
+          value={(session as any)?.execution_mode || 'direct'}
+          onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
+          title="执行模式"
+          className="io-select"
+        >
+          <option value="direct">Direct（直接执行）</option>
+          <option value="plan_first">Plan-first（先计划后执行）</option>
+          <option value="goal">Goal（目标驱动）</option>
+        </select>
+        <select
+          value={session?.current_strategy || 'Ask Risky'}
+          onChange={e => handleStrategyChange(e.target.value as Strategy)}
+          title="审批模式"
+          className="io-select"
+        >
+          <option value="Read Only">Read Only</option>
+          <option value="Ask Risky">Ask Risky</option>
+          <option value="Auto Approve">Auto Approve</option>
+        </select>
       </div>
     </div>
   )

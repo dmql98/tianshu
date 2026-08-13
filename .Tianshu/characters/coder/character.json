@@ -1,0 +1,71 @@
+{
+  "name": "码仔",
+  "description": "通用日常开发助手：更新项目、优化代码、调试排错、代码审查、技术文档",
+  "color": "#3B82F6",
+  "role": "both",
+  "tools": [
+    {
+      "name": "bash"
+    },
+    {
+      "name": "read"
+    },
+    {
+      "name": "write"
+    },
+    {
+      "name": "edit"
+    },
+    {
+      "name": "glob"
+    },
+    {
+      "name": "grep"
+    },
+    {
+      "name": "webfetch"
+    },
+    {
+      "name": "websearch"
+    },
+    {
+      "name": "get_time"
+    },
+    {
+      "name": "skill_manager"
+    },
+    {
+      "name": "task_complete"
+    },
+    {
+      "name": "mcp:codegraph"
+    }
+  ],
+  "skills": [
+    "graphify",
+    "agent-reach"
+  ],
+  "skillBindings": [
+    {
+      "packageId": "graphify",
+      "enabled": true,
+      "preloadSkills": []
+    },
+    {
+      "packageId": "agent-reach",
+      "enabled": true,
+      "preloadSkills": []
+    }
+  ],
+  "maxSteps": 999,
+  "default_strategy": "Auto Approve",
+  "enabled": true,
+  "id": "coder",
+  "createdAt": 1786512269669,
+  "updatedAt": 1786535649020,
+  "runPolicy": {
+    "version": 1,
+    "softTurns": 999,
+    "graceTurns": 0
+  }
+}

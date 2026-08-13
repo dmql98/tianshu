@@ -1,17 +1,14 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
-import { useProvidersStore } from '@/stores/providersStore'
 import { fetchCharacters } from '@/api/characters'
-import { updateSession } from '@/api/sessions'
 import CharacterPicker from './CharacterPicker'
 import GoalPanel from './GoalPanel'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
-import type { Character, Strategy } from '@/types'
+import type { Character } from '@/types'
 
 export default function RightPanel() {
-  const { sessions, activeSessionId, addWorkspace, removeWorkspace, setStrategy, tokenUsage } = useChatStore()
-  const { providers, load: loadProviders } = useProvidersStore()
+  const { sessions, activeSessionId, addWorkspace, removeWorkspace, tokenUsage } = useChatStore()
   const { toggleRightPanel } = useUIStore()
   const session = sessions.find(s => s.id === activeSessionId)
   const [character, setCharacter] = useState<Character | null>(null)
@@ -72,8 +69,6 @@ export default function RightPanel() {
     totalChars += 16
   }
   const tokenEst = Math.ceil(totalChars / 4)
-  const contextWindow = session.context_window || 200000
-  const contextPct = Math.min(100, Math.round((tokenEst / contextWindow) * 100))
   const totalTokens = tokenUsage.total || ((session.input_tokens || 0) + (session.output_tokens || 0))
 
   // Step limit display (run policy §13.2 summary)
@@ -91,67 +86,6 @@ export default function RightPanel() {
     if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`
     return String(n)
   }
-
-  function handleModelChange(modelId: string) {
-    // modelId format: "providerId::modelName"
-    const [providerId, model] = modelId.split('::')
-    if (activeSessionId) {
-      updateSession(activeSessionId, { provider_id: providerId, model }).catch(() => {})
-      // Update local state via chatStore
-      useChatStore.setState(state => ({
-        sessions: state.sessions.map(s =>
-          s.id === activeSessionId ? { ...s, provider_id: providerId, model } : s
-        ),
-      }))
-    }
-  }
-
-  function handleStrategyChange(strategy: Strategy) {
-    setStrategy(strategy)
-    if (activeSessionId) {
-      updateSession(activeSessionId, { current_strategy: strategy }).catch(() => {})
-    }
-  }
-
-  function handleExecutionModeChange(mode: 'direct' | 'plan_first' | 'goal') {
-    if (activeSessionId) {
-      updateSession(activeSessionId, { execution_mode: mode }).catch(() => {})
-      useChatStore.setState(state => ({
-        sessions: state.sessions.map(s =>
-          s.id === activeSessionId ? { ...s, execution_mode: mode } : s
-        ),
-      }))
-    }
-  }
-
-  function handleReasoningEffortChange(effort: string) {
-    if (activeSessionId) {
-      updateSession(activeSessionId, { reasoning_effort: effort }).catch(() => {})
-      useChatStore.setState(state => ({
-        sessions: state.sessions.map(s =>
-          s.id === activeSessionId ? { ...s, reasoning_effort: effort } : s
-        ),
-      }))
-    }
-  }
-
-  // Build model options grouped by provider (only enabled models)
-  const modelOptions: { providerId: string; providerName: string; modelId: string; modelName: string }[] = []
-  for (const p of providers) {
-    const enabledSet = p.enabled_models && p.enabled_models.length > 0 ? new Set(p.enabled_models) : null
-    for (const m of p.models || []) {
-      const mid = m.id || m.name
-      if (enabledSet && !enabledSet.has(mid)) continue
-      modelOptions.push({
-        providerId: p.id,
-        providerName: p.name,
-        modelId: `${p.id}::${mid}`,
-        modelName: m.name || m.id,
-      })
-    }
-  }
-
-  const currentModelKey = `${session.provider_id || ''}::${session.model || ''}`
 
   return (
     <aside className="right-panel">
@@ -213,66 +147,6 @@ export default function RightPanel() {
         {/* Running config */}
         <div className="rp-section">
           <div className="rp-section-title">运行配置</div>
-          <div className="rp-row">
-            <span className="label">模型</span>
-            <select
-              value={currentModelKey}
-              onChange={e => handleModelChange(e.target.value)}
-              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)', maxWidth: 140 }}
-            >
-              {modelOptions.length === 0 && <option value="">--</option>}
-              {providers.map(p => {
-                const enabledSet = p.enabled_models && p.enabled_models.length > 0 ? new Set(p.enabled_models) : null
-                const models = (p.models || []).filter(m => !enabledSet || enabledSet.has(m.id || m.name))
-                if (models.length === 0) return null
-                return (
-                  <optgroup key={p.id} label={p.name}>
-                    {models.map(m => {
-                      const key = `${p.id}::${m.id || m.name}`
-                      return <option key={key} value={key}>{m.name || m.id}</option>
-                    })}
-                  </optgroup>
-                )
-              })}
-            </select>
-          </div>
-          <div className="rp-row">
-            <span className="label">思考强度</span>
-            <select
-              value={session.reasoning_effort || 'medium'}
-              onChange={e => handleReasoningEffortChange(e.target.value)}
-              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
-            >
-              <option value="low">低</option>
-              <option value="medium">中</option>
-              <option value="high">高</option>
-              <option value="max">最高</option>
-            </select>
-          </div>
-          <div className="rp-row">
-            <span className="label">执行模式</span>
-            <select
-              value={(session as any).execution_mode || 'direct'}
-              onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
-              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
-            >
-              <option value="direct">Direct（直接执行）</option>
-              <option value="plan_first">Plan-first（先计划后执行）</option>
-              <option value="goal">Goal（目标驱动）</option>
-            </select>
-          </div>
-          <div className="rp-row">
-            <span className="label">审批模式</span>
-            <select
-              value={session.current_strategy || 'Ask Risky'}
-              onChange={e => handleStrategyChange(e.target.value as Strategy)}
-              style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-mid)' }}
-            >
-              <option value="Read Only">Read Only</option>
-              <option value="Ask Risky">Ask Risky</option>
-              <option value="Auto Approve">Auto Approve</option>
-            </select>
-          </div>
           <div className="rp-row"><span className="label">角色类型</span><span className="value">{character?.role === 'both' ? '主/子 Agent' : character?.role === 'main' ? '主 Agent' : character?.role === 'sub' ? '子 Agent' : '--'}</span></div>
           <div className="rp-row"><span className="label">步数限制</span><span className="value">{stepLimitText}</span></div>
           {autoText && <div className="rp-row"><span className="label">自动续跑</span><span className="value">{autoText}</span></div>}
@@ -316,12 +190,7 @@ export default function RightPanel() {
         {/* Running status */}
         <div className="rp-section">
           <div className="rp-section-title">运行状态</div>
-          <div className="rp-row">
-            <span className="label">上下文</span>
-            <span className="value">{tokenEst > 0 ? `${formatTokens(tokenEst)} / ${formatTokens(contextWindow)}` : '--'}</span>
-          </div>
-          {tokenEst > 0 && <div className="rp-meter"><div className="fill" style={{ width: `${contextPct}%` }}></div></div>}
-          <div className="rp-row" style={{ marginTop: 6 }}>
+          <div className="rp-row" style={{ marginTop: 0 }}>
             <span className="label">缓存命中</span>
             <span className="value" style={{ color: 'var(--jade)' }}>
               {session.cacheStats?.hitRatio || session.cache_hit_ratio || '--'}

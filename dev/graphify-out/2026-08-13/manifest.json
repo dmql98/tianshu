@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "web/client/src/App.tsx": {
-    "mtime": 1786432371.697433,
-    "ast_hash": "1622116dabe014713b4eef8b9e05fac4",
+    "mtime": 1786613724.5575187,
+    "ast_hash": "b7d893f08d2dc28d91e1927db9c0db90",
     "semantic_hash": ""
   },
   "web/client/src/api/characters.ts": {
@@ -45,8 +45,8 @@
     "semantic_hash": ""
   },
   "web/client/src/api/skills.ts": {
-    "mtime": 1785896542.3234408,
-    "ast_hash": "e897557c942b601c9090c94f7b964774",
+    "mtime": 1786585847.8079453,
+    "ast_hash": "bced5ab4e18767272d29f1c6b5721fcb",
     "semantic_hash": ""
   },
   "web/client/src/api/socket.ts": {
@@ -135,18 +135,18 @@
     "semantic_hash": ""
   },
   "web/client/src/main.tsx": {
-    "mtime": 1786432182.8320947,
-    "ast_hash": "8adc41fe3567b95b19012cdd90fbf228",
+    "mtime": 1786613692.3250506,
+    "ast_hash": "56354938d989b2089e4b7e62f62d2cda",
     "semantic_hash": ""
   },
   "web/client/src/pages/CharacterDetailPage.tsx": {
-    "mtime": 1786528846.499372,
-    "ast_hash": "3ec1465525dff9055084938bf1554f0c",
+    "mtime": 1786615341.3826306,
+    "ast_hash": "58bd73ffb6a0b232b0fff738eaeca9d0",
     "semantic_hash": ""
   },
   "web/client/src/pages/CharactersPage.tsx": {
-    "mtime": 1786416929.9462006,
-    "ast_hash": "1433bffe376d9018fa55b528f39199c1",
+    "mtime": 1786585847.808956,
+    "ast_hash": "75eee2442a4aced2686e03751b1677f4",
     "semantic_hash": ""
   },
   "web/client/src/pages/ChatPage.tsx": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "web/client/src/pages/SettingsPage.tsx": {
-    "mtime": 1786528735.8809261,
-    "ast_hash": "2d6b8868bc7bad837f747060686f824d",
+    "mtime": 1786615341.3846338,
+    "ast_hash": "4b94a7e1bfcbd27c52d7d3028332f6e6",
     "semantic_hash": ""
   },
   "web/client/src/pages/SkillsPage.tsx": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "web/client/src/stores/chatStore.ts": {
-    "mtime": 1786533497.1742766,
-    "ast_hash": "2e5ea12b242e746bc439d1c84074a0ed",
+    "mtime": 1786585847.8099527,
+    "ast_hash": "40344bdd114536243598ce90ecb9636b",
     "semantic_hash": ""
   },
   "web/client/src/stores/providersStore.ts": {
@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "web/client/src/types/index.ts": {
-    "mtime": 1786528885.9391284,
-    "ast_hash": "8b1a01fd4c1882e64a570a23fa71c03d",
+    "mtime": 1786585847.8099527,
+    "ast_hash": "3549d4b19257c46d8b2fabfe5f6a3e0e",
     "semantic_hash": ""
   },
   "web/client/src/views/McpView.tsx": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "web/client/src/views/SkillView.tsx": {
-    "mtime": 1786432371.7661686,
-    "ast_hash": "099649f1f8c6de7371abd8943a3b500c",
+    "mtime": 1786585847.8109522,
+    "ast_hash": "634fac3f68f5ff389e5885c70b24f2c0",
     "semantic_hash": ""
   },
   "web/client/src/views/ToolView.tsx": {
@@ -255,8 +255,8 @@
     "semantic_hash": ""
   },
   "web/server/package.json": {
-    "mtime": 1786514582.649375,
-    "ast_hash": "e71bcd5b87d6e87ef784bdc9eaa7bef5",
+    "mtime": 1786585847.8109522,
+    "ast_hash": "04827e06794ed6005fe493c5a6c748d8",
     "semantic_hash": ""
   },
   "web/server/scripts/copy-tool-json.js": {
@@ -340,18 +340,18 @@
     "semantic_hash": ""
   },
   "web/server/src/character/store.ts": {
-    "mtime": 1786416929.9584484,
-    "ast_hash": "285a7135e6519bd785f849b5acebcd8a",
+    "mtime": 1786585847.8129456,
+    "ast_hash": "a7f3da9c89931693b7352e37ed358f10",
     "semantic_hash": ""
   },
   "web/server/src/config.ts": {
-    "mtime": 1786527989.5623362,
-    "ast_hash": "abcfac6b7daee9b9ce0ca6dcf392733d",
+    "mtime": 1786585847.8149521,
+    "ast_hash": "228d51126839b23ff737e4a91bf8d508",
     "semantic_hash": ""
   },
   "web/server/src/db/characterStore.ts": {
-    "mtime": 1786527989.5623362,
-    "ast_hash": "caa01dbd42fb44c461ef17dd50736ec8",
+    "mtime": 1786585847.8182778,
+    "ast_hash": "18b42597270baa45eecf2f6b39fabe5c",
     "semantic_hash": ""
   },
   "web/server/src/db/messageStore.ts": {
@@ -625,8 +625,8 @@
     "semantic_hash": ""
   },
   "web/server/src/routes/characters.ts": {
-    "mtime": 1786528193.2662506,
-    "ast_hash": "2989429e5c23854c2c3ea8e3ae1a6ae2",
+    "mtime": 1786585847.8192775,
+    "ast_hash": "68ac6cdf869ee90074aea1836fb9dd83",
     "semantic_hash": ""
   },
   "web/server/src/routes/config.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "web/server/src/routes/prompts.ts": {
-    "mtime": 1786416929.9664903,
-    "ast_hash": "ec9044fd2856a3f216fcd45707e7d016",
+    "mtime": 1786585847.8192775,
+    "ast_hash": "a5cd5243a646ee260f4a8df85a19c616",
     "semantic_hash": ""
   },
   "web/server/src/routes/providers.ts": {
@@ -655,8 +655,8 @@
     "semantic_hash": ""
   },
   "web/server/src/routes/skills.ts": {
-    "mtime": 1785896542.3374364,
-    "ast_hash": "7ead20f05ac95c118c6954c20abac38b",
+    "mtime": 1786585847.8202772,
+    "ast_hash": "f88f2322649a47d0768672a85b016b9f",
     "semantic_hash": ""
   },
   "web/server/src/routes/tools.ts": {
@@ -715,13 +715,13 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/edit/index.ts": {
-    "mtime": 1786523600.0390081,
-    "ast_hash": "aef381893ecdaabad61d7432865bf76f",
+    "mtime": 1786585847.8212779,
+    "ast_hash": "ec54f1074f13b62f5c66e887c95ae6a8",
     "semantic_hash": ""
   },
   "web/server/src/tools/edit/matchers.ts": {
-    "mtime": 1786523705.150086,
-    "ast_hash": "7daf7a59bddf3f4b54d34b78d742f2f6",
+    "mtime": 1786585847.8222773,
+    "ast_hash": "c2dc4248b15bf4591750ac01e376df30",
     "semantic_hash": ""
   },
   "web/server/src/tools/edit/tool.json": {
@@ -950,8 +950,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/context-builder.ts": {
-    "mtime": 1786438557.4832716,
-    "ast_hash": "16401ca805d7f8b72ed10460ff51e75b",
+    "mtime": 1786585847.8119452,
+    "ast_hash": "844fa7a9929340c855847a7659aee351",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/context-compactor.ts": {
@@ -1040,13 +1040,13 @@
     "semantic_hash": ""
   },
   "web/server/src/character/revision-store.ts": {
-    "mtime": 1786522586.4941688,
-    "ast_hash": "063e0d1dfcd212fb3d0e67516d24c902",
+    "mtime": 1786585847.8129456,
+    "ast_hash": "1c1ae3cbb91be19721430c5e3beeeb43",
     "semantic_hash": ""
   },
   "web/server/src/character/visual-store.ts": {
-    "mtime": 1786069966.1688511,
-    "ast_hash": "266811dcab822a3ab7b659c0e2cef160",
+    "mtime": 1786585847.8139453,
+    "ast_hash": "08bd284a16d0cdabc357367abc174197",
     "semantic_hash": ""
   },
   "web/server/src/db/turnStore.ts": {
@@ -1175,8 +1175,8 @@
     "semantic_hash": ""
   },
   "web/client/src/pages/NewSkillPackagePage.tsx": {
-    "mtime": 1785896542.324446,
-    "ast_hash": "613c383424902a8a67325f810d7a9607",
+    "mtime": 1786615341.3846338,
+    "ast_hash": "f5cd010087d7f1a44ae737496b81c14b",
     "semantic_hash": ""
   },
   "web/client/src/pages/SkillPackageDetailPage.tsx": {
@@ -1200,8 +1200,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/skill-catalog.ts": {
-    "mtime": 1786416929.9564478,
-    "ast_hash": "8fdeae1990717aad130250b1cebf6f43",
+    "mtime": 1786585847.8119452,
+    "ast_hash": "39ec6e537d53d9519d67b3a57694de28",
     "semantic_hash": ""
   },
   "web/server/src/agent/skill-package-writer.test.ts": {
@@ -1285,8 +1285,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1786524290.077721,
-    "ast_hash": "326488234e57b8203e242c60a60fd050",
+    "mtime": 1786611223.829187,
+    "ast_hash": "946c66dfa469436d3c8c7817dd74d897",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -1305,8 +1305,8 @@
     "semantic_hash": ""
   },
   "desktop/src/server-manager.ts": {
-    "mtime": 1786416929.9371462,
-    "ast_hash": "54a3f73000418bf0e305af4d13085941",
+    "mtime": 1786585847.8049693,
+    "ast_hash": "cbffdc8633e85dde46448d2a94bf9967",
     "semantic_hash": ""
   },
   "desktop/src/updater.ts": {
@@ -1355,18 +1355,18 @@
     "semantic_hash": ""
   },
   "scripts/dev-desktop.mjs": {
-    "mtime": 1786416929.940827,
-    "ast_hash": "d2992c86af03dcecf1451c149d38a9c1",
+    "mtime": 1786585847.8059525,
+    "ast_hash": "e3af5b35f8baa38d32179a580360d424",
     "semantic_hash": ""
   },
   "scripts/prepare-desktop-runtime.mjs": {
-    "mtime": 1786416929.9418406,
-    "ast_hash": "29b573efe2ccc6161920b3818b1130d9",
+    "mtime": 1786585847.806952,
+    "ast_hash": "23b46841025a135979b034588d2ed85d",
     "semantic_hash": ""
   },
   "scripts/smoke-packaged.mjs": {
-    "mtime": 1786416929.9418406,
-    "ast_hash": "99c9dccb7d26ae26f4278595fc8f36c1",
+    "mtime": 1786585847.806952,
+    "ast_hash": "8484427db6935cbbfffa0accd84b49a0",
     "semantic_hash": ""
   },
   "scripts/verify-release-version.mjs": {
@@ -1395,8 +1395,8 @@
     "semantic_hash": ""
   },
   "web/server/src/app.ts": {
-    "mtime": 1786533688.0822248,
-    "ast_hash": "a7fa5da5dfc28b6056c4ee1262128d55",
+    "mtime": 1786613974.0398183,
+    "ast_hash": "cf5a866f9df9e54c96323991d129cd89",
     "semantic_hash": ""
   },
   "web/server/test/ipc-contract.test.ts": {
@@ -1410,8 +1410,8 @@
     "semantic_hash": ""
   },
   "web/server/vitest.config.ts": {
-    "mtime": 1786416929.9694357,
-    "ast_hash": "f65f95fed49d39ec9d15d9b1a9f1f5e7",
+    "mtime": 1786611107.304081,
+    "ast_hash": "6fe91d478f2c360749a339b655ae7046",
     "semantic_hash": ""
   },
   "desktop/electron-builder.yml": {
@@ -1470,8 +1470,8 @@
     "semantic_hash": ""
   },
   "web/client/src/features/display/displayPreferences.ts": {
-    "mtime": 1786516881.3836725,
-    "ast_hash": "d202e36e3b85db5aa16fe5853691e9a0",
+    "mtime": 1786613549.1674633,
+    "ast_hash": "b7f3d856ba3e5cb816bd6125af9bafd5",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/context-builder.test.ts": {
@@ -1504,99 +1504,14 @@
     "ast_hash": "36d5d767f6aa6c5c6917feca543182fa",
     "semantic_hash": ""
   },
-  "web/server/src/provider-catalog/alibaba/provider.json": {
-    "mtime": 1786513614.550666,
-    "ast_hash": "702f1595740bfc51b44c0432720f5eb8",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/anthropic/provider.json": {
-    "mtime": 1786513614.5410297,
-    "ast_hash": "e8dfd83a726fa43f52264a51c19c52a5",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/cerebras/provider.json": {
-    "mtime": 1786513614.5592675,
-    "ast_hash": "482b02779bd2ae0818b7f3a95e688554",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/deepseek/provider.json": {
-    "mtime": 1786513614.5496716,
-    "ast_hash": "f9e829171a774d835707df85c7e0d4d1",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/github-copilot/provider.json": {
-    "mtime": 1786513614.546667,
-    "ast_hash": "5d838aed76ce66b6bb36c8ffd55cd481",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/google/provider.json": {
-    "mtime": 1786513614.5436275,
-    "ast_hash": "3448686c5c0e6a8ef71e781b9037f6cd",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/groq/provider.json": {
-    "mtime": 1786513614.553205,
-    "ast_hash": "bd948d3c7ad4b9871a0c9017930dc477",
-    "semantic_hash": ""
-  },
   "web/server/src/provider-catalog/loader.ts": {
-    "mtime": 1786513533.027507,
-    "ast_hash": "3092082455895cbc6957647c691151b1",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/mistral/provider.json": {
-    "mtime": 1786513614.5543487,
-    "ast_hash": "649ff5277357488dc005983c0d391ca4",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/nvidia/provider.json": {
-    "mtime": 1786513614.556295,
-    "ast_hash": "3a764dc5a4cae862d4cb236976527807",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/openai/provider.json": {
-    "mtime": 1786513614.5390637,
-    "ast_hash": "11811f08c30638dca0d12b9dc76d7d48",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/opencode-go/provider.json": {
-    "mtime": 1786513614.5487044,
-    "ast_hash": "778034f4c339643fdce21be81bc85e45",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/openrouter/provider.json": {
-    "mtime": 1786513614.5446954,
-    "ast_hash": "c59ac854e971a7ff7a7005a7ab4488bb",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/perplexity/provider.json": {
-    "mtime": 1786513614.558251,
-    "ast_hash": "31f664939230b9117c42205eb3fe993e",
+    "mtime": 1786585847.8182778,
+    "ast_hash": "1c4afe4666a39ca1a502bb67e43319f0",
     "semantic_hash": ""
   },
   "web/server/src/provider-catalog/schema.ts": {
     "mtime": 1786513244.024102,
     "ast_hash": "1726c126a879ab24a5baae0ab7a791f6",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/siliconflow/provider.json": {
-    "mtime": 1786513614.55167,
-    "ast_hash": "7c7be31bc9542968341dbde2fa8dca54",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/togetherai/provider.json": {
-    "mtime": 1786513614.55725,
-    "ast_hash": "38e24563a1dd6f5350e97ac33eea95b3",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/vercel/provider.json": {
-    "mtime": 1786513614.5476663,
-    "ast_hash": "0482a44fa7c30beb162184fff40e5119",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/xai/provider.json": {
-    "mtime": 1786513614.5552416,
-    "ast_hash": "f5b5baf4755562b82029711593f99c3f",
     "semantic_hash": ""
   },
   "web/server/test/provider-api.test.ts": {
@@ -1609,119 +1524,24 @@
     "ast_hash": "b86e3bfdbe49ea1b59ca07d0063d96ed",
     "semantic_hash": ""
   },
-  "web/server/src/provider-catalog/LICENSES.md": {
-    "mtime": 1786514955.1389298,
-    "ast_hash": "5bed02ec6c4606d607f83bca50087b09",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/README.md": {
-    "mtime": 1786514946.8741682,
-    "ast_hash": "0bdb00f0fcd19d05e47c04845f2af963",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/alibaba/icon.svg": {
-    "mtime": 1786513614.55167,
-    "ast_hash": "0ca4682f784ebc68d4f53d0bc734bf62",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/anthropic/icon.svg": {
-    "mtime": 1786513614.542032,
-    "ast_hash": "b4d7ff0b993d1514bb75c61bb58bf23c",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/cerebras/icon.svg": {
-    "mtime": 1786513614.5603073,
-    "ast_hash": "3cdb2544555e792692b785cd3026b030",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/deepseek/icon.svg": {
-    "mtime": 1786513614.5496716,
-    "ast_hash": "a52348bbd1e479b71242dc6986499204",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/github-copilot/icon.svg": {
-    "mtime": 1786513614.546667,
-    "ast_hash": "8aefd8902173eab79269d2b178e1037c",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/google/icon.svg": {
-    "mtime": 1786513614.5446954,
-    "ast_hash": "30d202e76b077dc65ff0b2060bae302b",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/groq/icon.svg": {
-    "mtime": 1786513614.553205,
-    "ast_hash": "5d3de4b4041ad5883efa3dda7ca2ba1b",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/mistral/icon.svg": {
-    "mtime": 1786513614.5543487,
-    "ast_hash": "b4ee398016fe3eb1803fcd347f4160b1",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/nvidia/icon.svg": {
-    "mtime": 1786513614.55725,
-    "ast_hash": "c17c8561f41f5eaf6c4b70b63986fe6b",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/openai/icon.svg": {
-    "mtime": 1786513614.540093,
-    "ast_hash": "43c5d1de7d804a2a677e4e7398cca7a9",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/opencode-go/icon.svg": {
-    "mtime": 1786513614.5487044,
-    "ast_hash": "a42670b2c75cc205963d0a8a45db32c4",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/openrouter/icon.svg": {
-    "mtime": 1786513614.545691,
-    "ast_hash": "77253419285972d1dc86ee33eb13455f",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/perplexity/icon.svg": {
-    "mtime": 1786513614.5592675,
-    "ast_hash": "c4f87144b5b5600cd102501e00ddae05",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/siliconflow/icon.svg": {
-    "mtime": 1786513614.55167,
-    "ast_hash": "c46f3ab7bbc60635728b83eb9665cb1a",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/togetherai/icon.svg": {
-    "mtime": 1786513614.558251,
-    "ast_hash": "674974e4ca5838dd3a0aacd003e31d6e",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/vercel/icon.svg": {
-    "mtime": 1786513614.5476663,
-    "ast_hash": "2141de6776962d31641693c65c056728",
-    "semantic_hash": ""
-  },
-  "web/server/src/provider-catalog/xai/icon.svg": {
-    "mtime": 1786513614.5552416,
-    "ast_hash": "a306944733da3898bf982ff97ae7c177",
-    "semantic_hash": ""
-  },
   "desktop/src/backgrounds.ts": {
     "mtime": 1786522013.653725,
     "ast_hash": "65b9cc2dff74345544c827d3c62ae8bb",
     "semantic_hash": ""
   },
   "web/client/src/features/theme/themeDefinitions.ts": {
-    "mtime": 1786516525.0601425,
-    "ast_hash": "0e7948e9791bc98f537d932999b0880a",
+    "mtime": 1786613170.2965734,
+    "ast_hash": "890f9695624919e57b2562806b9e7d1e",
     "semantic_hash": ""
   },
   "web/client/src/features/theme/themePreferences.test.ts": {
-    "mtime": 1786516590.5618193,
-    "ast_hash": "0d2bb98975730f74e2619093353a5226",
+    "mtime": 1786613246.2543204,
+    "ast_hash": "2ce8f5b52b3ebafd64807978701b0647",
     "semantic_hash": ""
   },
   "web/client/src/features/theme/themePreferences.ts": {
-    "mtime": 1786516552.3093088,
-    "ast_hash": "49af618fbe04b732fd4b7ee516c7c63b",
+    "mtime": 1786612979.5579839,
+    "ast_hash": "bbde52d5b5e59d19cd42223b12dd81c8",
     "semantic_hash": ""
   },
   "web/server/src/character/revision-stale.test.ts": {
@@ -1730,13 +1550,13 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/edit/edit.integration.test.ts": {
-    "mtime": 1786523751.9024403,
-    "ast_hash": "e4000c958ba3c2d9163d8c5b19948828",
+    "mtime": 1786585847.8202772,
+    "ast_hash": "69b395eb06605b2fe9cf844ad833d041",
     "semantic_hash": ""
   },
   "web/server/src/tools/edit/matchers.test.ts": {
-    "mtime": 1786523719.5476992,
-    "ast_hash": "d95c0c8f3219aa9b9b6c86cfcef80aa2",
+    "mtime": 1786585847.8222773,
+    "ast_hash": "c64c0706aaf4a2cf83245e28b04a80cf",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/run-policy-resolver.ts": {
@@ -1807,6 +1627,2271 @@
   "PLAN/\u65b0\u5efa \u6587\u672c\u6587\u6863.txt": {
     "mtime": 1786528042.9009202,
     "ast_hash": "a08c56ff6884d928cc6d62591fdf878c",
+    "semantic_hash": ""
+  },
+  ".opencode/opencode.json": {
+    "mtime": 1786610109.8708317,
+    "ast_hash": "1efe24ecf938911d4f23e4b1c6ec91f7",
+    "semantic_hash": ""
+  },
+  ".opencode/plugins/graphify.js": {
+    "mtime": 1786585846.757174,
+    "ast_hash": "b33d000860642c6f4907a877e0387a21",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/coder/character.json": {
+    "mtime": 1786585846.7602465,
+    "ast_hash": "476e07a2f9e3748dfdb7b38044b56a9a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/character.json": {
+    "mtime": 1786585846.7607644,
+    "ast_hash": "b41142d6a7bdfb0f1cdbe260405a8927",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets.json": {
+    "mtime": 1786585846.7636764,
+    "ast_hash": "6b2658b86512f667a83d02c1ba9a2e4a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/visual.json": {
+    "mtime": 1786585846.9812636,
+    "ast_hash": "95cc301517bb8dcffab79feae2d55654",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/character.json": {
+    "mtime": 1786585846.9822645,
+    "ast_hash": "44c5cb4926a3d9f791763593a66506b7",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets.json": {
+    "mtime": 1786585846.9842637,
+    "ast_hash": "e72090137df2ae260c6021017dbd09c3",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/visual.json": {
+    "mtime": 1786585847.2029655,
+    "ast_hash": "8ab28471451254565fe1969be8e98550",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ui-designer/character.json": {
+    "mtime": 1786585847.2039585,
+    "ast_hash": "cd80d78a9d3cd98b275d9820433f8224",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ui-designer/visual/assets.json": {
+    "mtime": 1786585847.204966,
+    "ast_hash": "615f7e4d0c2ea5fafea5c1d95f53dc58",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ui-designer/visual/visual.json": {
+    "mtime": 1786585847.2199786,
+    "ast_hash": "6c3b9b27de89171e1f51c90f447eefeb",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/character.json": {
+    "mtime": 1786585847.2199786,
+    "ast_hash": "f66da21abe587d58f9a9114339dde15e",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/character.pre-series-packages.json": {
+    "mtime": 1786585847.2209716,
+    "ast_hash": "c83b5f2d5be88d7ed98af347e9118fe4",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/character.pre-skill-packages.json": {
+    "mtime": 1786585847.2209716,
+    "ast_hash": "7c3908f7f17ef35c1f539ea6a400176d",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets.json": {
+    "mtime": 1786585847.2219794,
+    "ast_hash": "90f72e64c7d0099cc8d845b1c0b47c2a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/visual.json": {
+    "mtime": 1786585847.351423,
+    "ast_hash": "1e07c349f43a8429d09bb4ac6176c4d7",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/character.json": {
+    "mtime": 1786585847.352423,
+    "ast_hash": "3b23dda8657b947e3136ce26dd9751ba",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/visual/assets.json": {
+    "mtime": 1786585847.353423,
+    "ast_hash": "bd6fe9ae3e358b6e1ef1ee5bb3fc609f",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/visual/visual.json": {
+    "mtime": 1786585847.3855553,
+    "ast_hash": "6ccac2471fabc7f6dcee4f418d2c852b",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/character.json": {
+    "mtime": 1786585847.3861926,
+    "ast_hash": "221aa31edb7e491d9a97f4f79db3e112",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets.json": {
+    "mtime": 1786585847.3874195,
+    "ast_hash": "0e1c0587139222503a814b38cc4e88b3",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/visual.json": {
+    "mtime": 1786585847.625572,
+    "ast_hash": "27b2a79bf59b030dd5c2f5131625ab20",
+    "semantic_hash": ""
+  },
+  "content/builtin/manifest.json": {
+    "mtime": 1786585847.6265912,
+    "ast_hash": "25e80d3856baaf785b678631597ade8f",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/alibaba/provider.json": {
+    "mtime": 1786585847.6297653,
+    "ast_hash": "fbbcc641fdca5bdacca4f3d9299403d4",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/anthropic/provider.json": {
+    "mtime": 1786585847.6309102,
+    "ast_hash": "989ad8fd73367521e7ab820a38c33b43",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/cerebras/provider.json": {
+    "mtime": 1786585847.631543,
+    "ast_hash": "727e22f1aa7a73da5b4f07342a9e7a21",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/deepseek/provider.json": {
+    "mtime": 1786585847.6321282,
+    "ast_hash": "47658bbf66ed8e4e046e396e4e815a72",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/github-copilot/provider.json": {
+    "mtime": 1786585847.6327143,
+    "ast_hash": "31bb9e6e37a2e85bd67e631c34ef7690",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/google/provider.json": {
+    "mtime": 1786585847.6327143,
+    "ast_hash": "046641d5a4a8bdb3164fc21fe93282cc",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/groq/provider.json": {
+    "mtime": 1786585847.6333196,
+    "ast_hash": "cb5ef88cee5be24e6e661201baa7c102",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/mistral/provider.json": {
+    "mtime": 1786585847.633947,
+    "ast_hash": "b73bd5720546a7a6b1aa35ae9cd87d9a",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/nvidia/provider.json": {
+    "mtime": 1786585847.6345172,
+    "ast_hash": "4d11d5d71408b1100e63783cfc09422c",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/openai/provider.json": {
+    "mtime": 1786585847.6351023,
+    "ast_hash": "5db0a267bb6a370a5b490b2abde4ad4b",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/opencode-go/provider.json": {
+    "mtime": 1786585847.635683,
+    "ast_hash": "36afe9f2dce4572a9ecda5acdcfa677b",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/openrouter/provider.json": {
+    "mtime": 1786585847.6362588,
+    "ast_hash": "b95b5dd587323a1195f07c57d4c6b44d",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/perplexity/provider.json": {
+    "mtime": 1786585847.6368558,
+    "ast_hash": "7e4a8a4389055946a92ef57669ddf318",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/siliconflow/provider.json": {
+    "mtime": 1786585847.637408,
+    "ast_hash": "06b7b5dc0c6e4309530f9f7e20dc643d",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/togetherai/provider.json": {
+    "mtime": 1786585847.63798,
+    "ast_hash": "f147279b41b80934a4ab266d845ae625",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/vercel/provider.json": {
+    "mtime": 1786585847.6385355,
+    "ast_hash": "244d8807a2c81132321cf3675a44b02c",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/xai/provider.json": {
+    "mtime": 1786585847.6391273,
+    "ast_hash": "4058df13c24552e997c1adcab4025fdb",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/design-to-code/clawhub.json": {
+    "mtime": 1786585847.642655,
+    "ast_hash": "a4e88c92baed96dd6609a10a938e7219",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/wireframe/scripts/script.sh": {
+    "mtime": 1786585847.6451516,
+    "ast_hash": "1b7899c23408b193a5f213922135ecef",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/skill-package.json": {
+    "mtime": 1786585847.645753,
+    "ast_hash": "c8227849744e7292b24f696b08301ab0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/data/lobe-icons.json": {
+    "mtime": 1786585847.6468067,
+    "ast_hash": "4cab40fb5ab1b9be222df85fec68f7ac",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/aiicons.py": {
+    "mtime": 1786585847.655507,
+    "ast_hash": "6cd011e0324e89e52b2d6fbe8c070739",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/autolayout.py": {
+    "mtime": 1786585847.655507,
+    "ast_hash": "92c032db88ea6b42f29d474051abbf81",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/buildup.py": {
+    "mtime": 1786585847.656507,
+    "ast_hash": "a8e66ef684c4c289e5d6301486455945",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/c4.py": {
+    "mtime": 1786585847.656507,
+    "ast_hash": "8ed4fd706c861675ce45d0859e9b8bbc",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/ciimports.py": {
+    "mtime": 1786585847.6575162,
+    "ast_hash": "58356e47bcb24c2cc12bae4259e22e64",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/composeimports.py": {
+    "mtime": 1786585847.6575162,
+    "ast_hash": "aef17df2856af4ffc3ce776ce12d119b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/compress.py": {
+    "mtime": 1786585847.658501,
+    "ast_hash": "9b29b907c897317367ba8fec4b13be46",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/dockerimports.py": {
+    "mtime": 1786585847.658501,
+    "ast_hash": "7b962ce31c5392b6f39ecc5b50fda6bf",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/drawio2mermaid.py": {
+    "mtime": 1786585847.658501,
+    "ast_hash": "7a1f176a3994ad193802be5626031ba6",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/drawio2pptx.py": {
+    "mtime": 1786585847.6595078,
+    "ast_hash": "01f5bd823aa43e2a8529d673e74ccaf3",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/drawiodiff.py": {
+    "mtime": 1786585847.6595078,
+    "ast_hash": "699e6a432057122729912236b81349f0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/drawiohtml.py": {
+    "mtime": 1786585847.6595078,
+    "ast_hash": "fe537bec948350ed39b1bd7e30df5cd8",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/edgeports.py": {
+    "mtime": 1786585847.6605072,
+    "ast_hash": "426784991d4535ad7160a2494884dd84",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/encode_drawio_url.py": {
+    "mtime": 1786585847.6605072,
+    "ast_hash": "e89e6b3e50c4a21a745f1c89d537b0cf",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/explain.py": {
+    "mtime": 1786585847.6605072,
+    "ast_hash": "6db34e183ec6427a02bf78c0bb3f2c79",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/goimports.py": {
+    "mtime": 1786585847.6615071,
+    "ast_hash": "c16e58400845f4674de5e0b111266838",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/heatmap.py": {
+    "mtime": 1786585847.6615071,
+    "ast_hash": "61586cc5e9d602e83c0ba15fc08da408",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/jsimports.py": {
+    "mtime": 1786585847.6615071,
+    "ast_hash": "826657104b98cbc0296970c9d968bc60",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/k8simports.py": {
+    "mtime": 1786585847.662501,
+    "ast_hash": "1c3a65f3f8b5ed21faa5ab261920a365",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/openapiimports.py": {
+    "mtime": 1786585847.662501,
+    "ast_hash": "ad3007c9545e0592167acbc6267cd9ee",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/prdiff.py": {
+    "mtime": 1786585847.662501,
+    "ast_hash": "905ebaadd8dd461cebc17afd25bbbb64",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/pyclasses.py": {
+    "mtime": 1786585847.6635098,
+    "ast_hash": "fd272cac648930d6ee203016bb39e161",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/pyimports.py": {
+    "mtime": 1786585847.6645,
+    "ast_hash": "3562d267757e5d14cc5d004de3360390",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/raster2drawio.py": {
+    "mtime": 1786585847.6645,
+    "ast_hash": "67f7bb7245144ad8902b6442acdb7cb8",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/relabel.py": {
+    "mtime": 1786585847.6655068,
+    "ast_hash": "a9b53f00ab499d80e2349c5382912049",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/repair_png.py": {
+    "mtime": 1786585847.6655068,
+    "ast_hash": "a92c85c0b411942c054ff7d709a3b94e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/restyle.py": {
+    "mtime": 1786585847.6655068,
+    "ast_hash": "a7a4e098ad5b0fe65acbb184c2072349",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/runbook.py": {
+    "mtime": 1786585847.6665006,
+    "ast_hash": "3d6fbff75441c6653434b7be45ccac48",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/rustimports.py": {
+    "mtime": 1786585847.6665006,
+    "ast_hash": "c69ce5f5b116e934fb28db29fc7ac30f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/seqlayout.py": {
+    "mtime": 1786585847.6675096,
+    "ast_hash": "4c69f3b3f84887f92fb658812bb8ff2e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/shapesearch.py": {
+    "mtime": 1786585847.6675096,
+    "ast_hash": "d5655d28cc1d959301b1e889417a3328",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/sqlerd.py": {
+    "mtime": 1786585847.6675096,
+    "ast_hash": "204c02917b580eedefbfeeb885f92747",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/svgflow.py": {
+    "mtime": 1786585847.6685073,
+    "ast_hash": "e7146376a34e053e1e4bbfdd3132ac5c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/tfimports.py": {
+    "mtime": 1786585847.6685073,
+    "ast_hash": "2d5f799e271912b48eb792d69845071f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/tfstate.py": {
+    "mtime": 1786585847.6695075,
+    "ast_hash": "f5a34294ea75db0e948308c329bb0d19",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/timelapse.py": {
+    "mtime": 1786585847.6695075,
+    "ast_hash": "a802e2f82278b656b0e851301d8af3cb",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/tubemap.py": {
+    "mtime": 1786585847.6705003,
+    "ast_hash": "cd05ea52c6b69fc2462258921ed0e116",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/scripts/validate.py": {
+    "mtime": 1786585847.6705003,
+    "ast_hash": "e576dc7163953deb2bbce22d91f9ca58",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/skill-package.json": {
+    "mtime": 1786585847.6715074,
+    "ast_hash": "0519b69b39f08dfe5ee370dda4c9f188",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/styles/built-in/colorblind-safe.json": {
+    "mtime": 1786585847.6725042,
+    "ast_hash": "ffd93cb5407c4782c8922af9934bf1fa",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/styles/built-in/corporate.json": {
+    "mtime": 1786585847.6725042,
+    "ast_hash": "5b6cfd743aa0b8af9dd4d5c20cdbfa31",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/styles/built-in/dark.json": {
+    "mtime": 1786585847.6725042,
+    "ast_hash": "f3d4583a83aac18c703a1584070d12eb",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/styles/built-in/default.json": {
+    "mtime": 1786585847.6744998,
+    "ast_hash": "7caed5ac0e9b3b77eeb6adcd4d6cbd6d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/styles/built-in/handdrawn.json": {
+    "mtime": 1786585847.6744998,
+    "ast_hash": "20c4f92fa22b7ed2e42b6421bda965f0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/styles/schema.json": {
+    "mtime": 1786585847.6755009,
+    "ast_hash": "ae5552fadcdb630413d9f6f0b53d2c5d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/finance/uzi/skill-package.json": {
+    "mtime": 1786585847.6785,
+    "ast_hash": "ef82bd430f43e4be960ea2b92373cad0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/skill-package.json": {
+    "mtime": 1786585847.6825001,
+    "ast_hash": "7a3d7a06b27caf85622a9b1320576498",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-content/scripts/ephemeris_helper.py": {
+    "mtime": 1786585847.6854997,
+    "ast_hash": "4b209d27c61c9a2a8dd60bdd948fdc2f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading-new/references/cards.py": {
+    "mtime": 1786585847.6885,
+    "ast_hash": "8afe0e442ba7c9f430b652d791a7edfb",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading-new/references/spreads.py": {
+    "mtime": 1786585847.6895084,
+    "ast_hash": "d5e3a84619443f7267c258088dc2f590",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading-new/references/spreads_en.py": {
+    "mtime": 1786585847.6895084,
+    "ast_hash": "78a4f3f8ba8c363dc703ae281357b7da",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading-new/scripts/draw_tarot.py": {
+    "mtime": 1786585847.6905,
+    "ast_hash": "5284f51640f33b00fdd28185da12051c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/skill-package.json": {
+    "mtime": 1786585847.6955004,
+    "ast_hash": "db167f487e4889db527a975573f0567e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/scripts/__init__.py": {
+    "mtime": 1786585847.6984997,
+    "ast_hash": "15e86507e634de8b3e5285af48535494",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/scripts/bazi.py": {
+    "mtime": 1786585847.6984997,
+    "ast_hash": "cccdb1bbd846ba4e5e4c1ca9d26f817a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/scripts/core.py": {
+    "mtime": 1786585847.6994998,
+    "ast_hash": "3aac2f325e1172246558cf19130ebc87",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/scripts/data/generate_hexagrams.py": {
+    "mtime": 1786585847.6994998,
+    "ast_hash": "3d85f427d0b90b01afe9040b640c5e94",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/scripts/data/hexagrams.json": {
+    "mtime": 1786585847.7005,
+    "ast_hash": "6ca98ef4ebce46565bbefbf299935942",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/scripts/interpret.py": {
+    "mtime": 1786585847.7005,
+    "ast_hash": "36ec9a58ba0eabd75ea97477f0384550",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/gua/scripts/qi_gua.py": {
+    "mtime": 1786585847.7045,
+    "ast_hash": "dcd5492ae78d22ff0b5dbc2d0911c2c8",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/yi/scripts/divination.py": {
+    "mtime": 1786585847.7095003,
+    "ast_hash": "0d7b7500b5158d65d217c96da71a32d9",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/yi/scripts/hexagram_data.py": {
+    "mtime": 1786585847.7105,
+    "ast_hash": "5edbd715c81e8a87751ed15bac4b5ba1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/skill-package.json": {
+    "mtime": 1786585847.7105,
+    "ast_hash": "2ba0fb36e90c6699f8bb947c0c80c438",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/destiny-fusion-pro/scripts/fortune_fusion.py": {
+    "mtime": 1786585847.7135077,
+    "ast_hash": "54ab4bfff95434266e6871071dfd2fe5",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/destiny-fusion-pro/scripts/ziwei_engine_js.mjs": {
+    "mtime": 1786585847.7135077,
+    "ast_hash": "1295c02f7d751363055491c953ea2182",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/scripts/calculate.js": {
+    "mtime": 1786585847.7165017,
+    "ast_hash": "9b936cef38c1fbc50f66f825b0f9370a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/scripts/format.js": {
+    "mtime": 1786585847.7165017,
+    "ast_hash": "4452e43220b136544535902e3746c6bf",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/scripts/interpret.js": {
+    "mtime": 1786585847.7165017,
+    "ast_hash": "8ceff9b5997c0aacb00cc3b24cf86417",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/scripts/timezone.js": {
+    "mtime": 1786585847.7175004,
+    "ast_hash": "9aa929e0296cf9913b893eb23303ff33",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-doushu/scripts/ziwei_chart.py": {
+    "mtime": 1786585847.7185,
+    "ast_hash": "7c2c70697d2289c6e0aaaadcc05851bd",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-doushu/scripts/ziwei_engine_js.mjs": {
+    "mtime": 1786585847.7195077,
+    "ast_hash": "1e006c39b97371cc0122774f9f680af5",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/examples/sample-compat-payload.json": {
+    "mtime": 1786585847.7224996,
+    "ast_hash": "0437eaab6c9c29091cc13e1a8a4808bd",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/package.json": {
+    "mtime": 1786585847.7224996,
+    "ast_hash": "af8e9eeb5e09c2ac962cadacd93397d4",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/src/branchRelation.js": {
+    "mtime": 1786585847.7234995,
+    "ast_hash": "55309be497539b7f3c48aae7f1d9bc39",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/src/chartUtils.js": {
+    "mtime": 1786585847.7234995,
+    "ast_hash": "906d7746da8efb459a63d7c0bccc0b61",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/src/engine/computeCompat.js": {
+    "mtime": 1786585847.7245085,
+    "ast_hash": "34252cac4375a98e51e31da742683158",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/src/index.js": {
+    "mtime": 1786585847.7245085,
+    "ast_hash": "f88231fd01b8fc342e0d5ab343561986",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/src/rules/compat/v1.json": {
+    "mtime": 1786585847.7265048,
+    "ast_hash": "a247b0831939e715017cc8fa48776b7f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/src/tables/star_groupings.json": {
+    "mtime": 1786585847.7265048,
+    "ast_hash": "a415ca709e3fd40ae7a453014f33a3f3",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/src/tables/star_pair_scores.json": {
+    "mtime": 1786585847.7265048,
+    "ast_hash": "f7627484c1f1f89be1890ef48830ee45",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/test/fixtures/chart-b-1988.json": {
+    "mtime": 1786585847.7275002,
+    "ast_hash": "5ef3a945123d71f237acc9af782a63b0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/hepan-cli/test/golden.test.js": {
+    "mtime": 1786585847.7275002,
+    "ast_hash": "252716d9a42f04a7ab37c7892abe884e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/fixtures/sample-ningbo-1993-05-03-male.json": {
+    "mtime": 1786585847.7305076,
+    "ast_hash": "fe3106137fa6e9d21c0944c35fc4a661",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/_areas.json": {
+    "mtime": 1786585847.7325075,
+    "ast_hash": "ba5d7d638585aceefa652ad2abc21f70",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/_cities2.json": {
+    "mtime": 1786585847.7325075,
+    "ast_hash": "39fda75d2eda6a72331b0e42fd314fd0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/_city_raw.json": {
+    "mtime": 1786585847.7335012,
+    "ast_hash": "88383bc5ac46225d83c89e8976534be1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/_level_raw.json": {
+    "mtime": 1786585847.735507,
+    "ast_hash": "50c3f01aef60f4194673d99629fd0ce6",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/_nb.json": {
+    "mtime": 1786585847.736507,
+    "ast_hash": "a150212f95f196f580b716c3c810e7fb",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/data/longitudes.json": {
+    "mtime": 1786585847.736507,
+    "ast_hash": "ba75cf5bf57ad9d36bd0c7750145ae2b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/examples/sample-payload.json": {
+    "mtime": 1786585847.7375135,
+    "ast_hash": "7aa15061b2bcf1618b96b3a257509b76",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/package.json": {
+    "mtime": 1786585847.7390726,
+    "ast_hash": "b096d0f36cc4169ba7629e919ff2684c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/scripts/build-longitudes.mjs": {
+    "mtime": 1786585847.739617,
+    "ast_hash": "30598b66eeab74349a6e285c1190c81c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/scripts/save-fixture.mjs": {
+    "mtime": 1786585847.739617,
+    "ast_hash": "03b2648e367390c1afe37a9c64e18f2a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/src/index.js": {
+    "mtime": 1786585847.74016,
+    "ast_hash": "6ca766f5ef8c3498d90ea6012b3fa1d8",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/src/iztroClient.js": {
+    "mtime": 1786585847.7407115,
+    "ast_hash": "166d109ac52c9b8f4948575072c7ca9d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/src/longitudeLookup.js": {
+    "mtime": 1786585847.7412493,
+    "ast_hash": "3c55e026a16f966407499b120dad14db",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/src/solarTime.js": {
+    "mtime": 1786585847.7417686,
+    "ast_hash": "80ba737400937576d9f21852da973f0b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/src/timeIndex.js": {
+    "mtime": 1786585847.742294,
+    "ast_hash": "9f911aea53be70ee03afdbd80e07762c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/test/golden.test.js": {
+    "mtime": 1786585847.7428129,
+    "ast_hash": "034043b03a7d967a6e7596e30bf1840c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/skill-package.json": {
+    "mtime": 1786585847.7428129,
+    "ast_hash": "10d7803daec01029df40727092c19aa9",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/assets/obsidian/graph_color_groups.json": {
+    "mtime": 1786585847.7467954,
+    "ast_hash": "d685e005fa2596bcfe05a0b0d806d898",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/pkg/scheduler/heartbeat.go": {
+    "mtime": 1786585847.7628372,
+    "ast_hash": "0df83eb0646d78ec39265e5722a613b2",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/pkg/scheduler/reorder.go": {
+    "mtime": 1786585847.7638392,
+    "ast_hash": "96fe74ee25a414a0838184cc9c771010",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/pkg/scheduler/scorer.go": {
+    "mtime": 1786585847.7638392,
+    "ast_hash": "4ff0578556f5795edbadfff0ac356998",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/pkg/scheduler/types.go": {
+    "mtime": 1786585847.7638392,
+    "ast_hash": "5a0acd52087230a4aef73d3bd0dfb74f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/skill-package.json": {
+    "mtime": 1786585847.7738438,
+    "ast_hash": "f627be6d407d07d4cf174982ffa2af79",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_cnipa_epub_chain.py": {
+    "mtime": 1786585847.7748368,
+    "ast_hash": "6cbaaf2429829382f933ad1a91940900",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_cnipa_epub_crawler.py": {
+    "mtime": 1786585847.7748368,
+    "ast_hash": "4860d9dcaa160786e3dfb3dad4d82ec0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_desc_paragraphs.py": {
+    "mtime": 1786585847.775853,
+    "ast_hash": "d0bac9b3e703b98f60bda571dd91cef8",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_extract_patent_text.py": {
+    "mtime": 1786585847.775853,
+    "ast_hash": "1ac564ba8433777239aa87483671531c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_fetch_patent_pdf.py": {
+    "mtime": 1786585847.7768438,
+    "ast_hash": "71a20708db2e334978917339d1a621cf",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_math_render.py": {
+    "mtime": 1786585847.7768438,
+    "ast_hash": "689f72a084837059a1b158148ba8f1e3",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_md_to_docx_table.py": {
+    "mtime": 1786585847.777844,
+    "ast_hash": "d3eeb69d3b15643f1f7249b70c0f790c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_note_cites.py": {
+    "mtime": 1786585847.777844,
+    "ast_hash": "a96771786d20364f97f4a52d643e95cd",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_patent_reader_debt_fixes.py": {
+    "mtime": 1786585847.777844,
+    "ast_hash": "cac692028212fef8bd3614caf5bcf23a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_patent_reader_links.py": {
+    "mtime": 1786585847.7788396,
+    "ast_hash": "7d5eee739e6d478762e7e8773c45b9a9",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_patent_reader_p0_p2.py": {
+    "mtime": 1786585847.7788396,
+    "ast_hash": "185d9b78288cd4d35a38ac80b0b1e35e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/test_patent_reader_pipeline.py": {
+    "mtime": 1786585847.779836,
+    "ast_hash": "7a209cf75c5eeacf1fe15e0852532cb8",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/cnipa_epub_crawler.py": {
+    "mtime": 1786585847.780836,
+    "ast_hash": "cd2ccd1c38cd9ef1a6800cd896b6c585",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/cnipa_epub_parse.py": {
+    "mtime": 1786585847.780836,
+    "ast_hash": "1f13376da4c38253a0212900f066e0e7",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/cnipa_epub_search.py": {
+    "mtime": 1786585847.7818387,
+    "ast_hash": "9e969df335b3b469bda7b112b2207932",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/docx_to_md.py": {
+    "mtime": 1786585847.7818387,
+    "ast_hash": "f773485624ab424c9a98a1e5fde7b978",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/iteration_dialog_log.py": {
+    "mtime": 1786585847.7828364,
+    "ast_hash": "b1bc80f63b647fba622e4bb32ebbc1ee",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/math_render.py": {
+    "mtime": 1786585847.7828364,
+    "ast_hash": "a4a989f1e7dea6151cb0cf7f73bd4069",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/md_to_docx.py": {
+    "mtime": 1786585847.7838385,
+    "ast_hash": "9b9954d08e86a1bc3ebfde21b7370636",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/mermaid_render.py": {
+    "mtime": 1786585847.7838385,
+    "ast_hash": "6a46a6c30e2fe7357e06a07dd3ff8301",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/package.json": {
+    "mtime": 1786585847.7848547,
+    "ast_hash": "4a9a89ac4fb8173c046ed738c81b4652",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/__init__.py": {
+    "mtime": 1786585847.785844,
+    "ast_hash": "742c3391682f397210d0d586dfc2c12b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/build_claim_mermaid.py": {
+    "mtime": 1786585847.785844,
+    "ast_hash": "e9dcbf8a654a3c352327a1d66e5cc7cc",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/build_context_anchor.py": {
+    "mtime": 1786585847.7868435,
+    "ast_hash": "2469ee5a652aed076231a321d8857006",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/build_patent_canvas.py": {
+    "mtime": 1786585847.7878385,
+    "ast_hash": "e7daaf90281dc32dcdeffcc1c906b8e1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/check_obsidian_env.py": {
+    "mtime": 1786585847.7878385,
+    "ast_hash": "1a1dfac99657619fcfa0b7e925ecf4c3",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/clue_vault.py": {
+    "mtime": 1786585847.7888439,
+    "ast_hash": "f8a996779b0bae3cc05a02f5e02fecda",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/common.py": {
+    "mtime": 1786585847.7888439,
+    "ast_hash": "424e0e596c73a3f488ede674f0365166",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/desc_paragraphs.py": {
+    "mtime": 1786585847.7898436,
+    "ast_hash": "342e4e28dc360809e988543f8d7975dd",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/extract_patent_figures.py": {
+    "mtime": 1786585847.7898436,
+    "ast_hash": "e868ef85ad42574ec6f7821e31e1d656",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/extract_patent_text.py": {
+    "mtime": 1786585847.7898436,
+    "ast_hash": "3acc54024d6d96ee43b97bf361ddea00",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/fetch_patent_pdf.py": {
+    "mtime": 1786585847.790843,
+    "ast_hash": "9013300211d93aa2050a7bbf0a57dd33",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/figure_extract.py": {
+    "mtime": 1786585847.790843,
+    "ast_hash": "a81f90774e151cbb9053fb348c20a93c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/link_patent_notes.py": {
+    "mtime": 1786585847.7918372,
+    "ast_hash": "38aaa07ae6178f7ca15042ad99277b0c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/lint_patent_note.py": {
+    "mtime": 1786585847.7918372,
+    "ast_hash": "ea16ba6aa135dc4eb5e1f781da750cdf",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/materialize_public_clues.py": {
+    "mtime": 1786585847.7918372,
+    "ast_hash": "88de330fce243be5cda014fd41bfc469",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/note_cites.py": {
+    "mtime": 1786585847.7928438,
+    "ast_hash": "67736aa23a0dbfa1e6d057d8e7b29d10",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/obsidian.py": {
+    "mtime": 1786585847.7928438,
+    "ast_hash": "4b007896ace4ecddfe38fc9a2f9c637e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/patent_link.py": {
+    "mtime": 1786585847.7939408,
+    "ast_hash": "0229d839e239bf2c0717df86a55463e4",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/setup_obsidian_vault.py": {
+    "mtime": 1786585847.7949455,
+    "ast_hash": "6002ea6358cda7ac5406a62a8cfd4c22",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/validate_claim_tree.py": {
+    "mtime": 1786585847.7949455,
+    "ast_hash": "600bbd987acb190c104382d71f664284",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/validate_public_clues.py": {
+    "mtime": 1786585847.795946,
+    "ast_hash": "58499e3bec1674f827985ba75f342ba3",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/write_patent_obsidian_note.py": {
+    "mtime": 1786585847.795946,
+    "ast_hash": "8c27df84d8f6ac430a328d239962e746",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/pptx_to_md.py": {
+    "mtime": 1786585847.795946,
+    "ast_hash": "fac17cec03420e45e7d8600a0cb7a330",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/skill-package.json": {
+    "mtime": 1786585847.8009622,
+    "ast_hash": "5a1acd124dba2512fb5a226abcd2eb2c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/web/agent-reach/skill-package.json": {
+    "mtime": 1786585847.8019555,
+    "ast_hash": "7f40e365b207e80bb603e82bea27d52e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/web/graphify/skill-package.json": {
+    "mtime": 1786585847.802945,
+    "ast_hash": "54ec3a732ec5bf5cbc057f1aebde3d04",
+    "semantic_hash": ""
+  },
+  "scripts/verify-builtin-e2e.mjs": {
+    "mtime": 1786585847.806952,
+    "ast_hash": "e3c8ae83c0f1a38f38416f0299c3ee9c",
+    "semantic_hash": ""
+  },
+  "scripts/verify-theme-e2e.mjs": {
+    "mtime": 1786615513.940429,
+    "ast_hash": "e781056008aa707ea8b90118a73bc0da",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/ThemeBackdrop.tsx": {
+    "mtime": 1786613682.3798034,
+    "ast_hash": "cfb1d88721ff0a3b0230314497391a0a",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/ThemeSelector.tsx": {
+    "mtime": 1786614694.1139584,
+    "ast_hash": "cae2b7bef0a51e365316e5443a364908",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/ThemeStudio.tsx": {
+    "mtime": 1786615148.109602,
+    "ast_hash": "7185b166343841a6550a1dca14c6e8ba",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/colorExtraction.ts": {
+    "mtime": 1786613109.647619,
+    "ast_hash": "c3506f4094ad88cc79d72ba6e849215d",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/contrast.ts": {
+    "mtime": 1786613146.8315997,
+    "ast_hash": "d3cb3e02f048e9ab1de61fc26ec5e641",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/themeApi.ts": {
+    "mtime": 1786612917.6706192,
+    "ast_hash": "f4e0f22c1447bba508969538ab8f509b",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/themeColors.test.ts": {
+    "mtime": 1786613246.2523258,
+    "ast_hash": "125e83a51e4e1ff50b1eccbc9489ecf4",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/themeRuntime.test.ts": {
+    "mtime": 1786613291.2551904,
+    "ast_hash": "3f0b5de97b629d43fab9a09b2c2845c2",
+    "semantic_hash": ""
+  },
+  "web/client/src/features/theme/themeRuntime.ts": {
+    "mtime": 1786613233.0266993,
+    "ast_hash": "72659954c24c05143d0c4e8149a2c2ea",
+    "semantic_hash": ""
+  },
+  "web/server/src/content/catalog.ts": {
+    "mtime": 1786585847.8162746,
+    "ast_hash": "8ef3cdd9d03ac42627de8c768351d7c4",
+    "semantic_hash": ""
+  },
+  "web/server/src/content/copy-on-write.ts": {
+    "mtime": 1786585847.8162746,
+    "ast_hash": "7b67811b5e50ce6955fc4f909f7862bb",
+    "semantic_hash": ""
+  },
+  "web/server/src/content/paths.ts": {
+    "mtime": 1786585847.8162746,
+    "ast_hash": "38dc3c7f4d09bd352dba9e0d1dd0306b",
+    "semantic_hash": ""
+  },
+  "web/server/src/content/state.ts": {
+    "mtime": 1786585847.8172953,
+    "ast_hash": "7ec0000dc097e8d2c05a2abd4657683d",
+    "semantic_hash": ""
+  },
+  "web/server/src/data-paths.ts": {
+    "mtime": 1786585847.8172953,
+    "ast_hash": "c5ebdc7ed16af216011192230f43f551",
+    "semantic_hash": ""
+  },
+  "web/server/src/routes/themes.ts": {
+    "mtime": 1786613909.3414483,
+    "ast_hash": "ad8a396a265049437fedb286bf39b995",
+    "semantic_hash": ""
+  },
+  "web/server/src/theme/image-validation.ts": {
+    "mtime": 1786613838.7956667,
+    "ast_hash": "6300e805c660e9e1b73f9a1f62fa33e3",
+    "semantic_hash": ""
+  },
+  "web/server/src/theme/schema.ts": {
+    "mtime": 1786614102.516114,
+    "ast_hash": "b10908771b639a30cbcbafb5650c185e",
+    "semantic_hash": ""
+  },
+  "web/server/src/theme/store.ts": {
+    "mtime": 1786614268.0196855,
+    "ast_hash": "1627599e650f7d639a5a9dcb86b29788",
+    "semantic_hash": ""
+  },
+  "web/server/test/builtin-catalog.test.ts": {
+    "mtime": 1786585847.823278,
+    "ast_hash": "73f5cba2d2f90478fe34b1fe80c3ad7f",
+    "semantic_hash": ""
+  },
+  "web/server/test/copy-on-write.test.ts": {
+    "mtime": 1786585847.823278,
+    "ast_hash": "01041ea4dc93f59a40f50b69a55ad1d0",
+    "semantic_hash": ""
+  },
+  "web/server/test/data-paths.test.ts": {
+    "mtime": 1786585847.8242779,
+    "ast_hash": "daa503ee067ecf7773206acf1c901ba5",
+    "semantic_hash": ""
+  },
+  "web/server/test/setup-data-dir.ts": {
+    "mtime": 1786611100.852692,
+    "ast_hash": "1ff143ea1b0e80ef2bad9b5f5e4f1cb7",
+    "semantic_hash": ""
+  },
+  "web/server/test/theme-api.test.ts": {
+    "mtime": 1786614585.7577012,
+    "ast_hash": "d041a3b5788865d15f3d7147ddb3fbc9",
+    "semantic_hash": ""
+  },
+  "web/server/test/theme-image-validation.test.ts": {
+    "mtime": 1786614033.9964962,
+    "ast_hash": "a8ef80071ac9fe4b2df76b6468c43a47",
+    "semantic_hash": ""
+  },
+  "web/server/test/theme-schema.test.ts": {
+    "mtime": 1786614057.6183789,
+    "ast_hash": "c3a80092f7551e3efafc10913d2b4c3c",
+    "semantic_hash": ""
+  },
+  "web/server/test/theme-store.test.ts": {
+    "mtime": 1786614373.7676623,
+    "ast_hash": "4d6e1d700c08faa91ba9c1ba6c828884",
+    "semantic_hash": ""
+  },
+  "PLAN/BUILTIN_CONTENT_HANDOVER.md": {
+    "mtime": 1786585846.7581658,
+    "ast_hash": "596728162d45aa1b14108602f029dd2e",
+    "semantic_hash": ""
+  },
+  "PLAN/EXECUTION_EXPERIENCE_AND_MODE_GOVERNANCE_PLAN.md": {
+    "mtime": 1786535261.3619337,
+    "ast_hash": "c80d8717c4df6e4fd71a20cfb53564bd",
+    "semantic_hash": ""
+  },
+  "content/builtin/LICENSES.md": {
+    "mtime": 1786585846.7581658,
+    "ast_hash": "2aaac7f848dbec439771fac461793330",
+    "semantic_hash": ""
+  },
+  "content/builtin/README.md": {
+    "mtime": 1786585846.7591672,
+    "ast_hash": "a1ee78e3b5cad1c8c85eeaa34cea691c",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/coder/soul.md": {
+    "mtime": 1786585846.7602465,
+    "ast_hash": "a29bef5d1b1447e8b5986f029ecf23d1",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/coder/user.md": {
+    "mtime": 1786585846.7602465,
+    "ast_hash": "a125e80d5fbaede1d1401664cbfff932",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/memory.md": {
+    "mtime": 1786585846.7607644,
+    "ast_hash": "be5d69e855b45f22025ba3c8e55719bd",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/soul.md": {
+    "mtime": 1786585846.7624438,
+    "ast_hash": "8f77fe5a4659ac5f18e5f9f5dffd9241",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/user.md": {
+    "mtime": 1786585846.7624438,
+    "ast_hash": "f2c7fcdda9b955e5fce103fa94c90f39",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/memory.md": {
+    "mtime": 1786585846.9822645,
+    "ast_hash": "b7cd332d4d40a765dcea70477ce7e65b",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/soul.md": {
+    "mtime": 1786585846.9832644,
+    "ast_hash": "96e4224198ad1712a4c7909cf4ba6cff",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/user.md": {
+    "mtime": 1786585846.9842637,
+    "ast_hash": "7ed3f1248bec130e17f61ff3ad70f613",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ui-designer/memory.md": {
+    "mtime": 1786585847.2039585,
+    "ast_hash": "34d4dcf967dff86d0a15ee35764ed953",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ui-designer/soul.md": {
+    "mtime": 1786585847.2039585,
+    "ast_hash": "9ffcb629f91f3bfb4c61455e3cfde8e4",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ui-designer/user.md": {
+    "mtime": 1786585847.2039585,
+    "ast_hash": "f88395addef0b44bf05354f847f8dcc5",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/memory.md": {
+    "mtime": 1786585847.2209716,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/soul.md": {
+    "mtime": 1786585847.2209716,
+    "ast_hash": "510b9326949f0c9a493f2fb48cde3af8",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/user.md": {
+    "mtime": 1786585847.2219794,
+    "ast_hash": "bcde7621d58941ce816f129e1f8a44c4",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/memory.md": {
+    "mtime": 1786585847.352423,
+    "ast_hash": "6befbfeb336742af4d7b5fa62479b081",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/soul.md": {
+    "mtime": 1786585847.352423,
+    "ast_hash": "c6ea9911d0435675c4b37654d0cf7154",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/user.md": {
+    "mtime": 1786585847.352423,
+    "ast_hash": "dcc64711c35a4160876d0382a898484d",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/memory.md": {
+    "mtime": 1786585847.3861926,
+    "ast_hash": "00d937a35790b211a42b15abd93371fc",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/soul.md": {
+    "mtime": 1786585847.38678,
+    "ast_hash": "bb6248c2836329b5e4a3d47a9f2869e7",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/user.md": {
+    "mtime": 1786585847.38678,
+    "ast_hash": "b604a735af19b08676df6287f4ac9046",
+    "semantic_hash": ""
+  },
+  "content/builtin/prompts/default.md": {
+    "mtime": 1786585847.6275716,
+    "ast_hash": "3c1650ed0ee511a9fb7d6f110386a716",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/LICENSES.md": {
+    "mtime": 1786585847.6285636,
+    "ast_hash": "1f1da139b9c6c313b9d9e483eba0a2d7",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/README.md": {
+    "mtime": 1786585847.6290665,
+    "ast_hash": "b2e6aadff352a530327a7faa1063e58a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/SKILL.md": {
+    "mtime": 1786585847.6397042,
+    "ast_hash": "682d4277874eba8e6700e17b79794c87",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/afrexai-ui-design-system/README.md": {
+    "mtime": 1786585847.640845,
+    "ast_hash": "5553e17e1966becacbb144a4dacee030",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/afrexai-ui-design-system/SKILL.md": {
+    "mtime": 1786585847.6414843,
+    "ast_hash": "afa9024e096a5025cc880e6c86681d3f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/design-to-code/README.md": {
+    "mtime": 1786585847.6414843,
+    "ast_hash": "07c85da116a4084d429c60964e018f78",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/design-to-code/SKILL.md": {
+    "mtime": 1786585847.6420782,
+    "ast_hash": "457eea21c6b883f3d53363ead237f014",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/frontend-design-pro/SKILL.md": {
+    "mtime": 1786585847.643237,
+    "ast_hash": "26deba32e0a6d2c1f2b42d93c4b2f54c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/prd-to-prototype/SKILL.md": {
+    "mtime": 1786585847.6438112,
+    "ast_hash": "4abb3cac0a1ae5652858424cba97d616",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/ui-design/README.md": {
+    "mtime": 1786585847.6438112,
+    "ast_hash": "6a90a9dd8916e91e31aec63afb5ca836",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/ui-design/SKILL.md": {
+    "mtime": 1786585847.6445491,
+    "ast_hash": "394f202ddb84fc2afebd33dae64f6a59",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/design/design-ui-prototype/children/wireframe/SKILL.md": {
+    "mtime": 1786585847.6445491,
+    "ast_hash": "ab448c164fc0cd117a055564015ab018",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/SKILL.md": {
+    "mtime": 1786585847.6462793,
+    "ast_hash": "51c5e6df9b8b620ecea611e8e50d2699",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/data/SHAPE-INDEX-NOTICE.md": {
+    "mtime": 1786585847.6468067,
+    "ast_hash": "afe57e0a95dcc916c1a6abf1546652e3",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/autolayout.md": {
+    "mtime": 1786585847.6505,
+    "ast_hash": "56749e5b73cd42bfa02932cce79881c5",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/derasterize.md": {
+    "mtime": 1786585847.651507,
+    "ast_hash": "729509a96419d3dbe3189feed3fc8b39",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/diagram-types.md": {
+    "mtime": 1786585847.651507,
+    "ast_hash": "b766f741e87edff8390d8423b3a00651",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/live-infra.md": {
+    "mtime": 1786585847.651507,
+    "ast_hash": "bd32bf6a69d555a075e32cd3a46e162c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/mermaid-authoring.md": {
+    "mtime": 1786585847.6525078,
+    "ast_hash": "4c55f866ceeaeaf5c489dd89a95dc949",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/pr-bot.md": {
+    "mtime": 1786585847.6525078,
+    "ast_hash": "a40b63322f1a9ce9e9c2ac59cadf6c44",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/shapes.md": {
+    "mtime": 1786585847.6525078,
+    "ast_hash": "c73b3c5b15acff40ea502f46875d2c1d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/style-extraction.md": {
+    "mtime": 1786585847.6535072,
+    "ast_hash": "5e8f5be7c90a9c11f8b5df568a7d1471",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/style-presets.md": {
+    "mtime": 1786585847.6535072,
+    "ast_hash": "541828c75ee0e7108a53439c9649a334",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/toolbox.md": {
+    "mtime": 1786585847.6535072,
+    "ast_hash": "d57455e5805cc3bfc455b89f669a7ca5",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/troubleshooting.md": {
+    "mtime": 1786585847.6545007,
+    "ast_hash": "06287122d13e397257de1a356d4c0eb1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/tubemap.md": {
+    "mtime": 1786585847.6545007,
+    "ast_hash": "15878351ac5ef63bb02bea00741193ed",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/diagram/drawio-skill/references/xml-authoring.md": {
+    "mtime": 1786585847.6545007,
+    "ast_hash": "13c4d43d0e865e332b3bedf428fe4119",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/finance/uzi/SKILL.md": {
+    "mtime": 1786585847.6755009,
+    "ast_hash": "2f208f3c6b8a9e4846c0ad1fdad293ac",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/finance/uzi/children/deep-analysis/SKILL.md": {
+    "mtime": 1786585847.6765072,
+    "ast_hash": "493e41832b90ee3bf44c6799e779333b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/finance/uzi/children/investor-panel/SKILL.md": {
+    "mtime": 1786585847.6765072,
+    "ast_hash": "0cec78e07d6b7e5c3c4b5ac836ae9892",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/finance/uzi/children/lhb-analyzer/SKILL.md": {
+    "mtime": 1786585847.6775072,
+    "ast_hash": "597f0c51c054d76b58fc1040772bcfb0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/finance/uzi/children/trap-detector/SKILL.md": {
+    "mtime": 1786585847.6775072,
+    "ast_hash": "fa9ba66e09e7a31eea5fbf29888a3258",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/SKILL.md": {
+    "mtime": 1786585847.6785,
+    "ast_hash": "e24419f09fe324052ce1743bab0e1b3f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/children/analyze/SKILL.md": {
+    "mtime": 1786585847.6795003,
+    "ast_hash": "1a6a7601c3ecc350cd8b1148d0bc23b6",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/children/designer/SKILL.md": {
+    "mtime": 1786585847.6795003,
+    "ast_hash": "a2735ea9fa6d87b164c170efcc0d02a6",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/children/device/SKILL.md": {
+    "mtime": 1786585847.6804996,
+    "ast_hash": "42a14d842e04f6cc0d82b4191648f62f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/children/flow/SKILL.md": {
+    "mtime": 1786585847.6804996,
+    "ast_hash": "6509bc8d2dcac49ccdb71f71f10d7b9c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/children/frontend/SKILL.md": {
+    "mtime": 1786585847.6814997,
+    "ast_hash": "f322c036b6168f836b268bdcc7e47b9a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/children/overview/SKILL.md": {
+    "mtime": 1786585847.6814997,
+    "ast_hash": "44b5518a9300ae14193c375a67ac805c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/low-code-platform/lowcode/children/variable/SKILL.md": {
+    "mtime": 1786585847.6825001,
+    "ast_hash": "f8f429dbadf5be1cc8f1dfbe1f360d17",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/SKILL.md": {
+    "mtime": 1786585847.683501,
+    "ast_hash": "8134c90e1521ba46913607c1bc087495",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/mysticx-tarot-drawer/SKILL.md": {
+    "mtime": 1786585847.6845,
+    "ast_hash": "42a6f2b3d1a280ef633796b65fd0f632",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-content/SKILL.md": {
+    "mtime": 1786585847.6845,
+    "ast_hash": "38fb4604a6a81cd4144c18aefdad84b7",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-content/references/tarot-cards.md": {
+    "mtime": 1786585847.6854997,
+    "ast_hash": "9e82e17d4f4c315eec802727f3742b11",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading-new/SKILL.md": {
+    "mtime": 1786585847.6864996,
+    "ast_hash": "f904250d57fb1dabad5e6070dfd250fd",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading-new/SKILL_en.md": {
+    "mtime": 1786585847.6864996,
+    "ast_hash": "f2d433af2b052dee5319c8d17d5e29d5",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading/SKILL.md": {
+    "mtime": 1786585847.691501,
+    "ast_hash": "a0324e2df336eb19eb0239dff9807ad9",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading/references/interpretation-rules.md": {
+    "mtime": 1786585847.691501,
+    "ast_hash": "2dc358a6f65094274f287e1a34798cfe",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading/references/major-arcana.md": {
+    "mtime": 1786585847.6925006,
+    "ast_hash": "b153dbc47619f34fa824726873ea8379",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading/references/minor-arcana.md": {
+    "mtime": 1786585847.6934998,
+    "ast_hash": "ead2b8193aa042c396ebe1118caa78a0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-reading/references/spreads.md": {
+    "mtime": 1786585847.6934998,
+    "ast_hash": "43d33145658155313f7d365b3f990d0d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot-spreads/SKILL.md": {
+    "mtime": 1786585847.6945107,
+    "ast_hash": "b97d430d197782f4c7d56e519038abb8",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-tarot-divination/children/tarot/SKILL.md": {
+    "mtime": 1786585847.6945107,
+    "ast_hash": "351cb55376d67cb579f6081f8286ad4f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/SKILL.md": {
+    "mtime": 1786585847.6955004,
+    "ast_hash": "54745d88f7322002da84e7a0778cd684",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/README.md": {
+    "mtime": 1786585847.6965003,
+    "ast_hash": "22696476b086c0ae3a7a32ecf4f19882",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/SKILL.md": {
+    "mtime": 1786585847.6965003,
+    "ast_hash": "4f643edbcdd3255c38036be913c2d3f2",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/SOUL.md": {
+    "mtime": 1786585847.6965003,
+    "ast_hash": "4f7931e3e96e63633bb2eb732319784f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/cyber-iching-master/requirements.txt": {
+    "mtime": 1786585847.6974995,
+    "ast_hash": "f7221a6159354c516b8f4b518a8c3a05",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/gua/SKILL.md": {
+    "mtime": 1786585847.701507,
+    "ast_hash": "1fd6a864679fe374cd517ca6ac43c624",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/gua/references/output-format.md": {
+    "mtime": 1786585847.7025,
+    "ast_hash": "96d2376af08958b9cacec63d49353a4b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/gua/references/pre-divination-guidance.md": {
+    "mtime": 1786585847.7025,
+    "ast_hash": "6e0dc21475e113db13a88765dc040a44",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/gua/references/zhouyi-64-gua.md": {
+    "mtime": 1786585847.7034998,
+    "ast_hash": "09a59ed64791ccc095647dfc054f8324",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/liuyao-yijing/SKILL.md": {
+    "mtime": 1786585847.7055,
+    "ast_hash": "123166067b331f94fafb568779090c90",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/liuyao-yijing/references/calculation-rules.md": {
+    "mtime": 1786585847.7055,
+    "ast_hash": "acca3f7903e18ecec06ce6e78091be16",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/liuyao-yijing/references/interpretation-guide.md": {
+    "mtime": 1786585847.7064993,
+    "ast_hash": "869f7a8e0a2d624e924b25f4ec59b783",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/meihua-yishu-divination/SKILL.md": {
+    "mtime": 1786585847.7064993,
+    "ast_hash": "39879500a28bfabf2de42a55568be884",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/meihua-yishu-divination/references/calculation-rules.md": {
+    "mtime": 1786585847.7074997,
+    "ast_hash": "da27875a654da46f830a78d2b046939a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/meihua-yishu-divination/references/interpretation-guide.md": {
+    "mtime": 1786585847.7074997,
+    "ast_hash": "1ea31750504f39d1f181858cf210d3c2",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/xiaoliuren/README.md": {
+    "mtime": 1786585847.7074997,
+    "ast_hash": "2e51d59a470516034d1d37885692258f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/xiaoliuren/SKILL.md": {
+    "mtime": 1786585847.7085006,
+    "ast_hash": "fc7020bcca042b5c5570a2b75d41b049",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/xiaoliuren/examples.md": {
+    "mtime": 1786585847.7085006,
+    "ast_hash": "ca714df0a5874d846136499db7ddbd43",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-yijing-divination/children/yi/SKILL.md": {
+    "mtime": 1786585847.7095003,
+    "ast_hash": "7c3b55a5f97740f1297226b68c646fe0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/SKILL.md": {
+    "mtime": 1786585847.7114997,
+    "ast_hash": "cbb9b36068d921376d2bc7b33e11c2cb",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/destiny-fusion-pro/SKILL.md": {
+    "mtime": 1786585847.7114997,
+    "ast_hash": "3a9c7d3dca0f99bf5694da68f1d49ea2",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/destiny-fusion-pro/references/positioning.md": {
+    "mtime": 1786585847.7125,
+    "ast_hash": "454b56d3079ec0ce115ba7a1e1e3a486",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/destiny-fusion-pro/references/ziwei-methodology.md": {
+    "mtime": 1786585847.7125,
+    "ast_hash": "cbba2194b1276c570991b1253325a488",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/SKILL.md": {
+    "mtime": 1786585847.714507,
+    "ast_hash": "4901be338fd6ec097c7c33a05aa9eecf",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/references/beipai-sihua.md": {
+    "mtime": 1786585847.714507,
+    "ast_hash": "80720aa46575b9bb1a7b0fcaa42d1123",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/references/palaces.md": {
+    "mtime": 1786585847.714507,
+    "ast_hash": "8122a108906625ef587d0aae131ef624",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/references/stars.md": {
+    "mtime": 1786585847.715511,
+    "ast_hash": "cdaa20db0901b340f372387de1484c43",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-dou-shu/references/yunxian.md": {
+    "mtime": 1786585847.715511,
+    "ast_hash": "08df7b0680a389e6259297c22ebd9ecd",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-doushu/SKILL.md": {
+    "mtime": 1786585847.7175004,
+    "ast_hash": "8dd1325398f7009f1c1f5dabf711a5e7",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-doushu/references/interpretation-framework.md": {
+    "mtime": 1786585847.7185,
+    "ast_hash": "c6db558977cc572621e62dd813c2e3d7",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-doushu/references/mapping.md": {
+    "mtime": 1786585847.7185,
+    "ast_hash": "df858e75c1ca95bdc3e404cc487afe4e",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-fortune/SKILL.md": {
+    "mtime": 1786585847.7205,
+    "ast_hash": "9c0cb170d58d1e9e5ecf7102a729a21c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-fortune/references/calculation-rules.md": {
+    "mtime": 1786585847.7205,
+    "ast_hash": "138958a3e98c5d6b2e083990a3d2737c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/ziwei-fortune/references/interpretation-guide.md": {
+    "mtime": 1786585847.721501,
+    "ast_hash": "629f391d71255d43d885ebdf2fbad2b7",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/SKILL.md": {
+    "mtime": 1786585847.721501,
+    "ast_hash": "4dd68c7546cbca9c7e7e6e85e59cc3f6",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-hepan-openclaw/reference.md": {
+    "mtime": 1786585847.728507,
+    "ast_hash": "0e3d6699bf77b88c8a2560a0cdf46b94",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/SKILL.md": {
+    "mtime": 1786585847.7295015,
+    "ast_hash": "66a5c9da61ae01c6ecacfa84993441ef",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/examples.md": {
+    "mtime": 1786585847.7295015,
+    "ast_hash": "1899aeb2020ac1cffaff768581ee5104",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/fixtures/README.md": {
+    "mtime": 1786585847.7305076,
+    "ast_hash": "61a72971304847788ac0dfcb4a9e71ca",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/reference.md": {
+    "mtime": 1786585847.7305076,
+    "ast_hash": "b25eef7e4d38e6148aa36f1bdd71eb6d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/mysticism/mysticism-ziwei-doushu/children/zwds-openclaw/zwds-cli/README.md": {
+    "mtime": 1786585847.731507,
+    "ast_hash": "1dca710e1f48d5cf9f7f09b91863278b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/INSTALL.md": {
+    "mtime": 1786585847.7440856,
+    "ast_hash": "15dc685ce118d84c8f19639c4c1b8ced",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/README.md": {
+    "mtime": 1786585847.7446227,
+    "ast_hash": "d74fdcf8fbe01caeab270eaeb35c6c49",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/SKILL.md": {
+    "mtime": 1786585847.7451458,
+    "ast_hash": "36399ddc41a09b7eef8d6745add691d6",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/assets/obsidian/_\u4e13\u5229\u89e3\u8bfb\u7d22\u5f15.template.md": {
+    "mtime": 1786585847.7462285,
+    "ast_hash": "651f92f5b2ac5ae642bd8dfbc42722c1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/assets/patent_note_template.md": {
+    "mtime": 1786585847.747866,
+    "ast_hash": "1c287a20ede49b86dd50864d839273f0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/docs/obsidian-setup-guide.md": {
+    "mtime": 1786585847.7484062,
+    "ast_hash": "b2acd54b42ec05f8ec7dac3bdc0c18ab",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/README.md": {
+    "mtime": 1786585847.757836,
+    "ast_hash": "27d03d0386fc72ad2f4a4dbaa735b280",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/README.md": {
+    "mtime": 1786585847.757836,
+    "ast_hash": "e9a1270fea7da64082b6fe36faf5116d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/docs/README.md": {
+    "mtime": 1786585847.7588367,
+    "ast_hash": "bbd2de5cfb9ae86f9125f538c89dee2f",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/docs/architecture.md": {
+    "mtime": 1786585847.7588367,
+    "ast_hash": "63e4e279dab6f92af25d52276c105c95",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/meeting_notes_intake_example.md": {
+    "mtime": 1786585847.7628372,
+    "ast_hash": "98134bf829b0522e137a2b9052ebeeec",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_patent_reader/README.md": {
+    "mtime": 1786585847.7648392,
+    "ast_hash": "5f7652eac538ab443fb2942b847d9700",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/correction_handler.md": {
+    "mtime": 1786585847.7648392,
+    "ast_hash": "8b8eb0144fd2bae77889ae7c487a8ac0",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/disclosure_builder.md": {
+    "mtime": 1786585847.7648392,
+    "ast_hash": "79f1324c59cb39b800dddf1090c5ee2a",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/disclosure_preview.md": {
+    "mtime": 1786585847.7658384,
+    "ast_hash": "2728d55c92c8b9749aa5729090278772",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/disclosure_self_check.md": {
+    "mtime": 1786585847.7658384,
+    "ast_hash": "8739fa7b313058b6d24bcba0b8deda76",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/intake.md": {
+    "mtime": 1786585847.7668366,
+    "ast_hash": "10c95c7d21079a0c97f746489b1395fa",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/iteration_context.md": {
+    "mtime": 1786585847.7668366,
+    "ast_hash": "c92af9a8949ef7b9c54c9fe6d3c5f390",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/merger.md": {
+    "mtime": 1786585847.7668366,
+    "ast_hash": "827c6115b880c7a86f6d6a8d3d48c8c4",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/obsidian_ofm_companion.md": {
+    "mtime": 1786585847.7668366,
+    "ast_hash": "445887765ee14bd4d0bba5926c7eabb6",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/obsidian_plugin_guide.md": {
+    "mtime": 1786585847.7678494,
+    "ast_hash": "761d85adf1fbfceab52bbfde840cc9d9",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/patent_plain_reader.md": {
+    "mtime": 1786585847.7678494,
+    "ast_hash": "a03a6ebc6ec0ee7aa93dcba95badd72b",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/patent_points_analyzer.md": {
+    "mtime": 1786585847.7688472,
+    "ast_hash": "af1678eda883a9c09ac0eb8abac91df1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/patent_reader_self_check.md": {
+    "mtime": 1786585847.7688472,
+    "ast_hash": "4bfb3f39d8b131f0a3490c45e92e43d1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/prior_art_search.md": {
+    "mtime": 1786585847.7688472,
+    "ast_hash": "769029ea4f78235f63a84c1aaaef7e43",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/project_scan.md": {
+    "mtime": 1786585847.7688472,
+    "ast_hash": "ed403429adfcfcfdcf7bc2d8d4750f46",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/prompts/template_reference.md": {
+    "mtime": 1786585847.769837,
+    "ast_hash": "685b79691a0bb5f40f830faa0e4ddd28",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/references/ipc_application_hints.yaml": {
+    "mtime": 1786585847.7708366,
+    "ast_hash": "3c896b2e98f8d01cda9711e35b274bd5",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/references/patent_domain_rules.yaml": {
+    "mtime": 1786585847.7708366,
+    "ast_hash": "acdcc86a2d8926eece6c4b4f9781864c",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/references/patent_obsidian_format.md": {
+    "mtime": 1786585847.7728434,
+    "ast_hash": "c5795515016f990c860ea57614519388",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/references/patent_pdf_sources.yaml": {
+    "mtime": 1786585847.7728434,
+    "ast_hash": "b4d3c72aa8d1e87a0a76ab9e0f3dbdb7",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/requirements.txt": {
+    "mtime": 1786585847.7728434,
+    "ast_hash": "ada0d30c2cd114f443dcbc663d886213",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tests/fixtures/patent_reader_sample.txt": {
+    "mtime": 1786585847.7738438,
+    "ast_hash": "60ce749a20fb44b053478b23e78b99b4",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/README.md": {
+    "mtime": 1786585847.779836,
+    "ast_hash": "723e432a9bb93e1ac5560bd4011d0632",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/README.md": {
+    "mtime": 1786585847.785844,
+    "ast_hash": "69d83d7a1edd8764f2fdaa788f340914",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/patent_reader/requirements.txt": {
+    "mtime": 1786585847.7939408,
+    "ast_hash": "fd69a8e264a944d0d041cce47d0a8c31",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/tools/requirements-cnipa.txt": {
+    "mtime": 1786585847.7969463,
+    "ast_hash": "c1bb22466fa8132cf1a62de99242ff21",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/SKILL.md": {
+    "mtime": 1786585847.7969463,
+    "ast_hash": "050b64b40dbd7f40ad87bf8919032381",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/children/character/SKILL.md": {
+    "mtime": 1786585847.7979481,
+    "ast_hash": "e673b762ebf23030cea0dbfa866b5f33",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/children/doom-loop-escape/SKILL.md": {
+    "mtime": 1786585847.7979481,
+    "ast_hash": "c0ead3994c441652df45a1f7c9040bdf",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/children/mcp/SKILL.md": {
+    "mtime": 1786585847.798948,
+    "ast_hash": "59353308e3b85aeea320890412a64f95",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/children/provider/SKILL.md": {
+    "mtime": 1786585847.798948,
+    "ast_hash": "0df8dde7a6fad60f44d73964dacc2744",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/children/session/SKILL.md": {
+    "mtime": 1786585847.799948,
+    "ast_hash": "0cf3894847a636eedb52adc742d5ccba",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/children/skill-authoring/SKILL.md": {
+    "mtime": 1786585847.799948,
+    "ast_hash": "97fcab465fd2580df622a61f2a27e475",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/tianshu/tianshu-system/children/tool-constraint/SKILL.md": {
+    "mtime": 1786585847.8009622,
+    "ast_hash": "68e25e43af8cd2006a0808b16ba3f9b9",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/web/agent-reach/SKILL.md": {
+    "mtime": 1786585847.8019555,
+    "ast_hash": "2628fbc75fa428aad4096474da0166f1",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/web/graphify/SKILL.md": {
+    "mtime": 1786585847.8019555,
+    "ast_hash": "d6bc0502e0710ffb3276a21331eb48b5",
+    "semantic_hash": ""
+  },
+  "graphify-out/converted/sample_architecture_review_9fb8c6fd.md": {
+    "mtime": 1786615602.6205592,
+    "ast_hash": "53bdcb3092ec891a69dd6c0150fedb59",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets/casset_f4132652-e958-459e-9225-96aa2f95cfaf.png": {
+    "mtime": 1786585846.9812636,
+    "ast_hash": "912586dcbbc5fdd1866509c2ffffd34e",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_90cfa6bd-22ad-460e-91b8-0ac5a2628f3c.png": {
+    "mtime": 1786585847.0722718,
+    "ast_hash": "61768596817ee63ae3e249be17b4d7dd",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ui-designer/visual/assets/casset_dee6d4b9-1559-4abb-8751-d2be0437366b.png": {
+    "mtime": 1786585847.2189784,
+    "ast_hash": "afa19992b1aa42ce90ac40e574cda837",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_208186e3-af21-4479-a468-9049b81493d1.png": {
+    "mtime": 1786585847.252693,
+    "ast_hash": "f81e756f40f05b203b3ec2a01a247daf",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_fd584f1f-d0df-4e50-bc75-01f5fc679aa0.png": {
+    "mtime": 1786585847.351423,
+    "ast_hash": "02c09fe1cfefa772a2684aae06d80fc7",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/visual/assets/casset_2c5fc4f3-8c8d-4520-b7c1-0277a9181e53.png": {
+    "mtime": 1786585847.3644376,
+    "ast_hash": "b17f6f43686484353d2ad1f1606d214d",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/yi/visual/assets/casset_5d6285ce-e411-4426-9eba-ef05d84d94ac.png": {
+    "mtime": 1786585847.3848693,
+    "ast_hash": "c64be1ced8cde90b4d9b00913822c24a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_5367aef5-b91f-4d34-8a7d-72721f47f507.png": {
+    "mtime": 1786585847.466143,
+    "ast_hash": "c64be1ced8cde90b4d9b00913822c24a",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/alibaba/icon.svg": {
+    "mtime": 1786585847.6290665,
+    "ast_hash": "e754aa172494f5096d179e487348828f",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/anthropic/icon.svg": {
+    "mtime": 1786585847.6303463,
+    "ast_hash": "9b6fba4c21fbe26f8f1f90b5262d8e9e",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/cerebras/icon.svg": {
+    "mtime": 1786585847.6309102,
+    "ast_hash": "83034a3636a7a28bbc627cadca1be487",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/deepseek/icon.svg": {
+    "mtime": 1786585847.631543,
+    "ast_hash": "85bb7fe9a6e892e52f8b059239dbe3b0",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/github-copilot/icon.svg": {
+    "mtime": 1786585847.6321282,
+    "ast_hash": "5192e9c37df185a7d9fd4df09e63cc6f",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/google/icon.svg": {
+    "mtime": 1786585847.6327143,
+    "ast_hash": "33f9aafa4b5fbd10a801dee5b308719b",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/groq/icon.svg": {
+    "mtime": 1786585847.6333196,
+    "ast_hash": "6cfa59526e6b50bc5f49405d1b1fd92d",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/mistral/icon.svg": {
+    "mtime": 1786585847.633947,
+    "ast_hash": "2771ac4be77e960bf75a71f547c38a17",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/nvidia/icon.svg": {
+    "mtime": 1786585847.6345172,
+    "ast_hash": "058145fb7e9d6b3c7f813f6b2f5eba65",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/openai/icon.svg": {
+    "mtime": 1786585847.6351023,
+    "ast_hash": "deece3386a5ebaba1621cb563d0dd0e4",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/opencode-go/icon.svg": {
+    "mtime": 1786585847.635683,
+    "ast_hash": "3df31cea6a44593e0578967716fe2859",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/openrouter/icon.svg": {
+    "mtime": 1786585847.6362588,
+    "ast_hash": "810e1c0a080ae5968da721cfde1c2fc9",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/perplexity/icon.svg": {
+    "mtime": 1786585847.6368558,
+    "ast_hash": "529389610a42e38d1849e5333fe14284",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/siliconflow/icon.svg": {
+    "mtime": 1786585847.637408,
+    "ast_hash": "ba8833b908e73d749a34366c3c5c0b93",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/togetherai/icon.svg": {
+    "mtime": 1786585847.63798,
+    "ast_hash": "4cce806c033fb458b12b2d282b7da007",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/vercel/icon.svg": {
+    "mtime": 1786585847.6385355,
+    "ast_hash": "2eed024e1008c65b5ab691dd5b2c367a",
+    "semantic_hash": ""
+  },
+  "content/builtin/providers/xai/icon.svg": {
+    "mtime": 1786585847.6391273,
+    "ast_hash": "015d3ac874c86fa97dc93c7bf203db8d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/docs/thanks.jpg": {
+    "mtime": 1786585847.749825,
+    "ast_hash": "79ad74de89a178735250ff4b006e9efb",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/docs/\u6548\u679c\u4f8b-obs\u56fe\u8c31.jpg": {
+    "mtime": 1786585847.7513313,
+    "ast_hash": "f54f0be8a47cb83f0f67d81d68c23c25",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/docs/\u6548\u679c\u4f8b-\u521d\u7248\u751f\u6210.jpg": {
+    "mtime": 1786585847.7523308,
+    "ast_hash": "47b580554c81ecd54afdb2512ed450e4",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/docs/\u6548\u679c\u4f8b-\u89e3\u8bfb.jpg": {
+    "mtime": 1786585847.755836,
+    "ast_hash": "38a32e2c8116e45f9b4758701fd3a97d",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/docs/\u6548\u679c\u4f8b-\u8fed\u4ee3\u66f4\u65b0.jpg": {
+    "mtime": 1786585847.7568438,
+    "ast_hash": "a78592ecd039fcf9018da797d069dec2",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/docs/sample_assets/sample_fig_modules.png": {
+    "mtime": 1786585847.7608433,
+    "ast_hash": "f191439888dc693a0995f82217cd3286",
+    "semantic_hash": ""
+  },
+  "content/builtin/skills/patent/patent-disclosure-skill/examples/example_batch_job_scheduler/knowledge/docs/sample_assets/sample_fig_queue.png": {
+    "mtime": 1786585847.761844,
+    "ast_hash": "ce8e273804ccd3a69f6c924749fb7b38",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets/casset_57c6de8a-7007-4301-9474-0d6e3f2de1b6.mp4": {
+    "mtime": 1786585846.8135817,
+    "ast_hash": "50d57a159188a573eaca70e3a293ad3c",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets/casset_68b8af29-c2ce-4412-8d07-96623af540cb.mp4": {
+    "mtime": 1786585846.8457377,
+    "ast_hash": "fabb8efce74599b621d5cbef4c6638a6",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets/casset_76d02ce7-eedc-4745-96fa-1802c9995820.mp4": {
+    "mtime": 1786585846.8750026,
+    "ast_hash": "0cc093b901ae41f5d2a85331537eb4e5",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets/casset_9dceffaf-fad4-4db8-b0f2-ea5a94618a58.mp4": {
+    "mtime": 1786585846.900599,
+    "ast_hash": "69bcaaab39baa4acc9e118a14d5f57bd",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets/casset_b37fb069-bc72-48b6-a471-36a69a1f9fcd.mp4": {
+    "mtime": 1786585846.9340224,
+    "ast_hash": "5ae32cc9af133e6ddde58cc537df63bc",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ram/visual/assets/casset_e558f14f-d6bc-4cb0-bb91-8d0f3f22486c.mp4": {
+    "mtime": 1786585846.9672644,
+    "ast_hash": "5b8399cc5e4cbffc73ce8236546d4b53",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_269fdf15-7888-4b06-bfdb-4814ab1c85f0.mp4": {
+    "mtime": 1786585847.03627,
+    "ast_hash": "f19ae4bcbedc89aea6f3a61edd349cbf",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_6ab3763e-49a3-4443-8c44-d31d220e3589.mp4": {
+    "mtime": 1786585847.0592625,
+    "ast_hash": "73fd2381a8da830cd6e1a6c885ca4809",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_a8c3750a-574e-4457-999c-3a5778b4e383.mp4": {
+    "mtime": 1786585847.091672,
+    "ast_hash": "416280d80218723fac547c39f1eda4cf",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_b7ef6f8d-3ec3-4557-8df0-2e181261a97a.mp4": {
+    "mtime": 1786585847.1281908,
+    "ast_hash": "396ca69599421028b762742acfef2fca",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_bad3e975-6323-47ad-bc1b-fc24deac4976.mp4": {
+    "mtime": 1786585847.1539204,
+    "ast_hash": "bd9ee12500994793a24436610df632f8",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_bb270929-a3b8-46eb-b5d5-c9e7731c17d8.mp4": {
+    "mtime": 1786585847.1827598,
+    "ast_hash": "396ca69599421028b762742acfef2fca",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/taro/visual/assets/casset_c2a8a39c-3709-4daa-9b9e-4df748401670.mp4": {
+    "mtime": 1786585847.2019584,
+    "ast_hash": "e0cb6a5397f19b767798c4a338ce6360",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_055ddf5c-8c96-4eec-8310-8a924a4586a6.mp4": {
+    "mtime": 1786585847.2406933,
+    "ast_hash": "03695ef7d794825b3b71f48a061c380a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_75f9c0da-0dec-4c90-a69b-4ba0bac767ed.mp4": {
+    "mtime": 1786585847.2706926,
+    "ast_hash": "362f55dc0a047e086d5c084e3eb0ae3a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_7ac8e312-5a4c-490e-bcbf-753708472425.mp4": {
+    "mtime": 1786585847.2876976,
+    "ast_hash": "c1b9e5050c84f571efbb26026ef24539",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_96cad221-1ae3-4d38-88a9-0c0bb8472c96.mp4": {
+    "mtime": 1786585847.3017068,
+    "ast_hash": "03695ef7d794825b3b71f48a061c380a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_b5c61595-bbb0-4469-9993-c0cf03d1035d.mp4": {
+    "mtime": 1786585847.3199174,
+    "ast_hash": "fa0782dd12bd9a2a18bd22247358ac1e",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_ddda7e47-46a1-4170-8fbc-91f6337f22a4.mp4": {
+    "mtime": 1786585847.335762,
+    "ast_hash": "508e909b24e889243ab96eb4fbfeb558",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/xiaohong/visual/assets/casset_e767cff0-9c51-453e-8bab-facf1424aaa8.mp4": {
+    "mtime": 1786585847.349416,
+    "ast_hash": "9afb4cc886fbdad16f462e1d6b9f7f07",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_06f814f6-e40e-4fd0-9226-771d85a3c190.mp4": {
+    "mtime": 1786585847.41083,
+    "ast_hash": "5df5bb9d191cc53e2c5641f9178c1206",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_1418ee13-e293-47ba-8ea7-4d493454b879.mp4": {
+    "mtime": 1786585847.4479887,
+    "ast_hash": "5bbe969e455c0f27a99d508b8fcc240d",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_bdbba4c5-43e3-4ffe-94b7-5c4eedca9f1b.mp4": {
+    "mtime": 1786585847.4841378,
+    "ast_hash": "5df5bb9d191cc53e2c5641f9178c1206",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_c4a761d7-542f-4bf0-9851-cf9c06310b8b.mp4": {
+    "mtime": 1786585847.507534,
+    "ast_hash": "c8fadca9364f274919f1b8e5f2395780",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_ed667fd2-9d44-45fb-94c2-abaf3c0aa28e.mp4": {
+    "mtime": 1786585847.532871,
+    "ast_hash": "1bfb568088211b125f80076db2af47db",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_f873af93-f6c9-4e0a-9e22-0902f60301a6.mp4": {
+    "mtime": 1786585847.5637417,
+    "ast_hash": "ba24ad048542f2593e20990e1e0bb043",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_fbd2aac4-bac2-49fb-92d2-f046b2bba45b.mp4": {
+    "mtime": 1786585847.5985985,
+    "ast_hash": "af43dcee538d9cd7b0c0637dd54f0f9a",
+    "semantic_hash": ""
+  },
+  "content/builtin/characters/ziwei/visual/assets/casset_ff865ba9-bd3e-45dc-9438-53cbac4a5b57.mp4": {
+    "mtime": 1786585847.6245716,
+    "ast_hash": "5bbe969e455c0f27a99d508b8fcc240d",
     "semantic_hash": ""
   }
 }
