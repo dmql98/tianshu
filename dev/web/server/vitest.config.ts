@@ -5,5 +5,8 @@ export default defineConfig({
     // src/**/*.test.ts are standalone `npx tsx` scripts; only run the
     // vitest suites under test/.
     include: ['test/**/*.test.ts'],
+    // Guarantee a data dir before any test module loads (providerStore/schema
+    // call getDataDir() at import time; CI has no web/server/config.json).
+    setupFiles: ['test/setup-data-dir.ts'],
   },
 })
