@@ -49,6 +49,8 @@ export interface ThemeWriteInput {
   appearance: 'light' | 'dark'
   colors: unknown
   artwork?: unknown
+  /** 首页配置（可选；空标题/未设置时保存不写入 home 字段）。 */
+  home?: unknown
   /** 可选的图片素材（创建必填背景或纯色主题可选；更新时省略表示保留原图）。 */
   background?: ThemeAssetInput
   preview?: ThemeAssetInput
@@ -171,7 +173,10 @@ export function saveTheme(id: string, input: ThemeWriteInput): ThemeRecord {
     if (!input.preview && existing?.artwork?.preview) artworkInput.preview = existing.artwork.preview
 
     const record: ThemeRecord = {
-      ...buildThemeRecord({ id, name, appearance: input.appearance, colors: input.colors, artwork: artworkInput }),
+      ...buildThemeRecord({
+        id, name, appearance: input.appearance, colors: input.colors, artwork: artworkInput,
+        home: input.home ?? existing?.home,
+      }),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
     if (existing) {

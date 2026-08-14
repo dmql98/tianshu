@@ -50,6 +50,7 @@ function themeView(record: ThemeRecord) {
     name: record.name,
     appearance: record.appearance,
     ...(record.artwork ? { artwork: record.artwork } : {}),
+    ...(record.home ? { home: record.home } : {}),
     colors: record.colors,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -116,6 +117,7 @@ async function parseThemeBody(c: Context): Promise<{
   appearance: 'light' | 'dark'
   colors: Record<string, string>
   artwork: Record<string, unknown>
+  home: Record<string, unknown>
   background?: ThemeAssetInput
   preview?: ThemeAssetInput
 }> {
@@ -149,10 +151,18 @@ async function parseThemeBody(c: Context): Promise<{
       } catch { /* ignore */ }
     }
 
+    let home: Record<string, unknown> = {}
+    if (typeof raw.home === 'string') {
+      try {
+        const parsed = JSON.parse(raw.home)
+        if (parsed && typeof parsed === 'object') home = parsed as Record<string, unknown>
+      } catch { /* ignore */ }
+    }
+
     const background = await parseImageField(raw, 'background')
     const preview = await parseImageField(raw, 'preview')
 
-    return { name, appearance, colors, artwork, background, preview }
+    return { name, appearance, colors, artwork, home, background, preview }
   }
 
   // JSON 请求（重命名等轻量操作）
@@ -161,7 +171,8 @@ async function parseThemeBody(c: Context): Promise<{
   const appearance: 'light' | 'dark' = body.appearance === 'dark' ? 'dark' : 'light'
   const colors = typeof body.colors === 'object' && body.colors ? body.colors as Record<string, string> : {}
   const artwork = typeof body.artwork === 'object' && body.artwork ? body.artwork as Record<string, unknown> : {}
-  return { name, appearance, colors, artwork }
+  const home = typeof body.home === 'object' && body.home ? body.home as Record<string, unknown> : {}
+  return { name, appearance, colors, artwork, home }
 }
 
 router.post('/', async (c) => {

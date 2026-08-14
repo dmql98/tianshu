@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>天枢首页原型</title>
+  <style>
+    :root {
+      --paper: #f5f1e8;
+      --card: rgba(255, 253, 248, 0.86);
+      --ink: #302b24;
+      --ink-mid: #686053;
+      --ink-light: #978e7e;
+      --line: rgba(84, 67, 39, 0.13);
+      --gold: #ad7d22;
+      --gold-deep: #805710;
+      --gold-soft: rgba(173, 125, 34, 0.09);
+      --blue: #5479aa;
+      --jade: #4f826f;
+      --shadow: 0 18px 45px rgba(61, 47, 25, 0.075);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 66% 4%, rgba(184, 137, 49, 0.12), transparent 27%),
+        radial-gradient(circle at 13% 92%, rgba(79, 130, 111, 0.08), transparent 30%),
+        linear-gradient(145deg, #faf7f0, var(--paper) 52%, #eee8dc);
+    }
+
+    button { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 24px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      border-right: 1px solid var(--line);
+      background: rgba(249, 246, 239, 0.7);
+      backdrop-filter: blur(18px);
+    }
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 18px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(173, 125, 34, 0.3);
+      border-radius: 17px;
+      color: var(--gold-deep);
+      background: linear-gradient(145deg, #fffdf7, #efe4cd);
+      box-shadow: 0 8px 22px rgba(117, 83, 27, 0.12);
+      font: 700 22px/1 Georgia, serif;
+    }
+
+    .nav-item {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 15px;
+      color: var(--ink-light);
+      background: transparent;
+      cursor: pointer;
+      font-size: 19px;
+      transition: 160ms ease;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      color: var(--gold-deep);
+      background: var(--gold-soft);
+      transform: translateY(-1px);
+    }
+
+    .rail-spacer { flex: 1; }
+
+    main {
+      width: 100%;
+      min-height: 100vh;
+      padding: 9vh 5vw 54px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero {
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transform: translateY(-6vh);
+    }
+
+    .headline {
+      margin: 0 0 clamp(42px, 7vh, 72px);
+      text-align: center;
+      font-family: "STKaiti", "KaiTi", "Microsoft YaHei", serif;
+      font-size: clamp(36px, 4.5vw, 58px);
+      font-weight: 500;
+      line-height: 1.25;
+      letter-spacing: 0.035em;
+      color: var(--ink);
+    }
+
+    .headline::after {
+      content: "";
+      display: block;
+      width: 48px;
+      height: 3px;
+      margin: 22px auto 0;
+      border-radius: 4px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    }
+
+    .recent {
+      width: min(980px, 100%);
+    }
+
+    .recent-header {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-title {
+      color: var(--ink-mid);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .all-link {
+      color: var(--gold-deep);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .all-link:hover { text-decoration: underline; }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .chat-card {
+      position: relative;
+      min-height: 168px;
+      padding: 22px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      color: inherit;
+      text-decoration: none;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .chat-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 3px;
+      background: var(--accent, var(--gold));
+      opacity: 0.78;
+    }
+
+    .chat-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(173, 125, 34, 0.28);
+      box-shadow: 0 22px 48px rgba(61, 47, 25, 0.12);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .character {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--ink-mid);
+      font-size: 12px;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      color: var(--accent, var(--gold-deep));
+      background: color-mix(in srgb, var(--accent, var(--gold)) 11%, transparent);
+      font-weight: 800;
+    }
+
+    .time {
+      color: var(--ink-light);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .chat-title {
+      margin: 20px 0 8px;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.45;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .chat-preview {
+      display: -webkit-box;
+      overflow: hidden;
+      color: var(--ink-light);
+      font-size: 12px;
+      line-height: 1.65;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .arrow {
+      position: absolute;
+      right: 18px;
+      bottom: 15px;
+      color: var(--gold-deep);
+      opacity: 0;
+      transform: translateX(-5px);
+      transition: 180ms ease;
+    }
+
+    .chat-card:hover .arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    @media (max-width: 880px) {
+      .card-grid { grid-template-columns: 1fr; }
+      .chat-card { min-height: 140px; }
+      .hero { transform: none; justify-content: flex-start; padding-top: 10vh; }
+    }
+
+    @media (max-width: 620px) {
+      .app { grid-template-columns: 1fr; }
+      .rail { display: none; }
+      main { padding: 52px 18px 38px; }
+      .hero { padding-top: 3vh; }
+      .headline { font-size: 36px; margin-bottom: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail" aria-label="主导航">
+      <div class="logo" title="天枢">枢</div>
+      <button class="nav-item active" title="首页">⌂</button>
+      <button class="nav-item" title="会话">◌</button>
+      <button class="nav-item" title="角色">人</button>
+      <button class="nav-item" title="技能">✦</button>
+      <button class="nav-item" title="工具">⌘</button>
+      <button class="nav-item" title="知识">册</button>
+      <div class="rail-spacer"></div>
+      <button class="nav-item" title="设置">⚙</button>
+    </aside>
+
+    <main>
+      <div class="hero">
+        <!-- 文案由“设置 → 自定义主题 → 首页标题”配置 -->
+        <h1 class="headline">早上好，今天想推进什么？</h1>
+
+        <section class="recent" aria-labelledby="recent-title">
+          <div class="recent-header">
+            <div class="section-title" id="recent-title">最近对话</div>
+            <a class="all-link" href="#/chat">查看全部会话 →</a>
+          </div>
+
+          <div class="card-grid">
+            <a class="chat-card" href="#/chat/session-home" style="--accent: var(--blue)">
+              <div class="card-top">
+                <div class="character"><span class="avatar">长</span><span>长庚</span></div>
+                <time class="time">10 分钟前</time>
+              </div>
+              <div class="chat-title">天枢首页设计与实现</div>
+              <div class="chat-preview">把首页改成更克制的布局，只保留标题和最近使用的对话入口。</div>
+              <span class="arrow">→</span>
+            </a>
+
+            <a class="chat-card" href="#/chat/session-patent" style="--accent: var(--gold)">
+              <div class="card-top">
+                <div class="character"><span class="avatar">文</span><span>文曲</span></div>
+                <time class="time">昨天</time>
+              </div>
+              <div class="chat-title">专利材料整理</div>
+              <div class="chat-preview">已经完成技术方案的结构整理，下一步需要确认实施例中的关键参数。</div>
+              <span class="arrow">→</span>
+            </a>
+
+            <a class="chat-card" href="#/chat/session-report" style="--accent: var(--jade)">
+              <div class="card-top">
+                <div class="character"><span class="avatar">璇</span><span>天璇</span></div>
+                <time class="time">8 月 12 日</time>
+              </div>
+              <div class="chat-title">季度数据分析报告</div>
+              <div class="chat-preview">报告和图表已经生成，可以继续调整摘要措辞或导出最终版本。</div>
+              <span class="arrow">→</span>
+            </a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

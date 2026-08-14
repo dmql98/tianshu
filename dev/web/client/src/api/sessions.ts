@@ -3,6 +3,15 @@ import type { SessionSummary } from '@/types'
 
 export const fetchSessions = () => apiGet<SessionSummary[]>('/api/sessions')
 
+/** 最近普通对话摘要（HOME_PAGE_DEVELOPMENT_PLAN §4.2）：服务端已清洗截断最后消息。 */
+export interface RecentSessionSummary extends SessionSummary {
+  last_message_preview: string | null
+}
+
+/** 拉取最近 N（1..10，默认 3）个普通对话及最后消息摘要。 */
+export const fetchRecentSessions = (limit = 3) =>
+  apiGet<RecentSessionSummary[]>(`/api/sessions/recent?limit=${limit}`)
+
 export const createSession = (data: Partial<SessionSummary> & { id: string }) =>
   apiPost<SessionSummary>('/api/sessions', data)
 

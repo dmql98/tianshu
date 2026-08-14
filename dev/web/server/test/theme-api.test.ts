@@ -205,3 +205,42 @@ describe('themes API: 更新/复制/删除/重命名', () => {
     expect(entries.filter((e: string) => e.startsWith('.tmp-'))).toEqual([])
   })
 })
+
+describe('themes API: home.title 传输', () => {
+  it('multipart 创建携带 home，列表/详情/复制均保留', async () => {
+    const req = multipart(
+      {
+        name: '标题主题',
+        appearance: 'light',
+        colors: JSON.stringify(validColors()),
+        artwork: JSON.stringify({ focusX: 0.5, focusY: 0.5, homeOpacity: 0.8, taskOpacity: 0.35, dim: 0.2 }),
+        home: JSON.stringify({ title: '早上好，今天想推进什么？' }),
+      },
+    )
+    const res = await themesRouter.request(req)
+    expect(res.status).toBe(201)
+    const created = await res.json()
+    expect(created.home).toEqual({ title: '早上好，今天想推进什么？' })
+
+    const detail = await (await themesRouter.request(new Request(`http://localhost/${created.id}`))).json()
+    expect(detail.home.title).toBe('早上好，今天想推进什么？')
+
+    const dupRes = await themesRouter.request(new Request(`http://localhost/${created.id}/duplicate`, { method: 'POST' }))
+    const dup = await dupRes.json()
+    expect(dup.home).toEqual({ title: '早上好，今天想推进什么？' })
+  })
+
+  it('空标题不写入 home', async () => {
+    const req = multipart({
+      name: '空标题',
+      appearance: 'dark',
+      colors: JSON.stringify(validColors()),
+      artwork: JSON.stringify({}),
+      home: JSON.stringify({ title: '   ' }),
+    })
+    const res = await themesRouter.request(req)
+    expect(res.status).toBe(201)
+    const created = await res.json()
+    expect(created.home).toBeUndefined()
+  })
+})

@@ -253,3 +253,26 @@ describe('theme store: 更新保留 createdAt', () => {
     expect(updated.name).toBe('改名')
   })
 })
+
+describe('theme store: home.title 持久化', () => {
+  it('创建时保存 home，复制时保留', () => {
+    const record = saveTheme('custom-home-1', { ...makeInput(), home: { title: '早上好，今天想推进什么？' } })
+    expect(getTheme('custom-home-1')!.home).toEqual({ title: '早上好，今天想推进什么？' })
+
+    const dup = duplicateTheme('custom-home-1')
+    expect(dup.home).toEqual({ title: '早上好，今天想推进什么？' })
+    expect(getTheme(dup.id)!.home!.title).toBe('早上好，今天想推进什么？')
+  })
+
+  it('更新保留 home；不传 home 时保留旧值', () => {
+    saveTheme('custom-home-2', { ...makeInput(), home: { title: '第一版' } })
+    const updated = saveTheme('custom-home-2', makeInput({ name: '改名' }))
+    expect(updated.home).toEqual({ title: '第一版' })
+  })
+
+  it('空标题按未设置处理（不写 home）', () => {
+    const record = saveTheme('custom-home-3', { ...makeInput(), home: { title: '   ' } })
+    expect(record.home).toBeUndefined()
+    expect(getTheme('custom-home-3')!.home).toBeUndefined()
+  })
+})

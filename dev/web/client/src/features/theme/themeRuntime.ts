@@ -15,6 +15,7 @@ import {
   BUILTIN_THEME_DARK,
   BUILTIN_THEME_LIGHT,
   BUILTIN_THEMES,
+  DEFAULT_HOME_TITLE,
   THEME_TOKEN_NAMES,
   type ThemeArtwork,
   type ThemeDefinition,
@@ -187,6 +188,8 @@ export function applyResolvedTheme(
   root.setAttribute('data-color-scheme', theme.appearance)
   root.setAttribute('data-has-backdrop', theme.artwork ? 'true' : 'false')
   root.style.colorScheme = theme.appearance
+  // 首页标题写入安全属性（HOME_PAGE_DEVELOPMENT_PLAN §6）：文本节点渲染，不注入 HTML
+  root.dataset.homeTitle = theme.home?.title || DEFAULT_HOME_TITLE
 
   applyTokens(theme.tokens, theme.source, root)
   applyBackdrop(theme.artwork, root)
@@ -195,6 +198,15 @@ export function applyResolvedTheme(
 /** 读取当前已生效的主题 id（校验用）。 */
 export function appliedThemeId(root: HTMLElement | null = getDefaultRoot()): string | null {
   return root?.getAttribute('data-theme-id') ?? null
+}
+
+/**
+ * 读取当前已生效的首页标题；缺失/空白回退默认标题。
+ * 首页初始化时调用，并监听 `tianshu:theme-changed` 事件后重新读取。
+ */
+export function appliedHomeTitle(root: HTMLElement | null = getDefaultRoot()): string {
+  const value = root?.dataset.homeTitle
+  return value && value.trim() ? value : DEFAULT_HOME_TITLE
 }
 
 // ── 切换 ──

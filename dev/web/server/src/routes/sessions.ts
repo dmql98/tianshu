@@ -8,6 +8,11 @@ import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-tit
 const router = new Hono()
 
 router.get('/', (c) => c.json(sessionStore.list()))
+router.get('/recent', (c) => {
+  const raw = c.req.query('limit')
+  const limit = raw ? Number.parseInt(raw, 10) : 3
+  return c.json(sessionStore.listRecent(limit))
+})
 router.post('/', async (c) => {
   const body = await c.req.json()
   const session = sessionStore.create({ id: body.id, ...body })

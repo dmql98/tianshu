@@ -23,6 +23,25 @@ export interface SessionRow {
   created_at: number; updated_at: number
 }
 
+/** 最近普通会话摘要（含最后一条 user/assistant 消息的纯文本预览）。 */
+export interface RecentSessionRow extends SessionRow {
+  last_message_preview: string | null
+}
+
+/** 最近消息摘要最大长度（Unicode 码点）。 */
+export const RECENT_PREVIEW_MAX = 120
+
+/**
+ * 消息摘要清洗：去控制字符 → 压缩连续空白 → trim → 截断（不切坏代理对）。
+ */
+export function cleanMessagePreview(content: string | null | undefined): string {
+  if (!content) return ''
+  const withoutControl = content.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+  const collapsed = withoutControl.replace(/\s+/g, ' ').trim()
+  const chars = [...collapsed]
+  return chars.slice(0, RECENT_PREVIEW_MAX).join('')
+}
+
 const INSERT_COLS = 'id, character_id, title, model, provider_id, workspace, workspaces, dataspace, parent_id, active_group, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, created_at, updated_at'
 const INSERT_PARAMS = '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @dataspace, @parent_id, @active_group, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @created_at, @updated_at'
 const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, dataspace=@dataspace, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, updated_at=@updated_at'
@@ -30,6 +49,33 @@ const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, pro
 export const sessionStore = {
   list(limit = 50): SessionRow[] {
     return getDb().prepare('SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?').all(limit) as SessionRow[]
+  },
+  /**
+   * 最近普通对话（HOME_PAGE_DEVELOPMENT_PLAN §4.2）：
+   * - 只返回 session_type='chat'，排除事件自动创建的会话。
+   * - 包含分支会话（parent_id 非空照常返回）。
+   * - 按 updated_at DESC 排序；limit 限制 1..10。
+   * - 单条 SQL：相关子查询取最近一条 user/assistant 消息做纯文本预览。
+   */
+  listRecent(limit = 3): RecentSessionRow[] {
+    const raw = typeof limit === 'number' && Number.isFinite(limit) ? Math.floor(limit) : 3
+    const clamped = Math.min(10, Math.max(1, raw))
+    const rows = getDb().prepare(`
+      SELECT s.*, (
+        SELECT m.content FROM messages m
+        WHERE m.session_id = s.id AND m.role IN ('user', 'assistant')
+        ORDER BY m.id DESC LIMIT 1
+      ) AS last_message_preview
+      FROM sessions s
+      WHERE s.session_type = 'chat'
+      ORDER BY s.updated_at DESC
+      LIMIT ?
+    `).all(clamped) as RecentSessionRow[]
+    for (const row of rows) {
+      row.last_message_preview = cleanMessagePreview(row.last_message_preview)
+      if (!row.last_message_preview) row.last_message_preview = null
+    }
+    return rows
   },
   getById(id: string): SessionRow | null {
     return getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(id) as SessionRow | null

@@ -89,6 +89,7 @@ async function main() {
     form.append('appearance', 'dark')
     form.append('colors', JSON.stringify({ canvas: '#111713', surface1: '#1b241e', surface2: '#263129', input: '#202a23', accent: '#8faf76', accentHover: '#a3c48a', textPrimary: '#f2f5ef', textSecondary: '#b8c2b5', border: '#435047' }))
     form.append('artwork', JSON.stringify({ focusX: 0.58, focusY: 0.36, homeOpacity: 0.8, taskOpacity: 0.35, dim: 0.25 }))
+    form.append('home', JSON.stringify({ title: '早上好，今天想推进什么？' }))
     form.append('background', new Blob([pngFixture()], { type: 'image/png' }), 'bg.png')
 
     const createRes = await fetch(`${base}/api/themes`, { method: 'POST', body: form })
@@ -103,6 +104,7 @@ async function main() {
     const detailRes = await fetch(`${base}/api/themes/${created.id}`)
     const detail = await detailRes.json()
     if (detail.colors.accent !== '#8faf76') fail('detail colors mismatch')
+    if (detail.home?.title !== '早上好，今天想推进什么？') fail('detail home.title mismatch')
     const assetRes = await fetch(`${base}/api/themes/${created.id}/assets/background.png`)
     if (assetRes.status !== 200) fail(`asset status ${assetRes.status}`)
     console.log('[theme-e2e] list/detail/assets: OK')
@@ -157,6 +159,7 @@ async function main() {
     const found = reloaded.themes.find(t => t.id === created.id)
     if (!found) fail('theme lost after restart')
     if (found.name !== '森林') fail('theme name changed after restart')
+    if (found.home?.title !== '早上好，今天想推进什么？') fail('theme home.title lost after restart')
     console.log('[theme-e2e] restart recovery: OK')
     await stopServer(child2)
 

@@ -9,6 +9,7 @@ import {
 import { THEME_PREFERENCES_STORAGE_KEY, type ThemePreferences } from './themePreferences'
 import {
   applyResolvedTheme,
+  appliedHomeTitle,
   appliedThemeId,
   initializeThemeRuntime,
   resolveTheme,
@@ -31,6 +32,7 @@ interface FakeRoot {
   attributes: Map<string, string>
   properties: Map<string, string>
   colorScheme: string
+  dataset: Record<string, string>
   setAttribute(k: string, v: string): void
   getAttribute(k: string): string | null
   removeAttribute(k: string): void
@@ -49,6 +51,7 @@ function makeRoot(): FakeRoot {
     attributes,
     properties,
     colorScheme: '',
+    dataset: {},
     setAttribute: (k: string, v: string) => { attributes.set(k, v) },
     getAttribute: (k: string) => attributes.get(k) ?? null,
     removeAttribute: (k: string) => { attributes.delete(k) },
@@ -279,5 +282,33 @@ describe('themeRuntime: initialize 与监听', () => {
     media.listener?.({ matches: false })
     expect(appliedThemeId(root as unknown as HTMLElement)).toBe(BUILTIN_THEME_LIGHT_ID)
     vi.unstubAllGlobals()
+  })
+})
+
+describe('themeRuntime: 首页标题', () => {
+  it('apply 时写入 dataset.homeTitle（自定义主题标题）', () => {
+    const root = makeRoot()
+    const custom: ThemeDefinition = {
+      ...BUILTIN_THEME_LIGHT,
+      id: 'custom-home',
+      source: 'custom',
+      name: '带标题',
+      home: { title: '早上好，今天想推进什么？' },
+    }
+    applyResolvedTheme({ theme: custom, selection: { mode: 'custom', themeId: 'custom-home' } }, root as unknown as HTMLElement)
+    expect((root as unknown as { dataset: Record<string, string> }).dataset.homeTitle).toBe('早上好，今天想推进什么？')
+  })
+
+  it('无 home 的主题回退默认标题', () => {
+    const root = makeRoot()
+    applyResolvedTheme({ theme: BUILTIN_THEME_DARK, selection: { mode: 'system' } }, root as unknown as HTMLElement)
+    expect(appliedHomeTitle(root as unknown as HTMLElement)).toBe('早上好，今天想推进什么？')
+  })
+
+  it('appliedHomeTitle 在 dataset 缺失/空白时回退默认值', () => {
+    const root = makeRoot()
+    expect(appliedHomeTitle(root as unknown as HTMLElement)).toBe('早上好，今天想推进什么？')
+    ;(root as unknown as { dataset: Record<string, string> }).dataset.homeTitle = '   '
+    expect(appliedHomeTitle(root as unknown as HTMLElement)).toBe('早上好，今天想推进什么？')
   })
 })

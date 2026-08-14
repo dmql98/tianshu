@@ -6,6 +6,7 @@ import {
   isValidAssetFileName,
   isValidColorValue,
   isValidThemeId,
+  normalizeHomeTitle,
   parseThemeRecord,
 } from '../src/theme/schema.js'
 
@@ -128,5 +129,73 @@ describe('theme schema: 记录解析', () => {
     expect(record.schemaVersion).toBe(THEME_SCHEMA_VERSION)
     expect(record.updatedAt).toBeTruthy()
     expect(record.artwork?.scale).toBe(2.5)
+  })
+})
+
+describe('theme schema: home.title', () => {
+  const base = {
+    schemaVersion: THEME_SCHEMA_VERSION,
+    id: 'custom-home',
+    name: '带标题',
+    appearance: 'light',
+    colors: { canvas: '#ffffff', textPrimary: '#111111', accent: '#3b82f6' },
+  }
+
+  it('旧版无 home 的主题仍能加载', () => {
+    const record = parseThemeRecord(JSON.stringify(base), 'custom-home')
+    expect(record).not.toBeNull()
+    expect(record!.home).toBeUndefined()
+  })
+
+  it('合法标题完整往返', () => {
+    const record = parseThemeRecord(JSON.stringify({ ...base, home: { title: '早上好，今天想推进什么？' } }), 'custom-home')
+    expect(record!.home).toEqual({ title: '早上好，今天想推进什么？' })
+  })
+
+  it('首尾空白被清理', () => {
+    const record = parseThemeRecord(JSON.stringify({ ...base, home: { title: '  推进计划  ' } }), 'custom-home')
+    expect(record!.home!.title).toBe('推进计划')
+  })
+
+  it('空标题不写入 home（回退默认标题）', () => {
+    const record = parseThemeRecord(JSON.stringify({ ...base, home: { title: '   ' } }), 'custom-home')
+    expect(record!.home).toBeUndefined()
+  })
+
+  it('非对象 home 被忽略', () => {
+    const record = parseThemeRecord(JSON.stringify({ ...base, home: '标题' }), 'custom-home')
+    expect(record!.home).toBeUndefined()
+  })
+
+  it('超长标题截断到 60 个 Unicode 码点', () => {
+    const record = parseThemeRecord(JSON.stringify({ ...base, home: { title: '😀'.repeat(80) } }), 'custom-home')
+    expect([...(record!.home!.title)]).toHaveLength(60)
+  })
+
+  it('控制字符被去除', () => {
+    const record = parseThemeRecord(JSON.stringify({ ...base, home: { title: 'a\u0000b\u0007c' } }), 'custom-home')
+    expect(record!.home!.title).toBe('abc')
+  })
+
+  it('HTML 仅作为普通文本保留（前端以文本节点渲染）', () => {
+    const record = parseThemeRecord(JSON.stringify({ ...base, home: { title: '<b>标题</b>' } }), 'custom-home')
+    expect(record!.home!.title).toBe('<b>标题</b>')
+  })
+
+  it('buildThemeRecord 支持 home', () => {
+    const record = buildThemeRecord({
+      id: 'custom-a1b2',
+      name: 'x',
+      appearance: 'light',
+      colors: { canvas: '#ffffff', textPrimary: '#111111', accent: '#3b82f6' },
+      home: { title: ' 我的标题 ' },
+    })
+    expect(record.home).toEqual({ title: '我的标题' })
+  })
+
+  it('normalizeHomeTitle 空/非字符串返回空串', () => {
+    expect(normalizeHomeTitle('')).toBe('')
+    expect(normalizeHomeTitle(42)).toBe('')
+    expect(normalizeHomeTitle(null)).toBe('')
   })
 })

@@ -79,7 +79,35 @@ export interface ThemeDefinition {
   appearance: Appearance
   tokens: ThemeTokens
   artwork?: ThemeArtwork
+  /** 首页配置（可选；旧主题/内置主题缺省时用 DEFAULT_HOME_TITLE）。 */
+  home?: ThemeHome
   updatedAt?: string
+}
+
+/** 首页配置（HOME_PAGE_DEVELOPMENT_PLAN §5.1）。 */
+export interface ThemeHome {
+  title: string
+}
+
+/** 首页标题默认值（与服务端校验共用同一语义；服务端不主动写默认值）。 */
+export const DEFAULT_HOME_TITLE = '早上好，今天想推进什么？'
+
+/** 首页标题最大长度（Unicode 码点）。 */
+export const HOME_TITLE_MAX = 60
+
+/** 清洗首页标题：去控制字符 → trim → 截断（不切代理对）；空返回 ''。 */
+export function normalizeHomeTitle(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const withoutControl = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+  const chars = [...withoutControl.trim()]
+  return chars.slice(0, HOME_TITLE_MAX).join('')
+}
+
+export function normalizeThemeHome(value: unknown): ThemeHome | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const candidate = value as { title?: unknown }
+  const title = normalizeHomeTitle(candidate.title)
+  return title ? { title } : undefined
 }
 
 export const BUILTIN_THEME_LIGHT_ID: BuiltinThemeId = 'tianshu-light'
@@ -262,6 +290,7 @@ export function normalizeThemeDefinition(value: unknown): ThemeDefinition | null
     appearance,
     tokens: normalizeThemeTokens(candidate.tokens, appearance),
     artwork: normalizeArtwork(candidate.artwork),
+    ...(normalizeThemeHome(candidate.home) ? { home: normalizeThemeHome(candidate.home) } : {}),
     updatedAt: typeof candidate.updatedAt === 'string' ? candidate.updatedAt : undefined,
   }
 }

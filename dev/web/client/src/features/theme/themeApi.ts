@@ -35,6 +35,7 @@ export interface ThemeDto {
     dim: number
   }
   colors: Record<string, string>
+  home?: { title: string }
   createdAt: string
   updatedAt: string
 }
@@ -59,6 +60,7 @@ export function toThemeDefinition(dto: ThemeDto): ThemeDefinition {
       taskOpacity: dto.artwork.taskOpacity,
       dim: dto.artwork.dim,
     } : undefined,
+    ...(dto.home && typeof dto.home.title === 'string' && dto.home.title.trim() ? { home: { title: dto.home.title } } : {}),
     updatedAt: dto.updatedAt,
   })
   return normalized!
@@ -82,6 +84,8 @@ export interface CreateThemeInput {
   name: string
   appearance: 'light' | 'dark'
   colors: Record<string, string>
+  /** 首页标题（可选；空标题按未设置处理）。 */
+  home?: { title: string }
   artwork: {
     focusX: number
     focusY: number
@@ -101,6 +105,7 @@ function themeFormData(input: CreateThemeInput): FormData {
   form.append('appearance', input.appearance)
   form.append('colors', JSON.stringify(input.colors))
   form.append('artwork', JSON.stringify(input.artwork))
+  if (input.home && input.home.title.trim()) form.append('home', JSON.stringify(input.home))
   if (input.background) form.append('background', input.background, 'background.webp')
   if (input.preview) form.append('preview', input.preview, 'preview.webp')
   return form

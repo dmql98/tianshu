@@ -9,7 +9,7 @@
  * - 保存走服务端 multipart API（图片与主题事实存 <dataDir>/themes）。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BUILTIN_THEME_LIGHT, type Appearance, type ThemeDefinition, type ThemeTokens } from './themeDefinitions'
+import { BUILTIN_THEME_LIGHT, DEFAULT_HOME_TITLE, type Appearance, type ThemeDefinition, type ThemeTokens } from './themeDefinitions'
 import { contrastRatio, adjustToContrast, AA_TEXT_CONTRAST } from './contrast'
 import { extractColorsFromPixels, downsampleImageData, generatePalette, type GeneratedPalette } from './colorExtraction'
 import { createTheme, updateTheme } from './themeApi'
@@ -36,17 +36,19 @@ export interface StudioSnapshot {
   appearance: Appearance
   tokens: ThemeTokens
   artwork: StudioArtworkState
+  /** 首页标题（HOME_PAGE_DEVELOPMENT_PLAN §5.3）。 */
+  homeTitle: string
 }
 
 const MAX_CLIENT_IMAGE_BYTES = 15 * 1024 * 1024
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
 export function cloneSnapshot(s: StudioSnapshot): StudioSnapshot {
-  return { ...s, tokens: { ...s.tokens }, artwork: { ...s.artwork } }
+  return { ...s, tokens: { ...s.tokens }, artwork: { ...s.artwork }, homeTitle: s.homeTitle }
 }
 
 export function snapshotEquals(a: StudioSnapshot, b: StudioSnapshot): boolean {
-  if (a.appearance !== b.appearance || a.name !== b.name) return false
+  if (a.appearance !== b.appearance || a.name !== b.name || a.homeTitle !== b.homeTitle) return false
   for (const key of Object.keys(a.tokens) as (keyof ThemeTokens)[]) {
     if (a.tokens[key] !== b.tokens[key]) return false
   }
@@ -78,6 +80,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
         taskOpacity: editing?.artwork?.taskOpacity ?? 0.35,
         dim: editing?.artwork?.dim ?? 0.2,
       },
+      homeTitle: editing?.home?.title || DEFAULT_HOME_TITLE,
     },
   ])
   const [historyIndex, setHistoryIndex] = useState(0)
@@ -154,6 +157,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
           appearance: 'light',
           tokens: BUILTIN_THEME_LIGHT.tokens,
           artwork: { focusX: 0.5, focusY: 0.5, scale: 1, homeOpacity: 0.8, taskOpacity: 0.35, dim: 0.2 },
+          homeTitle: editing?.home?.title || DEFAULT_HOME_TITLE,
         })
         const appearance: Appearance = editing ? current.appearance : extracted.suggestedAppearance
         const palette = generatePalette(extracted.candidates, { appearance })
@@ -162,6 +166,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
           appearance,
           tokens: paletteToTokens(palette),
           artwork: { ...current.artwork },
+          homeTitle: current.homeTitle,
         }
         setHistoryIndex(0)
         return [cloneSnapshot(next)]
@@ -264,6 +269,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
         appearance: snapshot.appearance,
         colors,
         artwork,
+        ...(snapshot.homeTitle.trim() ? { home: { title: snapshot.homeTitle.trim() } } : {}),
         background: imageFile ?? undefined,
       }
       const saved = editing
@@ -372,7 +378,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
                 <main className="studio-preview-main">
                   {previewPage === 'home' ? (
                     <div className="studio-preview-home">
-                      <div className="studio-preview-heading">让我们干些什么吧</div>
+                      <h1 className="studio-preview-heading">{snapshot.homeTitle || DEFAULT_HOME_TITLE}</h1>
                       <div className="studio-preview-subheading">天枢，你的 AI Agent 系统</div>
                       <div className="studio-preview-composer">
                         <span>输入你的想法，让天枢来帮你实现…</span>
@@ -441,6 +447,22 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
                 type="text" value={snapshot.name} maxLength={40}
                 onChange={e => patch(s => ({ ...s, name: e.target.value }))}
               />
+            </div>
+
+            <div className="studio-field">
+              <label className="studio-label">
+                首页标题
+                <span className="studio-char-count">{[...snapshot.homeTitle].length} / 60</span>
+              </label>
+              <input
+                type="text"
+                value={snapshot.homeTitle}
+                maxLength={80}
+                placeholder={DEFAULT_HOME_TITLE}
+                onChange={e => patch(s => ({ ...s, homeTitle: e.target.value.slice(0, 80) }))}
+                aria-label="首页标题"
+              />
+              <span className="studio-hint-text">显示在首页中央；留空使用默认标题</span>
             </div>
 
             <div className="studio-field">

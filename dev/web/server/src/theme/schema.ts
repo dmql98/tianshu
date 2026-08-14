@@ -36,12 +36,41 @@ export interface ThemeArtworkSpec {
   dim: number
 }
 
+/** 首页配置（HOME_PAGE_DEVELOPMENT_PLAN §5.1）：可选字段，向后兼容。 */
+export interface ThemeHomeSpec {
+  title: string
+}
+
+/** 首页标题最大长度（Unicode 码点）。 */
+export const HOME_TITLE_MAX = 60
+
+/**
+ * 清洗首页标题：去控制字符 → trim → 截断到 60 个 Unicode 码点（不切代理对）。
+ * 空字符串返回 ''（表示"未设置"，读取时回退默认标题）。
+ */
+export function normalizeHomeTitle(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const withoutControl = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+  const trimmed = withoutControl.trim()
+  const chars = [...trimmed]
+  return chars.slice(0, HOME_TITLE_MAX).join('')
+}
+
+export function normalizeThemeHome(value: unknown): ThemeHomeSpec | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const candidate = value as { title?: unknown }
+  const title = normalizeHomeTitle(candidate.title)
+  return title ? { title } : undefined
+}
+
 export interface ThemeRecord {
   schemaVersion: typeof THEME_SCHEMA_VERSION
   id: string
   name: string
   appearance: 'light' | 'dark'
   artwork?: ThemeArtworkSpec
+  /** 首页配置；旧主题缺少 home 时使用默认标题。 */
+  home?: ThemeHomeSpec
   colors: Partial<Record<ColorSlot, string>>
   createdAt: string
   updatedAt: string
@@ -138,6 +167,7 @@ export function parseThemeRecord(raw: string, idFromDir?: string): ThemeRecord |
     name: candidate.name.trim().slice(0, 80),
     appearance: candidate.appearance,
     artwork: normalizeArtwork(candidate.artwork),
+    ...(normalizeThemeHome(candidate.home) ? { home: normalizeThemeHome(candidate.home) } : {}),
     colors,
     createdAt: typeof candidate.createdAt === 'string' ? candidate.createdAt : new Date().toISOString(),
     updatedAt: typeof candidate.updatedAt === 'string' ? candidate.updatedAt : new Date().toISOString(),
@@ -151,6 +181,7 @@ export function buildThemeRecord(input: {
   appearance: 'light' | 'dark'
   colors: unknown
   artwork?: unknown
+  home?: unknown
 }): ThemeRecord {
   const now = new Date().toISOString()
   return {
@@ -160,6 +191,7 @@ export function buildThemeRecord(input: {
     appearance: input.appearance,
     colors: normalizeColors(input.colors),
     artwork: normalizeArtwork(input.artwork),
+    ...(normalizeThemeHome(input.home) ? { home: normalizeThemeHome(input.home) } : {}),
     createdAt: now,
     updatedAt: now,
   }
