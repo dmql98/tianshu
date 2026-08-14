@@ -5,6 +5,8 @@ import type { DesktopServerStatus, UpdateState } from '../../shared/desktop-cont
 const api = {
   getAppInfo: () => ipcRenderer.invoke('desktop:get-app-info'),
   getServerStatus: () => ipcRenderer.invoke('desktop:get-server-status'),
+  setTitleBarTheme: (color: string, symbolColor: string) =>
+    ipcRenderer.invoke('desktop:set-title-bar-theme', color, symbolColor),
   onServerStatus: (listener: (status: DesktopServerStatus) => void) => {
     const handler = (_event: IpcRendererEvent, status: DesktopServerStatus) => listener(status)
     ipcRenderer.on('desktop:server-status', handler)

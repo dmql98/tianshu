@@ -83,6 +83,7 @@ export interface SaveBackgroundImageInput {
 export interface TianShuDesktopAPI {
   getAppInfo(): Promise<DesktopAppInfo>
   getServerStatus(): Promise<DesktopServerStatus>
+  setTitleBarTheme(color: string, symbolColor: string): Promise<void>
   onServerStatus(listener: (status: DesktopServerStatus) => void): () => void
   getUpdateState(): Promise<UpdateState>
   checkForUpdates(): Promise<UpdateState>

@@ -60,7 +60,10 @@ html,body{height:100%}
 body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink-deep);overflow:hidden}
 ::selection{background:var(--gold-light);color:var(--ink-deep)}
 
-.app{display:flex;height:100vh;position:relative}
+.app{display:flex;flex-direction:column;height:100vh;position:relative}
+.app-shell{display:flex;flex:1;min-height:0;position:relative}
+.desktop-titlebar{height:42px;min-height:42px;z-index:30;display:flex;align-items:center;gap:8px;padding:0 150px 0 12px;background:var(--bg-card);border-bottom:1px solid var(--border);color:var(--ink-mid);font-size:calc(13px * var(--ui-font-scale));font-weight:500;user-select:none;-webkit-app-region:drag}
+.desktop-titlebar img{width:20px;height:20px;border-radius:5px;object-fit:cover;pointer-events:none}
 .nav-rail{width:60px;min-width:60px;z-index:10;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
 .nav-logo{width:36px;height:36px;border-radius:10px;margin-bottom:12px;cursor:pointer;transition:transform 0.2s;object-fit:cover}
 .nav-logo:hover{transform:scale(1.05)}

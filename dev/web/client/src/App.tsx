@@ -17,6 +17,7 @@ import SettingsPage from './pages/SettingsPage'
 import HomePage from './pages/HomePage'
 import ThemeBackdrop from './features/theme/ThemeBackdrop'
 import UpdateNotificationDialog from './features/update/UpdateNotificationDialog'
+import DesktopTitleBar from './components/DesktopTitleBar'
 
 const navItems = [
   { to: '/chat', icon: '💬', label: '会话' },
@@ -88,6 +89,8 @@ export default function App() {
   return (
     <div className="app">
       <ThemeBackdrop strength={backdropStrength} />
+      <DesktopTitleBar />
+      <div className="app-shell">
       <nav className="nav-rail">
         <img className="nav-logo" src="/logo.png" alt="天枢" title="天枢" onClick={() => navigate('/')} />
         {navItems.map(item => (
@@ -140,6 +143,7 @@ export default function App() {
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
+      </div>
 
       <UpdateNotificationDialog />
 

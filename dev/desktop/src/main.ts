@@ -58,6 +58,21 @@ function registerIpc(manager: ServerManager): void {
 
   ipcMain.handle('desktop:get-server-status', (): DesktopServerStatus => manager.getStatus())
 
+  ipcMain.handle('desktop:set-title-bar-theme', (event, color: string, symbolColor: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || process.platform === 'darwin') return
+
+    // Theme values are data, not arbitrary CSS: keep the bridge deliberately narrow.
+    const isSafeColor = (value: unknown): value is string =>
+      typeof value === 'string' && value.length <= 64 && (
+        /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(value) ||
+        /^rgba?\([\d\s.,%]+\)$/i.test(value)
+      )
+    if (!isSafeColor(color) || !isSafeColor(symbolColor)) return
+
+    win.setTitleBarOverlay({ color, symbolColor, height: 42 })
+  })
+
   ipcMain.handle('desktop:open-directory', async (event, defaultPath?: string) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win!, {
@@ -105,6 +120,12 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: '天枢',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#201b14',
+      symbolColor: '#f2ead9',
+      height: 42,
+    },
     // On Windows the window/taskbar icon is taken from the exe's embedded
     // icon.ico (buildResources), so no runtime icon path is needed here.
     webPreferences: {

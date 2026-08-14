@@ -1,13 +1,15 @@
 /**
  * Generates a real multi-size icon.ico (16/24/32/48/64/128/256, PNG-embedded,
  * Vista+ ICO format) and a 512px icon.png for the TianShu desktop client.
- * Pure Node: zlib + hand-rolled PNG/ICO container, no image dependencies.
+ * Pure Node: zlib + hand-rolled PNG decode/encode and ICO container, no image
+ * dependencies.
  *
- * Design: deep-navy rounded square with a bright four-point "pole star"
- * (天枢 = the pivot star of the Big Dipper) at the centre.
+ * Source: the TianShu logo PNG (default web/client/dist/logo.png). The script
+ * decodes it, resamples to each required size (alpha-aware area average) and
+ * embeds the results.
  */
-import { deflateSync } from 'zlib'
-import { writeFileSync, mkdirSync } from 'fs'
+import { deflateSync, inflateSync } from 'zlib'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -15,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const assetsDir = join(__dirname, '..', 'assets')
 mkdirSync(assetsDir, { recursive: true })
 
-// ── PNG encoding ────────────────────────────────────────────────────────────
+// ── PNG decode ──────────────────────────────────────────────────────────────
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256)
   for (let n = 0; n < 256; n++) {
@@ -62,6 +64,126 @@ function encodePNG(width, height, rgba) {
   ])
 }
 
+/** Decode an RGBA8 PNG (bit depth 8, colour type 6) into a raw RGBA buffer. */
+function decodePNG(data) {
+  if (data.length < 8) throw new Error('not a PNG')
+  const sig = data.subarray(0, 8)
+  if (!sig.equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    throw new Error('invalid PNG signature')
+  }
+  let width = 0
+  let height = 0
+  let bitDepth = 0
+  let colorType = 0
+  const idatChunks = []
+  let offset = 8
+  while (offset + 12 <= data.length) {
+    const length = data.readUInt32BE(offset)
+    const type = data.toString('ascii', offset + 4, offset + 8)
+    const body = data.subarray(offset + 8, offset + 8 + length)
+    if (type === 'IHDR') {
+      width = body.readUInt32BE(0)
+      height = body.readUInt32BE(4)
+      bitDepth = body[8]
+      colorType = body[9]
+      const compression = body[10]
+      const filter = body[11]
+      const interlace = body[12]
+      if (bitDepth !== 8 || colorType !== 6) {
+        throw new Error(`unsupported PNG format: bitDepth=${bitDepth} colorType=${colorType}`)
+      }
+      if (compression !== 0 || filter !== 0 || interlace !== 0) {
+        throw new Error('unsupported PNG compression/filter/interlace')
+      }
+    } else if (type === 'IDAT') {
+      idatChunks.push(body)
+    } else if (type === 'IEND') {
+      break
+    }
+    offset += 12 + length
+  }
+  if (!width || !height) throw new Error('missing IHDR')
+
+  const bpp = 4 // bytes per pixel (RGBA)
+  const stride = width * bpp
+  const raw = inflateSync(Buffer.concat(idatChunks))
+  if (raw.length !== stride * height + height) throw new Error('IDAT size mismatch')
+
+  const out = Buffer.alloc(stride * height)
+  const prev = Buffer.alloc(stride)
+  const cur = Buffer.alloc(stride)
+  const paeth = (a, b, c) => {
+    const p = a + b - c
+    const pa = Math.abs(p - a)
+    const pb = Math.abs(p - b)
+    const pc = Math.abs(p - c)
+    if (pa <= pb && pa <= pc) return a
+    if (pb <= pc) return b
+    return c
+  }
+  for (let y = 0; y < height; y++) {
+    const filterType = raw[y * (stride + 1)]
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1))
+    for (let i = 0; i < stride; i++) {
+      const x = line[i]
+      const a = i >= bpp ? cur[i - bpp] : 0
+      const b = prev[i]
+      const c = i >= bpp ? prev[i - bpp] : 0
+      let v
+      switch (filterType) {
+        case 0: v = x; break
+        case 1: v = x + a; break
+        case 2: v = x + b; break
+        case 3: v = x + ((a + b) >> 1); break
+        case 4: v = x + paeth(a, b, c); break
+        default: throw new Error(`unknown PNG filter ${filterType}`)
+      }
+      cur[i] = v & 0xff
+    }
+    cur.copy(out, y * stride)
+    cur.copy(prev)
+  }
+  return { width, height, rgba: out }
+}
+
+/**
+ * Alpha-aware area-average resample (works for both down- and up-scaling).
+ * Colours are averaged premultiplied to avoid fringes at translucent edges.
+ */
+function resample(srcW, srcH, src, dstW, dstH) {
+  const out = Buffer.alloc(dstW * dstH * 4)
+  for (let y = 0; y < dstH; y++) {
+    const y0 = Math.floor((y * srcH) / dstH)
+    const y1 = Math.max(y0 + 1, Math.floor(((y + 1) * srcH) / dstH))
+    for (let x = 0; x < dstW; x++) {
+      const x0 = Math.floor((x * srcW) / dstW)
+      const x1 = Math.max(x0 + 1, Math.floor(((x + 1) * srcW) / dstW))
+      let sr = 0, sg = 0, sb = 0, sa = 0, n = 0
+      for (let sy = y0; sy < y1; sy++) {
+        for (let sx = x0; sx < x1; sx++) {
+          const i = (sy * srcW + sx) * 4
+          const a = src[i + 3]
+          sr += src[i] * a
+          sg += src[i + 1] * a
+          sb += src[i + 2] * a
+          sa += a
+          n++
+        }
+      }
+      const o = (y * dstW + x) * 4
+      if (sa === 0) {
+        out[o] = out[o + 1] = out[o + 2] = out[o + 3] = 0
+      } else {
+        out[o] = Math.round(sr / sa)
+        out[o + 1] = Math.round(sg / sa)
+        out[o + 2] = Math.round(sb / sa)
+        out[o + 3] = Math.round(sa / n)
+      }
+    }
+  }
+  return out
+}
+
 // ── ICO container (Vista+ PNG entries) ──────────────────────────────────────
 function encodeICO(pngs) {
   const header = Buffer.alloc(6)
@@ -86,86 +208,23 @@ function encodeICO(pngs) {
   return Buffer.concat([header, ...entries, ...pngs.map((p) => p.data)])
 }
 
-// ── Drawing ─────────────────────────────────────────────────────────────────
-const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v)
-const lerp = (a, b, t) => a + (b - a) * t
-
-function roundedRectDist(x, y, cx, cy, hw, hh, r) {
-  const dx = Math.abs(x - cx) - (hw - r)
-  const dy = Math.abs(y - cy) - (hh - r)
-  const ax = Math.max(dx, 0)
-  const ay = Math.max(dy, 0)
-  return Math.hypot(ax, ay) + Math.min(Math.max(dx, dy), 0) - r
-}
-
-function drawIcon(size) {
-  const rgba = Buffer.alloc(size * size * 4)
-  const cx = size / 2
-  const cy = size / 2
-  const half = size * 0.5
-  const radius = size * 0.24
-  const starHalf = size * 0.32
-  const innerHalf = size * 0.12
-
-  const top = [34, 72, 122] // top-left background
-  const bottom = [11, 24, 48] // bottom-right background
-  const starColor = [96, 225, 255] // bright cyan
-  const coreColor = [235, 252, 255] // near-white core
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const px = x + 0.5
-      const py = y + 0.5
-
-      // Rounded-square alpha with a soft 0.75px anti-aliased edge.
-      const d = roundedRectDist(px, py, cx, cy, half, half, radius)
-      const alpha = clamp(-d + 0.5, 0, 1)
-
-      // Background gradient.
-      const t = (px + py) / (2 * size)
-      let r = lerp(top[0], bottom[0], t)
-      let g = lerp(top[1], bottom[1], t)
-      let b = lerp(top[2], bottom[2], t)
-
-      // Four-point star: |x-cx| + |y-cy| <= starHalf, soft edge.
-      const starDist = Math.abs(px - cx) + Math.abs(py - cy)
-      const starEdge = 1.5
-      const starT = clamp((starHalf - starDist) / starEdge, 0, 1)
-      if (starT > 0) {
-        r = lerp(r, starColor[0], starT)
-        g = lerp(g, starColor[1], starT)
-        b = lerp(b, starColor[2], starT)
-      }
-
-      // Inner diamond core, whiter toward the centre.
-      const coreDist = Math.abs(px - cx) + Math.abs(py - cy)
-      const coreT = clamp((innerHalf - coreDist) / 2, 0, 1)
-      if (coreT > 0) {
-        r = lerp(r, coreColor[0], coreT)
-        g = lerp(g, coreColor[1], coreT)
-        b = lerp(b, coreColor[2], coreT)
-      }
-
-      const i = (y * size + x) * 4
-      rgba[i] = Math.round(r)
-      rgba[i + 1] = Math.round(g)
-      rgba[i + 2] = Math.round(b)
-      rgba[i + 3] = Math.round(alpha * 255)
-    }
-  }
-  return rgba
-}
+// ── Source logo ─────────────────────────────────────────────────────────────
+const sourcePath =
+  process.argv[2] ?? join(__dirname, '..', '..', 'web', 'client', 'dist', 'logo.png')
+const src = decodePNG(readFileSync(sourcePath))
 
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
-
 const pngs = ICO_SIZES.map((size) => ({
   size,
-  data: encodePNG(size, size, drawIcon(size)),
+  data: encodePNG(size, size, resample(src.width, src.height, src.rgba, size, size)),
 }))
 const ico = encodeICO(pngs)
 writeFileSync(join(assetsDir, 'icon.ico'), ico)
 
-const png512 = encodePNG(512, 512, drawIcon(512))
+const PNG_SIZE = 512
+const png512 = encodePNG(PNG_SIZE, PNG_SIZE, resample(src.width, src.height, src.rgba, PNG_SIZE, PNG_SIZE))
 writeFileSync(join(assetsDir, 'icon.png'), png512)
 
-console.log(`Generated icon.ico (${ICO_SIZES.length} sizes, ${ico.length} bytes) and icon.png (${png512.length} bytes)`)
+console.log(
+  `Generated icon.ico (${ICO_SIZES.length} sizes, ${ico.length} bytes) and icon.png (${png512.length} bytes) from ${sourcePath}`
+)
