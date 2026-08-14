@@ -8,7 +8,7 @@
   面向桌面工作的多角色 AI Agent 系统
 </p>
 
-天枢是一个本地运行的 AI Agent 工作台。它不只提供对话，还允许 Agent 读取项目、调用工具、执行命令、委托子 Agent、管理长期目标，并通过角色、技能和 MCP 服务扩展能力。
+天枢是一个本地运行的 AI Agent 工作台。它不只提供对话，还允许 Agent 读取项目、调用工具、执行命令、委托子 Agent、管理长期目标，并通过角色、技能和 MCP 服务扩展能力；内置多套角色与技能包开箱即用，支持浅色/深色/自定义主题。
 
 当前项目主要面向 Windows，已经提供 `setup.bat` 和 `run.bat`，首次安装后可以直接通过批处理脚本启动。
 
@@ -54,7 +54,7 @@ npm run dev
 
 ### 发布与维护（开发者）
 
-- 发布流程详见 [`docs/桌面客户端发布手册.md`](docs/桌面客户端发布手册.md)。
+- 发布流程详见 [`docs/客户端分发与自动更新-OpenCode实施计划.md`](docs/客户端分发与自动更新-OpenCode实施计划.md)。
 - 一键发布脚本（仓库根目录）：`publish-release.bat`（显示当前版本 → 输入更新版本 → 同步 package/lockfile → 确认改动 → commit → 打 tag → 重试推送触发 CI）；`publish-release.bat --dry-run 0.1.3` 可预演，`publish-release.bat --verify` 校验 Release 三文件是否齐全可下载。
 - 安装包、`latest.yml` 等构建产物生成在 `dev/desktop/release/`。
 
@@ -63,13 +63,16 @@ npm run dev
 
 - **Agent 会话**：流式回复、思考内容、工具执行过程、Token 用量与生成速度。
 - **消息交互**：复制、编辑用户消息，以及从 Agent 回复创建独立分支会话。
-- **角色系统**：为不同角色配置人格、模型、工具、技能、头像和角色资源。
+- **角色系统**：为不同角色配置人格（Soul / User / Memory）、模型、工具、技能、头像和角色资源；内置多套角色开箱即用。
+- **技能包**：内置设计、图表、金融、玄学、专利等技能包，按需懒加载，不同角色可绑定不同技能。
 - **执行策略**：支持只读、风险操作确认和自动批准等不同权限策略。
+- **运行策略**：系统安全策略 + 角色偏好 + Run 策略快照三层防护，支持自动续跑与动态收敛。
 - **子 Agent**：主 Agent 可以委托子任务，并在独立上下文中执行。
-- **目标与规划**：支持 Goal、运行状态、计划步骤和长任务管理。
+- **目标与规划**：支持 Direct / Plan-first / Goal 执行模式、计划步骤与长任务管理。
 - **工具系统**：内置文件读取、写入、编辑、命令执行、搜索和网页访问等工具。
-- **MCP 扩展**：可以接入外部 MCP Server，为 Agent 增加新的工具能力。
+- **MCP 扩展**：可以接入外部 MCP Server（支持检测本机 MCP、导入 JSON 配置），为 Agent 增加新的工具能力。
 - **事件系统**：支持一次性任务、定时任务和事件执行会话。
+- **主题系统**：浅色 / 深色 / 跟随系统三模式，支持上传图片自动取色生成整套自定义主题。
 - **本地数据**：会话、角色、配置和运行数据保存在用户指定的本地目录中。
 
 ## 界面预览
@@ -84,7 +87,7 @@ npm run dev
 
 ### 角色配置
 
-角色页面集中管理角色立绘、基础信息、Soul（人格）、User（用户画像）、默认审批模式与运行限制。
+角色页面集中管理角色立绘、基础信息、Soul（人格）、User（用户画像）、默认审批模式与运行策略偏好。
 
 <p align="center">
   <img src="./dev/assets/readme/character-profile.png" alt="角色基础信息、Soul 与 User 配置" width="100%">
@@ -112,6 +115,12 @@ MCP 页面支持检测本机 MCP、导入 JSON 配置，或手动添加服务。
 <p align="center">
   <img src="./dev/assets/readme/data-directory.png" alt="在系统设置中选择数据存储目录" width="100%">
 </p>
+
+### 主题切换
+
+设置页支持「跟随系统 / 浅色 / 深色」三模式一键切换，并内置自定义主题工作台：上传背景图后自动取色生成整套配色（25 个语义 Token），可拖动背景焦点、微调色板，文字对比度实时自检并一键修正（WCAG AA）。
+
+<!-- TODO: 补充主题设置页与自定义主题工作台截图（放置于 dev/assets/readme/ 后替换本注释） -->
 
 ## 环境要求
 
@@ -261,15 +270,18 @@ TianShu/
 ├─ .github/workflows/        # CI：desktop-release.yml（tag 触发构建+发布）
 ├─ publish-release.bat       # 一键发布脚本（--dry-run / --verify）
 ├─ docs/                     # 方案与发布手册
+├─ content/builtin/          # 随应用发布的只读内置内容层（角色/技能/Provider 预设）
 └─ dev/
    ├─ package.json           # 统一命令（build/test/dev/dist:win）
    ├─ setup.bat              # 首次安装依赖
    ├─ run.bat                # 开发模式启动前后端并打开浏览器
    ├─ .node-version          # 固定 Node.js 24.14.0
+   ├─ assets/readme/         # README 界面截图
    ├─ shared/                # 桌面与渲染进程共享的强类型契约
    ├─ desktop/               # Electron 客户端
    │  ├─ src/                # main / preload / server-manager / updater
    │  ├─ test/               # 单元测试（fake updater、server-manager）
+   │  ├─ runtime/            # 内置 Node.js 运行时（打包用）
    │  ├─ assets/             # 图标
    │  ├─ electron-builder.yml# NSIS 安装包配置
    │  └─ release/            # 构建产物（exe/blockmap/latest.yml，gitignore）
@@ -279,7 +291,7 @@ TianShu/
       │  └─ src/
       │     ├─ api/          # REST 与 Socket 客户端
       │     ├─ components/   # 通用及会话组件
-      │     ├─ features/     # 功能模块（含 update 更新面板）
+      │     ├─ features/     # 功能模块（theme 主题、run-policy 运行策略、home 首页、update 更新等）
       │     ├─ pages/        # 页面
       │     ├─ stores/       # Zustand 状态管理
       │     └─ views/        # 组合视图
@@ -287,11 +299,14 @@ TianShu/
          └─ src/
             ├─ agent/        # Agent Loop、运行控制、子 Agent
             ├─ character/    # 角色包与角色资源
+            ├─ content/      # 内置内容（copy-on-write 物化）
             ├─ db/           # SQLite 数据层与迁移
             ├─ event/        # 事件定义、调度与执行
             ├─ evolution/    # 轨迹与进化能力
             ├─ llm/          # OpenAI 兼容流式模型客户端
+            ├─ providers/    # 模型服务与 Provider 预设
             ├─ routes/       # REST API
+            ├─ theme/        # 主题存储、schema 与图片校验
             ├─ tools/        # 内置工具注册表
             └─ ws/           # Socket.IO 会话事件
 ```
@@ -315,6 +330,8 @@ TianShu/
 - SQLite 会话数据库；
 - 模型服务与模型配置；
 - 角色、角色资源与记忆文件；
+- 技能包（内置技能的用户副本 + 用户自定义技能）；
+- 自定义主题（`themes/`）；
 - MCP Server 配置；
 - 工具输出、附件和调试数据；
 - 事件、目标和运行记录。
@@ -386,4 +403,4 @@ dev/web/server/config.json
 
 ## 当前状态
 
-天枢已提供 **Windows 桌面客户端**（Electron + 内置 Node + electron-updater 自动更新），可从 GitHub Releases 安装。开发模式仍可使用 `setup.bat`/`run.bat` 或 `npm run dev`。接口、数据结构和角色包格式可能继续调整。重要数据请定期备份，升级前建议先备份用户数据目录。
+天枢已提供 **Windows 桌面客户端 v0.2.6+**（Electron + 内置 Node + electron-updater 自动更新），可从 GitHub Releases 安装。已陆续完成：内置内容体系（内置角色 / 技能 / Provider 预设）、自定义主题系统、运行策略三层防护、首页工作台与会话体验优化。开发模式仍可使用 `setup.bat`/`run.bat` 或 `npm run dev`。接口、数据结构和角色包格式可能继续调整。重要数据请定期备份，升级前建议先备份用户数据目录。
