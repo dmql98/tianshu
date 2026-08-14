@@ -312,6 +312,20 @@ textarea.chat-textarea::placeholder{color:var(--ink-faint)}
 .approval-btn.once{background:var(--bg-hover);color:var(--ink-deep)}
 .approval-btn.always{background:var(--gold);color:var(--theme-text-on-accent)}
 
+/* Update notification dialog */
+.update-overlay{position:fixed;inset:0;z-index:150;background:var(--theme-overlay);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .15s ease-out}
+.update-dialog{width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 48px);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);border-radius:16px;background:var(--bg-card);box-shadow:0 24px 80px var(--theme-shadow);animation:scaleIn .15s ease-out}
+.update-dialog-body{padding:22px 22px 16px;overflow-y:auto}
+.update-dialog-title{font-size:calc(17px * var(--ui-font-scale));font-weight:600;color:var(--ink-deep);margin-bottom:8px}
+.update-dialog-desc{font-size:calc(13px * var(--ui-font-scale));color:var(--ink-mid);line-height:1.6;margin-bottom:12px}
+.update-dialog-desc strong{color:var(--gold);font-weight:600}
+.update-dialog-notes{margin-bottom:14px;padding:10px 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border);font-size:calc(12px * var(--ui-font-scale));white-space:pre-wrap;line-height:1.6;color:var(--ink-mid);max-height:140px;overflow-y:auto}
+.update-dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border);flex-shrink:0}
+.update-dialog-progress{margin-bottom:6px}
+.update-dialog-progress-track{height:8px;border-radius:4px;background:var(--bg-input);overflow:hidden;margin-bottom:8px}
+.update-dialog-progress-bar{height:100%;background:var(--gold);transition:width .2s ease}
+.update-dialog-progress-label{font-size:calc(12px * var(--ui-font-scale));color:var(--ink-mid)}
+
 /* Full plan dialog */
 .plan-summary-card{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-input)}
 .plan-summary-info{display:flex;flex-direction:column;gap:2px;font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light)}

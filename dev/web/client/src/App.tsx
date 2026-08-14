@@ -1,4 +1,4 @@
-﻿﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { fetchEventDefinitions } from './api/eventDefinitions'
 import { fetchDataspace } from './api/config'
@@ -16,6 +16,7 @@ import EventsPage from './pages/EventsPage'
 import SettingsPage from './pages/SettingsPage'
 import HomePage from './pages/HomePage'
 import ThemeBackdrop from './features/theme/ThemeBackdrop'
+import UpdateNotificationDialog from './features/update/UpdateNotificationDialog'
 
 const navItems = [
   { to: '/chat', icon: '💬', label: '会话' },
@@ -139,6 +140,8 @@ export default function App() {
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
+
+      <UpdateNotificationDialog />
 
       {/* Setup required overlay */}
       {!setupDone && (
