@@ -21,9 +21,8 @@
 !/dev/
 !/dev/**
 
-# 天枢本地数据
-!/.Tianshu/
-!/.Tianshu/**
+# 天枢本地数据（会话库、调试快照、角色运行时数据等，不进入仓库）
+/.Tianshu/**
 
 # 本机运行状态不进入仓库
 /.Tianshu/sessions.db
