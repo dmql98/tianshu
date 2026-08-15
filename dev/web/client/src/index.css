@@ -5,11 +5,11 @@
   --ui-font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",serif;--ui-font-scale:1;--ui-text-color:var(--ink-deep);
   /* 主题语义 Token：浅色默认（tianshu-light）。自定义主题由 themeRuntime 以 inline style 覆盖。 */
   --theme-canvas:#f5f0e8;--theme-surface-1:#ede6da;--theme-surface-2:#e0d8cc;--theme-surface-hover:#e0d8cc;
-  --theme-input:#faf8f4;--theme-overlay:var(--theme-overlay);--theme-border:rgba(180,160,130,0.15);--theme-border-subtle:rgba(180,160,130,0.08);
-  --theme-text-primary:var(--ink-deep);--theme-text-secondary:var(--ink-mid);--theme-text-muted:#8a7d68;--theme-text-faint:#b8a890;--theme-text-on-accent:#ffffff;
-  --theme-accent:var(--gold);--theme-accent-hover:var(--theme-accent-hover);--theme-accent-soft:var(--gold-soft);
-  --theme-link:var(--gold);--theme-focus-ring:rgba(200,150,10,0.55);--theme-success:var(--jade);--theme-warning:#d97706;
-  --theme-danger:#c45c3c;--theme-info:var(--blue);--theme-shadow-color:var(--theme-shadow);--theme-code-bg:#faf8f4;--theme-scrollbar:#b8a890;
+  --theme-input:#faf8f4;--theme-overlay:rgba(44,36,24,0.4);--theme-border:rgba(180,160,130,0.15);--theme-border-subtle:rgba(180,160,130,0.08);
+  --theme-text-primary:#2c2418;--theme-text-secondary:#5c5040;--theme-text-muted:#8a7d68;--theme-text-faint:#b8a890;--theme-text-on-accent:#ffffff;
+  --theme-accent:#c8960a;--theme-accent-hover:#b08508;--theme-accent-soft:rgba(200,150,10,0.1);
+  --theme-link:#c8960a;--theme-focus-ring:rgba(200,150,10,0.55);--theme-success:#2a9d5c;--theme-warning:#d97706;
+  --theme-danger:#c45c3c;--theme-info:#2563eb;--theme-shadow-color:rgba(44,36,24,0.2);--theme-code-bg:#faf8f4;--theme-scrollbar:#b8a890;
   /* 旧变量 → 主题 Token 迁移映射（组件只消费旧变量，Token 是唯一事实来源） */
   --bg-main:var(--theme-canvas);--bg-card:var(--theme-surface-1);--bg-hover:var(--theme-surface-hover);--bg-input:var(--theme-input);
   --border:var(--theme-border);--border-light:var(--theme-border-subtle);
@@ -18,7 +18,7 @@
   --gold-border:color-mix(in srgb,var(--theme-accent) 30%,transparent);
   --jade:var(--theme-success);--cinnabar:var(--theme-danger);--blue:var(--theme-info);--purple:var(--star-ziwei);
   --ink-deep:var(--theme-text-primary);--ink-mid:var(--theme-text-secondary);--ink-light:var(--theme-text-muted);--ink-faint:var(--theme-text-faint);
-  --star-changgeng:var(--theme-accent);--star-tianxuan:var(--theme-info);--star-wenqu:#059669;--star-ziwei:var(--star-ziwei);
+  --star-changgeng:var(--theme-accent);--star-tianxuan:var(--theme-info);--star-wenqu:#059669;--star-ziwei:#7c3aed;
   --theme-shadow:var(--theme-shadow-color);--theme-overlay-color:var(--theme-overlay);
   --theme-code-background:var(--theme-code-bg);--theme-scrollbar-color:var(--theme-scrollbar);
   --focus-ring-color:var(--theme-focus-ring);
@@ -130,6 +130,9 @@ body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink
 .chat-scroll.compact{gap:6px;padding:12px 28px}
 .chat-scroll::-webkit-scrollbar{width:6px}
 .chat-scroll::-webkit-scrollbar-thumb{background:var(--ink-faint);border-radius:3px}
+.chat-scroll-wrap{position:relative;flex:1;display:flex;flex-direction:column;min-height:0}
+.jump-to-bottom{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:10;display:flex;align-items:center;gap:6px;padding:6px 14px;border:1px solid var(--border);border-radius:999px;background:var(--bg-card);color:var(--ink-mid);font-size:calc(12px * var(--ui-font-scale));cursor:pointer;box-shadow:0 4px 14px var(--theme-shadow);transition:background 0.12s,color 0.12s}
+.jump-to-bottom:hover{background:var(--bg-hover);color:var(--gold)}
 .msg-group{display:flex;flex-direction:column;gap:4px;max-width:75%}
 .compact .msg-group{gap:2px}
 .msg-group.user{align-self:flex-end;align-items:flex-end}

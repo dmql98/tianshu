@@ -140,10 +140,31 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     if (!reader) { yield { type: 'error', text: 'No response body' }; return }
     const decoder = new TextDecoder()
     let buffer = ''
-    while (true) {
-      if (signal?.aborted) return
-      const { done, value } = await reader.read()
-      if (signal?.aborted) return
+    // ── Idle timeout ──
+    // A provider that stops sending bytes (connection hang) must not block the
+    // run forever: fail with a transient error so streamWithRetry can retry.
+    const IDLE_TIMEOUT_MS = 60_000
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
+    const clearIdle = () => {
+      if (idleTimer) { clearTimeout(idleTimer); idleTimer = undefined }
+    }
+    const readWithIdleTimeout = (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+      clearIdle()
+      const readPromise = reader!.read()
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        idleTimer = setTimeout(() => {
+          reader?.cancel().catch(() => {})
+          reject(new Error('LLM stream idle timeout (no data for 60s)'))
+        }, IDLE_TIMEOUT_MS)
+      })
+      return Promise.race([readPromise, timeoutPromise])
+    }
+    try {
+      while (true) {
+        if (signal?.aborted) return
+        const { done, value } = await readWithIdleTimeout()
+        clearIdle()
+        if (signal?.aborted) return
       if (done) {
         // Flush the decoder so any trailing multibyte sequence is decoded, and
         // process every complete SSE line. `decoder.decode()` (final call) no
@@ -187,6 +208,7 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
         for (const chunk of handleDataChunk(parsed)) yield chunk
       }
     }
+    } finally { clearIdle() }
   } catch (err: any) {
     if (err.name === 'AbortError' || signal?.aborted) return
     const errorText = describeTransportError(err)

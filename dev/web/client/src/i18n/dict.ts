@@ -885,4 +885,8 @@ export const dict: Record<string, DictEntry> = {
   '我想让图片成为整个应用的背景。': { zh: '我想让图片成为整个应用的背景。', en: 'I want this image to be the background of the whole app.' },
   '背景会覆盖完整界面，同时保证侧栏、消息和按钮清晰可读。': { zh: '背景会覆盖完整界面，同时保证侧栏、消息和按钮清晰可读。', en: 'The background covers the full UI while keeping the sidebar, messages and buttons readable.' },
   '随便说点什么': { zh: '随便说点什么', en: 'Say something…' },
+
+  // ── 消息滚动 ──
+  '回到底部': { zh: '回到底部', en: 'Back to bottom' },
+  '{count} 条新消息': { zh: '{count} 条新消息', en: '{count} new messages' },
 }

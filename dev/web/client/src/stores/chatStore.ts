@@ -1559,14 +1559,24 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       const afterSeq = runSeqByRunId.get(active.id) || 0
       let events: RunEvent[] = []
+      let after = afterSeq
       try {
-        events = await fetchRunEvents(active.id, afterSeq)
+        // The events API caps each batch at 1000 rows; a long run with many
+        // stream deltas can exceed that, so keep pulling until the batch is
+        // empty (otherwise each resume only recovers one slice).
+        for (let i = 0; i < 100; i++) {
+          const batch = await fetchRunEvents(active.id, after)
+          if (batch.length === 0) break
+          events = events.concat(batch)
+          after = batch[batch.length - 1].seq ?? after
+          if (TERMINAL_EVENT_TYPES.has(batch[batch.length - 1].type || '')) break
+        }
       } catch {
         return
       }
       if (events.length > 0) {
         applyRunEvents(sessionId, events)
-        runSeqByRunId.set(active.id, events[events.length - 1].seq ?? afterSeq)
+        runSeqByRunId.set(active.id, after)
         if (TERMINAL_EVENT_TYPES.has(events[events.length - 1].type || '')) return
       }
       // Re-check once: the run may have finished between the two fetches.
