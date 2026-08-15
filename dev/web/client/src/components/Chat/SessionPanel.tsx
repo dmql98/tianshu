@@ -4,16 +4,20 @@ import { useChatStore } from '@/stores/chatStore'
 import { openInFileManager } from '@/api/workspace'
 import FolderPicker from './FolderPicker'
 import type { Session } from '@/types'
+import type { I18nState } from '@/i18n'
+import { useI18n } from '@/i18n'
 
-function timeAgo(ts: number): string {
+type T = I18nState['t']
+
+function timeAgo(ts: number, t: T): string {
   const diff = Date.now() - ts
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return `${mins}分钟前`
+  if (mins < 1) return t('刚刚')
+  if (mins < 60) return t('{mins}分钟前', { mins })
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}小时前`
+  if (hours < 24) return t('{hours}小时前', { hours })
   const days = Math.floor(hours / 24)
-  return `${days}天前`
+  return t('{days}天前', { days })
 }
 
 interface ContextMenu {
@@ -29,6 +33,7 @@ interface ProjectContextMenu {
 }
 
 export default function SessionPanel() {
+  const t = useI18n()
   const [search, setSearch] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const [projectMenu, setProjectMenu] = useState<ProjectContextMenu | null>(null)
@@ -150,8 +155,8 @@ export default function SessionPanel() {
 
   function handleDeleteProject(workspace: string) {
     const count = sessions.filter(s => !s.parent_id && (s.workspace || 'default') === workspace).length
-    const label = workspace === 'default' ? '默认' : workspace.split(/[/\\]/).pop() || workspace
-    if (!window.confirm(`删除项目「${label}」？\n将删除该项目下的 ${count} 个会话（含子会话），不可恢复。`)) return
+    const label = workspace === 'default' ? t('默认') : workspace.split(/[/\\]/).pop() || workspace
+    if (!window.confirm(t('删除项目「{label}」？\n将删除该项目下的 {count} 个会话（含子会话），不可恢复。', { label, count }))) return
     deleteProject(workspace)
     if (activeSessionId && sessions.find(s => s.id === activeSessionId && (s.workspace || 'default') === workspace)) {
       navigate('/chat')
@@ -160,7 +165,7 @@ export default function SessionPanel() {
   }
 
   function handleRename(session: Session) {
-    const name = prompt('输入新名称：', session.title || '')
+    const name = prompt(t('输入新名称：'), session.title || '')
     if (name !== null) {
       renameSession(session.id, name)
     }
@@ -227,10 +232,10 @@ export default function SessionPanel() {
           <div className="session-info">
             <div className="session-title">
               {session.pinned && <span style={{ marginRight: 4 }}>⭐</span>}
-              {session.title || '新会话'}
+              {session.title || t('新会话')}
             </div>
             <div className="session-meta">
-              <span>{timeAgo(session.updated_at)}</span>
+              <span>{timeAgo(session.updated_at, t)}</span>
               {session.current_strategy && (
                 <span className="session-badge">{session.current_strategy}</span>
               )}
@@ -245,21 +250,21 @@ export default function SessionPanel() {
   return (
     <aside className="ctx-panel">
       <div className="ctx-header">
-        <span className="ctx-title">会话</span>
+        <span className="ctx-title">{t('会话')}</span>
         <div className="ctx-actions">
-          <button onClick={toggleBatchMode} title={isBatchMode ? '退出批量' : '批量操作'}>
+          <button onClick={toggleBatchMode} title={isBatchMode ? t('退出批量') : t('批量操作')}>
             {isBatchMode ? '✓' : '☰'}
           </button>
         </div>
       </div>
       <div className="ctx-search">
         <input
-          placeholder="搜索会话..."
+          placeholder={t('搜索会话...')}
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
       </div>
-      <div className="add-btn" onClick={handleNewSession}>+ 新建项目</div>
+      <div className="add-btn" onClick={handleNewSession}>+ {t('新建项目')}</div>
       <div className="ctx-body">
         {filteredGroups.map(group => (
           <div key={group.name} className="project-item">
@@ -269,12 +274,12 @@ export default function SessionPanel() {
               onContextMenu={e => handleProjectContextMenu(e, group.name)}
             >
               <span className="project-icon">📁</span>
-              <span className="project-name">{group.name === 'default' ? '默认' : group.name.split(/[/\\]/).pop() || group.name}</span>
+              <span className="project-name">{group.name === 'default' ? t('默认') : group.name.split(/[/\\]/).pop() || group.name}</span>
               <button
                 type="button"
                 className="project-add-btn"
-                title={`在「${group.name === 'default' ? '默认' : group.name.split(/[/\\]/).pop() || group.name}」中新建会话`}
-                aria-label={`在项目 ${group.name} 中新建会话`}
+                title={t('在「{name}」中新建会话', { name: group.name === 'default' ? t('默认') : group.name.split(/[/\\]/).pop() || group.name })}
+                aria-label={t('在项目 {name} 中新建会话', { name: group.name })}
                 onClick={event => handleNewSessionInWorkspace(event, group.name)}
               >
                 +
@@ -293,7 +298,7 @@ export default function SessionPanel() {
           <>
             <div className="ctx-divider"></div>
             <div className="event-group">
-              <div className="event-group-title">事件</div>
+              <div className="event-group-title">{t('事件')}</div>
               {filteredEvents.map(s => renderSessionItem(s))}
             </div>
           </>
@@ -301,7 +306,7 @@ export default function SessionPanel() {
 
         {filteredGroups.length === 0 && filteredEvents.length === 0 && (
           <div style={{ padding: 20, textAlign: 'center', fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>
-            {search ? '无匹配会话' : '暂无会话'}
+            {search ? t('无匹配会话') : t('暂无会话')}
           </div>
         )}
       </div>
@@ -326,14 +331,14 @@ export default function SessionPanel() {
         >
           <ContextMenuItem
             icon={contextMenu.session.pinned ? '⭐' : '☆'}
-            label={contextMenu.session.pinned ? '取消收藏' : '收藏'}
+            label={contextMenu.session.pinned ? t('取消收藏') : t('收藏')}
             onClick={() => handleTogglePin(contextMenu.session)}
           />
-          <ContextMenuItem icon="✏️" label="重命名" onClick={() => handleRename(contextMenu.session)} />
-          <ContextMenuItem icon="📋" label="复制 ID" onClick={() => handleCopyId(contextMenu.session)} />
-          <ContextMenuItem icon="📤" label="导出" onClick={() => handleExport(contextMenu.session)} />
+          <ContextMenuItem icon="✏️" label={t('重命名')} onClick={() => handleRename(contextMenu.session)} />
+          <ContextMenuItem icon="📋" label={t('复制 ID')} onClick={() => handleCopyId(contextMenu.session)} />
+          <ContextMenuItem icon="📤" label={t('导出')} onClick={() => handleExport(contextMenu.session)} />
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-          <ContextMenuItem icon="🗑️" label="删除" danger onClick={() => handleDelete(contextMenu.session)} />
+          <ContextMenuItem icon="🗑️" label={t('删除')} danger onClick={() => handleDelete(contextMenu.session)} />
         </div>
       )}
 
@@ -357,13 +362,13 @@ export default function SessionPanel() {
           {projectMenu.workspace !== 'default' && (
             <ContextMenuItem
               icon="📂"
-              label="打开所在文件夹"
+              label={t('打开所在文件夹')}
               onClick={() => handleOpenProjectFolder(projectMenu.workspace)}
             />
           )}
           <ContextMenuItem
             icon="🗑️"
-            label="删除项目"
+            label={t('删除项目')}
             danger
             onClick={() => handleDeleteProject(projectMenu.workspace)}
           />

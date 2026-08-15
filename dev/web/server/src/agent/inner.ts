@@ -382,6 +382,13 @@ export async function innerLoop(
         message_id: storedMessage.id,
         token_speed: finalTokenSpeed,
         token_speed_estimated: tokenSpeedEstimated,
+        cache: {
+          hitTokens: totalCacheHitTokens,
+          missTokens: totalCacheMissTokens,
+          hitRatio: totalCacheHitTokens + totalCacheMissTokens > 0
+            ? ((totalCacheHitTokens / (totalCacheHitTokens + totalCacheMissTokens)) * 100).toFixed(1)
+            : 'N/A',
+        },
       })
     }
     const msg: LLMMessage = {

@@ -4,6 +4,7 @@ import { updateSession } from '@/api/sessions'
 import { useChatStore } from '@/stores/chatStore'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import type { Character } from '@/types'
+import { useI18n } from '@/i18n'
 
 interface Props {
   sessionId: string
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function CharacterPicker({ sessionId, onSelect, onClose }: Props) {
+  const t = useI18n()
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -45,7 +47,7 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
     const result: { name: string; chars: Character[] }[] = []
     for (const [name, chars] of groups) result.push({ name, chars })
     result.sort((a, b) => a.name.localeCompare(b.name))
-    if (uncategorized.length > 0) result.push({ name: '未分组', chars: uncategorized })
+    if (uncategorized.length > 0) result.push({ name: t('未分组'), chars: uncategorized })
     return result
   }, [filtered])
 
@@ -98,7 +100,7 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
         </span>
         {c.role === 'main' && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 8, background: 'rgba(37,99,235,0.08)', color: 'var(--blue)', flexShrink: 0 }}>main</span>}
         {c.role === 'sub' && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 8, background: 'var(--bg-hover)', color: 'var(--ink-faint)', flexShrink: 0 }}>sub</span>}
-        {c.role === 'both' && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 8, background: 'rgba(200,150,10,0.08)', color: 'var(--gold)', flexShrink: 0 }}>主/子</span>}
+        {c.role === 'both' && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 8, background: 'rgba(200,150,10,0.08)', color: 'var(--gold)', flexShrink: 0 }}>{t('主/子')}</span>}
       </button>
     )
   }
@@ -114,11 +116,11 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
-          <span style={{ fontSize: 'calc(15px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)' }}>选择角色</span>
+          <span style={{ fontSize: 'calc(15px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)' }}>{t('选择角色')}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               onClick={() => setGroupView(!groupView)}
-              title={groupView ? '列表视图' : '分组视图'}
+              title={groupView ? t('列表视图') : t('分组视图')}
               style={{
                 width: 40, height: 40, border: `1px solid ${groupView ? 'var(--gold)' : 'var(--border)'}`,
                 borderRadius: 8, background: groupView ? 'rgba(200,150,10,0.08)' : 'var(--bg-input)',
@@ -138,7 +140,7 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="搜索角色..."
+            placeholder={t('搜索角色...')}
             autoFocus
             style={{
               width: '100%', padding: '8px 12px', border: '1px solid var(--border)',
@@ -151,9 +153,9 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
         {/* List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px 12px' }}>
           {loading ? (
-            <div style={{ padding: 32, textAlign: 'center', fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>加载中...</div>
+            <div style={{ padding: 32, textAlign: 'center', fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('加载中...')}</div>
           ) : filtered.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>无角色</div>
+            <div style={{ padding: 32, textAlign: 'center', fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('无角色')}</div>
           ) : groupView ? (
             grouped.map(grp => (
               <div key={grp.name} style={{ marginBottom: 4 }}>

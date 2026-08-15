@@ -168,7 +168,13 @@ export function compactHistory(
   recent: LLMMessage[],
 ): LLMMessage[] {
   const sysEnd = systemMessageEnd(messages)
-  const systemMsgs = messages.slice(0, sysEnd)
+  // Leading system messages pass through byte-identical so the cache prefix
+  // stays stable across turns. Superseded [Compacted History] summaries are
+  // dropped (only the newest is kept) so the system block does not grow
+  // unboundedly across successive compactions.
+  const systemMsgs = messages
+    .slice(0, sysEnd)
+    .filter(m => !(m.role === 'system' && typeof m.content === 'string' && m.content.startsWith('[Compacted History]')))
   const compacted: LLMMessage[] = [...systemMsgs]
   compacted.push({ role: 'system', content: `[Compacted History]\n${summary}` })
   compacted.push(...recent)

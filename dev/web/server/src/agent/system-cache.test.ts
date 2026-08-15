@@ -90,7 +90,27 @@ const shape3 = capturePrefixShape([
   { role: 'system', content: 'stable' },
   { role: 'user', content: 'rewritten' },
 ])
-assert(compareShapes(shape2, shape3).includes('history rewritten'), 'history rewrites are still diagnosed')
+const rewrittenReason = compareShapes(shape2, shape3).find(r => r.includes('history rewritten'))
+assert(!!rewrittenReason, 'history rewrites are still diagnosed')
+assert(rewrittenReason!.includes('raw index 1'), 'compareShapes pinpoints the rewritten message raw index')
+
+// ── A rewrite deep in the middle is pinpointed, not just flagged ──
+const deep1 = capturePrefixShape([
+  { role: 'system', content: 'stable' },
+  { role: 'user', content: 'q1' },
+  { role: 'assistant', content: 'a1' },
+  { role: 'tool', content: '{"output":"big"}', tool_call_id: 't1' },
+  { role: 'assistant', content: 'a2' },
+])
+const deep2 = capturePrefixShape([
+  { role: 'system', content: 'stable' },
+  { role: 'user', content: 'q1' },
+  { role: 'assistant', content: 'a1' },
+  { role: 'tool', content: '{"output":"changed"}', tool_call_id: 't1' },
+  { role: 'assistant', content: 'a2' },
+])
+const deepReason = compareShapes(deep1, deep2).find(r => r.includes('history rewritten'))
+assert(deepReason!.includes('index 3'), 'mid-history tool rewrite reported at exact index')
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

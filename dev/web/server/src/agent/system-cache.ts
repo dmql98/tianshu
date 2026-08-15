@@ -154,6 +154,8 @@ export interface PrefixShape {
   toolsHash: string
   historyHash: string
   historyItems: string[]
+  /** Raw index in the source messages array for each historyItems entry. */
+  historyIndexes: number[]
 }
 
 function flatContent(content: LLMMessage['content']): string {
@@ -171,15 +173,26 @@ export function capturePrefixShape(
     .map(m => flatContent(m.content))
     .join('\n')
   const toolsText = JSON.stringify(tools ?? [])
-  const historyItems = messages
-    .filter(m => m.role !== 'system')
-    .map(m => `${m.role}:${flatContent(m.content).slice(0, 200)}`)
+  // Per-message full-content hash: pinpoints exactly which message was
+  // rewritten between turns (mid-history rewrites are the #1 cache-killer).
+  const historyItems: string[] = []
+  const historyIndexes: number[] = []
+  messages.forEach((m, i) => {
+    if (m.role === 'system') return
+    historyItems.push(`${m.role}:${shortHash(
+      flatContent(m.content) + '\x00' +
+      (m.tool_calls ? JSON.stringify(m.tool_calls) : '') + '\x00' +
+      (m.tool_call_id || ''),
+    )}`)
+    historyIndexes.push(i)
+  })
   const historyText = historyItems.join('|')
   return {
     systemHash: shortHash(sysText),
     toolsHash: shortHash(toolsText),
     historyHash: shortHash(historyText),
     historyItems,
+    historyIndexes,
   }
 }
 
@@ -190,7 +203,19 @@ export function compareShapes(prev: PrefixShape, cur: PrefixShape): string[] {
   if (prev.historyHash !== cur.historyHash) {
     const appendOnly = cur.historyItems.length >= prev.historyItems.length
       && prev.historyItems.every((item, index) => cur.historyItems[index] === item)
-    if (!appendOnly) changes.push('history rewritten')
+    if (!appendOnly) {
+      let firstDiff = -1
+      for (let i = 0; i < Math.min(prev.historyItems.length, cur.historyItems.length); i++) {
+        if (prev.historyItems[i] !== cur.historyItems[i]) { firstDiff = i; break }
+      }
+      const rawIndex = firstDiff >= 0
+        ? (cur.historyIndexes[firstDiff] ?? firstDiff)
+        : -1
+      const detail = rawIndex >= 0
+        ? ` (first rewritten message at raw index ${rawIndex})`
+        : ` (length ${prev.historyItems.length}→${cur.historyItems.length})`
+      changes.push('history rewritten' + detail)
+    }
   }
   return changes
 }

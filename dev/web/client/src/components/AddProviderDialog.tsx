@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useI18n } from '@/i18n'
 import { useProvidersStore } from '@/stores/providersStore'
 import { createProvider, fetchBuiltinProviders, type ProviderPreset } from '@/api/providers'
 
@@ -33,6 +34,7 @@ function ProviderIcon({ preset }: { preset: ProviderPreset }) {
 
 export default function AddProviderDialog({ onClose }: Props) {
   const { load } = useProvidersStore()
+  const t = useI18n()
   const [step, setStep] = useState<'select' | 'config'>('select')
   const [builtinProviders, setBuiltinProviders] = useState<ProviderPreset[]>([])
   const [search, setSearch] = useState('')
@@ -49,7 +51,7 @@ export default function AddProviderDialog({ onClose }: Props) {
     setListError('')
     fetchBuiltinProviders()
       .then(setBuiltinProviders)
-      .catch((err) => setListError(err?.message || '加载预设服务商失败'))
+      .catch((err) => setListError(err?.message || t('加载预设服务商失败')))
       .finally(() => setListLoading(false))
   }
 
@@ -92,7 +94,7 @@ export default function AddProviderDialog({ onClose }: Props) {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.baseUrl) {
-      setError('请填写服务名称和API地址')
+      setError(t('请填写服务名称和API地址'))
       return
     }
 
@@ -117,8 +119,8 @@ export default function AddProviderDialog({ onClose }: Props) {
       await load()
       onClose()
     } catch (err: any) {
-      if (err?.message?.includes('409')) setError('该预设服务商已添加')
-      else setError('添加失败，请重试')
+      if (err?.message?.includes('409')) setError(t('该预设服务商已添加'))
+      else setError(t('添加失败，请重试'))
     } finally {
       setLoading(false)
     }
@@ -134,7 +136,7 @@ export default function AddProviderDialog({ onClose }: Props) {
             </button>
           )}
           <h2 className="provider-dialog-title">
-            {step === 'select' ? '选择服务商' : (selectedProvider ? `连接 ${selectedProvider.name}` : '添加自定义服务')}
+            {step === 'select' ? t('选择服务商') : (selectedProvider ? t('连接 {name}', { name: selectedProvider.name }) : t('添加自定义服务'))}
           </h2>
           <button className="provider-dialog-close" onClick={onClose}>✕</button>
         </div>
@@ -148,7 +150,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="搜索服务商..."
+                  placeholder={t('搜索服务商...')}
                   style={{
                     width:'100%', padding:'6px 10px', borderRadius:6,
                     border:'1px solid var(--border)', background:'var(--bg)',
@@ -159,7 +161,7 @@ export default function AddProviderDialog({ onClose }: Props) {
 
               {listLoading && (
                 <div style={{textAlign:'center',padding:24,color:'var(--ink-faint)',fontSize: 'calc(13px * var(--ui-font-scale))'}}>
-                  加载预设服务商...
+                  {t('加载预设服务商...')}
                 </div>
               )}
 
@@ -191,12 +193,12 @@ export default function AddProviderDialog({ onClose }: Props) {
                     <div className="provider-list-desc">
                       {formatLabel[provider.format] || provider.format}
                       {provider.env_available && (
-                        <span style={{ color: 'var(--jade)', marginLeft: 6 }}>· 已检测到环境变量</span>
+                        <span style={{ color: 'var(--jade)', marginLeft: 6 }}>· {t('已检测到环境变量')}</span>
                       )}
                     </div>
                   </div>
                   <div className="provider-list-arrow">
-                    {provider.added ? '已添加' : '›'}
+                    {provider.added ? t('已添加') : '›'}
                   </div>
                 </div>
               ))}
@@ -209,7 +211,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                 >
                   <div className="provider-list-icon" style={{fontSize:18}}>➕</div>
                   <div className="provider-list-info">
-                    <div className="provider-list-name">自定义服务商</div>
+                    <div className="provider-list-name">{t('自定义服务商')}</div>
                   </div>
                   <div className="provider-list-arrow">›</div>
                 </div>
@@ -217,7 +219,7 @@ export default function AddProviderDialog({ onClose }: Props) {
 
               {!listLoading && !listError && filtered.length === 0 && search && (
                 <div style={{textAlign:'center',padding:24,color:'var(--ink-faint)',fontSize: 'calc(13px * var(--ui-font-scale))'}}>
-                  未找到匹配的服务商
+                  {t('未找到匹配的服务商')}
                 </div>
               )}
             </div>
@@ -233,7 +235,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                   type="text"
                   value={formData.name}
                   onChange={e => setFormData(p => ({...p, name: e.target.value}))}
-                  placeholder="例如：Anthropic"
+                  placeholder={t('例如：Anthropic')}
                 />
               </div>
 
@@ -243,7 +245,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                   type="text"
                   value={formData.baseUrl}
                   onChange={e => setFormData(p => ({...p, baseUrl: e.target.value}))}
-                  placeholder="例如：https://api.anthropic.com/v1/"
+                  placeholder={t('例如：https://api.anthropic.com/v1/')}
                 />
               </div>
 
@@ -252,13 +254,13 @@ export default function AddProviderDialog({ onClose }: Props) {
                   API Key
                   {selectedProvider?.env_available && (
                     <span className="provider-form-hint" style={{ color: 'var(--jade)' }}>
-                      已检测到环境变量，可留空
+                      {t('已检测到环境变量，可留空')}
                     </span>
                   )}
                 </label>
                 {selectedProvider?.env?.length ? (
                   <div style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)',marginBottom:4}}>
-                    也可设置环境变量 {selectedProvider.env.map(name => (
+                     {t('也可设置环境变量')} {selectedProvider.env.map(name => (
                       <code key={name} style={{background:'var(--bg-hover)',padding:'1px 4px',borderRadius:3}}>{name}</code>
                     ))}
                   </div>
@@ -276,16 +278,16 @@ export default function AddProviderDialog({ onClose }: Props) {
 
         <div className="provider-dialog-footer">
           {step === 'select' ? (
-            <button className="provider-btn secondary" onClick={onClose}>取消</button>
+            <button className="provider-btn secondary" onClick={onClose}>{t('取消')}</button>
           ) : (
             <>
-              <button className="provider-btn secondary" onClick={() => { setStep('select'); setSearch('') }}>返回</button>
+              <button className="provider-btn secondary" onClick={() => { setStep('select'); setSearch('') }}>{t('返回')}</button>
               <button
                 className="provider-btn primary"
                 onClick={handleSubmit}
                 disabled={loading || !formData.name || !formData.baseUrl}
               >
-                {loading ? '添加中...' : '添加'}
+                {loading ? t('添加中...') : t('添加')}
               </button>
             </>
           )}

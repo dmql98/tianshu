@@ -8,6 +8,7 @@
  * - "恢复默认"仅把选择恢复为 system，不重置字体等显示设置。
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useI18n } from '@/i18n'
 import {
   BUILTIN_THEMES,
   BUILTIN_THEME_DARK_ID,
@@ -31,15 +32,16 @@ export interface ThemeSelectorProps {
   onOpenStudio?: (editing?: ThemeDefinition) => void
 }
 
-function selectionLabel(selection: ThemeSelection): string {
+function selectionLabel(selection: ThemeSelection, t: (k: string) => string): string {
   if (selection.mode === 'builtin') {
-    return selection.themeId === BUILTIN_THEME_LIGHT_ID ? '浅色' : '深色'
+    return selection.themeId === BUILTIN_THEME_LIGHT_ID ? t('浅色') : t('深色')
   }
-  if (selection.mode === 'custom') return '自定义'
-  return '跟随系统'
+  if (selection.mode === 'custom') return t('自定义')
+  return t('跟随系统')
 }
 
 export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelectorProps) {
+  const t = useI18n()
   const [prefs, setPrefs] = useState<ThemePreferences>(() => loadThemePreferences())
   const [customThemes, setCustomThemes] = useState<ThemeDefinition[]>([])
   const [systemResolved, setSystemResolved] = useState<string>(() =>
@@ -54,7 +56,7 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
       const root = document.documentElement
       setSystemResolved(root.getAttribute('data-theme-id') ?? systemResolved)
     } catch {
-      showToast('加载主题列表失败', 'err')
+      showToast(t('加载主题列表失败'), 'err')
     } finally {
       setLoading(false)
     }
@@ -98,7 +100,7 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
   }
 
   const handleDelete = async (theme: ThemeDefinition) => {
-    const confirmed = window.confirm(`删除主题「${theme.name}」？此操作不可恢复。`)
+    const confirmed = window.confirm(t('删除主题「{name}」？此操作不可恢复。', { name: theme.name }))
     if (!confirmed) return
     try {
       // 删除当前主题：先把活动选择切到 system，确认生效后再删除
@@ -108,9 +110,9 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
       }
       await deleteTheme(theme.id)
       setCustomThemes(prev => prev.filter(t => t.id !== theme.id))
-      showToast('主题已删除')
+      showToast(t('主题已删除'))
     } catch {
-      showToast('删除失败', 'err')
+      showToast(t('删除失败'), 'err')
     }
   }
 
@@ -118,27 +120,27 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
     try {
       const dup = await duplicateTheme(theme.id)
       setCustomThemes(prev => [...prev, dup])
-      showToast('已复制为新主题')
+      showToast(t('已复制为新主题'))
     } catch {
-      showToast('复制失败', 'err')
+      showToast(t('复制主题失败'), 'err')
     }
   }
 
   const handleRename = async (theme: ThemeDefinition) => {
-    const name = window.prompt('输入新名称：', theme.name)
+    const name = window.prompt(t('输入新名称：'), theme.name)
     if (!name || name.trim() === theme.name) return
     try {
       const renamed = await renameTheme(theme.id, name.trim())
       setCustomThemes(prev => prev.map(t => t.id === theme.id ? renamed : t))
-      showToast('已重命名')
+      showToast(t('已重命名'))
     } catch {
-      showToast('重命名失败', 'err')
+      showToast(t('重命名失败'), 'err')
     }
   }
 
   const handleReset = () => {
     handleSelect({ mode: 'system' })
-    showToast('已恢复为跟随系统')
+    showToast(t('已恢复为跟随系统'))
   }
 
   const themeCard = (theme: ThemeDefinition, selection: ThemeSelection) => {
@@ -166,8 +168,8 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
         <span className="theme-card-body">
           <span className="theme-card-name">{theme.name}</span>
           <span className="theme-card-meta">
-            {theme.appearance === 'dark' ? '深色' : '浅色'}
-            {theme.source === 'custom' ? ' · 自定义' : ' · 内置'}
+            {theme.appearance === 'dark' ? t('深色') : t('浅色')}
+            {theme.source === 'custom' ? ` · ${t('自定义')}` : ` · ${t('内置')}`}
           </span>
         </span>
         {active && <span className="theme-card-check" aria-hidden="true">✓</span>}
@@ -179,11 +181,11 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
     <div className="theme-selector">
       <div className="setting-row">
         <div className="setting-info">
-          <span className="setting-label">主题</span>
+          <span className="setting-label">{t('主题')}</span>
           <span className="setting-hint">
-            当前选择：{selectionLabel(prefs.selection)}
+            {t('当前选择')}：{selectionLabel(prefs.selection, t)}
             {prefs.selection.mode === 'system' && (
-              <span className="theme-system-resolved">（当前实际使用：{systemResolved === BUILTIN_THEME_DARK_ID ? '深色' : '浅色'}）</span>
+              <span className="theme-system-resolved">（{t('当前实际使用')}：{systemResolved === BUILTIN_THEME_DARK_ID ? t('深色') : t('浅色')}）</span>
             )}
           </span>
         </div>
@@ -194,7 +196,7 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
         </div>
       </div>
 
-      <div className="theme-card-grid" role="radiogroup" aria-label="主题选择">
+      <div className="theme-card-grid" role="radiogroup" aria-label={t('主题选择')}>
         {/* 跟随系统卡片 */}
         <button
           type="button"

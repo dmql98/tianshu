@@ -45,6 +45,7 @@ export interface Session extends SessionSummary {
   reasoning_effort?: string
   compacted?: boolean
   cacheStats?: { hitTokens: number; missTokens: number; hitRatio: string }
+  context_usage?: number
 }
 
 export interface Message {

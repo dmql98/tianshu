@@ -16,6 +16,10 @@ import type { Character } from '@/types'
 import { appliedHomeTitle } from '@/features/theme/themeRuntime'
 import { DEFAULT_HOME_TITLE } from '@/features/theme/themeDefinitions'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
+import type { I18nState } from '@/i18n'
+import { useI18n } from '@/i18n'
+
+type T = I18nState['t']
 
 type LoadState =
   | { status: 'loading' }
@@ -24,38 +28,40 @@ type LoadState =
 
 /**
  * 相对时间：刚刚 / N 分钟前 / N 小时前 / 昨天 / 本地日期。
- * 纯函数，便于测试。
+ * 纯函数，便于测试；不传 t 时保持中文输出（兼容既有测试）。
  */
-export function formatRelativeTime(ts: number, now: number = Date.now()): string {
+export function formatRelativeTime(ts: number, now: number = Date.now(), t?: T): string {
   if (!Number.isFinite(ts)) return ''
   const diff = now - ts
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
+  if (diff < 60_000) return t ? t('刚刚') : '刚刚'
+  if (diff < 3_600_000) return t ? t('{n} 分钟前', { n: Math.floor(diff / 60_000) }) : `${Math.floor(diff / 60_000)} 分钟前`
+  if (diff < 86_400_000) return t ? t('{n} 小时前', { n: Math.floor(diff / 3_600_000) }) : `${Math.floor(diff / 3_600_000)} 小时前`
   const date = new Date(ts)
   const today = new Date(now)
   const yesterday = new Date(now - 86_400_000)
-  if (date.toDateString() === yesterday.toDateString()) return '昨天'
-  if (date.toDateString() === today.toDateString()) return `${Math.floor(diff / 3_600_000)} 小时前`
+  if (date.toDateString() === yesterday.toDateString()) return t ? t('昨天') : '昨天'
+  if (date.toDateString() === today.toDateString()) return t ? t('{n} 小时前', { n: Math.floor(diff / 3_600_000) }) : `${Math.floor(diff / 3_600_000)} 小时前`
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`
 }
 
-function sessionTitle(session: RecentSessionSummary): string {
-  return session.title?.trim() || '新会话'
+function sessionTitle(session: RecentSessionSummary, t: T): string {
+  return session.title?.trim() || t('新会话')
 }
 
-function sessionPreview(session: RecentSessionSummary): string {
-  return session.last_message_preview?.trim() || '暂无消息'
+function sessionPreview(session: RecentSessionSummary, t: T): string {
+  return session.last_message_preview?.trim() || t('暂无消息')
 }
 
 function RecentCard({
   session,
   character,
   onOpen,
+  t,
 }: {
   session: RecentSessionSummary
   character?: Character
   onOpen: (id: string) => void
+  t: T
 }) {
   const name = character?.name?.trim() || 'Agent'
   return (
@@ -63,7 +69,7 @@ function RecentCard({
       type="button"
       className="home-card"
       onClick={() => onOpen(session.id)}
-      aria-label={`打开会话：${sessionTitle(session)}`}
+      aria-label={t('打开会话：{title}', { title: sessionTitle(session, t) })}
     >
       <span className="home-card-head">
         <CharacterRenderer
@@ -75,11 +81,11 @@ function RecentCard({
         />
         <span className="home-card-meta">
           <span className="home-card-character">{name}</span>
-          <span className="home-card-time">{formatRelativeTime(session.updated_at)}</span>
+          <span className="home-card-time">{formatRelativeTime(session.updated_at, undefined, t)}</span>
         </span>
       </span>
-      <span className="home-card-title">{sessionTitle(session)}</span>
-      <span className="home-card-preview">{sessionPreview(session)}</span>
+      <span className="home-card-title">{sessionTitle(session, t)}</span>
+      <span className="home-card-preview">{sessionPreview(session, t)}</span>
     </button>
   )
 }
@@ -95,6 +101,7 @@ function SkeletonCard() {
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const t = useI18n()
   const [title, setTitle] = useState<string>(() => appliedHomeTitle())
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [characters, setCharacters] = useState<Record<string, Character>>({})
@@ -139,34 +146,34 @@ export default function HomePage() {
       <div className="home">
         <h1 className="home-headline">{title || DEFAULT_HOME_TITLE}</h1>
 
-        <section className="home-recent" aria-label="最近对话">
+        <section className="home-recent" aria-label={t('最近对话')}>
           <div className="home-recent-header">
-            <span className="home-recent-title">最近对话</span>
+            <span className="home-recent-title">{t('最近对话')}</span>
             <button type="button" className="home-view-all" onClick={openAll}>
-              查看全部会话 →
+              {t('查看全部会话')} →
             </button>
           </div>
 
           {state.status === 'loading' && (
-            <div className="home-card-grid" role="status" aria-label="加载中">
+            <div className="home-card-grid" role="status" aria-label={t('加载中')}>
               <SkeletonCard /><SkeletonCard /><SkeletonCard />
             </div>
           )}
 
           {state.status === 'error' && (
             <div className="home-state" role="alert">
-              <span className="home-state-title">最近会话加载失败</span>
+              <span className="home-state-title">{t('最近会话加载失败')}</span>
               <div className="home-state-actions">
-                <button type="button" className="btn sm" onClick={() => setRetryKey(k => k + 1)}>重试</button>
-                <button type="button" className="btn sm" onClick={openAll}>查看全部会话</button>
+                <button type="button" className="btn sm" onClick={() => setRetryKey(k => k + 1)}>{t('重试')}</button>
+                <button type="button" className="btn sm" onClick={openAll}>{t('查看全部会话')}</button>
               </div>
             </div>
           )}
 
           {state.status === 'ready' && state.sessions.length === 0 && (
             <div className="home-state">
-              <span className="home-state-title">暂无最近会话</span>
-              <button type="button" className="btn sm" onClick={openAll}>前往会话页开始 →</button>
+              <span className="home-state-title">{t('暂无最近会话')}</span>
+              <button type="button" className="btn sm" onClick={openAll}>{t('前往会话页开始')} →</button>
             </div>
           )}
 
@@ -178,6 +185,7 @@ export default function HomePage() {
                   session={session}
                   character={characters[session.character_id]}
                   onOpen={openSession}
+                  t={t}
                 />
               ))}
             </div>

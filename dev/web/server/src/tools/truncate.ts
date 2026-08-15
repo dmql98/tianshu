@@ -1,4 +1,5 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
+import { createHash } from 'crypto'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
 
@@ -14,7 +15,10 @@ export function truncateToolOutput(output: string): string {
   if (output.length <= MAX_OUTPUT_CHARS) return output
 
   ensureDir()
-  const name = `tool_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.log`
+  // Content-addressed log name: the same oversized output always truncates to
+  // the same bytes (same file path), keeping the message prefix byte-stable
+  // across turns and runs so provider prefix caching keeps working.
+  const name = `tool_${createHash('sha256').update(output).digest('hex').slice(0, 16)}.log`
   const filePath = resolve(getOutputDir(), name)
   try {
     writeFileSync(filePath, output, 'utf-8')

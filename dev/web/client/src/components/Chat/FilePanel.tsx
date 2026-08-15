@@ -1,6 +1,7 @@
 ﻿import { useMemo } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useI18n } from '@/i18n'
 
 interface FileEntry {
   name: string
@@ -42,6 +43,7 @@ async function openDirectory(path: string) {
 export default function FilePanel() {
   const { sessions, activeSessionId } = useChatStore()
   const { toggleFilePanel } = useUIStore()
+  const t = useI18n()
   const session = sessions.find(s => s.id === activeSessionId)
   const messages = session?.messages || []
 
@@ -98,15 +100,15 @@ export default function FilePanel() {
   return (
     <aside className="file-panel">
       <div className="fp-header">
-        <span className="fp-title">文件</span>
+        <span className="fp-title">{t('文件')}</span>
         <span className="fp-close" onClick={toggleFilePanel}>✕</span>
       </div>
       <div className="fp-body">
         {/* Attachments */}
         <div className="fp-section">
-          <div className="fp-section-title">附件</div>
+          <div className="fp-section-title">{t('附件')}</div>
           {attachments.length === 0 ? (
-            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>无附件</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>{t('无附件')}</div>
           ) : attachments.map((f, i) => (
             <div key={i} className="fp-file-item">
               <span className="fp-file-icon">{f.icon}</span>
@@ -117,9 +119,9 @@ export default function FilePanel() {
 
         {/* Tool files */}
         <div className="fp-section">
-          <div className="fp-section-title">工具文件</div>
+          <div className="fp-section-title">{t('工具文件')}</div>
           {toolFiles.length === 0 ? (
-            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>无文件操作</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>{t('无文件操作')}</div>
           ) : toolFiles.map((f, i) => (
             <div key={i} className="fp-file-item">
               <span className="fp-file-icon">{f.icon}</span>
@@ -127,7 +129,7 @@ export default function FilePanel() {
               {f.path && (
                 <button
                   onClick={() => openDirectory(dirOf(f.path!))}
-                  title="打开所在目录"
+                  title={t('打开所在目录')}
                   style={{
                     marginLeft: 'auto', background: 'none', border: 'none',
                     color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 'calc(12px * var(--ui-font-scale))',

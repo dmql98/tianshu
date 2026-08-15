@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { submitRunInput } from '@/api/runs'
+import { useI18n } from '@/i18n'
 
 /**
  * ask_user dialog: surfaces a model question and submits the user's answer
@@ -8,6 +9,7 @@ import { submitRunInput } from '@/api/runs'
  */
 export default function AskUserDialog() {
   const { pendingAskUser, clearAskUser } = useChatStore()
+  const t = useI18n()
   const [answer, setAnswer] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -23,7 +25,7 @@ export default function AskUserDialog() {
       setAnswer('')
       clearAskUser()
     } catch (err: any) {
-      setError(err.message || '提交失败')
+      setError(err.message || t('提交失败'))
     } finally {
       setBusy(false)
     }
@@ -32,7 +34,7 @@ export default function AskUserDialog() {
   return (
     <div className="approval-overlay">
       <div className="approval-dialog" style={{ maxWidth: 480, width: '100%' }}>
-        <div className="approval-title">❓ 需要您确认</div>
+        <div className="approval-title">❓ {t('需要您确认')}</div>
         <div className="approval-path" style={{ whiteSpace: 'pre-wrap', marginBottom: 12 }}>
           {pendingAskUser.question}
         </div>
@@ -40,15 +42,15 @@ export default function AskUserDialog() {
           value={answer}
           onChange={e => setAnswer(e.target.value)}
           rows={3}
-          placeholder="输入您的回答..."
+          placeholder={t('输入您的回答...')}
           autoFocus
           style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', resize: 'vertical', fontFamily: 'inherit' }}
         />
         {error && <p style={{ color: 'var(--cinnabar)', fontSize: 'calc(12px * var(--ui-font-scale))', margin: '8px 0' }}>{error}</p>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-          <button className="btn" onClick={clearAskUser}>暂不回答</button>
+          <button className="btn" onClick={clearAskUser}>{t('暂不回答')}</button>
           <button className="btn primary" disabled={busy || !answer.trim()} onClick={() => void handleSubmit()}>
-            {busy ? '提交中...' : '回答'}
+            {busy ? t('提交中...') : t('回答')}
           </button>
         </div>
       </div>

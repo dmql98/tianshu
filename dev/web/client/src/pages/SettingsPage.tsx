@@ -14,6 +14,8 @@ import SystemRunPolicySettings from '@/features/run-policy/SystemRunPolicySettin
 import ThemeSelector from '@/features/theme/ThemeSelector'
 import ThemeStudio from '@/features/theme/ThemeStudio'
 import type { ThemeDefinition } from '@/features/theme/themeDefinitions'
+import { useI18n, useI18nStore } from '@/i18n'
+import type { Locale } from '@/i18n'
 import { setThemeSelection } from '@/features/theme/themeRuntime'
 import { loadThemePreferences } from '@/features/theme/themePreferences'
 import { textColorContrastOn } from '@/features/display/displayPreferences'
@@ -45,7 +47,9 @@ export default function SettingsPage() {
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
   // ── 显示设置 ──
-  const [lang, setLang] = useState(ls('lang', 'zh'))
+  const t = useI18n()
+  const locale = useI18nStore(s => s.locale)
+  const setLocale = useI18nStore(s => s.setLocale)
   const [notify, setNotify] = useState(lsBool('notify', true))
   const [sound, setSound] = useState(lsBool('sound', false))
   const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences)
@@ -84,20 +88,20 @@ export default function SettingsPage() {
   }, [])
 
   const serverStatusLabel = (s: DesktopServerStatus | null): string => {
-    if (!s) return '未知'
+    if (!s) return t('未知')
     switch (s.phase) {
-      case 'starting': return '正在启动本地服务…'
-      case 'ready': return `本地服务运行中（端口 ${s.port}）`
-      case 'failed': return `本地服务异常：${s.message}`
-      case 'stopping': return '正在停止本地服务…'
-      case 'stopped': return '本地服务已停止'
+      case 'starting': return t('正在启动本地服务…')
+      case 'ready': return t('本地服务运行中（端口 {port}）', { port: s.port })
+      case 'failed': return t('本地服务异常：{msg}', { msg: s.message })
+      case 'stopping': return t('正在停止本地服务…')
+      case 'stopped': return t('本地服务已停止')
     }
   }
 
   const handleChooseDir = async () => {
     const api = window.tianshuDesktop
     if (!api) {
-      showToast('目录选择仅在桌面客户端中可用', 'err')
+      showToast(t('目录选择仅在桌面客户端中可用'), 'err')
       return
     }
     const dir = await api.openDirectoryDialog(workspace)
@@ -107,7 +111,7 @@ export default function SettingsPage() {
       await saveDataspace(dir)
         .then(() => { window.dispatchEvent(new Event('dataspace-configured')) })
         .catch(() => {})
-      showToast('已选择数据目录')
+      showToast(t('已选择数据目录'))
     }
   }
 
@@ -139,9 +143,9 @@ export default function SettingsPage() {
         fetchEvolutionConfig().then(setEvo),
         fetchCharacters().then(setCharacters),
       ])
-      showToast('已重新加载数据')
+      showToast(t('已重新加载数据'))
     } catch (err: any) {
-      showToast(`加载失败: ${err.message || '网络错误'}`, 'err')
+      showToast(`${t('加载失败')}: ${err.message || t('网络错误')}`, 'err')
     } finally {
       setReloading(false)
     }
@@ -168,7 +172,7 @@ export default function SettingsPage() {
   const commitTextColor = () => {
     if (!isValidHexColor(textColorDraft)) {
       setTextColorDraft(displayPreferences.textColor)
-      showToast('请输入 #RRGGBB 格式的颜色值', 'err')
+      showToast(t('请输入 #RRGGBB 格式的颜色值'), 'err')
       return
     }
     const next = updateDisplayPreferences({ textColor: textColorDraft, textColorMode: 'custom' })
@@ -179,7 +183,7 @@ export default function SettingsPage() {
     const defaults = resetDisplayPreferences()
     setDisplayPreferences(defaults)
     setTextColorDraft(defaults.textColor)
-    showToast('显示设置已恢复默认')
+    showToast(t('显示设置已恢复默认'))
   }
 
   // ── Provider handlers ──
@@ -187,9 +191,9 @@ export default function SettingsPage() {
     setLoadingModels(prev => ({ ...prev, [providerId]: true }))
     try {
       await fetchModels(providerId)
-      showToast('模型列表已刷新')
+      showToast(t('模型列表已刷新'))
     } catch (err: any) {
-      showToast(`获取模型失败: ${err.message || '网络错误'}`, 'err')
+      showToast(`${t('获取模型失败')}: ${err.message || t('网络错误')}`, 'err')
     } finally {
       setLoadingModels(prev => ({ ...prev, [providerId]: false }))
     }
@@ -197,24 +201,24 @@ export default function SettingsPage() {
 
   const handleTest = async (providerId: string) => {
     setTesting(prev => ({ ...prev, [providerId]: true }))
-    setTestResult(prev => ({ ...prev, [providerId]: { ok: false, msg: '测试中...' } }))
+    setTestResult(prev => ({ ...prev, [providerId]: { ok: false, msg: t('测试中...') } }))
     try {
       const res = await testProvider(providerId)
       setTestResult(prev => ({
         ...prev,
         [providerId]: res.ok
-          ? { ok: true, msg: `连通 (${res.status})` }
-          : { ok: false, msg: res.error || '连接失败' },
+          ? { ok: true, msg: `${t('连通')} (${res.status})` }
+          : { ok: false, msg: res.error || t('连接失败') },
       }))
     } catch (e: any) {
-      setTestResult(prev => ({ ...prev, [providerId]: { ok: false, msg: e.message || '请求失败' } }))
+      setTestResult(prev => ({ ...prev, [providerId]: { ok: false, msg: e.message || t('请求失败') } }))
     } finally {
       setTesting(prev => ({ ...prev, [providerId]: false }))
     }
   }
 
   const handleDelete = async (providerId: string) => {
-    try { await remove(providerId); showToast('已删除') } catch { showToast('删除失败', 'err') }
+    try { await remove(providerId); showToast(t('已删除')) } catch { showToast(t('删除失败'), 'err') }
   }
 
   const isModelEnabled = (provider: Provider, modelId: string) => {
@@ -233,19 +237,19 @@ export default function SettingsPage() {
 
   // ── 保存 handlers ──
   const handleSavePrompt = async () => {
-    try { await saveDefaultPrompt(defaultPrompt); setPromptDirty(false); showToast('默认提示词已保存') }
-    catch { showToast('保存失败', 'err') }
+    try { await saveDefaultPrompt(defaultPrompt); setPromptDirty(false); showToast(t('默认提示词已保存')) }
+    catch { showToast(t('保存失败'), 'err') }
   }
 
   const handleSaveEvo = async () => {
     if (!evo) return
-    try { await saveEvolutionConfig(evo); showToast('进化配置已保存') }
-    catch { showToast('保存失败', 'err') }
+    try { await saveEvolutionConfig(evo); showToast(t('进化配置已保存')) }
+    catch { showToast(t('保存失败'), 'err') }
   }
 
   const handleResetEvo = async () => {
-    try { const r = await clearEvolutionConfig(); setEvo(r as any); showToast('已重置为默认值') }
-    catch { showToast('重置失败', 'err') }
+    try { const r = await clearEvolutionConfig(); setEvo(r as any); showToast(t('已重置为默认值')) }
+    catch { showToast(t('重置失败'), 'err') }
   }
 
   const handleClearEvo = async () => {
@@ -257,8 +261,8 @@ export default function SettingsPage() {
         high_freq_min_calls: 6, high_freq_max_unique: 2, notify_enabled: true, notify_timeout: 2
       } as any)
       setNotifyEnabled(true)
-      showToast('已清除配置')
-    } catch { showToast('清除失败', 'err') }
+      showToast(t('已清除配置'))
+    } catch { showToast(t('清除失败'), 'err') }
   }
 
   const handleResetTriggerDefaults = () => {
@@ -270,16 +274,16 @@ export default function SettingsPage() {
       high_freq_min_calls: 6,
       high_freq_max_unique: 2
     } : prev)
-    showToast('触发条件已恢复默认值')
+    showToast(t('触发条件已恢复默认值'))
   }
 
   const tabs = [
-    { id: 'provider', label: '🔗 模型服务' },
-    { id: 'system', label: '⚙️ 系统' },
-    { id: 'display', label: '🎨 显示' },
-    { id: 'session', label: '💬 会话' },
-    { id: 'event', label: '⚡ 事件' },
-    { id: 'about', label: 'ℹ️ 关于' },
+    { id: 'provider', label: `🔗 ${t('模型服务')}` },
+    { id: 'system', label: `⚙️ ${t('系统')}` },
+    { id: 'display', label: `🎨 ${t('显示')}` },
+    { id: 'session', label: `💬 ${t('会话')}` },
+    { id: 'event', label: `⚡ ${t('事件')}` },
+    { id: 'about', label: `ℹ️ ${t('关于')}` },
   ]
 
   return (
@@ -306,18 +310,18 @@ export default function SettingsPage() {
         {/* 模型服务 */}
         <div className="tab-page" style={{display: activeTab === 'provider' ? 'block' : 'none'}}>
           <div className="settings-section">
-            <div className="section-title">模型服务</div>
-            <div className="section-desc">配置 LLM 模型服务提供商，管理 API 密钥和可用模型。</div>
+            <div className="section-title">{t('模型服务')}</div>
+            <div className="section-desc">{t('配置 LLM 模型服务提供商，管理 API 密钥和可用模型。')}</div>
 
             {loading ? (
-              <div style={{textAlign:'center',padding:'40px',color:'var(--ink-faint)'}}>加载中...</div>
+              <div style={{textAlign:'center',padding:'40px',color:'var(--ink-faint)'}}>{t('加载中...')}</div>
             ) : (
               providers.map(provider => (
                 <div key={provider.id} className="provider-card">
                   <div className="provider-header">
                     <span className="provider-name">{provider.name}</span>
                     <span className={`provider-badge ${provider.is_builtin ? 'builtin' : 'custom'}`}>
-                      {provider.is_builtin ? '内置' : '自定义'}
+                      {provider.is_builtin ? t('内置') : t('自定义')}
                     </span>
                     {testResult[provider.id] && (
                       <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:testResult[provider.id].ok ? 'var(--jade)' : 'var(--cinnabar)',marginLeft:4}}>
@@ -329,17 +333,17 @@ export default function SettingsPage() {
                       onClick={() => handleTest(provider.id)}
                       disabled={testing[provider.id]}
                     >
-                      {testing[provider.id] ? '测试中...' : '测试联通'}
+                      {testing[provider.id] ? t('测试中...') : t('测试联通')}
                     </button>
                     <button 
                       className="btn sm" 
                       onClick={() => loadModels(provider.id)}
                       disabled={loadingModels[provider.id]}
                     >
-                      {loadingModels[provider.id] ? '加载中...' : '刷新模型'}
+                      {loadingModels[provider.id] ? t('加载中...') : t('刷新模型')}
                     </button>
-                    <button className="btn sm" onClick={() => setEditTarget(provider)}>编辑</button>
-                    <button className="btn sm danger" onClick={() => handleDelete(provider.id)}>删除</button>
+                    <button className="btn sm" onClick={() => setEditTarget(provider)}>{t('编辑')}</button>
+                    <button className="btn sm danger" onClick={() => handleDelete(provider.id)}>{t('删除')}</button>
                   </div>
                   <div className="provider-url">{provider.base_url}</div>
                   {provider.api_key && (
@@ -361,7 +365,7 @@ export default function SettingsPage() {
                       )
                     }) || (
                       <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)'}}>
-                        点击"刷新模型"加载模型列表
+                        {t('点击"刷新模型"加载模型列表')}
                       </span>
                     )}
                   </div>
@@ -369,7 +373,7 @@ export default function SettingsPage() {
               ))
             )}
 
-            <button className="btn primary" style={{marginTop:8}} onClick={() => setShowAddModal(true)}>+ 添加服务</button>
+            <button className="btn primary" style={{marginTop:8}} onClick={() => setShowAddModal(true)}>+ {t('添加服务')}</button>
           </div>
         </div>
 
@@ -386,28 +390,28 @@ export default function SettingsPage() {
         {/* 系统 */}
         <div className="tab-page" style={{display: activeTab === 'system' ? 'block' : 'none'}}>
           <div className="settings-section">
-            <div className="section-title">系统</div>
-            <div className="section-desc">全局系统配置，影响所有会话和角色。</div>
+            <div className="section-title">{t('系统')}</div>
+            <div className="section-desc">{t('全局系统配置，影响所有会话和角色。')}</div>
 
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">配置路径</span><span className="setting-hint">天枢系统配置与数据的根目录</span></div>
+              <div className="setting-info"><span className="setting-label">{t('配置路径')}</span><span className="setting-hint">{t('天枢系统配置与数据的根目录')}</span></div>
               <div className="setting-control">
                 <input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataspace(e.target.value).then(() => { window.dispatchEvent(new Event('dataspace-configured')) }).catch(() => {}) }} style={{width:280}}/>
-                <button className="btn" onClick={handleChooseDir} style={{marginLeft:8}}>选择目录</button>
+                <button className="btn" onClick={handleChooseDir} style={{marginLeft:8}}>{t('选择目录')}</button>
                 <button className="btn" onClick={handleReloadDataspace} disabled={reloading} style={{marginLeft:8}}>
-                  {reloading ? '加载中…' : '刷新'}
+                  {reloading ? t('加载中…') : t('刷新')}
                 </button>
               </div>
             </div>
           </div>
 
           <div className="settings-section" style={{marginTop:32}}>
-            <div className="section-title">默认系统提示词</div>
-            <div className="section-desc">所有未自定义 prompt.md 的角色使用此模板。</div>
+            <div className="section-title">{t('默认系统提示词')}</div>
+            <div className="section-desc">{t('所有未自定义 prompt.md 的角色使用此模板。')}</div>
             <textarea rows={10} value={defaultPrompt} onChange={e => { setDefaultPrompt(e.target.value); setPromptDirty(true) }} />
             <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
-              <button className="btn primary" onClick={handleSavePrompt} disabled={!promptDirty}>保存</button>
-              {promptDirty && <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)'}}>未保存</span>}
+              <button className="btn primary" onClick={handleSavePrompt} disabled={!promptDirty}>{t('保存')}</button>
+              {promptDirty && <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)'}}>{t('未保存')}</span>}
             </div>
           </div>
 
@@ -417,15 +421,15 @@ export default function SettingsPage() {
         {/* 显示 */}
         <div className="tab-page" style={{display: activeTab === 'display' ? 'block' : 'none'}}>
           <div className="settings-section">
-            <div className="section-title">显示</div>
-            <div className="section-desc">界面显示与主题设置。</div>
+            <div className="section-title">{t('显示')}</div>
+            <div className="section-desc">{t('界面显示与主题设置。')}</div>
 
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">界面语言</span><span className="setting-hint">选择界面显示语言</span></div>
+              <div className="setting-info"><span className="setting-label">{t('界面语言')}</span><span className="setting-hint">{t('选择界面显示语言')}</span></div>
               <div className="setting-control">
-                <select value={lang} onChange={e => { setLang(e.target.value); saveLs('lang', e.target.value) }}>
-                  <option value="zh">中文</option>
-                  <option value="en">English</option>
+                <select value={locale} onChange={e => setLocale(e.target.value as Locale)}>
+                  <option value="zh">{t('中文')}</option>
+                  <option value="en">{t('English')}</option>
                 </select>
               </div>
             </div>
@@ -434,22 +438,22 @@ export default function SettingsPage() {
               onOpenStudio={openStudio}
             />
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">界面字体</span><span className="setting-hint">应用到所有页面的普通界面文字</span></div>
+              <div className="setting-info"><span className="setting-label">{t('界面字体')}</span><span className="setting-hint">{t('应用到所有页面的普通界面文字')}</span></div>
               <div className="setting-control">
                 <select
                   value={displayPreferences.fontFamily}
                   onChange={e => updateDisplayPreferences({ fontFamily: e.target.value as FontFamilyId })}
-                  aria-label="界面字体"
+                  aria-label={t('界面字体')}
                 >
-                  <option value="wenkai">霞鹜文楷</option>
-                  <option value="system-sans">系统黑体</option>
-                  <option value="system-serif">系统宋体</option>
-                  <option value="monospace">等宽字体</option>
+                  <option value="wenkai">{t('霞鹜文楷')}</option>
+                  <option value="system-sans">{t('系统黑体')}</option>
+                  <option value="system-serif">{t('系统宋体')}</option>
+                  <option value="monospace">{t('等宽字体')}</option>
                 </select>
               </div>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">字体大小</span><span className="setting-hint">调整普通界面文字，图标和角色资源不缩放</span></div>
+              <div className="setting-info"><span className="setting-label">{t('字体大小')}</span><span className="setting-hint">{t('调整普通界面文字，图标和角色资源不缩放')}</span></div>
               <div className="setting-control font-size-control">
                 <input
                   type="range"
@@ -458,13 +462,13 @@ export default function SettingsPage() {
                   step="5"
                   value={displayPreferences.fontScale}
                   onChange={e => updateDisplayPreferences({ fontScale: Number(e.target.value) })}
-                  aria-label="字体大小"
+                  aria-label={t('字体大小')}
                 />
                 <output>{displayPreferences.fontScale}%</output>
               </div>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">字体颜色</span><span className="setting-hint">调整普通文字颜色，语义状态色保持不变；主题模式下由主题控制</span></div>
+              <div className="setting-info"><span className="setting-label">{t('字体颜色')}</span><span className="setting-hint">{t('调整普通文字颜色，语义状态色保持不变；主题模式下由主题控制')}</span></div>
               <div className="setting-control font-color-control">
                 <input
                   type="color"
@@ -473,7 +477,7 @@ export default function SettingsPage() {
                     setTextColorDraft(e.target.value)
                     updateDisplayPreferences({ textColor: e.target.value, textColorMode: 'custom' })
                   }}
-                  aria-label="选择字体颜色"
+                  aria-label={t('选择字体颜色')}
                 />
                 <input
                   className="font-color-hex"
@@ -489,24 +493,24 @@ export default function SettingsPage() {
                       commitTextColor()
                     }
                   }}
-                  aria-label="字体颜色十六进制值"
+                  aria-label={t('字体颜色十六进制值')}
                 />
                 {displayPreferences.textColorMode === 'custom' && isValidHexColor(displayPreferences.textColor) && (
                   <span className={`font-color-contrast ${textColorContrastOn(displayPreferences.textColor, document.documentElement.style.getPropertyValue('--theme-canvas') || '#f5f0e8') >= 4.5 ? 'pass' : 'fail'}`}>
-                    与当前背景对比度 {textColorContrastOn(displayPreferences.textColor, document.documentElement.style.getPropertyValue('--theme-canvas') || '#f5f0e8').toFixed(1)}:1
+                    {t('与当前背景对比度')} {textColorContrastOn(displayPreferences.textColor, document.documentElement.style.getPropertyValue('--theme-canvas') || '#f5f0e8').toFixed(1)}:1
                   </span>
                 )}
                 {displayPreferences.textColorMode === 'theme' && (
                   <button className="btn sm" type="button" onClick={() => updateDisplayPreferences({ textColorMode: 'custom' })}>
-                    自定义颜色
+                    {t('自定义颜色')}
                   </button>
                 )}
               </div>
             </div>
             <div className="display-preferences-preview" aria-live="polite">
-              <div className="display-preview-text">天枢 TianShu · 让智能体拥有长期记忆</div>
+              <div className="display-preview-text">天枢 TianShu · {t('让智能体拥有长期记忆')}</div>
               <div className="display-preview-meta">
-                当前字体 · {displayPreferences.fontScale}% · {displayPreferences.textColor}
+                {t('当前字体')} · {displayPreferences.fontScale}% · {displayPreferences.textColor}
               </div>
               <button
                 className="btn sm"
@@ -518,15 +522,15 @@ export default function SettingsPage() {
                   && displayPreferences.textColor === DEFAULT_DISPLAY_PREFERENCES.textColor
                 }
               >
-                恢复默认显示设置
+                {t('恢复默认显示设置')}
               </button>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">消息通知</span><span className="setting-hint">接收新消息与事件通知</span></div>
+              <div className="setting-info"><span className="setting-label">{t('消息通知')}</span><span className="setting-hint">{t('接收新消息与事件通知')}</span></div>
               <div className="setting-control"><div className={`toggle ${notify ? 'on' : ''}`} onClick={() => { setNotify(!notify); saveLs('notify', !notify) }} /></div>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">声音提示</span><span className="setting-hint">任务完成时播放提示音</span></div>
+              <div className="setting-info"><span className="setting-label">{t('声音提示')}</span><span className="setting-hint">{t('任务完成时播放提示音')}</span></div>
               <div className="setting-control"><div className={`toggle ${sound ? 'on' : ''}`} onClick={() => { setSound(!sound); saveLs('sound', !sound) }} /></div>
             </div>
           </div>
@@ -535,19 +539,19 @@ export default function SettingsPage() {
         {/* 会话 */}
         <div className="tab-page" style={{display: activeTab === 'session' ? 'block' : 'none'}}>
           <div className="settings-section">
-            <div className="section-title">会话</div>
-            <div className="section-desc">会话显示偏好与交互设置。</div>
+            <div className="section-title">{t('会话')}</div>
+            <div className="section-desc">{t('会话显示偏好与交互设置。')}</div>
 
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">紧凑模式</span><span className="setting-hint">缩小消息间距，显示更多内容</span></div>
+              <div className="setting-info"><span className="setting-label">{t('紧凑模式')}</span><span className="setting-hint">{t('缩小消息间距，显示更多内容')}</span></div>
               <div className="setting-control"><div className={`toggle ${compact ? 'on' : ''}`} onClick={() => { setCompact(!compact); saveLs('compact', !compact) }} /></div>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">显示推理</span><span className="setting-hint">展示模型的思考过程</span></div>
+              <div className="setting-info"><span className="setting-label">{t('显示推理')}</span><span className="setting-hint">{t('展示模型的思考过程')}</span></div>
               <div className="setting-control"><div className={`toggle ${showReasoning ? 'on' : ''}`} onClick={() => { setShowReasoning(!showReasoning); saveLs('showReasoning', !showReasoning) }} /></div>
             </div>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">显示消耗</span><span className="setting-hint">在消息中显示 token 消耗</span></div>
+              <div className="setting-info"><span className="setting-label">{t('显示消耗')}</span><span className="setting-hint">{t('在消息中显示 token 消耗')}</span></div>
               <div className="setting-control"><div className={`toggle ${showCost ? 'on' : ''}`} onClick={() => { setShowCost(!showCost); saveLs('showCost', !showCost) }} /></div>
             </div>
           </div>
@@ -556,121 +560,121 @@ export default function SettingsPage() {
         {/* 事件 */}
         <div className="tab-page" style={{display: activeTab === 'event' ? 'block' : 'none'}}>
           <div className="settings-section">
-            <div className="section-title">事件</div>
-            <div className="section-desc">事件引擎与进化引擎配置。</div>
+            <div className="section-title">{t('事件')}</div>
+            <div className="section-desc">{t('事件引擎与进化引擎配置。')}</div>
 
             <div className="setting-group">
-              <div className="setting-group-title">事件引擎</div>
+              <div className="setting-group-title">{t('事件引擎')}</div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">阻止事件中断</span><span className="setting-hint">事件执行期间禁止用户打断</span></div>
+                <div className="setting-info"><span className="setting-label">{t('阻止事件中断')}</span><span className="setting-hint">{t('事件执行期间禁止用户打断')}</span></div>
                 <div className="setting-control"><div className={`toggle ${blockEventInterrupt ? 'on' : ''}`} onClick={() => { setBlockEventInterrupt(!blockEventInterrupt); saveLs('blockEventInterrupt', !blockEventInterrupt) }} /></div>
               </div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">调度间隔</span><span className="setting-hint">事件调度器检查间隔（秒）</span></div>
-                <div className="setting-control"><input type="number" value={schedulerInterval} onChange={e => { setSchedulerInterval(Number(e.target.value)); saveLs('schedulerInterval', Number(e.target.value)) }} style={{width:60}}/> 秒</div>
+                <div className="setting-info"><span className="setting-label">{t('调度间隔')}</span><span className="setting-hint">{t('事件调度器检查间隔（秒）')}</span></div>
+                <div className="setting-control"><input type="number" value={schedulerInterval} onChange={e => { setSchedulerInterval(Number(e.target.value)); saveLs('schedulerInterval', Number(e.target.value)) }} style={{width:60}}/> {t('秒')}</div>
               </div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">归档时间</span><span className="setting-hint">已完成事件保留时长</span></div>
-                <div className="setting-control"><input type="number" value={archiveHours} onChange={e => { setArchiveHours(Number(e.target.value)); saveLs('archiveHours', Number(e.target.value)) }} style={{width:60}}/> 小时</div>
+                <div className="setting-info"><span className="setting-label">{t('归档时间')}</span><span className="setting-hint">{t('已完成事件保留时长')}</span></div>
+                <div className="setting-control"><input type="number" value={archiveHours} onChange={e => { setArchiveHours(Number(e.target.value)); saveLs('archiveHours', Number(e.target.value)) }} style={{width:60}}/> {t('小时')}</div>
               </div>
             </div>
 
             <div className="setting-group">
-              <div className="setting-group-title">进化引擎 <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',fontWeight:400,color:'var(--ink-faint)'}}>在线洞察检测 + 离线 LCS 聚类</span></div>
+              <div className="setting-group-title">{t('进化引擎')} <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',fontWeight:400,color:'var(--ink-faint)'}}>{t('在线洞察检测 + 离线 LCS 聚类')}</span></div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">进化角色</span><span className="setting-hint">用于技能生成的 Agent 角色</span></div>
+                <div className="setting-info"><span className="setting-label">{t('进化角色')}</span><span className="setting-hint">{t('用于技能生成的 Agent 角色')}</span></div>
                 <div className="setting-control">
                   <select value={evo?.character_id || ''} onChange={e => setEvo(prev => prev ? {...prev, character_id: e.target.value} : prev)}>
-                    <option value="">无</option>
+                    <option value="">{t('无')}</option>
                     {characters.map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({ch.id})</option>)}
                   </select>
                 </div>
               </div>
               {evo?.character_id && (characters.find(c => c.id === evo.character_id)?.groups?.length ?? 0) > 0 && (
                 <div className="setting-row">
-                  <div className="setting-info"><span className="setting-label">进化分组</span><span className="setting-hint">用于技能生成的分组</span></div>
+                  <div className="setting-info"><span className="setting-label">{t('进化分组')}</span><span className="setting-hint">{t('用于技能生成的分组')}</span></div>
                   <div className="setting-control">
                     <select value={evo?.group_id || ''} onChange={e => setEvo(prev => prev ? {...prev, group_id: e.target.value} : prev)}>
-                      <option value="">无</option>
+                      <option value="">{t('无')}</option>
                       {characters.find(c => c.id === evo?.character_id)?.groups?.filter(g => g.trim()).map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                   </div>
                 </div>
               )}
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">进化模型服务</span><span className="setting-hint">技能生成使用的模型服务</span></div>
+                <div className="setting-info"><span className="setting-label">{t('进化模型服务')}</span><span className="setting-hint">{t('技能生成使用的模型服务')}</span></div>
                 <div className="setting-control">
                   <select value={evo?.provider_id || ''} onChange={e => setEvo(prev => prev ? {...prev, provider_id: e.target.value, model: ''} : prev)}>
-                    <option value="">无</option>
+                    <option value="">{t('无')}</option>
                     {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
               </div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">进化模型</span><span className="setting-hint">技能生成使用的模型</span></div>
+                <div className="setting-info"><span className="setting-label">{t('进化模型')}</span><span className="setting-hint">{t('技能生成使用的模型')}</span></div>
                 <div className="setting-control">
                   <select value={evo?.model || ''} onChange={e => setEvo(prev => prev ? {...prev, model: e.target.value} : prev)} disabled={!evo?.provider_id}>
-                    <option value="">无</option>
+                    <option value="">{t('无')}</option>
                     {providers.find(p => p.id === evo?.provider_id)?.models?.filter((m: any) => m.enabled !== false).map(m => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
                   </select>
                 </div>
               </div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">进化工作区</span><span className="setting-hint">技能生成使用的代码工作区</span></div>
+                <div className="setting-info"><span className="setting-label">{t('进化工作区')}</span><span className="setting-hint">{t('技能生成使用的代码工作区')}</span></div>
                 <div className="setting-control"><input type="text" value={evo?.workspace || ''} onChange={e => setEvo(prev => prev ? {...prev, workspace: e.target.value} : prev)} style={{width:280}}/></div>
               </div>
               <div className="setting-row" style={{alignItems:'flex-start'}}>
-                <div className="setting-info"><span className="setting-label">进化内容</span><span className="setting-hint">自定义进化提示词</span></div>
+                <div className="setting-info"><span className="setting-label">{t('进化内容')}</span><span className="setting-hint">{t('自定义进化提示词')}</span></div>
                 <div className="setting-control"><textarea value={evo?.content || ''} onChange={e => setEvo(prev => prev ? {...prev, content: e.target.value} : prev)} rows={3} style={{width:280,resize:'vertical'}}/></div>
               </div>
             </div>
 
             <div className="setting-group">
               <div className="setting-group-title">
-                触发条件（任一条件满足触发）
-                <button className="btn sm" style={{marginLeft:12}} onClick={handleResetTriggerDefaults}>恢复默认值</button>
+                {t('触发条件（任一条件满足触发）')}
+                <button className="btn sm" style={{marginLeft:12}} onClick={handleResetTriggerDefaults}>{t('恢复默认值')}</button>
               </div>
               <div className="detect-table">
                 <div className="detect-row">
-                  <span className="detect-type">自我修正（self_correction）</span>
+                  <span className="detect-type">{t('自我修正')}（self_correction）</span>
                   <span className="detect-condition">
-                    近 <input type="number" className="detect-input" value={evo?.detect_window ?? 8} onChange={e => setEvo(prev => prev ? {...prev, detect_window: Number(e.target.value)} : prev)} min={2} max={50} /> 次调用错误率 &gt; <input type="number" className="detect-input" value={evo?.error_rate_threshold ?? 0.5} onChange={e => setEvo(prev => prev ? {...prev, error_rate_threshold: Number(e.target.value)} : prev)} min={0.1} max={1} step={0.05} />
+                    {t('近')} <input type="number" className="detect-input" value={evo?.detect_window ?? 8} onChange={e => setEvo(prev => prev ? {...prev, detect_window: Number(e.target.value)} : prev)} min={2} max={50} /> {t('次调用错误率')} &gt; <input type="number" className="detect-input" value={evo?.error_rate_threshold ?? 0.5} onChange={e => setEvo(prev => prev ? {...prev, error_rate_threshold: Number(e.target.value)} : prev)} min={0.1} max={1} step={0.05} />
                   </span>
-                  <span className="detect-desc">发现 agent 在试错/探索</span>
+                  <span className="detect-desc">{t('发现 agent 在试错/探索')}</span>
                 </div>
                 <div className="detect-row">
-                  <span className="detect-type">重复模式（repeated_pattern）</span>
+                  <span className="detect-type">{t('重复模式')}（repeated_pattern）</span>
                   <span className="detect-condition">
-                    同一工具序列重复 <input type="number" className="detect-input" value={evo?.repetition_count ?? 3} onChange={e => setEvo(prev => prev ? {...prev, repetition_count: Number(e.target.value)} : prev)} min={2} max={20} />+ 次
+                    {t('同一工具序列重复')} <input type="number" className="detect-input" value={evo?.repetition_count ?? 3} onChange={e => setEvo(prev => prev ? {...prev, repetition_count: Number(e.target.value)} : prev)} min={2} max={20} />+ {t('次')}
                   </span>
-                  <span className="detect-desc">发现死循环或固化模式</span>
+                  <span className="detect-desc">{t('发现死循环或固化模式')}</span>
                 </div>
                 <div className="detect-row">
-                  <span className="detect-type">高频使用（high_frequency）</span>
+                  <span className="detect-type">{t('高频使用')}（high_frequency）</span>
                   <span className="detect-condition">
-                    <input type="number" className="detect-input" value={evo?.high_freq_min_calls ?? 6} onChange={e => setEvo(prev => prev ? {...prev, high_freq_min_calls: Number(e.target.value)} : prev)} min={3} max={50} />+ 次调用中仅用 1-<input type="number" className="detect-input" value={evo?.high_freq_max_unique ?? 2} onChange={e => setEvo(prev => prev ? {...prev, high_freq_max_unique: Number(e.target.value)} : prev)} min={1} max={10} /> 种工具
+                    <input type="number" className="detect-input" value={evo?.high_freq_min_calls ?? 6} onChange={e => setEvo(prev => prev ? {...prev, high_freq_min_calls: Number(e.target.value)} : prev)} min={3} max={50} />+ {t('次调用中仅用')} 1-<input type="number" className="detect-input" value={evo?.high_freq_max_unique ?? 2} onChange={e => setEvo(prev => prev ? {...prev, high_freq_max_unique: Number(e.target.value)} : prev)} min={1} max={10} /> {t('种工具')}
                   </span>
-                  <span className="detect-desc">发现工具使用过于集中</span>
+                  <span className="detect-desc">{t('发现工具使用过于集中')}</span>
                 </div>
               </div>
             </div>
 
             <div className="setting-group">
-              <div className="setting-group-title">通知</div>
+              <div className="setting-group-title">{t('通知')}</div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">创建进化时提醒</span><span className="setting-hint">检测到进化信号创建事件时右下角弹提示</span></div>
+                <div className="setting-info"><span className="setting-label">{t('创建进化时提醒')}</span><span className="setting-hint">{t('检测到进化信号创建事件时右下角弹提示')}</span></div>
                 <div className="setting-control"><div className={`toggle ${notifyEnabled ? 'on' : ''}`} onClick={() => { setNotifyEnabled(!notifyEnabled); setEvo(prev => prev ? {...prev, notify_enabled: !notifyEnabled} : prev) }} /></div>
               </div>
               <div className="setting-row">
-                <div className="setting-info"><span className="setting-label">提示消失时间</span><span className="setting-hint">通知自动消失的时间</span></div>
-                <div className="setting-control"><input type="number" value={evo?.notify_timeout ?? 2} onChange={e => setEvo(prev => prev ? {...prev, notify_timeout: Number(e.target.value)} : prev)} style={{width:60}}/> 秒</div>
+                <div className="setting-info"><span className="setting-label">{t('提示消失时间')}</span><span className="setting-hint">{t('通知自动消失的时间')}</span></div>
+                <div className="setting-control"><input type="number" value={evo?.notify_timeout ?? 2} onChange={e => setEvo(prev => prev ? {...prev, notify_timeout: Number(e.target.value)} : prev)} style={{width:60}}/> {t('秒')}</div>
               </div>
             </div>
 
             <div style={{display:'flex',gap:8,marginTop:12}}>
-              <button className="btn primary" onClick={handleSaveEvo}>保存进化配置</button>
-              <button className="btn" onClick={handleResetEvo}>重置默认值</button>
-              <button className="btn danger" onClick={handleClearEvo}>清除</button>
+              <button className="btn primary" onClick={handleSaveEvo}>{t('保存进化配置')}</button>
+              <button className="btn" onClick={handleResetEvo}>{t('重置默认值')}</button>
+              <button className="btn danger" onClick={handleClearEvo}>{t('清除')}</button>
             </div>
           </div>
         </div>
@@ -680,7 +684,7 @@ export default function SettingsPage() {
           <UpdatePanel />
           <div className="settings-section" style={{marginTop:32}}>
             <div className="setting-row">
-              <div className="setting-info"><span className="setting-label">本地服务</span></div>
+              <div className="setting-info"><span className="setting-label">{t('本地服务')}</span></div>
               <div className="setting-control"><span style={{fontSize: 'calc(13px * var(--ui-font-scale))',color:'var(--ink-mid)'}}>{serverStatusLabel(serverStatus)}</span></div>
             </div>
           </div>
@@ -701,7 +705,7 @@ export default function SettingsPage() {
               { mode: 'custom', themeId: theme.id },
               { customThemes: [theme] },
             )
-            showToast('主题已应用')
+            showToast(t('主题已应用'))
           }}
           showToast={showToast}
         />

@@ -10,10 +10,15 @@ import CharacterVisualEditor from '@/features/characters/CharacterVisualEditor'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import { dedupeToolBindings, getUnboundTools, toToolBindingName } from '@/features/characters/toolBindings'
 import EditField from '@/components/EditField'
+import type { I18nState } from '@/i18n'
+import { useI18n } from '@/i18n'
+
+type T = I18nState['t']
 
 const roleLabels: Record<string, string> = { main: '主 Agent', sub: '子 Agent', both: '主 / 子 Agent' }
 
 export default function CharacterDetailPage() {
+  const t = useI18n()
   const { id } = useParams<{ id: string }>()
   const location = useLocation()
   // `/characters/new` is a static route, so useParams has no `id`; detect it
@@ -89,7 +94,7 @@ export default function CharacterDetailPage() {
         navigate(`/characters/${newCharId}`, { replace: true })
       }
     } catch {
-      alert('ID 已存在，请换一个')
+      alert(t('ID 已存在，请换一个'))
     }
   }, [navigate])
 
@@ -160,26 +165,26 @@ export default function CharacterDetailPage() {
       .slice(0, 32)
   }
 
-  function timeAgo(ts: number | null | undefined): string {
+  function timeAgo(ts: number | null | undefined, t: T): string {
     if (!ts) return '--'
     const diff = Date.now() - ts
     const mins = Math.floor(diff / 60000)
-    if (mins < 1) return '刚刚'
-    if (mins < 60) return `${mins} 分钟前`
+    if (mins < 1) return t('刚刚')
+    if (mins < 60) return t('{n} 分钟前', { n: mins })
     const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours} 小时前`
-    return `${Math.floor(hours / 24)} 天前`
+    if (hours < 24) return t('{n} 小时前', { n: hours })
+    return t('{n} 天前', { n: Math.floor(hours / 24) })
   }
 
   const tabs = isNew
-    ? [{ id: 'basic', label: '基础' }]
+    ? [{ id: 'basic', label: t('基础') }]
     : [
-        { id: 'basic', label: '基础' },
-        { id: 'visual', label: '视觉与动画' },
-        { id: 'memory', label: '记忆' },
-        { id: 'tools', label: '工具' },
-        { id: 'skills', label: '技能' },
-        { id: 'stats', label: '统计' },
+        { id: 'basic', label: t('基础') },
+        { id: 'visual', label: t('视觉与动画') },
+        { id: 'memory', label: t('记忆') },
+        { id: 'tools', label: t('工具') },
+        { id: 'skills', label: t('技能') },
+        { id: 'stats', label: t('统计') },
       ]
 
   function collectFormData() {
@@ -227,7 +232,7 @@ export default function CharacterDetailPage() {
       const updated = await updateCharacter(cid, { runPolicy: rp as any })
       setRpEffective(updated.runPolicy as Character['runPolicy'])
     } catch {
-      alert('运行策略保存失败')
+      alert(t('运行策略保存失败'))
     }
   }
 
@@ -247,13 +252,13 @@ export default function CharacterDetailPage() {
       const created = await createCharacter(data)
       navigate(`/characters/${created.id}`, { replace: true })
     } catch {
-      alert('ID 已存在，请换一个')
+      alert(t('ID 已存在，请换一个'))
     }
   }
 
   async function handleDelete() {
     if (!id || isNew) return
-    if (!confirm('确定删除此角色？')) return
+    if (!confirm(t('确定删除此角色？'))) return
     await deleteCharacter(id)
     navigate('/characters')
   }
@@ -298,7 +303,7 @@ export default function CharacterDetailPage() {
         await updateCharacterSkillBinding(cid, isBound ? 'unbind' : 'bind', name)
       } catch {
         setBoundSkills(boundSkills)
-        alert('技能包绑定更新失败')
+        alert(t('技能包绑定更新失败'))
       }
     }
   }
@@ -320,16 +325,16 @@ export default function CharacterDetailPage() {
     autoSave({ tools: next })
   }
 
-  if (loading) return <div className="main"><div className="empty-state">加载中...</div></div>
-  if (!isNew && !char) return <div className="main"><div className="empty-state">角色未找到</div></div>
+  if (loading) return <div className="main"><div className="empty-state">{t('加载中...')}</div></div>
+  if (!isNew && !char) return <div className="main"><div className="empty-state">{t('角色未找到')}</div></div>
 
   return (
     <div className="main">
       <div className="detail-header">
         <button className="back-btn" onClick={() => navigate('/characters')}>←</button>
         <div className="detail-header-info">
-          <h1>{isNew ? '新建角色' : name}</h1>
-          {!isNew && id && <p>{id} · {roleLabels[role] || role}</p>}
+          <h1>{isNew ? t('新建角色') : name}</h1>
+          {!isNew && id && <p>{id} · {t(roleLabels[role] || role)}</p>}
         </div>
         <div style={{ flex: 1 }}></div>
       </div>
@@ -346,12 +351,12 @@ export default function CharacterDetailPage() {
             />
           </div>
           <div className="detail-actions">
-            {!isNew && <button className="detail-btn primary" onClick={() => navigate('/chat')}>开始对话</button>}
+            {!isNew && <button className="detail-btn primary" onClick={() => navigate('/chat')}>{t('开始对话')}</button>}
             <label className="detail-btn" style={{ cursor: 'pointer' }}>
-              上传头像
+              {t('上传头像')}
               <input type="file" accept="image/*" hidden onChange={handleAvatarUpload} />
             </label>
-            {!isNew && <button className="detail-btn danger" onClick={handleDelete}>删除角色</button>}
+            {!isNew && <button className="detail-btn danger" onClick={handleDelete}>{t('删除角色')}</button>}
           </div>
         </div>
 
@@ -371,11 +376,11 @@ export default function CharacterDetailPage() {
           {/* 基础 */}
           <div className={`tab-page ${activeTab === 'basic' ? 'active' : ''}`}>
             <div className="detail-section">
-              <div className="detail-section-title">基本信息</div>
+              <div className="detail-section-title">{t('基本信息')}</div>
               <div className="info-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                 <div className="info-item" style={{ gridColumn: '1/-1' }}>
                   <EditField
-                    label="角色名称"
+                    label={t('角色名称')}
                     value={name}
                     onSave={v => {
                       const trimmed = v.trim()
@@ -384,13 +389,13 @@ export default function CharacterDetailPage() {
                       autoSave({ name: trimmed })
                     }}
                     renderInput={(v, onChange) => (
-                      <input value={v} onChange={e => onChange(e.target.value)} placeholder="输入角色名称" style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                      <input value={v} onChange={e => onChange(e.target.value)} placeholder={t('输入角色名称')} style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                     )}
                   />
                 </div>
                 <div className="info-item" style={{ gridColumn: '1/-1' }}>
                   <EditField
-                    label="角色颜色"
+                    label={t('角色颜色')}
                     value={color}
                     onSave={v => { setColor(v); autoSave({ color: v }) }}
                     renderInput={(v, onChange) => (
@@ -407,18 +412,18 @@ export default function CharacterDetailPage() {
                 </div>
                 <div className="info-item" style={{ gridColumn: '1/-1' }}>
                   <EditField
-                    label="角色简介"
+                    label={t('角色简介')}
                     value={description}
                     onSave={v => { setDescription(v); autoSave({ description: v }) }}
                     renderInput={(v, onChange) => (
-                      <textarea value={v} onChange={e => onChange(e.target.value)} placeholder="简短描述这个角色" rows={2} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                      <textarea value={v} onChange={e => onChange(e.target.value)} placeholder={t('简短描述这个角色')} rows={2} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
                     )}
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 8, gridColumn: '1/-1' }}>
                   <div className="info-item" style={{ flex: 1 }}>
                     <EditField
-                      label="角色 ID"
+                      label={t('角色 ID')}
                       value={charId}
                       onSave={v => {
                         const trimmed = toSlug(v)
@@ -427,27 +432,27 @@ export default function CharacterDetailPage() {
                         if (trimmed && trimmed !== currentId) autoSave({ id: trimmed })
                       }}
                       renderInput={(v, onChange) => (
-                        <input value={v} onChange={e => onChange(e.target.value)} placeholder="自定义ID" style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', boxSizing: 'border-box' }} />
+                        <input value={v} onChange={e => onChange(e.target.value)} placeholder={t('自定义ID')} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', boxSizing: 'border-box' }} />
                       )}
                     />
                   </div>
                   <div className="info-item" style={{ flex: 1 }}>
                     <EditField
-                      label="角色类型"
+                      label={t('角色类型')}
                       value={role}
                       onSave={v => { setRole(v as Character['role']); autoSave({ role: v }) }}
                       renderInput={(v, onChange) => (
                         <select value={v} onChange={e => onChange(e.target.value)} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', fontFamily: 'inherit' }}>
-                          <option value="main">主 Agent</option>
-                          <option value="sub">子 Agent</option>
-                          <option value="both">主/子 Agent</option>
+                          <option value="main">{t('主 Agent')}</option>
+                          <option value="sub">{t('子 Agent')}</option>
+                          <option value="both">{t('主/子 Agent')}</option>
                         </select>
                       )}
-                      display={<div style={{ marginTop: 4, fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{roleLabels[role] || role}</div>}
+                      display={<div style={{ marginTop: 4, fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{t(roleLabels[role] || role)}</div>}
                     />
                   </div>
                   <div className="info-item" style={{ flex: 1 }}>
-                    <div className="info-item-label">默认审批模式</div>
+                    <div className="info-item-label">{t('默认审批模式')}</div>
                     <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                       {STRATEGIES.map(s => (
                         <span key={s} className={`strategy-btn ${strategy === s ? 'active' : ''}`} onClick={() => { setStrategy(s); autoSave({ default_strategy: s }) }}>{s}</span>
@@ -458,46 +463,46 @@ export default function CharacterDetailPage() {
               </div>
               <div className="tool-list" style={{ marginTop: 12 }}>
                 <div className="tool-item">
-                  <div className="tool-name">自我进化</div>
+                  <div className="tool-name">{t('自我进化')}</div>
                   <div className={`toggle ${selfEvolution ? 'on' : ''}`} onClick={() => { setSelfEvolution(!selfEvolution); autoSave({ memory: { enabled: memoryEnabled, selfEvolution: !selfEvolution, charLimit } }) }}></div>
                 </div>
                 <div className="tool-item" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8, padding: '12px 0' }}>
-                  <div className="tool-name">运行策略</div>
+                  <div className="tool-name">{t('运行策略')}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%' }}>
                     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      收敛起始轮次（空=继承）
+                      {t('收敛起始轮次（空=继承）')}
                       <input
-                        type="number" min={1} max={999} value={rpSoft} placeholder="继承"
+                        type="number" min={1} max={999} value={rpSoft} placeholder={t('继承')}
                         onChange={e => setRpSoft(e.target.value)}
                         onBlur={autoSaveRunPolicy}
                         style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
                       />
                     </label>
                     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      宽限轮次（空=继承）
+                      {t('宽限轮次（空=继承）')}
                       <input
-                        type="number" min={0} max={999} value={rpGrace} placeholder="继承"
+                        type="number" min={0} max={999} value={rpGrace} placeholder={t('继承')}
                         onChange={e => setRpGrace(e.target.value)}
                         onBlur={autoSaveRunPolicy}
                         style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
                       />
                     </label>
                     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      自动续跑
+                      {t('自动续跑')}
                       <select
                         value={rpAutoContinuation}
                         onChange={e => { setRpAutoContinuation(e.target.value as any); autoSaveRunPolicy() }}
                         style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))', fontFamily: 'inherit' }}
                       >
-                        <option value="inherit">继承系统</option>
-                        <option value="enabled">允许</option>
-                        <option value="disabled">禁止</option>
+                        <option value="inherit">{t('继承系统')}</option>
+                        <option value="enabled">{t('允许')}</option>
+                        <option value="disabled">{t('禁止')}</option>
                       </select>
                     </label>
                     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      最多自动续跑（空=继承）
+                      {t('最多自动续跑（空=继承）')}
                       <input
-                        type="number" min={0} max={50} value={rpMaxAuto} placeholder="继承"
+                        type="number" min={0} max={50} value={rpMaxAuto} placeholder={t('继承')}
                         onChange={e => setRpMaxAuto(e.target.value)}
                         onBlur={autoSaveRunPolicy}
                         style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
@@ -506,9 +511,9 @@ export default function CharacterDetailPage() {
                   </div>
                   {rpEffective?.effectivePreview && (
                     <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-mid)', background: 'rgba(42,157,92,0.05)', border: '1px solid rgba(42,157,92,0.15)', borderRadius: 8, padding: '6px 10px', width: '100%', boxSizing: 'border-box' }}>
-                      当前有效：{rpEffective.effectivePreview.softTurns} + {rpEffective.effectivePreview.graceTurns} 轮宽限 · 自动续跑 {rpEffective.effectivePreview.autoContinuation ? '开' : '关'}
+                      {t('当前有效')}：{rpEffective.effectivePreview.softTurns} + {rpEffective.effectivePreview.graceTurns} {t('轮宽限')} · {t('自动续跑')} {rpEffective.effectivePreview.autoContinuation ? t('开') : t('关')}
                       {rpEffective.constrainedFields && rpEffective.constrainedFields.length > 0 && (
-                        <div style={{ color: 'var(--cinnabar)', marginTop: 2 }}>受限字段：{rpEffective.constrainedFields.join('、')}（被系统上限约束）</div>
+                        <div style={{ color: 'var(--cinnabar)', marginTop: 2 }}>{t('受限字段')}：{rpEffective.constrainedFields.join('、')}（{t('被系统上限约束')}）</div>
                       )}
                     </div>
                   )}
@@ -518,7 +523,7 @@ export default function CharacterDetailPage() {
                       onClick={() => { setRpSoft(''); setRpGrace(''); setRpAutoContinuation('inherit'); setRpMaxAuto(''); saveRunPolicy(null) }}
                       style={{ fontSize: 'calc(11px * var(--ui-font-scale))' }}
                     >
-                      恢复继承
+                      {t('恢复继承')}
                     </button>
                   )}
                 </div>
@@ -526,7 +531,7 @@ export default function CharacterDetailPage() {
             </div>
 
             <div className="detail-section">
-              <div className="detail-section-title">分组</div>
+              <div className="detail-section-title">{t('分组')}</div>
               <div className="tag-list">
                 {allGroups.map(grp => (
                   <span
@@ -543,7 +548,7 @@ export default function CharacterDetailPage() {
                     onChange={e => setNewGroupName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addNewGroup(); if (e.key === 'Escape') { setShowNewGroupInput(false); setNewGroupName('') } }}
                     onBlur={addNewGroup}
-                    placeholder="新分组名"
+                    placeholder={t('新分组名')}
                     autoFocus
                     style={{ width: 80, padding: '3px 10px', fontSize: 'calc(11px * var(--ui-font-scale))', border: '1px solid var(--gold)', borderRadius: 6, outline: 'none', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
                   />
@@ -561,9 +566,9 @@ export default function CharacterDetailPage() {
                     value={soul}
                     onSave={v => { setSoul(v); autoSave({ soul: v }) }}
                     renderInput={(v, onChange) => (
-                      <textarea className="md-box" value={v} placeholder="(未设置)" onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+                      <textarea className="md-box" value={v} placeholder={t('(未设置)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
                     )}
-                    display={<div className="md-box" style={{ minHeight: 400, color: soul ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{soul || '(未设置)'}</div>}
+                    display={<div className="md-box" style={{ minHeight: 400, color: soul ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{soul || t('(未设置)')}</div>}
                   />
                 </div>
                 <div className="detail-col">
@@ -572,37 +577,37 @@ export default function CharacterDetailPage() {
                     value={userProfile}
                     onSave={v => { setUserProfile(v); autoSave({ userProfile: v }) }}
                     renderInput={(v, onChange) => (
-                      <textarea className="md-box" value={v} placeholder="(未设置)" onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+                      <textarea className="md-box" value={v} placeholder={t('(未设置)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
                     )}
-                    display={<div className="md-box" style={{ minHeight: 400, color: userProfile ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{userProfile || '(未设置)'}</div>}
+                    display={<div className="md-box" style={{ minHeight: 400, color: userProfile ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{userProfile || t('(未设置)')}</div>}
                   />
                 </div>
               </div>
             </div>
 
             <div className="detail-section">
-              <div className="detail-section-title">自定义提示词</div>
+              <div className="detail-section-title">{t('自定义提示词')}</div>
               <div className="tool-item" style={{ border: 'none', padding: '0 0 8px 0' }}>
-                <div className="tool-name">启用自定义提示词</div>
+                <div className="tool-name">{t('启用自定义提示词')}</div>
                 <div className={`toggle ${customPromptEnabled ? 'on' : ''}`} onClick={() => { setCustomPromptEnabled(!customPromptEnabled); autoSave({ customPrompt: !customPromptEnabled ? customPrompt : '' }) }}></div>
               </div>
               {customPromptEnabled ? (
                 <EditField
-                  label="自定义提示词内容"
+                  label={t('自定义提示词内容')}
                   value={customPrompt}
                   onSave={v => { setCustomPrompt(v); autoSave({ customPrompt: v }) }}
                   renderInput={(v, onChange) => (
-                    <textarea className="md-box" value={v} placeholder="(输入自定义提示词)" onChange={e => onChange(e.target.value)} style={{ minHeight: 250, width: '100%', resize: 'vertical' }} />
+                    <textarea className="md-box" value={v} placeholder={t('(输入自定义提示词)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 250, width: '100%', resize: 'vertical' }} />
                   )}
-                  display={<div className="md-box" style={{ minHeight: 250, color: customPrompt ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{customPrompt || '(未设置)'}</div>}
+                  display={<div className="md-box" style={{ minHeight: 250, color: customPrompt ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{customPrompt || t('(未设置)')}</div>}
                 />
               ) : (
-                <div className="md-box" style={{ color: 'var(--ink-faint)' }}>(未设置，将使用默认系统提示词)</div>
+                <div className="md-box" style={{ color: 'var(--ink-faint)' }}>{t('(未设置，将使用默认系统提示词)')}</div>
               )}
             </div>
           </div>
 
-          {/* 记忆 */}
+          {/* 视觉与动画 */}
           <div className={`tab-page ${activeTab === 'visual' ? 'active' : ''}`}>
             {char && (
               <CharacterVisualEditor
@@ -616,14 +621,14 @@ export default function CharacterDetailPage() {
           {/* 记忆 */}
           <div className={`tab-page ${activeTab === 'memory' ? 'active' : ''}`}>
             <div className="detail-section">
-              <div className="detail-section-title">记忆设置</div>
+              <div className="detail-section-title">{t('记忆设置')}</div>
               <div className="tool-list">
                 <div className="tool-item">
-                  <div className="tool-name">启用记忆</div>
+                  <div className="tool-name">{t('启用记忆')}</div>
                   <div className={`toggle ${memoryEnabled ? 'on' : ''}`} onClick={() => { setMemoryEnabled(!memoryEnabled); autoSave({ memory: { enabled: !memoryEnabled, selfEvolution, charLimit } }) }}></div>
                 </div>
                 <div className="tool-item">
-                  <div className="tool-name">记忆字符上限</div>
+                  <div className="tool-name">{t('记忆字符上限')}</div>
                   <EditField
                     value={String(charLimit)}
                     onSave={v => { const n = Number(v); const limit = Number.isFinite(n) && n >= 0 ? n : 0; setCharLimit(limit); autoSave({ memory: { enabled: memoryEnabled, selfEvolution, charLimit: limit } }) }}
@@ -641,9 +646,9 @@ export default function CharacterDetailPage() {
                 value={memoryContent}
                 onSave={v => { setMemoryContent(v); autoSave({ memoryContent: v }) }}
                 renderInput={(v, onChange) => (
-                  <textarea className="md-box" value={v} placeholder="(空)" onChange={e => onChange(e.target.value)} style={{ minHeight: 450, width: '100%', resize: 'vertical' }} />
+                  <textarea className="md-box" value={v} placeholder={t('(空)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 450, width: '100%', resize: 'vertical' }} />
                 )}
-                display={<div className="md-box" style={{ minHeight: 450, color: memoryContent ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{memoryContent || '(空)'}</div>}
+                display={<div className="md-box" style={{ minHeight: 450, color: memoryContent ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{memoryContent || t('(空)')}</div>}
               />
             </div>
           </div>
@@ -652,17 +657,17 @@ export default function CharacterDetailPage() {
           <div className={`tab-page ${activeTab === 'tools' ? 'active' : ''}`}>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">已激活工具 ({boundTools.length})</div>
+                <div className="detail-section-title">{t('已激活工具')} ({boundTools.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {boundTools.map(t => {
-                    const meta = allTools.find(at => toToolBindingName(at.name, at.source) === t.name)
+                  {boundTools.map(tool => {
+                    const meta = allTools.find(at => toToolBindingName(at.name, at.source) === tool.name)
                     return (
-                      <div key={t.name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)' }}>
+                      <div key={tool.name} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'rgba(42,157,92,0.03)' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{t.name.replace(/^mcp:/, '')}</div>
+                          <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{tool.name.replace(/^mcp:/, '')}</div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <span className={`tool-source ${t.name.startsWith('mcp:') ? 'mcp' : 'builtin'}`} style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4 }}>{t.name.startsWith('mcp:') ? 'MCP' : '内置'}</span>
-                            <button onClick={() => removeTool(t.name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: 'var(--cinnabar)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
+                            <span className={`tool-source ${tool.name.startsWith('mcp:') ? 'mcp' : 'builtin'}`} style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4 }}>{tool.name.startsWith('mcp:') ? 'MCP' : t('内置')}</span>
+                            <button onClick={() => removeTool(tool.name)} title={t('移出')} style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: 'var(--cinnabar)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                           </div>
                         </div>
                         {meta && <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>}
@@ -670,27 +675,27 @@ export default function CharacterDetailPage() {
                     )
                   })}
                   {boundTools.length === 0 && (
-                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>暂无已激活工具</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('暂无已激活工具')}</div>
                   )}
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">未激活工具 ({unboundTools.length})</div>
+                <div className="detail-section-title">{t('未激活工具')} ({unboundTools.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {unboundTools.slice(0, 20).map(t => (
-                    <div key={t.name} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
+                  {unboundTools.slice(0, 20).map(tool => (
+                    <div key={tool.name} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{t.name}</div>
+                        <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{tool.name}</div>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <span className={`tool-source ${t.source}`} style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4 }}>{t.source === 'mcp' ? 'MCP' : '内置'}</span>
-                          <button onClick={() => addTool(t.name, t.source)} title="激活" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
+                          <span className={`tool-source ${tool.source}`} style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4 }}>{tool.source === 'mcp' ? 'MCP' : t('内置')}</span>
+                          <button onClick={() => addTool(tool.name, tool.source)} title={t('激活')} style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                         </div>
                       </div>
-                      <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{t.description}</div>
+                      <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{tool.description}</div>
                     </div>
                   ))}
                   {unboundTools.length === 0 && (
-                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>所有工具已激活</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('所有工具已激活')}</div>
                   )}
                 </div>
               </div>
@@ -701,7 +706,7 @@ export default function CharacterDetailPage() {
           <div className={`tab-page ${activeTab === 'skills' ? 'active' : ''}`}>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">已绑定技能包 ({boundSkills.length})</div>
+                <div className="detail-section-title">{t('已绑定技能包')} ({boundSkills.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {boundSkills.map(name => {
                     const meta = allSkills.find(s => s.id === name)
@@ -712,7 +717,7 @@ export default function CharacterDetailPage() {
                             <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{meta?.name || name}</div>
                             {meta && <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: 'var(--star-ziwei)' }}>{meta.category}</span>}
                           </div>
-                          <button onClick={() => toggleSkill(name)} title="移出" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: 'var(--cinnabar)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
+                          <button onClick={() => toggleSkill(name)} title={t('移出')} style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid #ef4444', background: 'transparent', fontSize: 18, lineHeight: 1, color: 'var(--cinnabar)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>×</button>
                         </div>
                         {meta && <>
                           <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{meta.description}</div>
@@ -724,12 +729,12 @@ export default function CharacterDetailPage() {
                     )
                   })}
                   {boundSkills.length === 0 && (
-                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>暂无已绑定技能包</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('暂无已绑定技能包')}</div>
                   )}
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="detail-section-title">可绑定技能包 ({unboundSkills.length})</div>
+                <div className="detail-section-title">{t('可绑定技能包')} ({unboundSkills.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {unboundSkills.slice(0, 20).map(s => (
                     <div key={s.id} style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-input)' }}>
@@ -738,13 +743,13 @@ export default function CharacterDetailPage() {
                           <div className="tool-name" style={{ fontSize: 'calc(14px * var(--ui-font-scale))', fontWeight: 600 }}>{s.name}</div>
                           <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: 'var(--star-ziwei)' }}>{s.category}</span>
                         </div>
-                        <button onClick={() => toggleSkill(s.id)} title="绑定技能包" style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
+                        <button onClick={() => toggleSkill(s.id)} title={t('绑定技能包')} style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--jade)', background: 'transparent', fontSize: 20, lineHeight: 1, color: 'var(--jade)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                       </div>
                       <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', lineHeight: 1.4 }}>{s.description}</div>
                     </div>
                   ))}
                   {unboundSkills.length === 0 && (
-                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>所有技能包均已绑定</div>
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('所有技能包均已绑定')}</div>
                   )}
                 </div>
               </div>
@@ -754,17 +759,17 @@ export default function CharacterDetailPage() {
           {/* 统计 */}
           <div className={`tab-page ${activeTab === 'stats' ? 'active' : ''}`}>
             <div className="detail-section">
-              <div className="detail-section-title">使用概览</div>
+              <div className="detail-section-title">{t('使用概览')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <div className="info-item"><div className="info-item-label">会话数</div><div className="info-item-value">{stats?.sessionCount ?? '--'}</div></div>
-                <div className="info-item"><div className="info-item-label">成功率</div><div className="info-item-value">--</div></div>
-                <div className="info-item"><div className="info-item-label">最近活跃</div><div className="info-item-value">{stats?.lastActive ? timeAgo(stats.lastActive) : '--'}</div></div>
+                <div className="info-item"><div className="info-item-label">{t('会话数')}</div><div className="info-item-value">{stats?.sessionCount ?? '--'}</div></div>
+                <div className="info-item"><div className="info-item-label">{t('成功率')}</div><div className="info-item-value">--</div></div>
+                <div className="info-item"><div className="info-item-label">{t('最近活跃')}</div><div className="info-item-value">{stats?.lastActive ? timeAgo(stats.lastActive, t) : '--'}</div></div>
               </div>
             </div>
             <div className="detail-section">
-              <div className="detail-section-title">调用趋势</div>
+              <div className="detail-section-title">{t('调用趋势')}</div>
               <div className="empty-state" style={{ padding: 20 }}>
-                <div className="empty-hint">需要后端打点后展示</div>
+                <div className="empty-hint">{t('需要后端打点后展示')}</div>
               </div>
             </div>
           </div>
@@ -772,7 +777,7 @@ export default function CharacterDetailPage() {
           {/* 新建角色时显示创建按钮 */}
           {isNew && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 0', borderTop: '1px solid var(--border)', marginTop: 16 }}>
-              <button className="detail-btn primary" onClick={handleCreate}>创建</button>
+              <button className="detail-btn primary" onClick={handleCreate}>{t('创建')}</button>
             </div>
           )}
         </div>

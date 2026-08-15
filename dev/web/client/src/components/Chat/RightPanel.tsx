@@ -6,10 +6,12 @@ import CharacterPicker from './CharacterPicker'
 import GoalPanel from './GoalPanel'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import type { Character } from '@/types'
+import { useI18n } from '@/i18n'
 
 export default function RightPanel() {
   const { sessions, activeSessionId, addWorkspace, removeWorkspace, tokenUsage } = useChatStore()
   const { toggleRightPanel } = useUIStore()
+  const t = useI18n()
   const session = sessions.find(s => s.id === activeSessionId)
   const [character, setCharacter] = useState<Character | null>(null)
   const [showPicker, setShowPicker] = useState(false)
@@ -30,16 +32,16 @@ export default function RightPanel() {
   if (!session) {
     return (
       <aside className="right-panel">
-        <div className="rp-header"><span className="rp-title">详情</span><span className="rp-close" onClick={toggleRightPanel}>✕</span></div>
+        <div className="rp-header"><span className="rp-title">{t('详情')}</span><span className="rp-close" onClick={toggleRightPanel}>✕</span></div>
         <div className="rp-body" style={{ padding: 20, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(12px * var(--ui-font-scale))' }}>
-          选择一个会话查看详情
+          {t('选择一个会话查看详情')}
         </div>
       </aside>
     )
   }
 
   const starColor = character?.color || 'var(--gold)'
-  const starName = character?.name || session.character_id || '未分配'
+  const starName = character?.name || session.character_id || t('未分配')
   const starTitle = character?.description || ''
   const messages = session.messages || []
   const toolCalls = messages.filter(m => m.role === 'tool').length
@@ -70,16 +72,6 @@ export default function RightPanel() {
   }
   const tokenEst = Math.ceil(totalChars / 4)
   const totalTokens = tokenUsage.total || ((session.input_tokens || 0) + (session.output_tokens || 0))
-
-  // Step limit display (run policy §13.2 summary)
-  const maxSteps = character?.maxSteps
-  const rpEff = character?.runPolicy?.effectivePreview
-  const stepLimitText = rpEff
-    ? `${rpEff.softTurns} + ${rpEff.graceTurns} 轮宽限`
-    : !maxSteps || maxSteps >= 999 ? '高上限' : `${maxSteps} 步`
-  const autoText = rpEff
-    ? rpEff.autoContinuation ? `自动续跑：开（最多 ${rpEff.maxAutoContinuations} 次）` : '自动续跑：关'
-    : ''
 
   function formatTokens(n: number): string {
     if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
@@ -125,13 +117,13 @@ export default function RightPanel() {
               transition: 'all 0.15s',
             }}
             >+</div>
-            <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>尚未选择角色</span>
+            <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('尚未选择角色')}</span>
           </div>
         )}
 
         <div className="rp-character-actions">
           <button className="btn rp-switch-character" onClick={() => setShowPicker(true)}>
-            {character ? '切换人物' : '选择人物'}
+            {character ? t('切换人物') : t('选择人物')}
           </button>
         </div>
 
@@ -144,84 +136,55 @@ export default function RightPanel() {
           />
         )}
 
-        {/* Running config */}
-        <div className="rp-section">
-          <div className="rp-section-title">运行配置</div>
-          <div className="rp-row"><span className="label">角色类型</span><span className="value">{character?.role === 'both' ? '主/子 Agent' : character?.role === 'main' ? '主 Agent' : character?.role === 'sub' ? '子 Agent' : '--'}</span></div>
-          <div className="rp-row"><span className="label">步数限制</span><span className="value">{stepLimitText}</span></div>
-          {autoText && <div className="rp-row"><span className="label">自动续跑</span><span className="value">{autoText}</span></div>}
-        </div>
-
         {/* 项目区 — bound at creation, read-only */}
         <div className="rp-section">
-          <div className="rp-section-title">项目区</div>
+          <div className="rp-section-title">{t('项目区')}</div>
           {session.workspace ? (
             <div className="rp-ws-item">
               <span className="rp-ws-path">{session.workspace}</span>
             </div>
           ) : (
-            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>未设置项目</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('未设置项目')}</div>
           )}
         </div>
 
         {/* 授权工作区 — add/remove freely */}
         <div className="rp-section">
           <div className="rp-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            授权工作区
+            {t('授权工作区')}
             <button
               style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 'calc(14px * var(--ui-font-scale))', lineHeight: 1 }}
-              title="添加路径"
+              title={t('添加路径')}
               onClick={() => {
-                const path = prompt('输入工作区路径：')
+                const path = prompt(t('输入工作区路径：'))
                 if (path) addWorkspace(path)
               }}
             >+</button>
           </div>
           {authorizedWorkspaces.length === 0 ? (
-            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>无授权工作区</div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('无授权工作区')}</div>
           ) : authorizedWorkspaces.map((ws, i) => (
             <div key={i} className="rp-ws-item">
               <span className="rp-ws-path">{ws}</span>
-              <button className="rp-ws-del" title="删除" onClick={() => removeWorkspace(ws)}>✕</button>
+              <button className="rp-ws-del" title={t('删除')} onClick={() => removeWorkspace(ws)}>✕</button>
             </div>
           ))}
         </div>
 
-        {/* Running status */}
-        <div className="rp-section">
-          <div className="rp-section-title">运行状态</div>
-          <div className="rp-row" style={{ marginTop: 0 }}>
-            <span className="label">缓存命中</span>
-            <span className="value" style={{ color: 'var(--jade)' }}>
-              {session.cacheStats?.hitRatio || session.cache_hit_ratio || '--'}
-            </span>
-          </div>
-          <div className="rp-row"><span className="label">当前审批模式</span><span className="value">{session.current_strategy || 'Ask Risky'}</span></div>
-          {session.compacted && (
-            <div style={{ fontSize: 'calc(10px * var(--ui-font-scale))', color: 'var(--gold)', marginTop: 4 }}>⚠ 会话已压缩</div>
-          )}
-        </div>
-
-        {/* Goal / Plan */}
-        <GoalPanel sessionId={session.id} mode={(session as any).execution_mode || 'direct'} />
-
-        {/* Capabilities */}
-        {character && (
-          <div className="rp-section">
-            <div className="rp-section-title">能力</div>
-            <div className="rp-row"><span className="label">技能</span><span className="value">{character.skills?.length || 0} 个</span></div>
-            <div className="rp-row"><span className="label">工具</span><span className="value">{character.tools?.length || 0} 个就绪</span></div>
-          </div>
-        )}
+        {/* Goal / Plan (goal mode disabled; existing 'goal' sessions show as plan_first) */}
+        <GoalPanel sessionId={session.id} mode={((session as any).execution_mode === 'goal' ? 'plan_first' : (session as any).execution_mode) || 'direct'} />
 
         {/* Session stats */}
         <div className="rp-section">
-          <div className="rp-section-title">会话统计</div>
+          <div className="rp-section-title">{t('会话统计')}</div>
+          {session.compacted && (
+            <div style={{ fontSize: 'calc(10px * var(--ui-font-scale))', color: 'var(--gold)', marginTop: 4 }}>⚠ {t('会话已压缩')}</div>
+          )}
           <div className="rp-stats">
-            <div className="rp-stat"><div className="rp-stat-value">{messages.length}</div><div className="rp-stat-label">消息</div></div>
+            <div className="rp-stat"><div className="rp-stat-value">{messages.length}</div><div className="rp-stat-label">{t('消息')}</div></div>
             <div className="rp-stat"><div className="rp-stat-value">{formatTokens(totalTokens || tokenEst)}</div><div className="rp-stat-label">Tokens</div></div>
-            <div className="rp-stat"><div className="rp-stat-value">{toolCalls}</div><div className="rp-stat-label">工具调用</div></div>
-            <div className="rp-stat"><div className="rp-stat-value">{session.cacheStats?.hitRatio || session.cache_hit_ratio || '--'}</div><div className="rp-stat-label">缓存命中</div></div>
+            <div className="rp-stat"><div className="rp-stat-value">{toolCalls}</div><div className="rp-stat-label">{t('工具调用')}</div></div>
+            <div className="rp-stat"><div className="rp-stat-value">{session.cacheStats?.hitRatio || session.cache_hit_ratio || '--'}</div><div className="rp-stat-label">{t('缓存命中')}</div></div>
           </div>
         </div>
       </div>

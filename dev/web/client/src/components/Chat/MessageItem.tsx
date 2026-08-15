@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Message } from '@/types'
 import { useChatStore } from '@/stores/chatStore'
+import { useI18n, useI18nStore } from '@/i18n'
 import ThinkingBlock from './ThinkingBlock'
 import ToolCall from './ToolCall'
 import MarkdownContent from './MarkdownContent'
@@ -15,6 +16,8 @@ interface Props {
 
 export default function MessageItem({ message, characterId, sessionId }: Props) {
   const { editMessage, forkFromMessage, isStreaming } = useChatStore()
+  const t = useI18n()
+  const locale = useI18nStore(s => s.locale)
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [copied, setCopied] = useState(false)
@@ -23,7 +26,7 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
   const isUser = message.role === 'user'
   const isTool = message.role === 'tool'
   const hasVisibleContent = message.content.trim().length > 0
-  const time = new Date(message.timestamp).toLocaleTimeString('zh-CN', {
+  const time = new Date(message.timestamp).toLocaleTimeString(locale === 'en' ? 'en-US' : 'zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -51,7 +54,7 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
       setActionError('')
       window.setTimeout(() => setCopied(false), 1200)
     } catch {
-      setActionError('复制失败')
+      setActionError(t('复制失败'))
     }
   }
 
@@ -66,7 +69,7 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
       await editMessage(message.id, editContent)
       setIsEditing(false)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : '编辑失败')
+      setActionError(error instanceof Error ? error.message : t('编辑失败'))
     }
   }
 
@@ -76,7 +79,7 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
       setActionError('')
       await forkFromMessage(message.id)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : '创建分支失败')
+      setActionError(error instanceof Error ? error.message : t('创建分支失败'))
     } finally {
       setIsForking(false)
     }
@@ -114,8 +117,8 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
               setIsEditing(false)
               setEditContent(message.content)
               setActionError('')
-            }}>取消</button>
-            <button type="button" className="primary" onClick={() => void saveEdit()}>保存并重新发送</button>
+            }}>{t('取消')}</button>
+            <button type="button" className="primary" onClick={() => void saveEdit()}>{t('保存并重新发送')}</button>
           </div>
         </div>
       ) : hasVisibleContent ? (
@@ -129,25 +132,25 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
             <span className="msg-time">{time}</span>
             {!isEditing && (
               <div className="msg-actions">
-                <button type="button" onClick={() => void copyMessage()}>{copied ? '已复制' : '复制'}</button>
+                <button type="button" onClick={() => void copyMessage()}>{copied ? t('已复制') : t('复制')}</button>
                 {isUser ? (
                   <button
                     type="button"
                     disabled={isStreaming}
-                    title={isStreaming ? '请先停止当前运行' : '编辑这条消息'}
+                    title={isStreaming ? t('请先停止当前运行') : t('编辑这条消息')}
                     onClick={() => {
                       setEditContent(message.content)
                       setIsEditing(true)
                       setActionError('')
                     }}
-                  >编辑</button>
+                  >{t('编辑')}</button>
                 ) : (
                   <button
                     type="button"
                     disabled={message.is_streaming || isForking}
-                    title={message.is_streaming ? '请等待 Agent 回复完成' : '从这条回复创建新会话'}
+                    title={message.is_streaming ? t('请等待 Agent 回复完成') : t('从这条回复创建新会话')}
                     onClick={() => void createFork()}
-                  >{isForking ? '创建中…' : '分支'}</button>
+                  >{isForking ? t('创建中…') : t('分支')}</button>
                 )}
               </div>
             )}

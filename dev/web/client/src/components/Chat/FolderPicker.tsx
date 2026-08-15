@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { browseDirectory, resolvePath, type DirEntry } from '@/api/workspace'
+import { useI18n } from '@/i18n'
 
 interface Props {
   onSelect: (path: string) => void
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function FolderPicker({ onSelect, onClose }: Props) {
+  const t = useI18n()
   const [currentPath, setCurrentPath] = useState('')
   const [parentPath, setParentPath] = useState<string | null>(null)
   const [entries, setEntries] = useState<DirEntry[]>([])
@@ -36,13 +38,13 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
     const p = manualPath.trim()
     if (!p) return
     setManualError('')
-    if (p.includes('..')) { setManualError('路径不能包含 ..'); return }
+    if (p.includes('..')) { setManualError(t('路径不能包含 ..')); return }
     try {
       const result = await resolvePath(p)
       if (result.path) load(result.path)
-      else setManualError('路径不存在')
+      else setManualError(t('路径不存在'))
     } catch {
-      setManualError('路径解析失败')
+      setManualError(t('路径解析失败'))
     }
   }
 
@@ -61,7 +63,7 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 8px' }}>
-          <span style={{ fontSize: 'calc(15px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)' }}>选择项目目录</span>
+          <span style={{ fontSize: 'calc(15px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)' }}>{t('选择项目目录')}</span>
           <button onClick={onClose} style={{ fontSize: 20, color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
         </div>
 
@@ -71,7 +73,7 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
             value={manualPath}
             onChange={e => setManualPath(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') goToPath() }}
-            placeholder="直接输入路径后按回车，如 C:\Users\..."
+            placeholder={t('直接输入路径后按回车，如 C:\\Users\\...')}
             style={{
               flex: 1, padding: '6px 10px', border: '1px solid var(--border)',
               borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', outline: 'none',
@@ -86,7 +88,7 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
               background: 'var(--gold)', color: '#fff', fontSize: 'calc(13px * var(--ui-font-scale))',
               cursor: 'pointer', whiteSpace: 'nowrap', opacity: manualPath.trim() ? 1 : 0.5,
             }}
-          >前往</button>
+          >{t('前往')}</button>
         </div>
         {manualError && <div style={{ padding: '0 20px 4px', fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--cinnabar)' }}>{manualError}</div>}
 
@@ -100,9 +102,9 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
               padding: '3px 8px', fontSize: 'calc(12px * var(--ui-font-scale))', cursor: currentPath ? 'pointer' : 'default',
               opacity: currentPath ? 1 : 0.4, whiteSpace: 'nowrap', color: 'var(--ink-mid)',
             }}
-          >.. 上级</button>
+          >.. {t('上级')}</button>
           <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-            {currentPath || '快捷入口'}
+            {currentPath || t('快捷入口')}
           </span>
           <button
             onClick={selectCurrentDir}
@@ -112,17 +114,17 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
               borderRadius: 4, padding: '3px 8px', fontSize: 'calc(12px * var(--ui-font-scale))', cursor: currentPath ? 'pointer' : 'default',
               color: 'var(--gold)', whiteSpace: 'nowrap', opacity: currentPath ? 1 : 0.4,
             }}
-          >选择当前目录</button>
+          >{t('选择当前目录')}</button>
         </div>
 
         {/* Directory list */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>加载中...</div>
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>{t('加载中...')}</div>
           ) : error ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--cinnabar)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>{error}</div>
           ) : entries.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>空目录</div>
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>{t('空目录')}</div>
           ) : entries.map(entry => (
             <div
               key={entry.path}
@@ -147,7 +149,7 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
           <button
             onClick={onClose}
             style={{ padding: '7px 16px', border: 'none', borderRadius: 6, background: 'var(--bg-hover)', color: 'var(--ink-mid)', cursor: 'pointer', fontSize: 'calc(13px * var(--ui-font-scale))' }}
-          >取消</button>
+          >{t('取消')}</button>
           <button
             onClick={selectCurrentDir}
             disabled={!currentPath}
@@ -156,7 +158,7 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
               background: 'var(--gold)', color: '#fff', cursor: currentPath ? 'pointer' : 'default',
               fontSize: 'calc(13px * var(--ui-font-scale))', opacity: currentPath ? 1 : 0.5,
             }}
-          >选择此目录</button>
+          >{t('选择此目录')}</button>
         </div>
       </div>
     </div>

@@ -12,8 +12,10 @@ import {
   type MCPConnectionStatus,
   type DiscoveredMCPServer,
 } from '@/api/tools'
+import { useI18n } from '@/i18n'
 
 export default function McpView() {
+  const t = useI18n()
   const [servers, setServers] = useState<MCPServer[]>([])
   const [statuses, setStatuses] = useState<Record<string, MCPConnectionStatus>>({})
   const [loading, setLoading] = useState(true)
@@ -61,10 +63,10 @@ export default function McpView() {
   function statusLabel(s: MCPServer): string {
     const st = statusOf(s)
     if (!st) return ''
-    if (st.status === 'connected') return `已连接 (${st.toolsCount})`
-    if (st.status === 'disabled') return '已禁用'
-    if (st.status === 'failed') return `失败: ${st.error}`
-    if (st.status === 'connecting') return '连接中...'
+    if (st.status === 'connected') return t('已连接 ({count})', { count: st.toolsCount ?? 0 })
+    if (st.status === 'disabled') return t('已禁用')
+    if (st.status === 'failed') return `${t('失败')}: ${st.error}`
+    if (st.status === 'connecting') return t('连接中...')
     return ''
   }
 
@@ -117,7 +119,7 @@ export default function McpView() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('确定删除此 MCP 服务器？')) return
+    if (!confirm(t('确定删除此 MCP 服务器？'))) return
     await deleteMCPServer(id)
     setServers(prev => prev.filter(s => s.id !== id))
   }
@@ -126,7 +128,7 @@ export default function McpView() {
     setImportError('')
     try {
       const data = JSON.parse(importJson)
-      if (!data.command) { setImportError('缺少 command 字段'); return }
+      if (!data.command) { setImportError(t('缺少 command 字段')); return }
       await createMCPServer({
         name: data.name || data.command,
         command: data.command,
@@ -139,7 +141,7 @@ export default function McpView() {
       setImportJson('')
       load()
     } catch {
-      setImportError('无效的 JSON 格式')
+      setImportError(t('无效的 JSON 格式'))
     }
   }
 
@@ -154,7 +156,7 @@ export default function McpView() {
       const auto = new Set(data.servers.filter(s => s.importable && !s.alreadyExists).map(s => s.name))
       setSelected(auto)
     } catch (err: any) {
-      setImportSummary(`检测失败: ${err.message || err}`)
+      setImportSummary(`${t('检测失败')}: ${err.message || err}`)
     } finally {
       setDiscovering(false)
       setDiscoverOpen(true)
@@ -176,19 +178,19 @@ export default function McpView() {
     try {
       const names = Array.from(selected)
       if (names.length === 0) {
-        setImportSummary('未选择任何服务')
+        setImportSummary(t('未选择任何服务'))
         return
       }
       const result = await importMCPServers(names)
       const parts: string[] = []
-      if (result.imported.length > 0) parts.push(`成功导入: ${result.imported.join(', ')}`)
-      if (result.skipped.length > 0) parts.push(`跳过: ${result.skipped.map(s => `${s.name}（${s.reason}）`).join(', ')}`)
-      if (result.errors.length > 0) parts.push(`失败: ${result.errors.map(e => `${e.name}（${e.error}）`).join(', ')}`)
-      setImportSummary(parts.join('\n') || '无结果')
+      if (result.imported.length > 0) parts.push(`${t('成功导入')}: ${result.imported.join(', ')}`)
+      if (result.skipped.length > 0) parts.push(`${t('跳过')}: ${result.skipped.map(s => `${s.name}（${s.reason}）`).join(', ')}`)
+      if (result.errors.length > 0) parts.push(`${t('失败')}: ${result.errors.map(e => `${e.name}（${e.error}）`).join(', ')}`)
+      setImportSummary(parts.join('\n') || t('无结果'))
       setDiscoverOpen(false)
       load()
     } catch (err: any) {
-      setImportSummary(`导入失败: ${err.message || err}`)
+      setImportSummary(`${t('导入失败')}: ${err.message || err}`)
     } finally {
       setImporting(false)
     }
@@ -197,21 +199,21 @@ export default function McpView() {
   return (
     <div className="main">
       <div className="page-header">
-        <span className="page-title">MCP 服务</span>
+        <span className="page-title">{t('MCP 服务')}</span>
         <div className="header-actions">
-          <button className="btn" onClick={handleDiscover}>检测本机 MCP</button>
-          <button className="btn" onClick={() => setShowImport(true)}>导入 JSON</button>
-          <button className="btn primary" onClick={openNew}>+ 添加服务</button>
+          <button className="btn" onClick={handleDiscover}>{t('检测本机 MCP')}</button>
+          <button className="btn" onClick={() => setShowImport(true)}>{t('导入 JSON')}</button>
+          <button className="btn primary" onClick={openNew}>+ {t('添加服务')}</button>
         </div>
       </div>
       <div className="content">
         <div className="mcp-list">
           {loading ? (
-            <div className="empty-state">加载中...</div>
+            <div className="empty-state">{t('加载中...')}</div>
           ) : servers.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-title">暂无 MCP 服务器</div>
-              <div className="empty-hint">点击「添加服务」或「导入 JSON」来添加一个</div>
+              <div className="empty-title">{t('暂无 MCP 服务器')}</div>
+              <div className="empty-hint">{t('点击「添加服务」或「导入 JSON」来添加一个')}</div>
             </div>
           ) : (
             servers.map(s => {
@@ -224,10 +226,10 @@ export default function McpView() {
                       <span className={`mcp-status ${st.status}`}>{statusLabel(s)}</span>
                     )}
                     <button className="btn sm" disabled={testingMap[s.id]} onClick={() => handleTest(s.id)}>
-                      {testingMap[s.id] ? '测试中...' : '测试'}
+                      {testingMap[s.id] ? t('测试中...') : t('测试')}
                     </button>
-                    <button className="btn sm" onClick={() => openEdit(s)}>编辑</button>
-                    <button className="btn sm danger" onClick={() => handleDelete(s.id)}>删除</button>
+                    <button className="btn sm" onClick={() => openEdit(s)}>{t('编辑')}</button>
+                    <button className="btn sm danger" onClick={() => handleDelete(s.id)}>{t('删除')}</button>
                   </div>
                   <div className="mcp-cmd">
                     {s.command} {s.args?.join(' ')}
@@ -250,13 +252,13 @@ export default function McpView() {
                         color: testResults[s.id].ok ? 'var(--jade)' : 'var(--cinnabar)',
                       }}>
                         {testResults[s.id].ok
-                          ? `连接成功（${testResults[s.id].toolCount} 个工具）`
-                          : `测试失败: ${testResults[s.id].error}`}
+                          ? t('连接成功（{count} 个工具）', { count: testResults[s.id].toolCount ?? 0 })
+                          : `${t('测试失败')}: ${testResults[s.id].error}`}
                       </div>
                       {testResults[s.id].tools && testResults[s.id].tools!.length > 0 && (
                         <div className="mcp-tools">
-                          {testResults[s.id].tools!.map(t => (
-                            <span key={t.name} className="mcp-tool-tag" title={t.description}>{t.name}</span>
+                          {testResults[s.id].tools!.map(tool => (
+                            <span key={tool.name} className="mcp-tool-tag" title={tool.description}>{tool.name}</span>
                           ))}
                         </div>
                       )}
@@ -273,16 +275,16 @@ export default function McpView() {
       {discoverOpen && (
         <div className="approval-overlay" onClick={() => { if (!importing) setDiscoverOpen(false) }}>
           <div className="approval-dialog" onClick={e => e.stopPropagation()} style={{ width: 620 }}>
-            <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 12 }}>检测本机 MCP 服务</div>
+            <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 12 }}>{t('检测本机 MCP 服务')}</div>
             <p style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', margin: '-4px 0 12px' }}>
-              扫描 opencode / Claude / Cursor 配置中发现的 MCP 服务，勾选后一键导入：
+              {t('扫描 opencode / Claude / Cursor 配置中发现的 MCP 服务，勾选后一键导入：')}
             </p>
             {discovering ? (
-              <div className="empty-state">检测中...</div>
+              <div className="empty-state">{t('检测中...')}</div>
             ) : discovered.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-title">未发现其他 MCP 服务</div>
-                <div className="empty-hint">没有在 opencode / Claude / Cursor 配置中找到可导入的 MCP 服务</div>
+                <div className="empty-title">{t('未发现其他 MCP 服务')}</div>
+                <div className="empty-hint">{t('没有在 opencode / Claude / Cursor 配置中找到可导入的 MCP 服务')}</div>
               </div>
             ) : (
               <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -314,16 +316,16 @@ export default function McpView() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)' }}>{s.name}</span>
                           <span className={`mcp-status ${s.importable ? 'connected' : 'failed'}`}>
-                            {s.alreadyExists ? '已导入' : s.importable ? 'stdio' : s.transport}
+                            {s.alreadyExists ? t('已导入') : s.importable ? 'stdio' : s.transport}
                           </span>
                         </div>
                         <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', marginTop: 2, wordBreak: 'break-all' }}>
                           {s.importable
                             ? `${s.command} ${s.args.join(' ')}`.trim()
-                            : `远程服务（${s.transport}）: ${s.url || '无 URL'}`}
+                            : `${t('远程服务（{transport}）')}: ${s.url || t('无 URL')}`}
                         </div>
                         <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', marginTop: 2 }}>
-                          来源: {s.source} · {s.sourceFile}
+                          {t('来源')}: {s.source} · {s.sourceFile}
                         </div>
                       </div>
                     </label>
@@ -335,7 +337,7 @@ export default function McpView() {
               <pre style={{
                 fontSize: 'calc(12px * var(--ui-font-scale))',
                 whiteSpace: 'pre-wrap',
-                color: importSummary.includes('失败') || importSummary.includes('检测失败') ? 'var(--cinnabar)' : 'var(--jade)',
+                color: importSummary.includes(t('失败')) || importSummary.includes(t('检测失败')) ? 'var(--cinnabar)' : 'var(--jade)',
                 background: 'var(--bg-hover)',
                 padding: 8,
                 borderRadius: 6,
@@ -346,16 +348,16 @@ export default function McpView() {
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                已选 {selected.size} 个
+                {t('已选 {count} 个', { count: selected.size })}
               </span>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" onClick={() => setDiscoverOpen(false)}>取消</button>
+                <button className="btn" onClick={() => setDiscoverOpen(false)}>{t('取消')}</button>
                 <button
                   className="btn primary"
                   disabled={importing || selected.size === 0}
                   onClick={handleBulkImport}
                 >
-                  {importing ? '导入中...' : '一键导入'}
+                  {importing ? t('导入中...') : t('一键导入')}
                 </button>
               </div>
             </div>
@@ -367,9 +369,9 @@ export default function McpView() {
       {showImport && (
         <div className="approval-overlay" onClick={() => setShowImport(false)}>
           <div className="approval-dialog" onClick={e => e.stopPropagation()} style={{ width: 480 }}>
-            <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 12 }}>导入 MCP 配置</div>
+            <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 12 }}>{t('导入 MCP 配置')}</div>
             <p style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', margin: '-4px 0 12px' }}>
-              粘贴 MCP 服务器 JSON 配置：
+              {t('粘贴 MCP 服务器 JSON 配置：')}
             </p>
             <textarea
               value={importJson}
@@ -393,8 +395,8 @@ export default function McpView() {
               <p style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--cinnabar)', margin: '6px 0 0' }}>{importError}</p>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setShowImport(false)}>取消</button>
-              <button className="btn primary" onClick={handleImport}>导入</button>
+              <button className="btn" onClick={() => setShowImport(false)}>{t('取消')}</button>
+              <button className="btn primary" onClick={handleImport}>{t('导入')}</button>
             </div>
           </div>
         </div>
@@ -405,38 +407,38 @@ export default function McpView() {
         <div className="approval-overlay" onClick={() => setEditing(null)}>
           <div className="approval-dialog" onClick={e => e.stopPropagation()} style={{ width: 480 }}>
             <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', fontWeight: 600, marginBottom: 16 }}>
-              {editing.id ? '编辑 MCP 服务器' : '新建 MCP 服务器'}
+              {editing.id ? t('编辑 MCP 服务器') : t('新建 MCP 服务器')}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={labelStyle}>名称</label>
+                <label style={labelStyle}>{t('名称')}</label>
                 <input
                   value={editing.name}
                   onChange={e => setEditing({ ...editing, name: e.target.value })}
-                  placeholder="例如：Filesystem"
+                  placeholder={t('例如：Filesystem')}
                   style={inputStyle}
                 />
               </div>
               <div>
-                <label style={labelStyle}>命令</label>
+                <label style={labelStyle}>{t('命令')}</label>
                 <input
                   value={editing.command}
                   onChange={e => setEditing({ ...editing, command: e.target.value })}
-                  placeholder="例如：npx"
+                  placeholder={t('例如：npx')}
                   style={inputStyle}
                 />
               </div>
               <div>
-                <label style={labelStyle}>参数</label>
+                <label style={labelStyle}>{t('参数')}</label>
                 <input
                   value={editing.args}
                   onChange={e => setEditing({ ...editing, args: e.target.value })}
-                  placeholder="例如：-y @modelcontextprotocol/server-filesystem /tmp"
+                  placeholder={t('例如：-y @modelcontextprotocol/server-filesystem /tmp')}
                   style={inputStyle}
                 />
               </div>
               <div>
-                <label style={labelStyle}>环境变量（每行一个 KEY=VALUE）</label>
+                <label style={labelStyle}>{t('环境变量（每行一个 KEY=VALUE）')}</label>
                 <textarea
                   value={editing.env}
                   onChange={e => setEditing({ ...editing, env: e.target.value })}
@@ -447,29 +449,29 @@ export default function McpView() {
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>工作目录 (cwd)</label>
+                  <label style={labelStyle}>{t('工作目录 (cwd)')}</label>
                   <input
                     value={editing.cwd}
                     onChange={e => setEditing({ ...editing, cwd: e.target.value })}
-                    placeholder="可选，留空用项目根目录"
+                    placeholder={t('可选，留空用项目根目录')}
                     style={inputStyle}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>超时 (秒)</label>
+                  <label style={labelStyle}>{t('超时 (秒)')}</label>
                   <input
                     type="number"
                     value={editing.timeout}
                     onChange={e => setEditing({ ...editing, timeout: Number(e.target.value) })}
-                    placeholder="默认 60"
+                    placeholder={t('默认 60')}
                     style={inputStyle}
                   />
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setEditing(null)}>取消</button>
-              <button className="btn primary" onClick={handleSave}>保存</button>
+              <button className="btn" onClick={() => setEditing(null)}>{t('取消')}</button>
+              <button className="btn primary" onClick={handleSave}>{t('保存')}</button>
             </div>
           </div>
         </div>

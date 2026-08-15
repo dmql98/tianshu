@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom'
 import { fetchSkillPackages, type SkillPackageMeta } from '@/api/skills'
 import { fetchCharacters } from '@/api/characters'
+import { useI18n } from '@/i18n'
 
 const categoryLabels: Record<string, string> = {
   finance: '金融分析',
@@ -13,6 +14,7 @@ const categoryLabels: Record<string, string> = {
 
 export default function SkillView() {
   const navigate = useNavigate()
+  const t = useI18n()
   const [packages, setPackages] = useState<SkillPackageMeta[]>([])
   const [bindings, setBindings] = useState<Record<string, string[]>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -40,14 +42,14 @@ export default function SkillView() {
   return (
     <div className="main">
       <div className="page-header">
-        <span className="page-title">技能管理</span>
-        <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{packages.length} 个技能包</span>
+        <span className="page-title">{t('技能管理')}</span>
+        <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{t('{count} 个技能包', { count: packages.length })}</span>
         <div style={{ flex: 1 }} />
-        <button className="detail-btn primary" onClick={() => navigate('/skills/new')}>+ 新建技能包</button>
+        <button className="detail-btn primary" onClick={() => navigate('/skills/new')}>+ {t('新建技能包')}</button>
       </div>
       <div className="content">
-        {loading ? <div className="empty-state">加载中...</div> : packages.length === 0 ? (
-          <div className="empty-state"><div className="empty-title">暂无技能包</div></div>
+        {loading ? <div className="empty-state">{t('加载中...')}</div> : packages.length === 0 ? (
+          <div className="empty-state"><div className="empty-title">{t('暂无技能包')}</div></div>
         ) : Object.entries(grouped).map(([category, items]) => (
           <section key={category} style={{ marginBottom: 24 }}>
             <div className="group-title">{categoryLabels[category] || category}</div>
@@ -63,14 +65,14 @@ export default function SkillView() {
                         <div className="skill-name">{pkg.name}</div>
                         <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{pkg.id}{pkg.version ? ` · v${pkg.version}` : ''}</div>
                       </div>
-                      <span className="skill-origin evolved">{pkg.childCount > 0 ? `${pkg.childCount} 个子技能` : '单技能包'}</span>
+                      <span className="skill-origin evolved">{pkg.childCount > 0 ? t('{count} 个子技能', { count: pkg.childCount }) : t('单技能包')}</span>
                     </div>
                     <div className="skill-meta">
                       <span>{categoryLabels[category] || category}</span>
-                      {pkg.source === 'builtin' && <span style={{ color: 'var(--ink-mid)' }}>内置</span>}
-                      {pkg.source === 'user' && pkg.overridesBuiltin && <span style={{ color: 'var(--ink-mid)' }}>已自定义</span>}
-                      {pkg.source === 'user' && !pkg.overridesBuiltin && <span style={{ color: 'var(--ink-mid)' }}>我的</span>}
-                      {bound.length > 0 && <span>绑定：{bound.join('、')}</span>}
+                      {pkg.source === 'builtin' && <span style={{ color: 'var(--ink-mid)' }}>{t('内置')}</span>}
+                      {pkg.source === 'user' && pkg.overridesBuiltin && <span style={{ color: 'var(--ink-mid)' }}>{t('已自定义')}</span>}
+                      {pkg.source === 'user' && !pkg.overridesBuiltin && <span style={{ color: 'var(--ink-mid)' }}>{t('我的')}</span>}
+                      {bound.length > 0 && <span>{t('绑定')}：{bound.join('、')}</span>}
                     </div>
                     {pkg.childCount > 0 && isOpen && (
                       <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 8 }}>
@@ -82,8 +84,8 @@ export default function SkillView() {
                       </div>
                     )}
                     <div className="skill-foot" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                      {pkg.childCount > 0 && <button className="detail-btn" onClick={() => setExpanded(old => ({ ...old, [pkg.id]: !isOpen }))}>{isOpen ? '收起' : '展开'}</button>}
-                      <button className="detail-btn primary" onClick={() => navigate(`/skills/packages/${encodeURIComponent(category)}/${encodeURIComponent(pkg.id)}`)}>详情</button>
+                      {pkg.childCount > 0 && <button className="detail-btn" onClick={() => setExpanded(old => ({ ...old, [pkg.id]: !isOpen }))}>{isOpen ? t('收起') : t('展开')}</button>}
+                      <button className="detail-btn primary" onClick={() => navigate(`/skills/packages/${encodeURIComponent(category)}/${encodeURIComponent(pkg.id)}`)}>{t('详情')}</button>
                     </div>
                   </div>
                 )

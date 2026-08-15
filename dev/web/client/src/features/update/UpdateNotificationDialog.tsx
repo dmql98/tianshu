@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useDesktopUpdater } from './useDesktopUpdater'
+import { useI18n } from '@/i18n'
 
 function formatBytes(bytes?: number): string {
   if (typeof bytes !== 'number' || Number.isNaN(bytes)) return '—'
@@ -22,6 +23,7 @@ function formatBytes(bytes?: number): string {
  */
 export default function UpdateNotificationDialog() {
   const { appInfo, updateState, download, install } = useDesktopUpdater()
+  const t = useI18n()
   const [dismissed, setDismissed] = useState(false)
   const prevPhaseRef = useRef(updateState.phase)
 
@@ -43,13 +45,13 @@ export default function UpdateNotificationDialog() {
   const actions =
     phase === 'available' ? (
       <div className="update-dialog-actions">
-        <button className="btn" onClick={() => setDismissed(true)}>稍后</button>
-        <button className="btn primary" onClick={() => void download()}>下载更新</button>
+        <button className="btn" onClick={() => setDismissed(true)}>{t('稍后')}</button>
+        <button className="btn primary" onClick={() => void download()}>{t('下载更新')}</button>
       </div>
     ) : phase === 'downloaded' ? (
       <div className="update-dialog-actions">
-        <button className="btn" onClick={() => setDismissed(true)}>稍后</button>
-        <button className="btn primary" onClick={() => void install()}>立即重启安装</button>
+        <button className="btn" onClick={() => setDismissed(true)}>{t('稍后')}</button>
+        <button className="btn primary" onClick={() => void install()}>{t('立即重启安装')}</button>
       </div>
     ) : null
 
@@ -59,16 +61,16 @@ export default function UpdateNotificationDialog() {
         <div className="update-dialog-body">
           {phase === 'available' && (
             <>
-              <div className="update-dialog-title">🎉 发现新版本</div>
+              <div className="update-dialog-title">🎉 {t('发现新版本')}</div>
               <div className="update-dialog-desc">
-                天枢 {currentVersion} 有新版本 <strong>{targetVersion}</strong> 可更新，是否现在下载？
+                {t('天枢 {current} 有新版本 {target} 可更新，是否现在下载？', { current: currentVersion, target: targetVersion })}
               </div>
               {updateState.releaseNotes && <div className="update-dialog-notes">{updateState.releaseNotes}</div>}
             </>
           )}
           {phase === 'downloading' && (
             <>
-              <div className="update-dialog-title">正在下载更新</div>
+              <div className="update-dialog-title">{t('正在下载更新')}</div>
               <div className="update-dialog-progress">
                 <div className="update-dialog-progress-track">
                   <div className="update-dialog-progress-bar" style={{ width: `${updateState.percent ?? 0}%` }} />
@@ -81,9 +83,9 @@ export default function UpdateNotificationDialog() {
           )}
           {phase === 'downloaded' && (
             <>
-              <div className="update-dialog-title">更新已就绪</div>
+              <div className="update-dialog-title">{t('更新已就绪')}</div>
               <div className="update-dialog-desc">
-                新版本 {targetVersion} 已下载完成，重启天枢后即可使用。
+                {t('新版本 {target} 已下载完成，重启天枢后即可使用。', { target: targetVersion })}
               </div>
             </>
           )}

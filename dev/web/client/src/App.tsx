@@ -18,6 +18,7 @@ import HomePage from './pages/HomePage'
 import ThemeBackdrop from './features/theme/ThemeBackdrop'
 import UpdateNotificationDialog from './features/update/UpdateNotificationDialog'
 import DesktopTitleBar from './components/DesktopTitleBar'
+import { useI18n } from './i18n'
 
 const navItems = [
   { to: '/chat', icon: '💬', label: '会话' },
@@ -32,6 +33,7 @@ const navItems = [
 export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
+  const t = useI18n()
   const [activeEventCount, setActiveEventCount] = useState(0)
   const [setupDone, setSetupDone] = useState(true) // true = ok, false = need config
 
@@ -98,30 +100,30 @@ export default function App() {
             key={item.to}
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             to={item.to}
-            title={item.label}
+            title={t(item.label)}
           >
             {item.icon}
-            <span className="nav-label">{item.label}</span>
+            <span className="nav-label">{t(item.label)}</span>
           </NavLink>
         ))}
         <div className="nav-divider"></div>
         <NavLink
           className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
           to="/events"
-          title="事件"
+          title={t('事件')}
         >
           ⚡
-          <span className="nav-label">事件</span>
+          <span className="nav-label">{t('事件')}</span>
           {activeEventCount > 0 && <span className="nav-badge">{activeEventCount}</span>}
         </NavLink>
         <div className="nav-spacer"></div>
         <NavLink
           className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
           to="/settings"
-          title="设置"
+          title={t('设置')}
         >
           ⚙️
-          <span className="nav-label">设置</span>
+          <span className="nav-label">{t('设置')}</span>
         </NavLink>
       </nav>
       <Routes>
@@ -161,17 +163,17 @@ export default function App() {
           }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
             <div style={{ fontSize: 'calc(18px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)', marginBottom: 8 }}>
-              需要配置系统路径
+              {t('需要配置系统路径')}
             </div>
             <div style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)', lineHeight: 1.6, marginBottom: 20 }}>
-              首次使用需要在「设置 → 系统」中配置天枢的数据存储路径，所有系统数据将保存在该目录下。
+              {t('首次使用需要在「设置 → 系统」中配置天枢的数据存储路径，所有系统数据将保存在该目录下。')}
             </div>
             <button
               className="btn primary"
               onClick={() => setSetupDone(true)}
               style={{ padding: '10px 28px' }}
             >
-              前往设置
+              {t('前往设置')}
             </button>
           </div>
         </div>

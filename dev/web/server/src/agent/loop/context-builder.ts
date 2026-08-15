@@ -97,11 +97,24 @@ export function rowToLLMMessage(
     try { const p = JSON.parse(row.tool_input || '{}'); if (p.call_id) callId = p.call_id } catch {}
     if (!callId) return null
     let content = row.content || ''
+    // Byte-stable pass-through: provider prefix caching matches on the exact
+    // stored bytes. Only rewrite the serialized content when an output/error is
+    // actually over the length limit and needs truncation; otherwise keep the
+    // stored string untouched (JSON.parse+stringify can reorder keys / drop
+    // "1.0" floats and silently invalidate every cached prefix).
     try {
       const parsed = JSON.parse(content)
-      if (parsed.output) parsed.output = truncateToolOutput(String(parsed.output))
-      if (parsed.error) parsed.error = truncateToolOutput(String(parsed.error))
-      content = JSON.stringify(parsed)
+      if (parsed && typeof parsed === 'object') {
+        const out = parsed as Record<string, unknown>
+        let needsRewrite = false
+        for (const key of ['output', 'error']) {
+          if (typeof out[key] === 'string') {
+            const truncated = truncateToolOutput(out[key])
+            if (truncated !== out[key]) { out[key] = truncated; needsRewrite = true }
+          }
+        }
+        if (needsRewrite) content = JSON.stringify(parsed)
+      }
     } catch {}
     // Tool-produced media (e.g. webfetch images) ride the same media pipe.
     if (row.attachments) {

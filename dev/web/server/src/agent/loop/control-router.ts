@@ -360,13 +360,16 @@ export async function handleTaskComplete(input: {
 
   const session = sessionStore.getById(sessionId)
   if (session && (input.totalInputTokens > 0 || input.totalOutputTokens > 0)) {
-    const totalTk = input.totalCacheHitTokens + input.totalCacheMissTokens
+    // Accumulate cache tokens across runs (previously overwritten with the
+    // last run's totals, skewing cache_hit_ratio for the whole session).
+    const hit = (session.cache_hit_tokens || 0) + input.totalCacheHitTokens
+    const miss = (session.cache_miss_tokens || 0) + input.totalCacheMissTokens
     sessionStore.update(sessionId, {
       input_tokens: (session.input_tokens || 0) + input.totalInputTokens,
       output_tokens: (session.output_tokens || 0) + input.totalOutputTokens,
-      cache_hit_tokens: input.totalCacheHitTokens,
-      cache_miss_tokens: input.totalCacheMissTokens,
-      cache_hit_ratio: totalTk > 0 ? ((input.totalCacheHitTokens / totalTk) * 100).toFixed(1) : 'N/A',
+      cache_hit_tokens: hit,
+      cache_miss_tokens: miss,
+      cache_hit_ratio: hit + miss > 0 ? ((hit / (hit + miss)) * 100).toFixed(1) : 'N/A',
     })
   }
 

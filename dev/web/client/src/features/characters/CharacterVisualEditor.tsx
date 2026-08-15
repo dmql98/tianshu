@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import { useEffect, useState } from 'react'
 import {
   fetchCharacterVisual, saveCharacterVisual,
@@ -30,6 +31,7 @@ interface Props {
 type UploadSlot = 'original' | CharacterMotion
 
 export default function CharacterVisualEditor({ characterId, name, legacyAvatar }: Props) {
+  const t = useI18n()
   const [visual, setVisual] = useState<CharacterVisual | null>(null)
   const [assets, setAssets] = useState<CharacterAssetRef[]>([])
   const [previewMotion, setPreviewMotion] = useState<CharacterMotion>('idle')
@@ -48,7 +50,7 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
 
   useEffect(() => { void reload() }, [characterId])
 
-  if (!visual) return <div className="empty-state">正在读取角色资源…</div>
+  if (!visual) return <div className="empty-state">{t('正在读取角色资源…')}</div>
 
   const assetName = (assetId?: string) => assets.find(a => a.assetId === assetId)?.filename || ''
   const assetOf = (assetId?: string) => assets.find(a => a.assetId === assetId)
@@ -56,7 +58,7 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
   const uploadTo = async (slot: UploadSlot, file?: File) => {
     if (!file) return
     if (slot === 'original' && file.size > ORIGINAL_MAX_BYTES) {
-      setMessage('原画文件不能超过 20 MB')
+      setMessage(t('原画文件不能超过 20 MB'))
       return
     }
     setBusy(true)
@@ -77,7 +79,7 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
           avatarCrop: undefined,
         })
         await reload()
-        setMessage(`原画已上传并保存：${file.name}`)
+        setMessage(t('原画已上传并保存：{name}', { name: file.name }))
         return
       }
       await saveCharacterVisual(characterId, {
@@ -88,9 +90,9 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
         },
       })
       await reload()
-      setMessage(`已上传并绑定 ${file.name}`)
+      setMessage(t('已上传并绑定 {name}', { name: file.name }))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '上传失败')
+      setMessage(error instanceof Error ? error.message : t('上传失败'))
     } finally {
       setBusy(false)
     }
@@ -111,9 +113,9 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
       })
       await reload()
       setMotionCropTarget(null)
-      setMessage(`${MOTION_LABELS[motion] || motion} 取景已保存`)
+      setMessage(`${MOTION_LABELS[motion] || motion} ${t('取景已保存')}`)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '取景保存失败')
+      setMessage(error instanceof Error ? error.message : t('取景保存失败'))
     } finally {
       setBusy(false)
     }
@@ -121,7 +123,7 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
 
   const uploadButton = (slot: UploadSlot, accept: string) => (
     <label className={`btn sm ${busy ? 'disabled' : ''}`} style={{ flexShrink: 0 }}>
-      {slot === 'original' ? '上传原画' : '上传'}
+      {slot === 'original' ? t('上传原画') : t('上传')}
       <input
         type="file"
         accept={accept}
@@ -163,9 +165,9 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
       invalidateCharacterVisual(characterId)
       setPreviewReplay(value => value + 1)
       setCropTarget(null)
-      setMessage(cropTarget === 'portrait' ? '立绘裁剪已保存' : '头像裁剪已保存')
+      setMessage(cropTarget === 'portrait' ? t('立绘裁剪已保存') : t('头像裁剪已保存'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '裁剪保存失败')
+      setMessage(error instanceof Error ? error.message : t('裁剪保存失败'))
     } finally {
       setBusy(false)
     }
@@ -197,17 +199,17 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
       <div className="visual-editor-fields">
         {/* 原画 */}
         <div className="visual-slot">
-          <div className="visual-slot-preview" title="原画不限制像素尺寸">
+          <div className="visual-slot-preview" title={t('原画不限制像素尺寸')}>
             {originalUrl
-              ? <img src={originalUrl} alt="原画" style={{ objectFit: 'contain', transform: 'none' }} />
-              : <span className="visual-slot-empty">原画</span>}
+              ? <img src={originalUrl} alt={t('原画')} style={{ objectFit: 'contain', transform: 'none' }} />
+              : <span className="visual-slot-empty">{t('原画')}</span>}
           </div>
           <div className="visual-slot-info">
-            <div className="visual-slot-name">原画</div>
+            <div className="visual-slot-name">{t('原画')}</div>
             <div className="visual-slot-file">
               {assetName(originalAssetId)
-                ? `${assetName(originalAssetId)}${!visual.originalAssetId ? '（兼容旧立绘）' : ''} · 像素不限 / ≤20 MB`
-                : '未上传 · 像素尺寸不限，文件不超过 20 MB'}
+                ? `${assetName(originalAssetId)}${!visual.originalAssetId ? t('（兼容旧立绘）') : ''} · 像素不限 / ≤20 MB`
+                : t('未上传 · 像素尺寸不限，文件不超过 20 MB')}
             </div>
           </div>
           {uploadButton('original', 'image/*')}
@@ -215,17 +217,17 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
 
         {/* 立绘 */}
         <div className="visual-slot">
-          <div className="visual-slot-preview" title="点击预览">
+          <div className="visual-slot-preview" title={t('点击预览')}>
             {originalUrl
-              ? <img src={originalUrl} alt="立绘" style={portraitCroppedStyle} />
-              : <span className="visual-slot-empty">立绘</span>}
+              ? <img src={originalUrl} alt={t('立绘')} style={portraitCroppedStyle} />
+              : <span className="visual-slot-empty">{t('立绘')}</span>}
           </div>
           <div className="visual-slot-info">
-            <div className="visual-slot-name">立绘</div>
+            <div className="visual-slot-name">{t('立绘')}</div>
             <div className="visual-slot-file">
               {originalUrl
-                ? portraitCrop ? '已从原画裁剪并保存（详情栏 3:4）' : '尚未裁剪（默认居中 3:4）'
-                : '请先上传原画'}
+                ? portraitCrop ? t('已从原画裁剪并保存（详情栏 3:4）') : t('尚未裁剪（默认居中 3:4）')
+                : t('请先上传原画')}
             </div>
           </div>
           <button
@@ -234,35 +236,35 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
             onClick={() => setCropTarget('portrait')}
             style={{ flexShrink: 0 }}
           >
-            裁剪立绘
+            {t('裁剪立绘')}
           </button>
         </div>
 
         {/* 头像 */}
         <div className="visual-slot">
-          <div className="visual-slot-preview" title="点击预览">
+          <div className="visual-slot-preview" title={t('点击预览')}>
             {originalUrl
-              ? <img src={originalUrl} alt="头像" style={avatarCroppedStyle} />
+              ? <img src={originalUrl} alt={t('头像')} style={avatarCroppedStyle} />
               : legacyAvatarUrl
-                ? <img src={legacyAvatarUrl} alt="旧头像" />
-                : <span className="visual-slot-empty">头像</span>}
+                ? <img src={legacyAvatarUrl} alt={t('旧头像')} />
+                : <span className="visual-slot-empty">{t('头像')}</span>}
           </div>
           <div className="visual-slot-info">
-            <div className="visual-slot-name">头像</div>
+            <div className="visual-slot-name">{t('头像')}</div>
             <div className="visual-slot-file">
               {originalUrl
-                ? avatarCrop ? '已从原画裁剪并保存（方形）' : '尚未裁剪（默认居中方形）'
-                : legacyAvatarUrl ? '兼容旧头像 · 上传原画后可重新裁剪' : '请先上传原画'}
+                ? avatarCrop ? t('已从原画裁剪并保存（方形）') : t('尚未裁剪（默认居中方形）')
+                : legacyAvatarUrl ? t('兼容旧头像 · 上传原画后可重新裁剪') : t('请先上传原画')}
             </div>
           </div>
           <button
             className="btn sm"
             disabled={busy || !originalUrl}
-            title={originalUrl ? '基于原画设置头像取景' : '需要先上传原画'}
+            title={originalUrl ? t('基于原画设置头像取景') : t('需要先上传原画')}
             onClick={() => setCropTarget('avatar')}
             style={{ flexShrink: 0 }}
           >
-            裁剪头像
+            {t('裁剪头像')}
           </button>
         </div>
 
@@ -271,7 +273,7 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
           <div className="visual-slot" key={motion}>
             <div
               className="visual-slot-preview"
-              title={`点击预览 ${motion}`}
+              title={t('点击预览 {motion}', { motion })}
               onClick={() => {
                 setPreviewMotion(motion)
                 setPreviewReplay(value => value + 1)
@@ -287,18 +289,18 @@ export default function CharacterVisualEditor({ characterId, name, legacyAvatar 
             </div>
             <div className="visual-slot-info">
               <div className="visual-slot-name">{MOTION_LABELS[motion] || motion}</div>
-              <div className="visual-slot-file">{assetName(visual.motions[motion]?.assetId) || '未绑定（使用 idle / 头像降级）'}</div>
+              <div className="visual-slot-file">{assetName(visual.motions[motion]?.assetId) || t('未绑定（使用 idle / 头像降级）')}</div>
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
               {visual.motions[motion]?.assetId && (
                 <button
                   className="btn sm"
                   disabled={busy}
-                  title="调整动作取景/位置/缩放"
+                  title={t('调整动作取景/位置/缩放')}
                   onClick={() => setMotionCropTarget(motion)}
                   style={{ flexShrink: 0 }}
                 >
-                  调整
+                  {t('调整')}
                 </button>
               )}
               {uploadButton(motion, 'image/*,video/*')}

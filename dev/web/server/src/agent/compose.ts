@@ -5,37 +5,29 @@ export interface ComposeContext {
   preserveReasoning?: boolean
 }
 
-function lastUserIdx(messages: LLMMessage[]): number {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'user') return i
-  }
-  return -1
-}
-
+/**
+ * Compose the per-turn dynamic context (plan / goal / runtime alerts) into the
+ * provider request.
+ *
+ * Cache rule: provider prefix caching matches the request on the exact
+ * byte-prefix. The dynamic context is therefore appended as a TRAILING user
+ * message — never merged into a mid-history user message — so the entire
+ * conversation history stays byte-stable across turns and only this small tail
+ * becomes a cache miss each turn. The context message is intentionally NOT
+ * persisted into the master history (the caller only sends it).
+ */
 export function composeMessages(
   messages: LLMMessage[],
   ctx: ComposeContext,
 ): LLMMessage[] {
   const prepare = ctx.preserveReasoning ? cloneMessage : stripReasoning
-  if (!ctx.systemAlerts?.length) return messages.map(prepare)
+  const result = messages.map(prepare)
+  if (!ctx.systemAlerts?.length) return result
 
   const prefix = ctx.systemAlerts.join('\n')
-  if (!prefix) return messages.map(prepare)
+  if (!prefix) return result
 
-  const result = messages.map(prepare)
-  const idx = lastUserIdx(result)
-  if (idx < 0) return result
-
-  const userMsg = { ...result[idx] }
-  const existing = userMsg.content
-  if (typeof existing === 'string') {
-    userMsg.content = prefix + (existing ? '\n\n' + existing : '')
-  } else if (Array.isArray(existing)) {
-    userMsg.content = [{ type: 'text', text: prefix }, ...existing] as LLMMessage['content']
-  } else {
-    userMsg.content = prefix
-  }
-  result[idx] = userMsg
+  result.push({ role: 'user', content: prefix })
   return result
 }
 

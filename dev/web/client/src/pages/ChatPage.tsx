@@ -7,10 +7,12 @@ import SessionPanel from '@/components/Chat/SessionPanel'
 import ChatArea from '@/components/Chat/ChatArea'
 import RightPanel from '@/components/Chat/RightPanel'
 import FilePanel from '@/components/Chat/FilePanel'
+import { useI18n } from '@/i18n'
 
 export default function ChatPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  const t = useI18n()
   const { loadSessions, switchSession, activeSessionId, createSession } = useChatStore()
   const { sidebarOpen, rightPanelOpen, filePanelOpen } = useUIStore()
   const { load: loadProviders } = useProvidersStore()
@@ -40,7 +42,7 @@ export default function ChatPage() {
         {sidebarOpen && <SessionPanel />}
         <main className="main" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
           <div style={{ fontSize: 48, opacity: 0.3 }}>💬</div>
-          <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', color: 'var(--ink-mid)', fontWeight: 500 }}>选择一个会话开始对话</div>
+          <div style={{ fontSize: 'calc(16px * var(--ui-font-scale))', color: 'var(--ink-mid)', fontWeight: 500 }}>{t('选择一个会话开始对话')}</div>
         </main>
       </>
     )

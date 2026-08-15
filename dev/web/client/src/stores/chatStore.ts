@@ -239,6 +239,18 @@ export const useChatStore = create<ChatState>((set, get) => {
         .catch(() => {})
     })
 
+    // Live context usage — every LLM call reports the real prompt size, so the
+    // context progress bar tracks actual tokens instead of a character estimate.
+    socket.off('usage')
+    socket.on('usage', (data: { session_id: string; input_tokens: number }) => {
+      if (!data.session_id || typeof data.input_tokens !== 'number') return
+      set(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === data.session_id ? { ...s, context_usage: data.input_tokens } : s
+        ),
+      }))
+    })
+
     socket.off('strategy.updated')
     socket.on('strategy.updated', (data: RunEvent) => {
       set(state => ({
@@ -383,7 +395,8 @@ export const useChatStore = create<ChatState>((set, get) => {
           updated = true
           break
         }
-        return updated ? { ...sess, messages } : sess
+        const cacheStats = data.cache ? { ...data.cache } : sess.cacheStats
+        return updated || data.cache ? { ...sess, messages, cacheStats } : sess
       })
     })
 

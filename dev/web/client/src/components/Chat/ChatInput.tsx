@@ -6,6 +6,7 @@ import { fetchCharacters } from '@/api/characters'
 import type { Character, Strategy } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import { useCharacterPresence } from '@/features/character-presence/useCharacterPresence'
+import { useI18n } from '@/i18n'
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = ''
@@ -42,6 +43,7 @@ export default function ChatInput() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, setStrategy, tokenUsage } = useChatStore()
   const { providers } = useProvidersStore()
+  const t = useI18n()
   const session = sessions.find(s => s.id === activeSessionId)
   const presence = useCharacterPresence(session?.character_id ?? '', activeSessionId ?? undefined)
   const inputMotion = isFocused && presence === 'idle' ? 'listening' : undefined
@@ -122,7 +124,7 @@ export default function ChatInput() {
     if (m.reasoning) totalChars += m.reasoning.length
     totalChars += 16
   }
-  const tokenEst = Math.ceil(totalChars / 4)
+  const tokenEst = session?.context_usage ?? Math.ceil(totalChars / 4)
   const contextWindow = session?.context_window || 200000
   const contextPct = Math.min(100, Math.round((tokenEst / contextWindow) * 100))
   const cacheHit = session?.cacheStats?.hitRatio || session?.cache_hit_ratio
@@ -199,7 +201,7 @@ export default function ChatInput() {
         <div className="input-star-col">
           <div
             className="input-star-avatar"
-            title={character ? `${character.name} · ${character.description}` : '当前星官'}
+            title={character ? `${character.name} · ${character.description}` : t('当前星官')}
             style={{ '--star-color': starColor } as React.CSSProperties}
           >
             <CharacterRenderer
@@ -242,7 +244,7 @@ export default function ChatInput() {
             ref={textareaRef}
             className="chat-textarea"
             rows={1}
-            placeholder={character ? `与${starName}聊点什么...` : '添加角色以开始会话'}
+            placeholder={character ? t('与{name}聊点什么...', { name: starName }) : t('添加角色以开始会话')}
             value={input}
             onChange={e => setInput(e.target.value)}
             onFocus={() => setIsFocused(true)}
@@ -250,12 +252,12 @@ export default function ChatInput() {
             onKeyDown={handleKeyDown}
           />
           <div className="input-bottom">
-            <button className="tool-btn" title="附件" onClick={() => fileInputRef.current?.click()}>+ 附件</button>
+            <button className="tool-btn" title={t('附件')} onClick={() => fileInputRef.current?.click()}>+ {t('附件')}</button>
             <input ref={fileInputRef} type="file" multiple hidden onChange={onFilePicked} />
           </div>
           <div className="input-actions">
             {blockInput ? (
-              <button className="send-btn" onClick={abortRun} title="停止整条自动续跑链" style={{ background: 'var(--cinnabar)' }}>
+              <button className="send-btn" onClick={abortRun} title={t('停止整条自动续跑链')} style={{ background: 'var(--cinnabar)' }}>
                 ⏹
               </button>
             ) : (
@@ -263,7 +265,7 @@ export default function ChatInput() {
                 className="send-btn"
                 onClick={handleSend}
                 disabled={!canSend}
-                title="发送"
+                title={t('发送')}
               >
                 ⬆
               </button>
@@ -289,7 +291,7 @@ export default function ChatInput() {
       </div>
       <div className="input-options">
         <div className="input-ctx">
-          <div className="input-ctx-cache">缓存命中：{cacheHit || '--'}</div>
+          <div className="input-ctx-cache">{t('缓存命中')}：{cacheHit || '--'}</div>
           <div className="input-ctx-bar">
             <div className="fill" style={{ width: `${contextPct}%` }}></div>
             <span className="input-ctx-text">{formatTokens(tokenEst)} / {formatTokens(contextWindow)}</span>
@@ -298,7 +300,7 @@ export default function ChatInput() {
         <select
           value={currentModelKey}
           onChange={e => handleModelChange(e.target.value)}
-          title="模型"
+          title={t('模型')}
           className="io-select"
         >
           {modelOptions.length === 0 && <option value="">--</option>}
@@ -319,28 +321,27 @@ export default function ChatInput() {
         <select
           value={session?.reasoning_effort || 'medium'}
           onChange={e => handleReasoningEffortChange(e.target.value)}
-          title="思考强度"
+          title={t('思考强度')}
           className="io-select"
         >
-          <option value="low">低</option>
-          <option value="medium">中</option>
-          <option value="high">高</option>
-          <option value="max">最高</option>
+          <option value="low">{t('低')}</option>
+          <option value="medium">{t('中')}</option>
+          <option value="high">{t('高')}</option>
+          <option value="max">{t('最高')}</option>
         </select>
         <select
-          value={(session as any)?.execution_mode || 'direct'}
+          value={(((session as any)?.execution_mode === 'goal' ? 'plan_first' : (session as any)?.execution_mode) || 'direct')}
           onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
-          title="执行模式"
+          title={t('执行模式')}
           className="io-select"
         >
-          <option value="direct">Direct（直接执行）</option>
-          <option value="plan_first">Plan-first（先计划后执行）</option>
-          <option value="goal">Goal（目标驱动）</option>
+          <option value="direct">{t('Direct（直接执行）')}</option>
+          <option value="plan_first">{t('Plan-first（先计划后执行）')}</option>
         </select>
         <select
           value={session?.current_strategy || 'Ask Risky'}
           onChange={e => handleStrategyChange(e.target.value as Strategy)}
-          title="审批模式"
+          title={t('审批模式')}
           className="io-select"
         >
           <option value="Read Only">Read Only</option>

@@ -39,15 +39,6 @@ import { evaluateAutoContinuation, createResumedRun } from './runtime/run-resume
 import { publishRunEvent, createDurableSocket, unwrapDurableSocket } from './runtime/run-event-store.js'
 import { enqueueRun } from './session-runner.js'
 
-function persistComposeChanges(master: LLMMessage[], composed: LLMMessage[]): void {
-  if (master.length !== composed.length) return
-  for (let i = 0; i < master.length; i++) {
-    if (master[i].role === 'user' && master[i].content !== composed[i].content) {
-      master[i] = { ...master[i], content: composed[i].content }
-    }
-  }
-}
-
 export interface RunResult {
   status: 'stop' | 'max_turns' | 'cancelled' | 'task_complete'
   sessionId: string
@@ -245,7 +236,11 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
 
   const composeCtx: ComposeContext = { systemAlerts: [] }
 
-  const executionMode = (session.execution_mode || 'direct') as 'direct' | 'plan_first' | 'goal'
+  const rawMode = (session.execution_mode || 'direct') as 'direct' | 'plan_first' | 'goal'
+  // Goal mode temporarily disabled (code preserved for later re-enable):
+  // existing 'goal' sessions degrade to plan_first so no [Goal] injection or
+  // goal budget logic runs.
+  const executionMode = (rawMode === 'goal' ? 'plan_first' : rawMode) as 'direct' | 'plan_first' | 'goal'
   const activeGoal = executionMode === 'goal'
     ? goalStore.listForSession(sessionId).find(g => g.status === 'active') || null
     : null
@@ -373,12 +368,17 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   })
 
   if (totalInputTokens > 0 || totalOutputTokens > 0) {
+    // Accumulate across runs (input/output) AND across runs for cache tokens —
+    // previously cache_hit/miss were overwritten with the last run's totals,
+    // which made cache_hit_ratio reflect only the final run, not the session.
+    const hit = (session.cache_hit_tokens || 0) + totalCacheHitTokens
+    const miss = (session.cache_miss_tokens || 0) + totalCacheMissTokens
     sessionStore.update(sessionId, {
       input_tokens: (session.input_tokens || 0) + totalInputTokens,
       output_tokens: (session.output_tokens || 0) + totalOutputTokens,
-      cache_hit_tokens: totalCacheHitTokens,
-      cache_miss_tokens: totalCacheMissTokens,
-      cache_hit_ratio: hitRatio,
+      cache_hit_tokens: hit,
+      cache_miss_tokens: miss,
+      cache_hit_ratio: hit + miss > 0 ? ((hit / (hit + miss)) * 100).toFixed(1) : 'N/A',
     })
   }
 

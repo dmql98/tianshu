@@ -1,4 +1,5 @@
-﻿import { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useI18n } from '@/i18n'
 import { avatarCropStyle, normalizeAvatarCrop, type AvatarCrop } from './avatarCrop'
 
 export type { AvatarCrop } from './avatarCrop'
@@ -28,6 +29,7 @@ export default function AvatarCropDialog({
   onConfirm,
   onClose,
 }: Props) {
+  const t = useI18n()
   const [c, setC] = useState<AvatarCrop>(() => normalizeAvatarCrop(crop))
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{
@@ -118,10 +120,10 @@ export default function AvatarCropDialog({
               {media(imgStyle, 'preview')}
             </div>
             <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-              {isPortrait ? '整个 3:4 区域即详情栏立绘' : '整个方形区域即头像'}；按住鼠标左键拖动，滚轮缩放。
+              {isPortrait ? t('整个 3:4 区域即详情栏立绘') : t('整个方形区域即头像')}；{t('按住鼠标左键拖动，滚轮缩放。')}
             </div>
             <label style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-              缩放
+              {t('缩放')}
               <input
                 type="range"
                 min={0.3}
@@ -136,9 +138,9 @@ export default function AvatarCropDialog({
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <button className="btn" disabled={saving} onClick={onClose}>取消</button>
+          <button className="btn" disabled={saving} onClick={onClose}>{t('取消')}</button>
           <button className="btn primary" disabled={saving} onClick={() => onConfirm(c)}>
-            {saving ? '保存中…' : '保存裁剪'}
+            {saving ? t('保存中…') : t('保存裁剪')}
           </button>
         </div>
       </div>

@@ -30,15 +30,6 @@ function isReasoningModel(model: string): boolean {
   return id.includes('deepseek') || id.includes('reasoner') || id.includes('-r1') || id.includes('qwq') || id.includes('thinking')
 }
 
-function persistComposeChanges(master: LLMMessage[], composed: LLMMessage[]): void {
-  if (master.length !== composed.length) return
-  for (let i = 0; i < master.length; i++) {
-    if (master[i].role === 'user' && master[i].content !== composed[i].content) {
-      master[i] = { ...master[i], content: composed[i].content }
-    }
-  }
-}
-
 export interface LoopEngineContext {
   sessionId: string
   runId: string
@@ -163,6 +154,10 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
 
   let prevFingerprint: string | undefined
   let planSnapshot = snapshotPlanSteps(sessionId)
+  // Last rendered `[Policy ...]` plan alert for this run. The plan render is
+  // only re-injected when it actually changed, so the trailing context message
+  // stays byte-stable on steady-state turns (cache-friendly, fewer tokens).
+  let lastPlanAlert = ''
 
   while (turn < absoluteTurns && !signal?.aborted) {
     turn++
@@ -193,24 +188,32 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       console.log(`[session] ${sessionId} turn ${turn}: heap ${heapMB}/${totalMB}MB, ${messages.length} msgs, ctx ${ctxPct}%`)
     }
 
-    // Compose dynamic context into last user message (turn tail)
+    // Compose dynamic context (plan / goal / alerts) as a trailing message
+    // so the history prefix stays byte-stable for provider prefix caching.
     // Execution-policy guardrails: Plan-first / Goal must operate against a
     // persisted plan; Goal mode re-anchors the model to the outcome.
     const plan = currentPlan()
     if (!plan) {
       if (policyLabel !== 'Direct') {
-        composeCtx.systemAlerts!.push(`[Policy ${policyLabel}] 当前没有有效计划。先调用 create_plan 把任务拆成有序步骤并注明验证方式，再执行步骤。`)
+        const noPlanAlert = `[Policy ${policyLabel}] 当前没有有效计划。先调用 create_plan 把任务拆成有序步骤并注明验证方式，再执行步骤。`
+        if (noPlanAlert !== lastPlanAlert) {
+          composeCtx.systemAlerts!.push(noPlanAlert)
+          lastPlanAlert = noPlanAlert
+        }
       }
     } else {
       const steps = planStore.steps(plan.id)
       const planRule = policyLabel === 'Direct'
         ? '\n这是可选计划：可以继续按计划推进，也可以直接完成任务；若推进计划，请用 update_plan_step 同步状态。'
         : '\n开始步骤前调用 update_plan_step 标记 in_progress；验证完成后调用 update_plan_step 标记 completed 并附 evidence。'
-      composeCtx.systemAlerts!.push(
+      const planAlert =
         `[Policy ${policyLabel}] 当前计划 v${plan.version}：\n` +
         steps.map(step => `${step.ordinal}. [${step.status}] ${step.title}${step.verification ? `（验证：${step.verification}）` : ''}`).join('\n') +
-        planRule,
-      )
+        planRule
+      if (planAlert !== lastPlanAlert) {
+        composeCtx.systemAlerts!.push(planAlert)
+        lastPlanAlert = planAlert
+      }
     }
     if (executionMode === 'goal') {
       const g = currentGoal()
@@ -226,8 +229,11 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       ...composeCtx,
       preserveReasoning: opts.thinking === true || isReasoningModel(model) || messages.some(m => m.role === 'assistant' && !!m.reasoning_content),
     })
-    // Persist compose content changes to master array so prefix stays stable across turns
-    persistComposeChanges(messages, composedMsgs)
+    // The alerts were composed into the trailing context message; clear them so
+    // nothing carries into the next turn (prevents accumulation). Alerts pushed
+    // AFTER this point are deliberate carry-overs for the next turn (retry /
+    // doom-loop / convergence notes).
+    composeCtx.systemAlerts = []
 
     // Prefix-shape diagnostics: detect what changed versus last request
     const curShape = capturePrefixShape(composedMsgs, tools)
@@ -263,6 +269,9 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
             messages.length = 0
             messages.push(...compact.messages)
             overflowCompacted = true
+            // Compaction may have summarized away the create_plan details; force
+            // the next turn to re-inject the current plan render.
+            lastPlanAlert = ''
             sessionStore.update(sessionId, {
               compaction_summary: compact.summary!,
               compaction_until_id: compact.compactedUntilId || null,
@@ -309,8 +318,6 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     }
 
     messages.push(...result.messages)
-    // Consumed compose alerts have been sent; clear for next turn
-    composeCtx.systemAlerts = []
 
     if (result.type === 'sub_agent_request' && result.subAgentRequest) {
       const outcome = await handleSubAgentRequest({
@@ -434,6 +441,9 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       if (compact.didCompact) {
         messages.length = 0
         messages.push(...compact.messages)
+        // Compaction may have summarized away the create_plan details; force
+        // the next turn to re-inject the current plan render.
+        lastPlanAlert = ''
         sessionStore.update(sessionId, {
           compaction_summary: compact.summary!,
           compaction_until_id: compact.compactedUntilId || null,
