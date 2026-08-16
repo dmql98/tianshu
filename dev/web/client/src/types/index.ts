@@ -1,5 +1,5 @@
 // 会话相关
-export const STRATEGIES = ['Read Only', 'Ask Risky', 'Auto Approve'] as const
+export const STRATEGIES = ['Read Only', 'Ask Every Change', 'Ask Risky', 'Auto in Workspace', 'Auto Approve'] as const
 export type Strategy = typeof STRATEGIES[number]
 
 export function normalizeStrategy(value: unknown, fallback: Strategy = 'Ask Risky'): Strategy {

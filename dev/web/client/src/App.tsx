@@ -37,6 +37,15 @@ export default function App() {
   const [activeEventCount, setActiveEventCount] = useState(0)
   const [setupDone, setSetupDone] = useState(true) // true = ok, false = need config
 
+  useEffect(() => {
+    const desktop = window.tianshuDesktop
+    if (!desktop) return
+    return desktop.onOpenSession((sessionId) => {
+      if (!sessionId) return
+      navigate(`/chat/${encodeURIComponent(sessionId)}`)
+    })
+  }, [navigate])
+
   // 首页允许更明显的背景；其余页面（会话/设置/编辑）降低背景存在感
   const backdropStrength: 'home' | 'task' =
     location.pathname === '/' || location.pathname === '/home' ? 'home' : 'task'

@@ -1,4 +1,5 @@
 import { getDb } from '../../db/schema.js'
+import { withTransaction } from '../../db/sqlite-db.js'
 import { runStore, type ResumeTrigger, type RunRow } from './run-store.js'
 import { sessionStore, type SessionRow } from '../../db/sessionStore.js'
 import { turnStore } from '../../db/turnStore.js'
@@ -139,7 +140,7 @@ export function createResumedRun(request: ResumeRunRequest): ResumeRunResult {
   if (!session) throw new Error('Session not found')
 
   const db = getDb()
-  return db.transaction(() => {
+  return withTransaction(db, () => {
     let turnId: string | null = null
     let userMessageId: number | null = null
     if (request.createUserTurn) {
@@ -191,7 +192,7 @@ export function createResumedRun(request: ResumeRunRequest): ResumeRunResult {
     })
 
     return { run, session, supersededAuto, userMessageId }
-  })()
+  })
 }
 
 function pinnedCharacterRunPolicy(session: SessionRow) {

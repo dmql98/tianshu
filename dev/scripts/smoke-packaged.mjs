@@ -3,7 +3,7 @@
  *
  * Verifies the packaged runtime with the bundled portable Node:
  *   1. Node version is the pinned runtime.
- *   2. better-sqlite3 loads under the bundled Node (native ABI check).
+ *   2. node:sqlite (DatabaseSync) works under the bundled Node.
  *   3. The compiled server starts, serves /health, serves the SPA index, and
  *      shuts down cleanly via the shutdown IPC message.
  *   4. (builtin) The packaged content/builtin is readable at the resources
@@ -27,18 +27,30 @@ function fail(msg) {
   process.exit(1)
 }
 
-// 1. Node version
+// 1. Node version — must equal the single source dev/.node-version (§6.1/§6.2).
 const ver = spawnSync(nodeExe, ['--version'], { encoding: 'utf8' })
 if (ver.status !== 0) fail(`bundled node --version failed: ${ver.stderr}`)
 console.log(`[smoke] bundled node ${ver.stdout.trim()}`)
-if (!/^v24\.\d+\.\d+$/.test(ver.stdout.trim())) fail(`unexpected node version: ${ver.stdout.trim()}`)
+let expectedVersion = null
+try {
+  const raw = readFileSync(join(process.cwd(), '.node-version'), 'utf8').trim()
+  if (/^\d+\.\d+\.\d+$/.test(raw)) expectedVersion = `v${raw}`
+} catch { /* cwd has no .node-version; fall back to v24 prefix check */ }
+if (expectedVersion) {
+  if (ver.stdout.trim() !== expectedVersion) {
+    fail(`bundled node ${ver.stdout.trim()} !== expected ${expectedVersion} (dev/.node-version)`)
+  }
+} else if (!/^v24\.\d+\.\d+$/.test(ver.stdout.trim())) {
+  fail(`unexpected node version: ${ver.stdout.trim()}`)
+}
 
-// 2. better-sqlite3 native binding under bundled node
-const sqlite = spawnSync(nodeExe, ['-e', "import('better-sqlite3').then(m => { const db = new m.default(':memory:'); db.exec('CREATE TABLE t(a)'); console.log('better-sqlite3 OK'); })"], {
+// 2. node:sqlite (DatabaseSync) under bundled node — replaces the old
+//    better-sqlite3 native ABI check (迁移指南 §7.6).
+const sqlite = spawnSync(nodeExe, ['-e', "import('node:sqlite').then(({ DatabaseSync }) => { const db = new DatabaseSync(':memory:'); db.exec('CREATE TABLE t(a); INSERT INTO t VALUES (1)'); const row = db.prepare('SELECT a FROM t').get(); if (row.a !== 1) process.exit(1); db.close(); console.log('node:sqlite OK'); })"], {
   cwd: stagingServer,
   encoding: 'utf8',
 })
-if (sqlite.status !== 0) fail(`better-sqlite3 load failed: ${sqlite.stderr || sqlite.stdout}`)
+if (sqlite.status !== 0) fail(`node:sqlite load failed: ${sqlite.stderr || sqlite.stdout}`)
 console.log(`[smoke] ${sqlite.stdout.trim()}`)
 
 // 3. fork the server exactly like Electron does

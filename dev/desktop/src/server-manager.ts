@@ -1,4 +1,4 @@
-import { fork, type ChildProcess } from 'child_process'
+import { fork, spawnSync, type ChildProcess } from 'child_process'
 import {
   appendFileSync,
   existsSync,
@@ -10,10 +10,45 @@ import { join } from 'path'
 import type { ServerMessage } from '../../shared/server-ipc.js'
 import type { DesktopServerStatus } from '../../shared/desktop-contract.js'
 
+/** 进程树强杀策略：Windows 用 taskkill /T /F；POSIX 用进程组信号（§8.6）。 */
+export type KillProcessTree = (pid: number) => Promise<void>
+
+const DEFAULT_KILL_WAIT_MS = 300
+
+/**
+ * 默认强杀策略：
+ * - Windows -> taskkill /PID <pid> /T /F
+ * - POSIX   -> process.kill(-pid, SIGTERM)，短暂等待，仍存活再 SIGKILL
+ * POSIX 下子进程以 detached: true 启动，是进程组组长，负 pid 发给整组。
+ */
+export const defaultKillProcessTree: KillProcessTree = async (pid: number) => {
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true })
+    return
+  }
+  try {
+    process.kill(-pid, 'SIGTERM')
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ESRCH') return // 已退出
+    throw err
+  }
+  await new Promise((resolveWait) => setTimeout(resolveWait, DEFAULT_KILL_WAIT_MS))
+  try {
+    process.kill(-pid, 0) // 探活：进程组已不存在则无需 SIGKILL
+  } catch {
+    return
+  }
+  try {
+    process.kill(-pid, 'SIGKILL')
+  } catch {
+    /* already gone */
+  }
+}
+
 export interface ServerManagerOptions {
   /** app.isPackaged() — dev mode is orchestrated by scripts/dev-desktop.mjs. */
   packaged: boolean
-  /** Absolute path to the bundled portable Node executable (node.exe). */
+  /** Absolute path to the bundled portable Node executable (node.exe / bin/node). */
   nodePath: string
   /** Absolute path to the compiled server entry (dist/index.js). */
   serverEntry: string
@@ -27,6 +62,10 @@ export interface ServerManagerOptions {
   readyTimeoutMs?: number
   /** Time to wait for a graceful shutdown before force-killing the tree. */
   shutdownGraceMs?: number
+  /** 进程树强杀策略（默认按平台选择）；测试注入假的 kill 避免真的杀本机进程（§8.6）。 */
+  killProcessTree?: KillProcessTree
+  /** 启动前校验（内置 Node 路径/manifest）；返回错误信息则直接进入 failed 状态（§8.5）。 */
+  preflight?: () => string | null
 }
 
 const DEFAULT_READY_TIMEOUT_MS = 30_000
@@ -39,6 +78,12 @@ export class ServerManager {
   private child: ChildProcess | null = null
   private status: DesktopServerStatus = { phase: 'stopped' }
   private readonly listeners = new Set<(status: DesktopServerStatus) => void>()
+  private readonly approvalListeners = new Set<(
+    notice: Extract<ServerMessage, { type: 'approval-required' }>,
+  ) => void>()
+  private readonly approvalClearListeners = new Set<(
+    notice: Extract<ServerMessage, { type: 'approval-cleared' }>,
+  ) => void>()
   private started = false
   private stopping = false
   private startAttempts = 0
@@ -60,6 +105,20 @@ export class ServerManager {
   onStatus(listener: (status: DesktopServerStatus) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  onApprovalRequired(
+    listener: (notice: Extract<ServerMessage, { type: 'approval-required' }>) => void,
+  ): () => void {
+    this.approvalListeners.add(listener)
+    return () => this.approvalListeners.delete(listener)
+  }
+
+  onApprovalCleared(
+    listener: (notice: Extract<ServerMessage, { type: 'approval-cleared' }>) => void,
+  ): () => void {
+    this.approvalClearListeners.add(listener)
+    return () => this.approvalClearListeners.delete(listener)
   }
 
   private emit(status: DesktopServerStatus): void {
@@ -115,6 +174,18 @@ export class ServerManager {
       return this.status
     }
 
+    // 启动前校验：内置 Node 路径 / manifest 不匹配时给出可读错误，
+    // 进入 server.log 并通过 server status 展示（§8.5），而不是只产生 ENOENT。
+    if (this.opts.preflight) {
+      const preflightError = this.opts.preflight()
+      if (preflightError) {
+        this.ensureLogDir()
+        this.writeLog(`[server-manager] preflight failed: ${preflightError}\n`)
+        this.emit({ phase: 'failed', message: preflightError })
+        return this.status
+      }
+    }
+
     this.startAttempts = 0
     return this.launchChild()
   }
@@ -146,6 +217,8 @@ export class ServerManager {
         execPath: this.opts.nodePath,
         env,
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        // POSIX：detached 使服务成为进程组组长，强杀可对整个进程组发信号（§8.6）。
+        ...(process.platform !== 'win32' ? { detached: true } : {}),
       })
       this.child = child
       this.startAttempts++
@@ -160,7 +233,7 @@ export class ServerManager {
           phase: 'failed',
           message: `内置服务在 ${this.opts.readyTimeoutMs}ms 内未就绪，请查看日志: ${this.logFile}`,
         })
-        this.killChild()
+        void this.killChild()
         resolveLaunch(this.status)
       }, this.opts.readyTimeoutMs)
 
@@ -179,6 +252,22 @@ export class ServerManager {
           this.writeLog(`[fatal] ${msg.message}\n`)
         } else if (msg?.type === 'log') {
           this.writeLog(`[${msg.level}] ${msg.message}\n`)
+        } else if (msg?.type === 'approval-required') {
+          for (const listener of [...this.approvalListeners]) {
+            try {
+              listener(msg)
+            } catch {
+              /* a bad listener must not break child-process supervision */
+            }
+          }
+        } else if (msg?.type === 'approval-cleared') {
+          for (const listener of [...this.approvalClearListeners]) {
+            try {
+              listener(msg)
+            } catch {
+              /* a bad listener must not break child-process supervision */
+            }
+          }
         }
       })
 
@@ -247,7 +336,7 @@ export class ServerManager {
 
     if (!graceful && child.exitCode === null) {
       this.writeLog('[server-manager] shutdown grace exceeded; force-killing process tree\n')
-      this.killChild()
+      await this.killChild()
       await exited
     }
 
@@ -255,12 +344,12 @@ export class ServerManager {
     this.stopping = false
   }
 
-  private killChild(): void {
+  private async killChild(): Promise<void> {
     const child = this.child
     if (!child || child.pid === undefined) return
+    const kill = this.opts.killProcessTree || defaultKillProcessTree
     try {
-      const { spawnSync } = require('child_process') as typeof import('child_process')
-      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true })
+      await kill(child.pid)
     } catch {
       try {
         child.kill('SIGKILL')

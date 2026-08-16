@@ -13,7 +13,7 @@ export default function ChatPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
   const t = useI18n()
-  const { loadSessions, switchSession, activeSessionId, createSession } = useChatStore()
+  const { loadSessions, switchSession, refreshSession, activeSessionId, createSession } = useChatStore()
   const { sidebarOpen, rightPanelOpen, filePanelOpen } = useUIStore()
   const { load: loadProviders } = useProvidersStore()
 
@@ -22,6 +22,34 @@ export default function ChatPage() {
     loadSessions()
     loadProviders()
   }, [loadSessions, loadProviders])
+
+  // Reconcile ephemeral session-tree updates after the desktop window returns
+  // to the foreground or the browser reports network recovery. This covers a
+  // suspended renderer where Socket.IO's reconnect event happened before React
+  // resumed processing UI updates.
+  useEffect(() => {
+    const refreshSessions = () => void loadSessions()
+    const reconcileDesktop = () => {
+      void (async () => {
+        await loadSessions()
+        const currentId = useChatStore.getState().activeSessionId
+        if (currentId) await refreshSession(currentId)
+      })()
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshSessions()
+    }
+    const removeDesktopListener = window.tianshuDesktop?.onResumeSync(reconcileDesktop)
+    window.addEventListener('focus', refreshSessions)
+    window.addEventListener('online', refreshSessions)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('focus', refreshSessions)
+      window.removeEventListener('online', refreshSessions)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      removeDesktopListener?.()
+    }
+  }, [loadSessions, refreshSession])
 
   // Switch session when URL param changes
   useEffect(() => {

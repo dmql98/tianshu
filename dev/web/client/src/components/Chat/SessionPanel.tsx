@@ -6,6 +6,7 @@ import FolderPicker from './FolderPicker'
 import type { Session } from '@/types'
 import type { I18nState } from '@/i18n'
 import { useI18n } from '@/i18n'
+import { motionLabelKey } from '@/features/character-presence/motion'
 
 type T = I18nState['t']
 
@@ -41,7 +42,7 @@ export default function SessionPanel() {
   const navigate = useNavigate()
   const menuRef = useRef<HTMLDivElement>(null)
   const {
-    sessions, activeSessionId,
+    sessions, activeSessionId, sessionMotions,
     collapsedWorkspaces, toggleWorkspaceCollapse,
     createSession, deleteSession, renameSession, toggleSessionStar,
     deleteProject,
@@ -206,6 +207,8 @@ export default function SessionPanel() {
     const isActive = session.id === activeSessionId
     const isSelected = selectedSessionIds.has(session.id)
     const children = getChildren(session.id)
+    const motion = sessionMotions[session.id] || 'idle'
+    const motionLabel = t(motionLabelKey(motion))
 
     return (
       <div key={session.id}>
@@ -228,7 +231,11 @@ export default function SessionPanel() {
               style={{ marginRight: 6 }}
             />
           )}
-          <div className={`session-dot ${session.session_type === 'event' ? 'event' : 'chat'}`}></div>
+          <div
+            className={`session-dot motion-${motion}`}
+            title={motionLabel}
+            aria-label={motionLabel}
+          ></div>
           <div className="session-info">
             <div className="session-title">
               {session.pinned && <span style={{ marginRight: 4 }}>⭐</span>}
@@ -237,7 +244,7 @@ export default function SessionPanel() {
             <div className="session-meta">
               <span>{timeAgo(session.updated_at, t)}</span>
               {session.current_strategy && (
-                <span className="session-badge">{session.current_strategy}</span>
+                <span className="session-badge">{t(session.current_strategy)}</span>
               )}
             </div>
           </div>

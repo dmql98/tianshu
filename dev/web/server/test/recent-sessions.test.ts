@@ -50,6 +50,16 @@ async function touchUpdatedAt(id: string, updatedAt: number) {
 }
 
 describe('sessionStore.listRecent', () => {
+  it('更新会话时可将完整行对象绑定到只引用部分字段的 SQL', async () => {
+    const created = await addSession({ id: 'update-row', title: '旧标题' }, Date.now())
+    expect(created.created_at).toBeTypeOf('number')
+
+    const updated = sessionStore.update(created.id, { title: '新标题' })
+
+    expect(updated?.title).toBe('新标题')
+    expect(sessionStore.getById(created.id)?.title).toBe('新标题')
+  })
+
   it('按 updated_at 倒序返回 chat 会话', async () => {
     await addSession({ id: 's1' }, Date.now())
     await addSession({ id: 's2' }, Date.now() - 1000)

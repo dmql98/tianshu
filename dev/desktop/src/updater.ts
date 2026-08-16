@@ -20,6 +20,8 @@ export interface UpdateManagerOptions {
   currentVersion: string
   /** Only true when app.isPackaged — updates are disabled in dev/browser. */
   enabled: boolean
+  /** 更新被禁用的原因（如 Linux 非 AppImage 安装形态，§11.4）。 */
+  disabledReason?: string
   /** Gracefully stops the bundled server before installing an update. */
   stopServer: () => Promise<void>
   /** Appends to <userData>/logs/updater.log. */
@@ -55,6 +57,15 @@ function capMessage(message: string, max = 400): string {
   return message.length > max ? `${message.slice(0, max)}…` : message
 }
 
+interface UpdateInfoLike {
+  version?: unknown
+  releaseName?: unknown
+  releaseNotes?: unknown
+  releaseDate?: unknown
+  files?: Array<{ url?: unknown; size?: unknown; isDelta?: unknown }>
+  path?: unknown
+}
+
 export class UpdateManager {
   private readonly opts: UpdateManagerOptions
   private state: UpdateState
@@ -62,18 +73,27 @@ export class UpdateManager {
   private checking = false
   private downloading = false
   private installing = false
+  /** 上次记录进日志的下载进度百分比（节流，避免刷屏）。 */
+  private lastLoggedProgressPercent = -1
+  /** 上次记录进日志的差分状态（状态切换时记录，§11.2）。 */
+  private lastLoggedDelta: boolean | null = null
 
   constructor(opts: UpdateManagerOptions) {
     this.opts = opts
     this.state = {
       phase: opts.enabled ? 'idle' : 'disabled',
       currentVersion: opts.currentVersion,
+      ...(opts.disabledReason ? { disabledReason: opts.disabledReason } : {}),
     }
     if (opts.enabled) {
       this.opts.updater.autoDownload = false
       this.opts.updater.autoInstallOnAppQuit = true
       this.opts.updater.allowDowngrade = false
       this.hookEvents()
+      // 初始化可观测性：当前版本、平台、架构（§11.2）
+      this.opts.log(
+        `[updater] initialized (version=${opts.currentVersion}, platform=${process.platform}, arch=${process.arch}, enabled=true)`,
+      )
     }
   }
 
@@ -105,11 +125,18 @@ export class UpdateManager {
       this.setState({ phase: 'checking', message: undefined })
     })
     u.on('update-available', (info: unknown) => {
-      const i = (info ?? {}) as Record<string, unknown>
-      this.opts.log(`[updater] update available: ${typeof i.version === 'string' ? i.version : 'unknown'}`)
+      const i = (info ?? {}) as UpdateInfoLike
+      const files = Array.isArray(i.files) ? i.files : []
+      const fullFile = files.find((f) => !f.isDelta)
+      const packageSize = typeof fullFile?.size === 'number' ? fullFile.size : undefined
+      this.opts.log(
+        `[updater] update available: ${typeof i.version === 'string' ? i.version : 'unknown'} ` +
+        `files=[${files.map((f) => `${f.url ?? '?'}${f.isDelta ? ' (delta)' : ''}`).join(', ')}]`,
+      )
       this.setState({
         phase: 'available',
         targetVersion: typeof i.version === 'string' ? i.version : undefined,
+        packageSize,
         releaseName: typeof i.releaseName === 'string' ? i.releaseName : undefined,
         releaseNotes:
           typeof i.releaseNotes === 'string' || typeof i.releaseNotes === 'number'
@@ -125,21 +152,43 @@ export class UpdateManager {
     })
     u.on('download-progress', (progress: unknown) => {
       const p = (progress ?? {}) as Record<string, unknown>
+      const percent = clampPercent(Number(p.percent) || 0)
+      const isDelta = p.delta === true
+      const transferred = typeof p.transferred === 'number' ? p.transferred : undefined
+      const total = typeof p.total === 'number' ? p.total : undefined
+      // 差分状态切换或进度每 ~20% 记录一次（§11.2 差分/整包与 transferred/total）
+      const progressBucket = Math.floor(percent / 20)
+      if (this.lastLoggedDelta !== isDelta || progressBucket !== this.lastLoggedProgressPercent) {
+        this.opts.log(
+          `[updater] download ${isDelta ? 'differential' : 'full'} progress: ` +
+          `${transferred ?? '?'}/${total ?? '?'} bytes (${percent.toFixed(0)}%)`,
+        )
+        this.lastLoggedDelta = isDelta
+        this.lastLoggedProgressPercent = progressBucket
+      }
       this.setState({
         phase: 'downloading',
-        percent: clampPercent(Number(p.percent) || 0),
-        transferred: typeof p.transferred === 'number' ? p.transferred : undefined,
-        total: typeof p.total === 'number' ? p.total : undefined,
+        percent,
+        isDelta,
+        transferred,
+        total,
         bytesPerSecond: typeof p.bytesPerSecond === 'number' ? p.bytesPerSecond : undefined,
         message: undefined,
       })
     })
     u.on('update-downloaded', (info: unknown) => {
-      const i = (info ?? {}) as Record<string, unknown>
-      this.opts.log(`[updater] update downloaded: ${typeof i.version === 'string' ? i.version : 'unknown'}`)
+      const i = (info ?? {}) as UpdateInfoLike
+      const files = Array.isArray(i.files) ? i.files : []
+      const chosen = files.find((f) => f.isDelta) ?? files[0]
+      const isDelta = chosen?.isDelta === true
+      this.opts.log(
+        `[updater] update downloaded: ${typeof i.version === 'string' ? i.version : 'unknown'} ` +
+        `via ${chosen?.url ?? 'unknown'} (${isDelta ? 'differential' : 'full'})`,
+      )
       this.setState({
         phase: 'downloaded',
         targetVersion: typeof i.version === 'string' ? i.version : undefined,
+        isDelta,
         message: undefined,
       })
     })

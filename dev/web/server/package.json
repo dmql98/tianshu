@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "24.x" },
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc && node scripts/copy-tool-json.js",
@@ -14,7 +16,6 @@
     "@hono/node-server": "^1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@mozilla/readability": "^0.6.0",
-    "better-sqlite3": "^12.0",
     "glob": "^11.0",
     "hono": "^4.0",
     "htmlparser2": "^12.0.0",
@@ -25,7 +26,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6",
     "@types/glob": "^8.1",
     "@types/jsdom": "^28.0.3",
     "@types/turndown": "^5.0.6",

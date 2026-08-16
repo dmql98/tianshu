@@ -4,6 +4,8 @@ import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { connectSocket, getSocket } from '@/api/socket'
 import { useProvidersStore } from './providersStore'
+import type { CharacterMotion } from '@/api/characters'
+import { motionForRunEvent } from '@/features/character-presence/motion'
 
 
 const PERSIST_KEY = 'tianshu-chat-defaults'
@@ -22,8 +24,13 @@ const TERMINAL_EVENT_TYPES = new Set([
 ])
 // Highest persisted event seq seen per run (survives reconnects to resume replay)
 const runSeqByRunId = new Map<string, number>()
+const pendingApprovalBySession = new Map<string, PendingApproval>()
+const sessionMotionSince = new Map<string, number>()
+const sessionMotionTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const TERMINAL_MOTION_TTL_MS = 8_000
 
 interface PendingApproval {
+  session_id: string
   tool_call_id: string
   tool_name: string
   description: string
@@ -33,6 +40,7 @@ interface PendingApproval {
 
 function pendingApprovalFromEvent(data: RunEvent): PendingApproval {
   return {
+    session_id: data.session_id || '',
     tool_call_id: data.tool_call_id || '',
     tool_name: data.tool_name || 'tool',
     description: data.tool_input || '',
@@ -121,6 +129,8 @@ interface ChatState {
   sessions: Session[]
   activeSessionId: string | null
   isStreaming: boolean
+  socketConnected: boolean
+  isRefreshing: boolean
   pendingApproval: PendingApproval | null
   pendingAskUser: { run_id: string; session_id: string; question: string } | null
 
@@ -130,6 +140,7 @@ interface ChatState {
 
   // Per-session live-run state (source of truth; globals above are derived).
   sessionRuns: Record<string, SessionRunRecord>
+  sessionMotions: Record<string, CharacterMotion>
 
   // UI state
   collapsedWorkspaces: Set<string>
@@ -161,6 +172,7 @@ interface ChatState {
     event_id?: string | null; title?: string
   }) => Promise<Session>
   switchSession: (id: string) => Promise<void>
+  refreshSession: (id?: string) => Promise<void>
   renameSession: (id: string, title: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
   resetToMessage: (sessionId: string, messageId: string) => Promise<void>
@@ -201,6 +213,31 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set, get) => {
   let pendingSupersedesMessageId: number | null = null
+
+  function clearPendingApproval(sessionId: string) {
+    pendingApprovalBySession.delete(sessionId)
+    if (get().activeSessionId === sessionId) set({ pendingApproval: null })
+  }
+
+  function setSessionMotion(sessionId: string, motion: CharacterMotion, since = Date.now()) {
+    if (!sessionId || since < (sessionMotionSince.get(sessionId) ?? 0)) return
+    sessionMotionSince.set(sessionId, since)
+    const existingTimer = sessionMotionTimers.get(sessionId)
+    if (existingTimer) clearTimeout(existingTimer)
+    sessionMotionTimers.delete(sessionId)
+
+    const settle = () => {
+      if (sessionMotionSince.get(sessionId) !== since) return
+      set(state => ({ sessionMotions: { ...state.sessionMotions, [sessionId]: 'idle' } }))
+    }
+    if (motion === 'success' || motion === 'error') {
+      const remaining = TERMINAL_MOTION_TTL_MS - (Date.now() - since)
+      if (remaining <= 0) motion = 'idle'
+      else sessionMotionTimers.set(sessionId, setTimeout(settle, remaining))
+    }
+    set(state => ({ sessionMotions: { ...state.sessionMotions, [sessionId]: motion } }))
+  }
+
   // ── Persistent socket listeners (registered once) ──
   function initPersistentListeners() {
     const socket = connectSocket()
@@ -208,7 +245,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     // Track the highest seq seen per run so reconnects can resume replay.
     const TRACKED_EVENTS = [
       'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
-      'run.interrupted', 'run.max_turns', 'run.limit_warning', 'run.grace_started',
+      'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
+      'run.limit_warning', 'run.grace_started',
       'run.continuation_queued', 'message.delta', 'message.metrics',
       'tool.started', 'tool.completed', 'tool.output', 'approval.requested', 'usage',
       'ask_user',
@@ -219,25 +257,40 @@ export const useChatStore = create<ChatState>((set, get) => {
           const prev = runSeqByRunId.get(data.run_id) || 0
           if (data.seq > prev) runSeqByRunId.set(data.run_id, data.seq)
         }
+        const motion = motionForRunEvent(type)
+        if (motion && data.session_id) {
+          setSessionMotion(data.session_id, motion, data.occurred_at ?? Date.now())
+        }
+        if (data.session_id && TERMINAL_EVENT_TYPES.has(type)) {
+          clearPendingApproval(data.session_id)
+        }
       })
     }
 
-    // After a socket reconnect, replay anything the active run emitted while away.
-    socket.off('connect')
+    // After reconnect, replay persisted events for every tracked run. Background
+    // sessions can stream too; replaying only the visible session leaves the
+    // others permanently stale after a transport interruption.
     socket.on('connect', () => {
+      set({ socketConnected: true })
       const state = get()
-      const runId = state._activeRunId
-      const sessionId = state.activeSessionId
-      if (!runId || !sessionId) return
-      const afterSeq = runSeqByRunId.get(runId) || 0
-      fetchRunEvents(runId, afterSeq)
-        .then(events => {
-          if (events.length === 0) return
-          applyRunEvents(sessionId, events)
-          runSeqByRunId.set(runId, events[events.length - 1].seq ?? afterSeq)
-        })
-        .catch(() => {})
+      // Session creation notifications (especially sub-agent sessions) are
+      // ephemeral socket events. Reconcile the authoritative session tree on
+      // every connect so an event missed while offline is not lost forever.
+      void state.loadSessions()
+      for (const [sessionId, record] of Object.entries(state.sessionRuns)) {
+        const runId = record.activeRunId
+        if (!runId) continue
+        const afterSeq = runSeqByRunId.get(runId) || 0
+        fetchRunEvents(runId, afterSeq)
+          .then(events => {
+            if (events.length === 0) return
+            applyRunEvents(sessionId, events)
+            runSeqByRunId.set(runId, events[events.length - 1].seq ?? afterSeq)
+          })
+          .catch(() => {})
+      }
     })
+    socket.on('disconnect', () => set({ socketConnected: false }))
 
     // Live context usage — every LLM call reports the real prompt size, so the
     // context progress bar tracks actual tokens instead of a character estimate.
@@ -562,9 +615,11 @@ export const useChatStore = create<ChatState>((set, get) => {
     socket.on('approval.requested', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       if (!data.session_id || !data.tool_call_id) return
-      set({
-        pendingApproval: pendingApprovalFromEvent(data),
-      })
+      const pending = pendingApprovalFromEvent(data)
+      pendingApprovalBySession.set(data.session_id, pending)
+      // Do not overlay an unrelated conversation. The desktop notification can
+      // jump to this session; switchSession restores its pending dialog.
+      if (data.session_id === get().activeSessionId) set({ pendingApproval: pending })
     })
 
     // ask_user prompts (persisted checkpoint; answered via /runs/:id/inputs).
@@ -733,7 +788,17 @@ export const useChatStore = create<ChatState>((set, get) => {
   // events in seq order instead of streaming.
   function applyRunEvents(sessionId: string, events: RunEvent[]) {
     const lastType = events.length > 0 ? events[events.length - 1].type : undefined
-    const pendingApprovalEvent = events.find(e => e.type === 'approval.requested')
+    const terminalEvent = [...events].reverse().find(e => TERMINAL_EVENT_TYPES.has(e.type || ''))
+    const approvalIndex = events.map(e => e.type).lastIndexOf('approval.requested')
+    const approvalCandidate = approvalIndex >= 0 ? events[approvalIndex] : undefined
+    const approvalResolved = !!terminalEvent || (approvalCandidate
+      ? events.slice(approvalIndex + 1).some(e =>
+          e.type === 'message.delta' ||
+          ((e.type === 'tool.output' || e.type === 'tool.completed') &&
+            (!e.tool_call_id || e.tool_call_id === approvalCandidate.tool_call_id))
+        )
+      : false)
+    const pendingApprovalEvent = approvalResolved ? undefined : approvalCandidate
     const askUserEvent = events.find(e => e.type === 'ask_user')
     updateSessionMessage(sessionId, sess => {
       const messages = [...sess.messages]
@@ -803,9 +868,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       return { ...sess, messages }
     })
     if (pendingApprovalEvent?.tool_call_id) {
-      set({
-        pendingApproval: pendingApprovalFromEvent(pendingApprovalEvent),
-      })
+      const pending = pendingApprovalFromEvent({ ...pendingApprovalEvent, session_id: sessionId })
+      pendingApprovalBySession.set(sessionId, pending)
+      if (sessionId === get().activeSessionId) set({ pendingApproval: pending })
+    } else if (approvalResolved) {
+      clearPendingApproval(sessionId)
     }
     if (askUserEvent?.run_id && askUserEvent.question) {
       set({
@@ -819,6 +886,10 @@ export const useChatStore = create<ChatState>((set, get) => {
     if (lastType) {
       updateSessionRun(sessionId, { isStreaming: !TERMINAL_EVENT_TYPES.has(lastType) })
     }
+    for (const event of events) {
+      const motion = motionForRunEvent(event.type || '')
+      if (motion) setSessionMotion(sessionId, motion, event.occurred_at ?? Date.now())
+    }
   }
 
   return {
@@ -826,11 +897,14 @@ export const useChatStore = create<ChatState>((set, get) => {
     sessions: [],
     activeSessionId: null,
     isStreaming: false,
+    socketConnected: connectSocket().connected,
+    isRefreshing: false,
     pendingApproval: null,
     pendingAskUser: null,
     activeRun: { ...IDLE_RUN },
     limitNotice: null,
     sessionRuns: {},
+    sessionMotions: {},
     collapsedWorkspaces: new Set<string>(),
     toolExpandAll: false,
     isBatchMode: false,
@@ -850,7 +924,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (state._loadingSessions) return
       set({ _loadingSessions: true })
       try {
-        const list = await sessionsApi.fetchSessions()
+        const [list, presences] = await Promise.all([
+          sessionsApi.fetchSessions(),
+          sessionsApi.fetchSessionPresences().catch(() => []),
+        ])
         const currentSessions = get().sessions
         const sessions: Session[] = list.map(s => {
           // Preserve already-loaded messages
@@ -880,6 +957,9 @@ export const useChatStore = create<ChatState>((set, get) => {
           } catch { /* ignore */ }
         }
         set({ sessions })
+        for (const presence of presences) {
+          setSessionMotion(presence.sessionId, presence.motion, presence.since)
+        }
       } catch { /* ignore */ }
       set({ _loadingSessions: false })
     },
@@ -962,6 +1042,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         const rec = s.sessionRuns[id] ?? { isStreaming: false, activeRun: { ...IDLE_RUN }, activeRunId: null }
         return {
           activeSessionId: id,
+          pendingApproval: pendingApprovalBySession.get(id) ?? null,
           isStreaming: rec.isStreaming,
           activeRun: rec.activeRun,
           _activeRunId: rec.activeRunId,
@@ -988,6 +1069,46 @@ export const useChatStore = create<ChatState>((set, get) => {
         // Resume a run that was in flight when this view was last open.
         get().resumeActiveRun(id)
       } catch { /* new session */ }
+    },
+
+    refreshSession: async (requestedId?: string) => {
+      const sessionId = requestedId || get().activeSessionId
+      if (!sessionId || get().isRefreshing) return
+      set({ isRefreshing: true })
+      try {
+        // Rebuild from the server's authoritative messages, then replay the
+        // current run from sequence zero to recover any unpersisted-looking
+        // partial output that was actually stored as run events.
+        const cleanup = get()._currentCleanup
+        if (cleanup) cleanup()
+        connectSocket()
+
+        // Refreshing a chat also refreshes the tree: a running parent may have
+        // created child sessions while the renderer was disconnected.
+        await get().loadSessions()
+        const data = await sessionsApi.fetchSessionMessages(sessionId)
+        const previousRunId = get().sessionRuns[resolveSessionRoot(sessionId)]?.activeRunId
+        if (previousRunId) runSeqByRunId.delete(previousRunId)
+        const messages: Message[] = data.messages.map(toMessage)
+        set(state => ({
+          sessions: state.sessions.map(session =>
+            session.id === sessionId
+              ? {
+                  ...session,
+                  ...data.session,
+                  current_strategy: normalizeStrategy(data.session.current_strategy),
+                  workspaces: data.session.workspaces
+                    ? JSON.parse(data.session.workspaces as string)
+                    : undefined,
+                  messages,
+                }
+              : session
+          ),
+        }))
+        await get().resumeActiveRun(sessionId)
+      } finally {
+        set({ isRefreshing: false })
+      }
     },
 
     renameSession: async (id: string, title: string) => {
@@ -1379,9 +1500,9 @@ export const useChatStore = create<ChatState>((set, get) => {
       const onApprovalRequested = (data: RunEvent) => {
         if (!belongsToRun(data)) return
         if (data.session_id !== session!.id) return
-        set({
-          pendingApproval: pendingApprovalFromEvent(data),
-        })
+        const pending = pendingApprovalFromEvent(data)
+        pendingApprovalBySession.set(data.session_id, pending)
+        set({ pendingApproval: pending })
       }
 
       const onUsage = (data: { session_id: string; run_id?: string; input_tokens: number; output_tokens: number }) => {
@@ -1658,13 +1779,14 @@ export const useChatStore = create<ChatState>((set, get) => {
     respondApproval: (choice) => {
       const socket = getSocket()
       const state = get()
-      if (socket?.connected && state.pendingApproval && state.activeSessionId) {
+      if (socket?.connected && state.pendingApproval) {
         socket.emit('approval.respond', {
-          session_id: state.activeSessionId,
+          session_id: state.pendingApproval.session_id,
           tool_call_id: state.pendingApproval.tool_call_id,
           choice,
         })
       }
+      if (state.pendingApproval) pendingApprovalBySession.delete(state.pendingApproval.session_id)
       set({ pendingApproval: null })
     },
 

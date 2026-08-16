@@ -43,6 +43,11 @@ interface AssetCandidate {
   loop?: boolean
 }
 
+interface LoadedVisual {
+  characterId: string
+  data: CharacterVisualResponse
+}
+
 export default function CharacterRenderer({
   characterId,
   name,
@@ -55,7 +60,11 @@ export default function CharacterRenderer({
 }: Props) {
   const projectedMotion = useCharacterPresence(characterId, sessionId, mode === 'stage' && !motion)
   const requestedMotion = mode === 'stage' ? motion || projectedMotion : 'idle'
-  const [data, setData] = useState<CharacterVisualResponse | null>(null)
+  const [loadedVisual, setLoadedVisual] = useState<LoadedVisual | null>(null)
+  // Effects run after React commits.  Keep the character id beside the payload
+  // so a render caused by switching sessions can never combine the new id with
+  // the previous character's asset ids and issue a transient invalid request.
+  const data = loadedVisual?.characterId === characterId ? loadedVisual.data : null
   const [brokenAssets, setBrokenAssets] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -63,8 +72,8 @@ export default function CharacterRenderer({
     if (!characterId) return
     const refresh = () => {
       loadVisual(characterId)
-        .then(value => { if (active) setData(value) })
-        .catch(() => { if (active) setData(null) })
+        .then(value => { if (active) setLoadedVisual({ characterId, data: value }) })
+        .catch(() => { if (active) setLoadedVisual(null) })
     }
     const onInvalidate = (event: Event) => {
       if ((event as CustomEvent<string>).detail !== characterId) return

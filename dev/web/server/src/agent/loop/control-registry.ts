@@ -78,7 +78,7 @@ export function getControlToolDefinitions(): ControlToolDefinition[] {
           properties: {
             task: { type: 'string', description: '子任务描述' },
             target_character_id: { type: 'string', description: '目标角色 ID' },
-            sub_strategy: { type: 'string', enum: ['Read Only', 'Ask Risky', 'Auto Approve'], description: '子任务审批模式（可选，默认继承）' },
+            sub_strategy: { type: 'string', enum: ['Read Only', 'Ask Every Change', 'Ask Risky', 'Auto in Workspace', 'Auto Approve'], description: '子任务审批模式（可选，默认继承父会话）' },
           },
           required: ['task', 'target_character_id'],
         },

@@ -1,18 +1,25 @@
 /**
- * prepare-desktop-runtime.mjs
+ * prepare-desktop-runtime.mjs — 平台化内置 Node 准备脚本（迁移指南 §8）。
  *
- * Builds the fully disposable packaging staging for the desktop installer:
- *   1. Rebuilds desktop/staging and desktop/runtime (deleting old contents,
- *      after asserting the targets live under dev/desktop).
- *   2. Downloads the fixed portable Node win-x64 ZIP from nodejs.org and
- *      verifies its SHA-256 against the official SHASUMS256.txt.
- *   3. Extracts it to desktop/runtime/node.
- *   4. Copies web/client/dist -> staging/client.
- *   5. Copies web/server dist + package.json + package-lock.json -> staging/server
- *      and runs `npm ci --omit=dev` there (never copies the dev node_modules).
- *   6. Runs the packaged smoke test with the bundled Node.
+ * 命令契约（§8.1）：
+ *   node scripts/prepare-desktop-runtime.mjs --platform win32 --arch x64
+ *   node scripts/prepare-desktop-runtime.mjs --platform darwin --arch arm64
+ *   node scripts/prepare-desktop-runtime.mjs --platform darwin --arch x64
+ *   node scripts/prepare-desktop-runtime.mjs --platform linux --arch x64
  *
- * Run from dev/: node scripts/prepare-desktop-runtime.mjs
+ * 省略参数时本地开发默认 process.platform / process.arch；CI 必须显式传入。
+ * 拒绝不在支持矩阵中的平台/架构组合（§2.1：win32-x64 / darwin-x64 /
+ * darwin-arm64 / linux-x64），不支持 Windows ia32。
+ *
+ * 流程：
+ *   1. 清理并重建 desktop/staging 与 desktop/runtime（仅限 dev/desktop 内）。
+ *   2. 从 dev/.node-version 读取唯一版本源（§6.1）。
+ *   3. 按平台/架构映射下载 Node 归档，校验官方 SHASUMS256.txt 的 SHA-256；
+ *      缓存命中也要重算（§8.3）；校验失败删除该缓存文件重下一次，再失败终止。
+ *   4. 解压到 runtime/node（win32 → node.exe，POSIX → bin/node）。
+ *   5. 生成 runtime/runtime-manifest.json（§8.4）。
+ *   6. 复制 client/content/server 到 staging，staging/server 内 npm ci --omit=dev。
+ *   7. 用将要打进安装包的内置 Node 运行 packaged smoke（§7.6/§12.2）。
  */
 import { spawnSync } from 'child_process'
 import { createHash } from 'crypto'
@@ -25,8 +32,10 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  writeFileSync,
 } from 'fs'
 import https from 'https'
+import { tmpdir } from 'os'
 import { dirname, join, resolve, sep } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -34,16 +43,50 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const devRoot = resolve(__dirname, '..')
 const desktopDir = join(devRoot, 'desktop')
 
-// Must match dev/.node-version and the installed dev Node (better-sqlite3 ABI).
-const NODE_VERSION = 'v24.14.0'
-const ZIP_NAME = `node-${NODE_VERSION}-win-x64.zip`
-const BASE_URL = `https://nodejs.org/dist/${NODE_VERSION}`
-const ZIP_URL = `${BASE_URL}/${ZIP_NAME}`
-const SHASUM_URL = `${BASE_URL}/SHASUMS256.txt`
+// ── 支持矩阵（§2.1）─────────────────────────────────────────────
+const SUPPORTED_TARGETS = new Set(['win32-x64', 'darwin-x64', 'darwin-arm64', 'linux-x64'])
+
+// ── Node 归档映射（§8.2）─────────────────────────────────────────
+// archive: 归档文件名模板；root: 归档内根目录；exe: 可执行文件相对路径。
+const NODE_ARCHIVE_MAP = {
+  win32: {
+    x64: {
+      archive: (v) => `node-${v}-win-x64.zip`,
+      root: (v) => `node-${v}-win-x64`,
+      exe: 'node.exe',
+    },
+  },
+  darwin: {
+    x64: {
+      archive: (v) => `node-${v}-darwin-x64.tar.gz`,
+      root: (v) => `node-${v}-darwin-x64`,
+      exe: 'bin/node',
+    },
+    arm64: {
+      archive: (v) => `node-${v}-darwin-arm64.tar.gz`,
+      root: (v) => `node-${v}-darwin-arm64`,
+      exe: 'bin/node',
+    },
+  },
+  linux: {
+    x64: {
+      archive: (v) => `node-${v}-linux-x64.tar.xz`,
+      root: (v) => `node-${v}-linux-x64`,
+      exe: 'bin/node',
+    },
+  },
+}
 
 const stagingDir = join(desktopDir, 'staging')
 const runtimeDir = join(desktopDir, 'runtime')
-const cacheDir = join(process.env.LOCALAPPDATA || process.env.TEMP, 'tianshu-build-cache')
+
+/** Windows 上优先用系统 bsdtar（System32\tar.exe），避免 Git Bash 的 GNU tar
+ *  把 `C:\...` 路径误解析为远程主机。macOS/Linux 直接用 PATH 中的 tar。 */
+function findTar() {
+  if (process.platform !== 'win32') return 'tar'
+  const systemTar = join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe')
+  return existsSync(systemTar) ? systemTar : 'tar'
+}
 
 function assertInsideDesktop(p) {
   if (p !== desktopDir && !p.startsWith(desktopDir + sep)) {
@@ -62,6 +105,40 @@ function run(cmd, args, opts = {}) {
   }
   if (res.stdout) process.stdout.write(res.stdout)
   return res.stdout
+}
+
+function parseArgs(argv) {
+  const args = { platform: undefined, arch: undefined }
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--platform') args.platform = argv[++i]
+    else if (argv[i] === '--arch') args.arch = argv[++i]
+    else throw new Error(`Unknown argument: ${argv[i]}`)
+  }
+  return args
+}
+
+/** 解析平台/架构：省略时默认本机（本地开发）；CI 必须显式传入（§8.1）。 */
+function resolveTarget(args) {
+  const platform = args.platform || process.platform
+  const arch = args.arch || process.arch
+  const key = `${platform}-${arch}`
+  if (!SUPPORTED_TARGETS.has(key)) {
+    throw new Error(
+      `Unsupported target "${key}". Supported: ${[...SUPPORTED_TARGETS].join(', ')} ` +
+      `(Windows ia32 / Linux ia32 / armv7l 不支持，§2.1)。CI 必须显式传入 --platform/--arch。`,
+    )
+  }
+  return { platform, arch, key }
+}
+
+/** 缓存根目录优先级（§8.3）：TIANSHU_BUILD_CACHE > LOCALAPPDATA > XDG_CACHE_HOME > tmpdir。 */
+function cacheRoot() {
+  if (process.env.TIANSHU_BUILD_CACHE) return process.env.TIANSHU_BUILD_CACHE
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    return join(process.env.LOCALAPPDATA, 'tianshu-build-cache')
+  }
+  if (process.env.XDG_CACHE_HOME) return join(process.env.XDG_CACHE_HOME, 'tianshu-build-cache')
+  return join(tmpdir(), 'tianshu-build-cache')
 }
 
 function download(url, dest) {
@@ -95,7 +172,7 @@ function download(url, dest) {
   })
 }
 
-async function ensureDownloaded(url, dest) {
+async function downloadOnce(url, dest) {
   if (existsSync(dest)) {
     log(`cache hit: ${dest}`)
     return dest
@@ -109,51 +186,93 @@ function sha256Of(file) {
   return createHash('sha256').update(readFileSync(file)).digest('hex').toLowerCase()
 }
 
+/** 下载归档并校验官方 SHA-256（§6.2/§8.3）：缓存命中也要重算；失败删缓存重下一次，再失败终止。 */
+async function fetchVerifiedArchive(cacheDir, version, archiveName, baseUrl) {
+  const archivePath = join(cacheDir, archiveName)
+  const shasumPath = join(cacheDir, 'SHASUMS256.txt')
+  await downloadOnce(`${baseUrl}/SHASUMS256.txt`, shasumPath)
+  const shasums = readFileSync(shasumPath, 'utf8')
+  const expectedLine = shasums.split(/\r?\n/).find((l) => l.includes(`  ${archiveName}`))
+  if (!expectedLine) {
+    throw new Error(`No SHA-256 entry for ${archiveName} in SHASUMS256.txt（不支持的目标不会出现在官方 SHASUM 中）`)
+  }
+  const expected = expectedLine.split(/\s+/)[0].toLowerCase()
+
+  for (let attempt = 0; ; attempt++) {
+    await downloadOnce(`${baseUrl}/${archiveName}`, archivePath)
+    const actual = sha256Of(archivePath)
+    if (actual === expected) {
+      log(`verified SHA-256 ${actual} (${archiveName})`)
+      return archivePath
+    }
+    // 校验失败：删除该单个缓存文件并重新下载一次；第二次仍失败则终止（§8.3）。
+    if (attempt >= 1) {
+      throw new Error(`SHA-256 mismatch for ${archiveName} after re-download\n  expected ${expected}\n  actual   ${actual}`)
+    }
+    log(`SHA-256 mismatch for ${archiveName}; deleting cached file and re-downloading`)
+    rmSync(archivePath, { force: true })
+  }
+}
+
 async function prepareRuntime() {
-  // ── 1. rebuild clean staging/runtime ──────────────────────────────────────
+  const { platform, arch, key } = resolveTarget(parseArgs(process.argv.slice(2)))
+  const versionRaw = readFileSync(join(devRoot, '.node-version'), 'utf8').trim()
+  if (!/^\d+\.\d+\.\d+$/.test(versionRaw)) {
+    throw new Error(`dev/.node-version 内容无效: "${versionRaw}"（应为 x.y.z）`)
+  }
+  const version = `v${versionRaw}`
+  const mapping = NODE_ARCHIVE_MAP[platform][arch]
+  const archiveName = mapping.archive(version)
+  const baseUrl = `https://nodejs.org/dist/${version}`
+
+  log(`target ${key}, node ${versionRaw}, archive ${archiveName}`)
+
+  // ── 1. 重建 clean staging/runtime ─────────────────────────────
   for (const dir of [stagingDir, runtimeDir]) {
     assertInsideDesktop(dir)
     if (existsSync(dir)) rmSync(dir, { recursive: true, force: true })
     mkdirSync(dir, { recursive: true })
   }
 
-  // ── 2/3. fetch and verify portable Node ───────────────────────────────────
+  // ── 2/3. 下载并校验官方归档（缓存键含版本/平台/架构/文件名，§8.3）──
+  const cacheDir = join(cacheRoot(), `${versionRaw}-${platform}-${arch}`)
   mkdirSync(cacheDir, { recursive: true })
-  const zipPath = join(cacheDir, ZIP_NAME)
-  const shasumPath = join(cacheDir, 'SHASUMS256.txt')
-  await ensureDownloaded(ZIP_URL, zipPath)
-  await ensureDownloaded(SHASUM_URL, shasumPath)
+  const archivePath = await fetchVerifiedArchive(cacheDir, version, archiveName, baseUrl)
 
-  const shasums = readFileSync(shasumPath, 'utf8')
-  const expectedLine = shasums.split(/\r?\n/).find((l) => l.includes(`  ${ZIP_NAME}`))
-  if (!expectedLine) throw new Error(`No SHA-256 entry for ${ZIP_NAME} in SHASUMS256.txt`)
-  const expected = expectedLine.split(/\s+/)[0].toLowerCase()
-  const actual = sha256Of(zipPath)
-  if (actual !== expected) {
-    throw new Error(`SHA-256 mismatch for ${ZIP_NAME}\n  expected ${expected}\n  actual   ${actual}`)
-  }
-  log(`verified SHA-256 ${actual}`)
-
-  // ── 4. extract to runtime/node ────────────────────────────────────────────
+  // ── 4. 解压到 runtime/node ────────────────────────────────────
   const extractTmp = join(runtimeDir, '_extract')
   mkdirSync(extractTmp, { recursive: true })
-  run('tar', ['-xf', zipPath, '-C', extractTmp])
-  const inner = join(extractTmp, `node-${NODE_VERSION}-win-x64`)
-  if (!existsSync(join(inner, 'node.exe'))) throw new Error('node.exe missing after extraction')
+  run(findTar(), ['-xf', archivePath, '-C', extractTmp])
+  const inner = join(extractTmp, mapping.root(version))
+  const nodeExeRel = mapping.exe
+  if (!existsSync(join(inner, nodeExeRel))) {
+    throw new Error(`${nodeExeRel} missing after extraction (${archiveName})`)
+  }
   const nodeDir = join(runtimeDir, 'node')
   mkdirSync(nodeDir, { recursive: true })
   for (const entry of readdirSync(inner)) {
     renameSync(join(inner, entry), join(nodeDir, entry))
   }
   rmSync(extractTmp, { recursive: true, force: true })
-  log(`portable Node extracted to ${nodeDir}`)
+  log(`portable Node extracted to ${nodeDir} (${nodeExeRel})`)
 
-  // ── 5. stage client + server ──────────────────────────────────────────────
+  // ── 5. runtime manifest（§8.4）────────────────────────────────
+  const manifest = {
+    schemaVersion: 1,
+    nodeVersion: versionRaw,
+    platform,
+    arch,
+    archive: archiveName,
+    sha256: sha256Of(archivePath),
+  }
+  writeFileSync(join(runtimeDir, 'runtime-manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+  log(`runtime-manifest.json written (${key})`)
+
+  // ── 6. stage client + builtin content + server ────────────────
   const clientDist = join(devRoot, 'web', 'client', 'dist')
   if (!existsSync(clientDist)) throw new Error('web/client/dist missing — run npm run build:client first')
   cpSync(clientDist, join(stagingDir, 'client'), { recursive: true })
 
-  // ── 5.1 stage builtin content (content/builtin → resources/content/builtin) ──
   const builtinContent = join(devRoot, 'content', 'builtin')
   if (!existsSync(join(builtinContent, 'manifest.json'))) {
     throw new Error('content/builtin/manifest.json missing — run the builtin content build/validation first')
@@ -169,9 +288,8 @@ async function prepareRuntime() {
   cpSync(join(serverDir, 'package.json'), join(stagingServer, 'package.json'))
   cpSync(join(serverDir, 'package-lock.json'), join(stagingServer, 'package-lock.json'))
 
-  // ── 6. production install in staging (never copy dev node_modules) ────────
+  // ── 7. production install in staging (never copy dev node_modules) ──
   log('npm ci --omit=dev in staging/server')
-  // spawnSync cannot run .cmd directly on Windows; wrap through cmd.exe.
   if (process.platform === 'win32') {
     run(
       process.env.ComSpec || 'cmd.exe',
@@ -182,8 +300,8 @@ async function prepareRuntime() {
     run('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: stagingServer })
   }
 
-  // ── 7. smoke test with the bundled Node ───────────────────────────────────
-  const nodeExe = join(nodeDir, 'node.exe')
+  // ── 8. smoke test with the bundled Node ───────────────────────
+  const nodeExe = join(nodeDir, nodeExeRel)
   run(process.execPath, [
     'scripts/smoke-packaged.mjs',
     nodeExe,
@@ -195,7 +313,8 @@ async function prepareRuntime() {
   })
 
   log('staging ready:')
-  log('  runtime/node -> resources/runtime/node')
+  log(`  runtime/node -> resources/runtime/node (${platform}/${arch})`)
+  log('  runtime/runtime-manifest.json -> resources/runtime-manifest.json')
   log('  staging/server -> resources/server')
   log('  staging/client -> resources/client')
 }

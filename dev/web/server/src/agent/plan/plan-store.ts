@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../../db/schema.js'
+import { withTransaction } from '../../db/sqlite-db.js'
 
 export interface GoalRow {
   id: string
@@ -149,7 +150,7 @@ export const planStore = {
       const latest = db.prepare('SELECT MAX(version) AS v FROM plans WHERE session_id = ?').get(input.session_id) as { v: number | null }
       version = (latest.v || 0) + 1
     }
-    return db.transaction(() => {
+    return withTransaction(db, () => {
       db.prepare(
         "UPDATE plans SET status = 'superseded', updated_at = ? WHERE session_id = ? AND status = 'active'",
       ).run(now, input.session_id)
@@ -174,7 +175,7 @@ export const planStore = {
         insert.run(`pstep_${randomUUID()}`, row.id, index + 1, step.title, step.depends_on || null, step.verification || null, now)
       })
       return row
-    })()
+    })
   },
   supersedeActive(sessionId: string, keepPlanId?: string): void {
     getDb().prepare(

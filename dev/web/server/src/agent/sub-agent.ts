@@ -93,7 +93,9 @@ export async function spawnAndRunSubAgent(
   validateSubAgentTarget(parentSession.active_group, targetChar, parentSession.character_id)
 
   const charContent = characterContentStore.get(targetCharacterId)
-  const subStrategy: Strategy = normalizeStrategy(strategyOverride || targetChar.default_strategy)
+  const subStrategy: Strategy = normalizeStrategy(
+    strategyOverride || parentSession.current_strategy || parentSession.approval_mode || targetChar.default_strategy,
+  )
 
   const subSessionId = `sub_${parentSession.id}_${targetCharacterId}_${Date.now()}`
   const parentWorkspaces = parentSession.workspaces || (parentSession.workspace ? JSON.stringify([parentSession.workspace]) : null)
@@ -108,7 +110,7 @@ export async function spawnAndRunSubAgent(
     parent_id: parentSession.id,
     active_group: parentSession.active_group || undefined,
     current_strategy: subStrategy,
-    approval_mode: parentSession.approval_mode || parentSession.current_strategy || subStrategy,
+    approval_mode: subStrategy,
   })
 
   const turn = turnStore.create(subSessionId, 'agent_task')

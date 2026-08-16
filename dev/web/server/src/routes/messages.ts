@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { getDb } from '../db/schema.js'
+import { withTransaction } from '../db/sqlite-db.js'
 import { messageStore } from '../db/messageStore.js'
 
 const router = new Hono()
@@ -14,7 +15,7 @@ router.post('/:id/revise', async (c) => {
   const content = body.content?.trim()
   if (!content) return c.json({ error: 'Content is required' }, 400)
 
-  getDb().transaction(() => {
+  withTransaction(getDb(), () => {
     getDb().prepare(`
       UPDATE messages SET status = 'superseded'
       WHERE session_id = ? AND id >= ? AND status = 'active'
@@ -33,7 +34,7 @@ router.post('/:id/revise', async (c) => {
       UPDATE sessions SET compaction_summary = NULL, compaction_until_id = NULL, updated_at = ?
       WHERE id = ?
     `).run(Date.now(), original.session_id)
-  })()
+  })
 
   return c.json({
     session_id: original.session_id,

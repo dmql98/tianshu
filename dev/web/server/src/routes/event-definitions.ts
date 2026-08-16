@@ -3,6 +3,7 @@ import { eventDefinitionStore } from '../event/definition-store.js'
 import { eventOccurrenceStore } from '../event/occurrence-store.js'
 import { scheduleOccurrence } from '../event/event-run-adapter.js'
 import { getDb } from '../db/schema.js'
+import { withTransaction } from '../db/sqlite-db.js'
 
 const router = new Hono()
 
@@ -59,12 +60,12 @@ router.delete('/:id', (c) => {
   const definition = eventDefinitionStore.get(c.req.param('id'))
   if (!definition) return c.json({ error: 'Not found' }, 404)
   const db = getDb()
-  const deleted = db.transaction(() => {
+  const deleted = withTransaction(db, () => {
     // Occurrences reference the definition (FK is ON); their event sessions
     // are left in place so conversation history is not destroyed.
     db.prepare('DELETE FROM event_occurrences WHERE definition_id = ?').run(definition.id)
     return db.prepare('DELETE FROM event_definitions WHERE id = ?').run(definition.id).changes > 0
-  })()
+  })
   return deleted ? c.json({ ok: true }) : c.json({ error: 'Delete failed' }, 500)
 })
 

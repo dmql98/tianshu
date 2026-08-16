@@ -142,7 +142,7 @@ export const tool: ToolModule = {
       },
       default_strategy: {
         type: 'string',
-        enum: ['Read Only', 'Ask Risky', 'Auto Approve'],
+        enum: ['Read Only', 'Ask Every Change', 'Ask Risky', 'Auto in Workspace', 'Auto Approve'],
         description: 'Default tool-use approval mode (default: "Ask Risky").',
       },
       maxSteps: {

@@ -43,6 +43,12 @@ export interface UpdateState {
   bytesPerSecond?: number
   checkedAt?: string
   message?: string
+  /** 本次下载是否为差分（blockmap 增量）载荷；false 表示整包（§11.2/§11.3）。 */
+  isDelta?: boolean
+  /** 目标安装包总大小（字节，来自 update-available 元数据）。 */
+  packageSize?: number
+  /** 更新被禁用的原因（如 Linux 非 AppImage 安装形态，§11.4）。 */
+  disabledReason?: string
 }
 
 /**
@@ -90,6 +96,10 @@ export interface TianShuDesktopAPI {
   downloadUpdate(): Promise<void>
   installUpdate(): Promise<void>
   onUpdateState(listener: (state: UpdateState) => void): () => void
+  /** Native approval notification asked the app to open a specific session. */
+  onOpenSession(listener: (sessionId: string) => void): () => void
+  /** The desktop window returned from a minimized/background state. */
+  onResumeSync(listener: () => void): () => void
   openDirectoryDialog(defaultPath?: string): Promise<string | null>
   /** 打开图片选择对话框，返回 dataURL 供预览（仅桌面端可用） */
   openImageDialog(): Promise<OpenImageDialogResult>

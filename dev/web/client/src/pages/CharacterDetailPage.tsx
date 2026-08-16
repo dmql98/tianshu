@@ -453,9 +453,9 @@ export default function CharacterDetailPage() {
                   </div>
                   <div className="info-item" style={{ flex: 1 }}>
                     <div className="info-item-label">{t('默认审批模式')}</div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                       {STRATEGIES.map(s => (
-                        <span key={s} className={`strategy-btn ${strategy === s ? 'active' : ''}`} onClick={() => { setStrategy(s); autoSave({ default_strategy: s }) }}>{s}</span>
+                        <span key={s} className={`strategy-btn ${strategy === s ? 'active' : ''}`} onClick={() => { setStrategy(s); autoSave({ default_strategy: s }) }}>{t(s)}</span>
                       ))}
                     </div>
                   </div>

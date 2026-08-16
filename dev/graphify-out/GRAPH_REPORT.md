@@ -1,29 +1,29 @@
-# Graph Report - dev  (2026-08-15)
+# Graph Report - dev  (2026-08-16)
 
 ## Corpus Check
-- 708 files · ~1,416,053 words
+- 724 files · ~1,425,967 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 6525 nodes · 10539 edges · 505 communities (470 shown, 35 thin omitted)
+- 6640 nodes · 10781 edges · 507 communities (474 shown, 33 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 138 edges (avg confidence: 0.71)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d346a874`
+- Built from commit: `6d4f2809`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- mcp-client.ts
+- toolStore.ts
 - dependencies
-- themePreferences.ts
+- utils.ts
 - themeDefinitions.ts
-- api/skills.ts
+- App.tsx
 - 天枢主题与自定义主题工作台开发计划
 - desktop/package.json
 - dev-desktop.mjs
-- toolStore.ts
+- verify-desktop-release.mjs
 - system-cache.test.ts
 - loader.ts
 - offlineMiner.ts
@@ -39,9 +39,9 @@
 - getDataDir
 - clue_vault.py
 - cron-parser.ts
-- App.tsx
+- apiGet
 - outer.ts
-- tools/types.ts
+- definitions.ts
 - SettingsPage.tsx
 - GoalPanel.tsx
 - obsidian.py
@@ -52,14 +52,14 @@
 - compilerOptions
 - 主题切换与自定义主题工作台阶段交接报告
 - mcp_discovery.ts
-- sessionLoop
-- validate.ts
+- db/schema.ts
+- tools/types.ts
 - app.ts
-- context-builder.ts
+- assemble-desktop-release.mjs
 - runPolicy.ts
 - scripts
 - matchers.ts
-- compose.test.ts
+- context-builder.ts
 - gen-icon.mjs
 - skill-catalog.ts
 - devDependencies
@@ -70,22 +70,22 @@
 - alibaba.ts
 - MemoryStorage
 - compilerOptions
-- context-references.ts
+- TianshuStatementImpl
 - amazon-bedrock.ts
-- plan.test.ts
+- inner.ts
 - InterpretationEngine
 - computeCompat.js
 - llmgateway.ts
 - providers/types.ts
-- inner.ts
-- approval-registry.ts
-- sub-agent.test.ts
+- attachments.ts
+- sub-agent.ts
+- inner-control-mix.test.ts
 - write_patent_obsidian_note.py
 - bash/index.ts
 - prepare-desktop-runtime.mjs
 - ServerManager
 - HomePage.tsx
-- UpdaterLike
+- FakeUpdater
 - TianShu 运行策略、动态收敛与自动续跑开发交接文档
 - llm/client.ts
 - UpdatePanel.tsx
@@ -96,18 +96,18 @@
 - 17. 测试计划
 - smoke-packaged.mjs
 - sqlerd.py
-- i18n/index.ts
+- 十一、大限排法
 - copy-tool-json.js
-- main.ts
+- runtime-paths.ts
 - server/package.json
 - TianShuDesktopAPI
 - AGENTS.md
-- apiGet
+- api/providers.ts
 - TianShu 执行体验与模式治理开发计划
 - common.py
 - test_patent_reader_debt_fixes.py
 - verify-release-version.mjs
-- preload.ts
+- asset-gc.ts
 - fortune_fusion.py
 - 大限流年分析
 - desc_paragraphs.py
@@ -137,7 +137,7 @@
 - 支持的牌阵
 - 18. 实施阶段
 - copy-provider-catalog.js
-- characterStore.ts
+- visual-store.ts
 - cloudflare-ai-gateway.ts
 - Supported Spreads
 - 10. 自动续跑
@@ -153,7 +153,7 @@
 - 6. 数据库与持久化
 - 12. 系统配置 API 与 UI
 - cohere.ts
-- run-store.test.ts
+- tool-call-normalizer.ts
 - 13. 角色配置 API 与 UI
 - edit/index.ts
 - Cyber I Ching Master - OpenClaw Skill
@@ -167,7 +167,7 @@
 - autolayout.py
 - skill_manager/index.ts
 - Yi — 周易智慧
-- write/index.ts
+- approval-registry.ts
 - 紫微斗数排盘计算规则
 - Draw.io Diagrams
 - Tarot Content Generator
@@ -196,7 +196,7 @@
 - zwds-cli/package.json
 - 专利解读：{{发明名称或公开号}}
 - reorder.go
-- ThemeStudio.tsx
+- themePreferences.ts
 - rustimports.py
 - edges
 - 六爻断卦解读指南
@@ -231,8 +231,8 @@
 - 工作流程
 - save-fixture.mjs
 - 中国专利 · 交底书编写与通俗解读
-- state.ts
-- verify-builtin-e2e.mjs
+- data-paths.ts
+- secondary
 - ram/soul.md
 - 执行流程
 - Manual Installation
@@ -251,10 +251,10 @@
 - 梅花易数占卜
 - destiny-fusion-pro/scripts/ziwei_engine_js.mjs
 - 紫微斗数命盘分析器
-- 紫微斗数解读指南
+- 六、表达风格指南
 - 三、技术方案详细阐述
 - Session Management Guide
-- webfetch/index.ts
+- ThemeStudio.tsx
 - UI/UX Design System — Complete Product Design Engine
 - Cheatsheet — hand-writable styles
 - Toolbox — every bundled script, by use-case
@@ -326,7 +326,7 @@
 - Tarot Spread Reference
 - Tarot Spreads (Symbolic Reading)
 - calculate.js
-- 四、主星组合常见格局
+- 紫微斗数解读指南
 - 数据处理平台 — 批任务调度架构（虚构示例）
 - 交底书生成后自检（Step 8，内部执行）
 - 迭代上下文（进入 merger / correction 前必读）
@@ -411,7 +411,6 @@
 - 如何使用 `example_batch_job_scheduler` 跑出效果
 - md_to_docx.py — Markdown → Word
 - /graphify
-- store.test.ts
 - ui-designer/memory.md
 - TianShu Builtin Content
 - Phase 6: Responsive Design System
@@ -441,7 +440,7 @@
 - 技能包编写
 - perplexity.ts
 - opencode.json
-- copy-on-write.ts
+- characterStore.ts
 - taro/memory.md
 - yi/memory.md
 - ziwei/memory.md
@@ -449,14 +448,14 @@
 - Visual Hierarchy
 - Design Philosophy
 - Troubleshooting — Common Mistakes
-- primary
+- main.ts
 - secondary
 - success
 - warning
 - accent
 - siliconflow.ts
 - success
-- neutral
+- run-store.test.ts
 - primary
 - warning
 - danger
@@ -492,24 +491,26 @@
 - xiaomi.ts
 - zenmux.ts
 - check-db.cjs
-- websearch/index.ts
-- warning
+- verify-builtin-e2e.mjs
+- routes/characters.ts
 - sample_architecture_review_bdb7f49b.md
 - _raw-session.cjs
 - _raw-session2.cjs
-- 五、五行局定法
+- FakeRoot
 - success
 - get-userdata.cjs
+- primary
+- secondary
 
 ## God Nodes (most connected - your core abstractions)
-1. `useI18n()` - 77 edges
+1. `useI18n()` - 79 edges
 2. `周易六十四卦本地参考` - 69 edges
 3. `main()` - 48 edges
 4. `getDataDir()` - 47 edges
-5. `apiGet()` - 42 edges
+5. `apiGet()` - 43 edges
 6. `apiPost()` - 42 edges
-7. `sessionLoop()` - 41 edges
-8. `getDb()` - 39 edges
+7. `getDb()` - 42 edges
+8. `sessionLoop()` - 41 edges
 9. `ProviderPlugin` - 36 edges
 10. `inject_clue_annotations()` - 32 edges
 
@@ -529,43 +530,43 @@
 - 2-file cycle: `web/server/src/agent/inner.ts -> web/server/src/agent/loop/completion-evaluator.ts -> web/server/src/agent/inner.ts`
 - 3-file cycle: `web/server/src/agent/loop.ts -> web/server/src/agent/outer.ts -> web/server/src/event/event-run-adapter.ts -> web/server/src/agent/loop.ts`
 
-## Communities (505 total, 35 thin omitted)
+## Communities (507 total, 33 thin omitted)
 
-### Community 0 - "mcp-client.ts"
-Cohesion: 0.15
-Nodes (13): mcpServerStore, router, TOOLS_DIR, classifyConnectError(), connectionTimeoutMs(), connectMCPServer(), MCPServerConfig, MCPToolDef (+5 more)
+### Community 0 - "toolStore.ts"
+Cohesion: 0.11
+Nodes (24): configPath(), ensureMcpDir(), findById(), findDirById(), MCP_DIR(), MCPServerRecord, mcpServerStore, migrateFromOldFile() (+16 more)
 
 ### Community 1 - "dependencies"
-Cohesion: 0.09
-Nodes (23): hono, @hono/node-server, htmlparser2, iconv-lite, jsdom, @modelcontextprotocol/sdk, @mozilla/readability, socket.io (+15 more)
+Cohesion: 0.10
+Nodes (21): hono, @hono/node-server, htmlparser2, iconv-lite, jsdom, @modelcontextprotocol/sdk, @mozilla/readability, socket.io (+13 more)
 
-### Community 2 - "themePreferences.ts"
-Cohesion: 0.25
-Nodes (16): isBuiltinThemeId(), isThemeSelection(), migrateLegacyBuiltinId(), ThemeSelection, DEFAULT_THEME_PREFERENCES, isKnownBuiltinSelection(), isThemePreferences(), LEGACY_THEME_STORAGE_KEY (+8 more)
+### Community 2 - "utils.ts"
+Cohesion: 0.15
+Nodes (13): scanCommandPaths(), assertPathSafe(), assertPathSafeLegacy(), isPathWithin(), normalizePathForPlatform(), realRoot(), resolvedSafe(), approvalFixture (+5 more)
 
 ### Community 3 - "themeDefinitions.ts"
 Cohesion: 0.13
-Nodes (19): BUILTIN_IDS, BUILTIN_THEMES, BuiltinThemeId, clamp(), DEFAULT_THEME_SELECTION, isCssColor(), LEGACY_BUILTIN_ID_MAP, normalizeAppearance() (+11 more)
+Nodes (17): BUILTIN_IDS, BuiltinThemeId, clamp(), DEFAULT_THEME_SELECTION, isCssColor(), LEGACY_BUILTIN_ID_MAP, normalizeAppearance(), normalizeArtwork() (+9 more)
 
-### Community 4 - "api/skills.ts"
-Cohesion: 0.18
-Nodes (14): createSkillPackage(), fetchSkillChild(), fetchSkillPackage(), fetchSkillPackages(), SkillChildDetail, SkillFile, SkillPackageChild, SkillPackageDetail (+6 more)
+### Community 4 - "App.tsx"
+Cohesion: 0.12
+Nodes (17): createSkillPackage(), fetchSkillChild(), fetchSkillPackage(), SkillChildDetail, SkillFile, SkillPackageChild, SkillPackageDetail, SkillPackageMeta (+9 more)
 
 ### Community 5 - "天枢主题与自定义主题工作台开发计划"
 Cohesion: 0.04
 Nodes (48): 10. 前端模块建议, 11. CSS 与组件改造范围, 12. 分阶段实施, 13.1 客户端单元测试, 13.2 服务端测试, 13.3 组件和端到端测试, 13.4 视觉和可访问性矩阵, 13.5 构建验证 (+40 more)
 
 ### Community 6 - "desktop/package.json"
-Cohesion: 0.08
-Nodes (24): author, dependencies, electron-updater, description, devDependencies, electron, electron-builder, @types/node (+16 more)
+Cohesion: 0.07
+Nodes (27): author, dependencies, electron-updater, description, devDependencies, electron, electron-builder, @types/node (+19 more)
 
 ### Community 7 - "dev-desktop.mjs"
 Cohesion: 0.10
 Nodes (21): children, CLIENT_PORT, clientDir, defaultDataDir, desktopDir, devRoot, __dirname, electron (+13 more)
 
-### Community 8 - "toolStore.ts"
-Cohesion: 0.32
-Nodes (11): configPath(), ensureMcpDir(), findById(), findDirById(), MCP_DIR(), MCPServerRecord, migrateFromOldFile(), OLD_FILE() (+3 more)
+### Community 8 - "verify-desktop-release.mjs"
+Cohesion: 0.45
+Nodes (11): desktopVersion(), devRoot, __dirname, fail(), log(), main(), sha512Base64(), verifyDir() (+3 more)
 
 ### Community 9 - "system-cache.test.ts"
 Cohesion: 0.09
@@ -573,19 +574,19 @@ Nodes (29): cachePath(), cacheStats(), capturePrefixShape(), diagnoseMiss(), ext
 
 ### Community 10 - "loader.ts"
 Cohesion: 0.11
-Nodes (20): CacheEntry, CatalogIssue, CatalogLoadResult, getCatalogRoot(), getIconPath(), getPreset(), isIconInsideDir(), isSafeRelativePath() (+12 more)
+Nodes (21): builtinProvidersRoot(), CacheEntry, CatalogIssue, CatalogLoadResult, getCatalogRoot(), getIconPath(), getPreset(), isIconInsideDir() (+13 more)
 
 ### Community 11 - "offlineMiner.ts"
 Cohesion: 0.12
 Nodes (20): lcs(), lengthTier(), OfflineMiner, parseToolCalls(), similarity(), ToolCallSummary, TrajectoryCluster, defaultOptions (+12 more)
 
 ### Community 12 - "chatStore.ts"
-Cohesion: 0.07
-Nodes (34): cancelRun(), fetchRecentRuns(), fetchRunEvents(), RunResultShape, RunRow, ContextMenu, ActiveRunPhase, ActiveRunState (+26 more)
+Cohesion: 0.05
+Nodes (48): fetchCharacterPresence(), cancelRun(), fetchRecentRuns(), fetchRunEvents(), RunResultShape, RunRow, updateSession(), connectSocket() (+40 more)
 
 ### Community 13 - "api/characters.ts"
-Cohesion: 0.08
-Nodes (47): CharacterAssetRef, characterAssetUrl(), CharacterMotion, CharacterMotionBinding, CharacterVisual, CharacterVisualResponse, createCharacter(), deleteCharacter() (+39 more)
+Cohesion: 0.06
+Nodes (61): CharacterAssetRef, characterAssetUrl(), CharacterMotion, CharacterMotionBinding, CharacterVisual, CharacterVisualResponse, createCharacter(), deleteCharacter() (+53 more)
 
 ### Community 14 - "md_to_docx.py"
 Cohesion: 0.06
@@ -596,8 +597,8 @@ Cohesion: 0.05
 Nodes (43): 10.1 前端, 10.2 服务端, 10. 文件改造清单, 11.1 服务端单元测试, 11.2 前端单元/组件测试, 11.3 人工验收, 11. 测试计划, 12. 实施顺序 (+35 more)
 
 ### Community 16 - "UpdateManager"
-Cohesion: 0.31
-Nodes (6): capMessage(), clampPercent(), toMessage(), UpdateManager, UpdateManagerOptions, UpdateState
+Cohesion: 0.18
+Nodes (8): capMessage(), clampPercent(), toMessage(), UpdateInfoLike, UpdateManager, UpdateManagerOptions, UpdaterLike, UpdateState
 
 ### Community 17 - "run-coordinator.ts"
 Cohesion: 0.16
@@ -612,12 +613,12 @@ Cohesion: 0.18
 Nodes (10): 1. 修改文件, 2. 数据方案, 3. 主题首页标题契约, 4. 测试结果, 5. 构建与 e2e, 6. 完成标准核对, 7. 未完成项与人工验收, 修改 (+2 more)
 
 ### Community 20 - "useI18n"
-Cohesion: 0.13
-Nodes (32): fetchCharacters(), submitRunInput(), updateSession(), ApprovalDialog(), AskUserDialog(), CharacterPicker(), Props, ChatArea() (+24 more)
+Cohesion: 0.10
+Nodes (38): submitRunInput(), ApprovalDialog(), AskUserDialog(), CharacterPicker(), ChatArea(), dirOf(), extractPath(), FileEntry (+30 more)
 
 ### Community 21 - "getDataDir"
-Cohesion: 0.10
-Nodes (26): getDataDir(), DATA_DIR(), ensureDataDir(), ensureIds(), FILE(), ModelInfo, ProviderRecord, providerStore (+18 more)
+Cohesion: 0.09
+Nodes (29): getDataDir(), DATA_DIR(), ensureDataDir(), ensureIds(), FILE(), ModelInfo, ProviderRecord, providerStore (+21 more)
 
 ### Community 22 - "clue_vault.py"
 Cohesion: 0.05
@@ -627,25 +628,25 @@ Nodes (75): test_clue_appendix_and_annotate(), test_sanitize_clue_summary_nav_an
 Cohesion: 0.20
 Nodes (12): CronFields, dayOfWeek(), daysInMonth(), LocalParts, NextFireOptions, nextFireTime(), normalizeClock(), parseCronExpression() (+4 more)
 
-### Community 24 - "App.tsx"
-Cohesion: 0.12
-Nodes (25): archiveEventDefinition(), createEventDefinition(), CreateEventDefinitionInput, deleteEventDefinition(), EventDefinition, EventOccurrence, fetchEventDefinitions(), fetchEventOccurrences() (+17 more)
+### Community 24 - "apiGet"
+Cohesion: 0.10
+Nodes (37): publishCharacterRevision(), apiDelete(), apiGet(), apiPost(), archiveEventDefinition(), createEventDefinition(), CreateEventDefinitionInput, deleteEventDefinition() (+29 more)
 
 ### Community 25 - "outer.ts"
-Cohesion: 0.05
-Nodes (73): ComposeContext, composeMessages(), InnerResult, SubAgentRequestData, ToolCallRecord, detectDoomLoop(), evaluateFinalAnswer(), evaluateSubmission() (+65 more)
+Cohesion: 0.04
+Nodes (87): resolveCapability(), ComposeContext, composeMessages(), alerts, composed, messages, none, regular (+79 more)
 
-### Community 26 - "tools/types.ts"
-Cohesion: 0.27
-Nodes (7): tool, tool, tool, ConstraintField, ToolConstraint, ToolContext, ToolModule
+### Community 26 - "definitions.ts"
+Cohesion: 0.15
+Nodes (16): getDangerousTools(), matchPath(), parseFileSize(), resolveCharacterTools(), validateByRule(), validateConstraints(), executeTool(), parseMCPToolName() (+8 more)
 
 ### Community 27 - "SettingsPage.tsx"
-Cohesion: 0.11
-Nodes (36): apiPut(), fetchDataspace(), reloadDataspace(), saveDataspace(), clearEvolutionConfig(), EvolutionConfig, fetchEvolutionConfig(), saveEvolutionConfig() (+28 more)
+Cohesion: 0.12
+Nodes (35): apiPut(), fetchDataspace(), reloadDataspace(), saveDataspace(), clearEvolutionConfig(), EvolutionConfig, fetchEvolutionConfig(), saveEvolutionConfig() (+27 more)
 
 ### Community 28 - "GoalPanel.tsx"
-Cohesion: 0.14
-Nodes (22): fetchCharacterPresence(), apiPatch(), createGoal(), fetchActivePlan(), fetchGoals(), Goal, patchGoal(), pauseGoal() (+14 more)
+Cohesion: 0.23
+Nodes (15): apiPatch(), createGoal(), fetchActivePlan(), fetchGoals(), Goal, patchGoal(), pauseGoal(), Plan (+7 more)
 
 ### Community 29 - "obsidian.py"
 Cohesion: 0.05
@@ -656,7 +657,7 @@ Cohesion: 0.04
 Nodes (47): 10.1 格式, 10.2 Catalog, 10.3 写入, 10. 技能改造, 11. Provider 预设边界, 12. API 与 UI, 13. 版本升级规则, 14. 构建与 Electron 打包 (+39 more)
 
 ### Community 31 - "api/tools.ts"
-Cohesion: 0.15
+Cohesion: 0.16
 Nodes (20): createMCPServer(), deleteMCPServer(), DiscoveredMCPServer, discoverMCPServers(), DiscoverResult, fetchTools(), ImportMCPResult, importMCPServers() (+12 more)
 
 ### Community 32 - "_raw-sess3.cjs"
@@ -664,8 +665,8 @@ Cohesion: 0.25
 Nodes (7): cps, Database, db, events, msgs, runs, session
 
 ### Community 33 - "SessionPanel.tsx"
-Cohesion: 0.23
-Nodes (11): browseDirectory(), BrowseResult, DirEntry, openInFileManager(), resolvePath(), FolderPicker(), Props, ProjectContextMenu (+3 more)
+Cohesion: 0.22
+Nodes (12): browseDirectory(), BrowseResult, DirEntry, openInFileManager(), resolvePath(), FolderPicker(), Props, ProjectContextMenu (+4 more)
 
 ### Community 34 - "compilerOptions"
 Cohesion: 0.12
@@ -679,49 +680,49 @@ Nodes (14): 10. 契约履行确认, 1. 修改文件, 2. 主题目录与 API 协�
 Cohesion: 0.13
 Nodes (25): CLAUDE_SPEC, collect(), configPaths(), CURSOR_SPEC, dedupe(), discoverClaudeServers(), discoverCursorServers(), DiscoveredMCPServer (+17 more)
 
-### Community 37 - "sessionLoop"
-Cohesion: 0.06
-Nodes (66): checkpointService, PendingApprovalState, sessionLoop(), goalStore, PlanRow, PlanStepRow, PlanStepStatus, planStore (+58 more)
+### Community 37 - "db/schema.ts"
+Cohesion: 0.05
+Nodes (60): goalStore, PlanRow, PlanStepRow, PlanStepStatus, planStore, db, NOW, tmpData (+52 more)
 
-### Community 38 - "validate.ts"
-Cohesion: 0.17
-Nodes (9): tool, tool, fuzzySuggest(), similarity(), tool, coerceBoolean, coerceNumber, validate() (+1 more)
+### Community 38 - "tools/types.ts"
+Cohesion: 0.08
+Nodes (20): tool, tool, tool, tool, fuzzySuggest(), similarity(), tool, tool (+12 more)
 
 ### Community 39 - "app.ts"
-Cohesion: 0.04
-Nodes (67): recoverContinuationState(), SessionSkillActivation, sessionSkillStore, DEV_CORS_ORIGINS, isLoopbackOrigin(), MIME, serveClientHandler(), StartServerOptions (+59 more)
+Cohesion: 0.05
+Nodes (48): checkpointService, PendingApprovalState, CheckpointRow, checkpointStore, forceCancelRun(), forceCancelSessionRuns(), isTerminalStatus(), PHASE_BY_EVENT (+40 more)
 
-### Community 40 - "context-builder.ts"
-Cohesion: 0.07
-Nodes (45): AttachmentRecord, ContentPart, isImage(), isTextExtension(), isTextLike(), lowerContentToProvider(), mediaPart, ProviderCapability (+37 more)
+### Community 40 - "assemble-desktop-release.mjs"
+Cohesion: 0.38
+Nodes (10): collectFiles(), devRoot, __dirname, fail(), log(), main(), parseArgs(), readMetadata() (+2 more)
 
 ### Community 41 - "runPolicy.ts"
 Cohesion: 0.18
 Nodes (15): fetchRunPolicy(), resetRunPolicy(), saveRunPolicy(), SystemRunPolicyResponse, num(), Props, SystemRunPolicySettings(), AutoContinuationPref (+7 more)
 
 ### Community 42 - "scripts"
-Cohesion: 0.12
-Nodes (16): engines, node, name, private, scripts, build, build:client, build:desktop (+8 more)
+Cohesion: 0.09
+Nodes (22): js-yaml, devDependencies, js-yaml, engines, node, name, private, scripts (+14 more)
 
 ### Community 43 - "matchers.ts"
 Cohesion: 0.14
 Nodes (10): BlockAnchorReplacer(), EscapeNormalizedReplacer(), isDisproportionateMatch(), levenshtein(), replace(), Replacer, ReplaceResult, replacerName() (+2 more)
 
-### Community 44 - "compose.test.ts"
-Cohesion: 0.29
-Nodes (6): alerts, composed, messages, none, regular, thinking
+### Community 44 - "context-builder.ts"
+Cohesion: 0.09
+Nodes (32): ProviderCapability, resolveProviderFormat(), ContextReference, ContextReferenceResult, estimateTokenCount(), expandFileReference(), expandFolderReference(), expandUrlReference() (+24 more)
 
 ### Community 45 - "gen-icon.mjs"
 Cohesion: 0.17
 Nodes (12): assetsDir, chunk(), crc32(), CRC_TABLE, __dirname, encodePNG(), ico, ICO_SIZES (+4 more)
 
 ### Community 46 - "skill-catalog.ts"
-Cohesion: 0.16
-Nodes (23): checkDuplicateIds(), ensureInside(), ensureSkillPackageWritable(), fileType(), findSkillPackage(), listFiles(), listSkillPackages(), readPackage() (+15 more)
+Cohesion: 0.13
+Nodes (31): builtinContentVersion(), checkDuplicateIds(), ensureInside(), ensureSkillPackageWritable(), fileType(), findSkillPackage(), listFiles(), listSkillPackages() (+23 more)
 
 ### Community 47 - "devDependencies"
-Cohesion: 0.13
-Nodes (15): tsx, @types/better-sqlite3, @types/glob, @types/jsdom, @types/turndown, devDependencies, tsx, @types/better-sqlite3 (+7 more)
+Cohesion: 0.15
+Nodes (13): tsx, @types/glob, @types/jsdom, @types/turndown, devDependencies, tsx, @types/glob, @types/jsdom (+5 more)
 
 ### Community 48 - "client/package.json"
 Cohesion: 0.06
@@ -743,17 +744,13 @@ Nodes (6): baseUrl, desc, envKey, id, name, plugin
 Cohesion: 0.17
 Nodes (11): compilerOptions, esModuleInterop, module, moduleResolution, outDir, rootDir, skipLibCheck, strict (+3 more)
 
-### Community 55 - "context-references.ts"
-Cohesion: 0.25
-Nodes (13): ContextReference, ContextReferenceResult, estimateTokenCount(), expandFileReference(), expandFolderReference(), expandUrlReference(), formatFileTree(), isSensitive() (+5 more)
-
 ### Community 56 - "amazon-bedrock.ts"
 Cohesion: 0.29
 Nodes (6): baseUrl, desc, envKey, id, name, plugin
 
-### Community 57 - "plan.test.ts"
-Cohesion: 0.33
-Nodes (3): db, NOW, tmpData
+### Community 57 - "inner.ts"
+Cohesion: 0.10
+Nodes (32): checkStrategy(), checkToolBinding(), deepCloneToolCall(), determineToolChanged(), estimateTokenCount(), innerLoop(), matchToolCall(), outcomeKindFor() (+24 more)
 
 ### Community 58 - "InterpretationEngine"
 Cohesion: 0.06
@@ -771,37 +768,37 @@ Nodes (6): baseUrl, desc, envKey, id, name, plugin
 Cohesion: 0.50
 Nodes (3): ModelCapabilities, ModelDefinition, ProviderFormat
 
-### Community 62 - "inner.ts"
-Cohesion: 0.04
-Nodes (64): checkStrategy(), checkToolBinding(), tmpData, deepCloneToolCall(), determineToolChanged(), estimateTokenCount(), innerLoop(), matchToolCall() (+56 more)
+### Community 62 - "attachments.ts"
+Cohesion: 0.13
+Nodes (21): AttachmentRecord, ContentPart, isImage(), isTextExtension(), isTextLike(), lowerContentToProvider(), mediaPart, ProviderContentBlock (+13 more)
 
-### Community 63 - "approval-registry.ts"
-Cohesion: 0.36
-Nodes (6): ApprovalChoice, approvalRegistry, PendingApproval, pendingBySession, assert(), main()
+### Community 63 - "sub-agent.ts"
+Cohesion: 0.14
+Nodes (19): createDurableSocket(), publishRunEvent(), unwrapDurableSocket(), abortSession(), enqueueRun(), getQueueLength(), getRunState(), RunState (+11 more)
 
 ### Community 65 - "write_patent_obsidian_note.py"
 Cohesion: 0.06
 Nodes (73): main(), as_clues(), clue_cards_for_canvas(), harvest_feature_entries(), load_clues_sidecar(), 供 build_canvas 使用的短卡数据。, 从第四节/第六节表收集特征行；优先识别 F1、F2… 编号。, upsert_appendix_b() (+65 more)
 
 ### Community 66 - "bash/index.ts"
-Cohesion: 0.14
-Nodes (12): controller, marker, workspace, getShellCandidates(), gitBashPaths(), isProcessRunning(), killProcessTree(), LOG_DIR (+4 more)
+Cohesion: 0.11
+Nodes (16): controller, marker, workspace, getShellCandidates(), gitBashPaths(), isProcessRunning(), killProcessTree(), LOG_DIR (+8 more)
 
 ### Community 67 - "prepare-desktop-runtime.mjs"
-Cohesion: 0.22
-Nodes (13): assertInsideDesktop(), cacheDir, desktopDir, devRoot, __dirname, download(), ensureDownloaded(), log() (+5 more)
+Cohesion: 0.17
+Nodes (19): assertInsideDesktop(), cacheRoot(), desktopDir, devRoot, __dirname, download(), downloadOnce(), fetchVerifiedArchive() (+11 more)
 
 ### Community 69 - "HomePage.tsx"
-Cohesion: 0.24
-Nodes (9): fetchRecentSessions(), NOW, formatRelativeTime(), HomePage(), LoadState, RecentCard(), sessionPreview(), sessionTitle() (+1 more)
+Cohesion: 0.23
+Nodes (10): fetchRecentSessions(), NOW, appliedHomeTitle(), formatRelativeTime(), HomePage(), LoadState, RecentCard(), sessionPreview() (+2 more)
 
 ### Community 71 - "TianShu 运行策略、动态收敛与自动续跑开发交接文档"
 Cohesion: 0.17
 Nodes (11): 15. 服务端文件改造清单, 16. 前端文件改造清单, 19. 上线与兼容策略, 1. 交付目标, 20. 验收标准, 21. 非目标, 5.1 纯函数, 5.2 固定时机 (+3 more)
 
 ### Community 72 - "llm/client.ts"
-Cohesion: 0.10
-Nodes (23): fallbackSessionTitle(), generateSessionTitle(), normalizeGeneratedTitle(), truncateChars(), LLMChunk, LLMOptions, LLMUsage, parseUsage() (+15 more)
+Cohesion: 0.11
+Nodes (21): fallbackSessionTitle(), generateSessionTitle(), normalizeGeneratedTitle(), truncateChars(), LLMChunk, LLMOptions, LLMUsage, parseUsage() (+13 more)
 
 ### Community 73 - "UpdatePanel.tsx"
 Cohesion: 0.39
@@ -816,8 +813,8 @@ Cohesion: 0.83
 Nodes (3): normalize(), scalar(), walk()
 
 ### Community 76 - "server-manager.ts"
-Cohesion: 0.24
-Nodes (5): ServerManagerOptions, fixtures, DesktopMessage, ServerMessage, serverRoot
+Cohesion: 0.19
+Nodes (7): defaultKillProcessTree(), KillProcessTree, ServerManagerOptions, fixtures, DesktopMessage, ServerMessage, serverRoot
 
 ### Community 77 - "cnipa_epub_crawler.py"
 Cohesion: 0.07
@@ -828,32 +825,32 @@ Cohesion: 0.25
 Nodes (8): 17.1 系统配置, 17.2 角色策略与 revision, 17.3 Run 策略解析, 17.4 进展和收敛, 17.5 自动续跑, 17.6 取消和恢复, 17.7 前端, 17. 测试计划
 
 ### Community 79 - "smoke-packaged.mjs"
-Cohesion: 0.29
+Cohesion: 0.25
 Nodes (7): child, dataDir, fail(), [nodeExe, stagingServer, clientDist, builtinContentDir], sqlite, timeout, ver
 
 ### Community 80 - "sqlerd.py"
 Cohesion: 0.27
 Nodes (9): ident(), main(), parse_tables(), Normalize an identifier: strip quoting, keep the last dotted part., Split a CREATE TABLE body on top-level commas., {table: {"schema", "columns": [(name, type)], "pks": set, "fks": [(col,…, split_columns(), glob (+1 more)
 
-### Community 81 - "i18n/index.ts"
-Cohesion: 0.13
-Nodes (19): MarkdownContent(), md, Props, Props, showReasoning(), Props, ThinkingBlock(), icons (+11 more)
+### Community 81 - "十一、大限排法"
+Cohesion: 0.50
+Nodes (4): 十一、大限排法, 大限示例, 起大限年龄（按五行局数）, 顺逆规则
 
 ### Community 82 - "copy-tool-json.js"
 Cohesion: 0.50
 Nodes (3): dest, __dirname, src
 
-### Community 83 - "main.ts"
-Cohesion: 0.33
-Nodes (3): logUpdater(), registerIpc(), updaterLogFile()
+### Community 83 - "runtime-paths.ts"
+Cohesion: 0.36
+Nodes (7): bundledNodePath(), readRuntimeManifest(), RuntimeManifest, runtimeManifestPath(), verifyBundledNode(), VerifyResult, dirs
 
 ### Community 84 - "server/package.json"
 Cohesion: 0.17
 Nodes (11): engines, node, name, private, scripts, build, dev, start (+3 more)
 
-### Community 87 - "apiGet"
-Cohesion: 0.11
-Nodes (31): apiDelete(), apiGet(), apiPost(), createProvider(), deleteProvider(), fetchBuiltinProviders(), fetchProviderModels(), fetchProviders() (+23 more)
+### Community 87 - "api/providers.ts"
+Cohesion: 0.18
+Nodes (16): createProvider(), fetchBuiltinProviders(), fetchProviderModels(), fetchProviders(), ProviderModel, ProviderPreset, ProviderPresetField, updateProvider() (+8 more)
 
 ### Community 88 - "TianShu 执行体验与模式治理开发计划"
 Cohesion: 0.04
@@ -870,6 +867,10 @@ Nodes (37): main(), Agent claim_deltas 覆盖启发式截句。, 有 anchor_fits
 ### Community 91 - "verify-release-version.mjs"
 Cohesion: 0.50
 Nodes (3): desktopPkg, devRoot, __dirname
+
+### Community 92 - "asset-gc.ts"
+Cohesion: 0.17
+Nodes (11): ASSET_RETENTION_MS, PLAYER_LEASE_MS, runAssetGC(), startAssetGC(), db, NOW, tmpData, assetIdsFromVisual() (+3 more)
 
 ### Community 93 - "fortune_fusion.py"
 Cohesion: 0.13
@@ -940,8 +941,8 @@ Cohesion: 0.29
 Nodes (6): baseUrl, desc, envKey, id, name, plugin
 
 ### Community 110 - "themeRuntime.ts"
-Cohesion: 0.11
-Nodes (23): BUILTIN_THEME_DARK, BUILTIN_THEME_DARK_ID, BUILTIN_THEME_LIGHT_ID, getDefaultStorage(), THEME_CHANGED_EVENT, appliedHomeTitle(), applyBackdrop(), applyResolvedTheme() (+15 more)
+Cohesion: 0.10
+Nodes (27): BUILTIN_THEME_DARK, BUILTIN_THEME_DARK_ID, BUILTIN_THEME_LIGHT_ID, ThemeDefinition, getDefaultStorage(), THEME_CHANGED_EVENT, applyBackdrop(), applyResolvedTheme() (+19 more)
 
 ### Community 111 - "PRD to Prototype — 从想法到可交互原型"
 Cohesion: 0.07
@@ -964,8 +965,8 @@ Cohesion: 0.07
 Nodes (26): 10. 田宅宫, 11. 福德宫, 12. 父母宫, 1. 命宫, 2. 兄弟宫, 3. 夫妻宫, 4. 子女宫, 5. 财帛宫 (+18 more)
 
 ### Community 116 - "desktop-contract.ts"
-Cohesion: 0.18
-Nodes (14): ALLOWED_MIME, backgroundsDir(), deleteBackgroundImage(), detectMime(), openImageDialog(), registerBackgroundProtocolHandler(), safeBackgroundPath(), saveBackgroundImage() (+6 more)
+Cohesion: 0.14
+Nodes (16): ALLOWED_MIME, backgroundsDir(), deleteBackgroundImage(), detectMime(), openImageDialog(), registerBackgroundProtocolHandler(), safeBackgroundPath(), saveBackgroundImage() (+8 more)
 
 ### Community 119 - "14. 前端 Run 状态协调"
 Cohesion: 0.29
@@ -987,9 +988,9 @@ Nodes (7): 18. 实施阶段, P0：配置和契约, P1：系统和角色 UI, P2�
 Cohesion: 0.40
 Nodes (5): copyAsset(), dest, __dirname, src, walk()
 
-### Community 129 - "characterStore.ts"
-Cohesion: 0.14
-Nodes (28): builtinContentVersion(), characterDir(), readMdOrLegacy(), userCharacterDir(), assetDir(), assetIndexPath(), CharacterAssetRef, CharacterMotionBinding (+20 more)
+### Community 129 - "visual-store.ts"
+Cohesion: 0.13
+Nodes (16): CharacterPresence, characterPresenceProjector, MOTIONS, SessionPresence, assetDir(), assetIndexPath(), CharacterAssetKind, CharacterAssetRef (+8 more)
 
 ### Community 130 - "cloudflare-ai-gateway.ts"
 Cohesion: 0.29
@@ -1051,9 +1052,9 @@ Nodes (3): 12.1 API, 12.2 系统设置 UI, 12. 系统配置 API 与 UI
 Cohesion: 0.29
 Nodes (6): baseUrl, desc, envKey, id, name, plugin
 
-### Community 145 - "run-store.test.ts"
-Cohesion: 0.25
-Nodes (5): db, newChar(), NOW, seedCharacter(), tmpData
+### Community 145 - "tool-call-normalizer.ts"
+Cohesion: 0.24
+Nodes (9): buildInvalidToolCall(), CanonicalToolCall, NormalizeFailure, NormalizeResult, normalizeToolCalls(), parseArgs(), safeSnippet(), tc() (+1 more)
 
 ### Community 146 - "13. 角色配置 API 与 UI"
 Cohesion: 0.67
@@ -1080,8 +1081,8 @@ Cohesion: 0.17
 Nodes (16): FetchPatentPdfTest, fetch_patent_pdf：HTML/CDN 解析与 known_cdn 兜底（不依赖外网）。, 页面全部失败时，用 known_cdn_examples 兜底。, download_pdf_bytes(), extract_pdf_urls_from_html(), fetch_patent_pdf(), google_patent_page_urls(), http_get() (+8 more)
 
 ### Community 152 - "src/config.ts"
-Cohesion: 0.06
-Nodes (58): AutoContinuationPref, CharacterRunPolicy, DEFAULT_SYSTEM_RUN_POLICY, migrateCharacterRunPolicy(), normalizeCharacterRunPolicy(), normalizeSystemRunPolicy(), clamp(), mergeStricterSystemCaps() (+50 more)
+Cohesion: 0.12
+Nodes (30): AutoContinuationPref, DEFAULT_SYSTEM_RUN_POLICY, normalizeSystemRunPolicy(), clamp(), mergeStricterSystemCaps(), resolveRunPolicy(), RUN_POLICY_VERSION, SystemRunPolicy (+22 more)
 
 ### Community 153 - "heatmap.py"
 Cohesion: 0.16
@@ -1100,20 +1101,20 @@ Cohesion: 0.16
 Nodes (20): attr(), build_dot(), dot_quote(), group_style(), group_tree(), layout(), load_palette(), main() (+12 more)
 
 ### Community 157 - "skill_manager/index.ts"
-Cohesion: 0.14
-Nodes (18): parseSkillFrontmatter(), SkillPackageManifest, characterSkillBindings(), findSkillByName(), skillDirFor(), SkillIndex, stripFrontmatter(), CreatedSkillPackage (+10 more)
+Cohesion: 0.13
+Nodes (19): parseSkillFrontmatter(), SkillPackageManifest, characterSkillBindings(), findSkillByName(), skillDirFor(), SkillIndex, stripFrontmatter(), CreatedSkillPackage (+11 more)
 
 ### Community 158 - "Yi — 周易智慧"
 Cohesion: 0.10
 Nodes (20): 1. Clarify The Question, 2. Select Method, 3. Interpret In Layers, Available Scripts, Coin Lines, Example Prompts, Hard Boundaries, Method Notes (+12 more)
 
-### Community 159 - "write/index.ts"
-Cohesion: 0.32
-Nodes (4): hasBOM(), stripBOM(), tool, dir
+### Community 159 - "approval-registry.ts"
+Cohesion: 0.27
+Nodes (7): ApprovalChoice, approvalRegistry, PendingApproval, pendingBySession, assert(), main(), decideWorkspaceApproval()
 
 ### Community 160 - "紫微斗数排盘计算规则"
-Cohesion: 0.09
-Nodes (22): 一、十二宫位名称与含义, 七、紫微星系排列规则（逆排）, 三、安身宫公式, 九、四化表（年干定四化）, 二、安命宫公式, 八、天府星系排列规则（顺排）, 六、安紫微星算法, 十一、大限排法 (+14 more)
+Cohesion: 0.10
+Nodes (21): 一、十二宫位名称与含义, 七、紫微星系排列规则（逆排）, 三、安身宫公式, 九、四化表（年干定四化）, 二、安命宫公式, 五、五行局定法, 八、天府星系排列规则（顺排）, 六、安紫微星算法 (+13 more)
 
 ### Community 161 - "Draw.io Diagrams"
 Cohesion: 0.10
@@ -1132,8 +1133,8 @@ Cohesion: 0.10
 Nodes (20): 专利交底书编写, 专利交底书编写, 专利交底书编写, 专利交底书编写, 专利通俗解读, 专利通俗解读, 专利通俗解读, 专利通俗解读 (+12 more)
 
 ### Community 165 - "themeApi.ts"
-Cohesion: 0.16
-Nodes (22): apiMultipart(), createTheme(), CreateThemeInput, deleteTheme(), duplicateTheme(), fetchTheme(), fetchThemes(), renameTheme() (+14 more)
+Cohesion: 0.19
+Nodes (19): apiMultipart(), createTheme(), CreateThemeInput, deleteTheme(), duplicateTheme(), fetchTheme(), fetchThemes(), renameTheme() (+11 more)
 
 ### Community 166 - "script.sh"
 Cohesion: 0.24
@@ -1223,9 +1224,9 @@ Nodes (15): A. IPC 行业坐标, B. 公开检索线索, Obsidian 导航, 一、�
 Cohesion: 0.19
 Nodes (14): IsProbablyDead(), absFloat(), ApplyReorder(), ShouldReorder(), Score(), time.Duration, time.Time, HeartbeatConfig (+6 more)
 
-### Community 188 - "ThemeStudio.tsx"
-Cohesion: 0.18
-Nodes (15): GeneratedPalette, Appearance, BUILTIN_THEME_LIGHT, DEFAULT_HOME_TITLE, HOME_TITLE_MAX, ThemeTokens, ALLOWED_TYPES, cloneSnapshot() (+7 more)
+### Community 188 - "themePreferences.ts"
+Cohesion: 0.25
+Nodes (16): isBuiltinThemeId(), isThemeSelection(), migrateLegacyBuiltinId(), ThemeSelection, DEFAULT_THEME_PREFERENCES, isKnownBuiltinSelection(), isThemePreferences(), LEGACY_THEME_STORAGE_KEY (+8 more)
 
 ### Community 189 - "rustimports.py"
 Cohesion: 0.20
@@ -1301,7 +1302,7 @@ Nodes (13): fillColor, strokeColor, fillColor, strokeColor, palette, danger, neu
 
 ### Community 207 - "palette"
 Cohesion: 0.15
-Nodes (13): fillColor, strokeColor, fillColor, strokeColor, palette, accent, danger, secondary (+5 more)
+Nodes (13): fillColor, strokeColor, fillColor, strokeColor, fillColor, strokeColor, palette, accent (+5 more)
 
 ### Community 208 - "前端页面创建"
 Cohesion: 0.15
@@ -1363,13 +1364,13 @@ Nodes (10): cliRoot, __dirname, _fixture, inputBuf, inputObj, pkg, r, titleArg (
 Cohesion: 0.17
 Nodes (12): Agent 自用工作流检查清单, Prompt 文件映射, 专利通俗解读, 中国专利 · 交底书编写与通俗解读, 交底书编写, 工具与数据来源, 常见任务与建议方式, 模式 A · 交底书主流程 (+4 more)
 
-### Community 223 - "state.ts"
-Cohesion: 0.36
-Nodes (8): ContentState, EMPTY, isHidden(), persist(), readContentState(), setHidden(), setLastSeenBuiltinVersion(), contentStateFile()
+### Community 223 - "data-paths.ts"
+Cohesion: 0.23
+Nodes (9): ContentState, EMPTY, isHidden(), persist(), readContentState(), setHidden(), setLastSeenBuiltinVersion(), contentStateFile() (+1 more)
 
-### Community 224 - "verify-builtin-e2e.mjs"
-Cohesion: 0.29
-Nodes (6): builtinDir, child, dataDir, devRoot, fail(), timeout
+### Community 224 - "secondary"
+Cohesion: 0.67
+Nodes (3): secondary, fillColor, strokeColor
 
 ### Community 225 - "ram/soul.md"
 Cohesion: 0.18
@@ -1443,9 +1444,9 @@ Nodes (10): main(), MUTAGEN_KEY_TO_CN, normalizeGender(), normalizeMutagen(), no
 Cohesion: 0.18
 Nodes (8): User Context, 不适用场景, 免责声明, 原子化设计, 快速开始, 生成规则, 紫微斗数命盘分析器, 错误处理
 
-### Community 243 - "紫微斗数解读指南"
-Cohesion: 0.18
-Nodes (11): 七、禁用表达清单, 五、大限小限基本规则, 六、表达风格指南, 大限, 宫位叙事型（默认风格）, 小限, 当前大限判断, 推导过程展示 (+3 more)
+### Community 243 - "六、表达风格指南"
+Cohesion: 0.50
+Nodes (4): 六、表达风格指南, 宫位叙事型（默认风格）, 推导过程展示, 正面框架（建设性表达）
 
 ### Community 244 - "三、技术方案详细阐述"
 Cohesion: 0.18
@@ -1454,6 +1455,10 @@ Nodes (11): 3.1 背景, 3.2 系统框图, 3.3 模块功能说明, 3.4.1 符号�
 ### Community 245 - "Session Management Guide"
 Cohesion: 0.18
 Nodes (10): Session Management Guide, Session 是什么, Workspace（工作目录）, 会话状态（SessionState）, 会话生命周期, 子 Session（Sub-agent）, 工具批准（approved_tools）, 数据存储 (+2 more)
+
+### Community 246 - "ThemeStudio.tsx"
+Cohesion: 0.18
+Nodes (15): GeneratedPalette, Appearance, BUILTIN_THEME_LIGHT, DEFAULT_HOME_TITLE, HOME_TITLE_MAX, ThemeTokens, ALLOWED_TYPES, cloneSnapshot() (+7 more)
 
 ### Community 247 - "UI/UX Design System — Complete Product Design Engine"
 Cohesion: 0.20
@@ -1739,9 +1744,9 @@ Nodes (7): Common spreads (reference), Ethical boundaries (mandatory), Interpret
 Cohesion: 0.43
 Nodes (7): applyTimeCorrection(), { astro }, calculateChart(), correctSolarTime(), handleLeapMonth(), handleZiHour(), hourToShichenIndex()
 
-### Community 318 - "四、主星组合常见格局"
-Cohesion: 0.25
-Nodes (8): 七杀独坐（孤独将军）, 四、主星组合常见格局, 天机太阴（机月同梁格变体）, 廉贞天府（武库）, 武曲天府（金库格）, 破军独坐（开拓变革）, 紫微天府同宫（帝库格）, 紫微贪狼（桃花遇帝）
+### Community 318 - "紫微斗数解读指南"
+Cohesion: 0.13
+Nodes (15): 七、禁用表达清单, 七杀独坐（孤独将军）, 五、大限小限基本规则, 四、主星组合常见格局, 大限, 天机太阴（机月同梁格变体）, 小限, 廉贞天府（武库） (+7 more)
 
 ### Community 319 - "数据处理平台 — 批任务调度架构（虚构示例）"
 Cohesion: 0.25
@@ -1836,8 +1841,8 @@ Cohesion: 0.67
 Nodes (3): secondary, fillColor, strokeColor
 
 ### Community 344 - "paths.ts"
-Cohesion: 0.25
-Nodes (9): ContentOriginFields, MergedItem, MergeOptions, builtinContentRoot(), builtinProvidersRoot(), builtinSkillsRoot(), ContentOrigin, ContentSource (+1 more)
+Cohesion: 0.28
+Nodes (7): SkillPackageRecord, ContentOriginFields, MergedItem, MergeOptions, ContentOrigin, ContentSource, __dirname
 
 ### Community 345 - "openai.ts"
 Cohesion: 0.29
@@ -2187,9 +2192,9 @@ Nodes (6): baseUrl, desc, envKey, id, name, plugin
 Cohesion: 0.50
 Nodes (3): plugin, $schema, .opencode/plugins/graphify.js
 
-### Community 434 - "copy-on-write.ts"
-Cohesion: 0.18
-Nodes (9): CHARACTER_COPY_WHITELIST, copyTree(), materializeSkillPackage(), restoreBuiltinCharacter(), TianshuSourceFile, userSkillDirExists(), writeSourceFile(), dataRoot() (+1 more)
+### Community 434 - "characterStore.ts"
+Cohesion: 0.12
+Nodes (20): migrateCharacterRunPolicy(), dataDir, CHARACTER_COPY_WHITELIST, copyTree(), materializeCharacter(), materializeSkillPackage(), restoreBuiltinCharacter(), TianshuSourceFile (+12 more)
 
 ### Community 438 - "Phase 7: Accessibility Checklist"
 Cohesion: 0.67
@@ -2203,9 +2208,9 @@ Nodes (3): Card Hierarchy Pattern, Hierarchy Techniques, Visual Hierarchy
 Cohesion: 0.67
 Nodes (3): Commit to a Direction, Design Philosophy, The 80/20 of Design Quality
 
-### Community 442 - "primary"
-Cohesion: 0.67
-Nodes (3): primary, fillColor, strokeColor
+### Community 442 - "main.ts"
+Cohesion: 0.20
+Nodes (10): approvalNotifications, createWindow(), logUpdater(), openSessionFromDesktop(), registerIpc(), safeNoticeLabel(), seenApprovalNotifications, sendToMainWindow() (+2 more)
 
 ### Community 443 - "secondary"
 Cohesion: 0.67
@@ -2231,9 +2236,9 @@ Nodes (6): baseUrl, desc, envKey, id, name, plugin
 Cohesion: 0.67
 Nodes (3): success, fillColor, strokeColor
 
-### Community 449 - "neutral"
-Cohesion: 0.67
-Nodes (3): fillColor, strokeColor, neutral
+### Community 449 - "run-store.test.ts"
+Cohesion: 0.25
+Nodes (5): db, newChar(), NOW, seedCharacter(), tmpData
 
 ### Community 450 - "primary"
 Cohesion: 0.67
@@ -2307,9 +2312,13 @@ Nodes (6): baseUrl, desc, envKey, id, name, plugin
 Cohesion: 0.33
 Nodes (5): Database, db, { join }, rows, tables
 
-### Community 496 - "warning"
-Cohesion: 0.67
-Nodes (3): warning, fillColor, strokeColor
+### Community 495 - "verify-builtin-e2e.mjs"
+Cohesion: 0.29
+Nodes (6): builtinDir, child, dataDir, devRoot, fail(), timeout
+
+### Community 496 - "routes/characters.ts"
+Cohesion: 0.11
+Nodes (24): CharacterSnapshotContent, CharacterRunPolicy, normalizeCharacterRunPolicy(), CharacterRevisionSnapshot, characterRevisionStore, makeSnapshot(), readVisual(), characterContentStore (+16 more)
 
 ### Community 497 - "sample_architecture_review_bdb7f49b.md"
 Cohesion: 0.50
@@ -2323,33 +2332,37 @@ Nodes (3): Database, db, rows
 Cohesion: 0.50
 Nodes (3): Database, db, rows
 
-### Community 500 - "五、五行局定法"
-Cohesion: 0.67
-Nodes (3): 五、五行局定法, 命宫天干确定（五虎遁年起月法）, 纳音五行与局数对应
-
 ### Community 501 - "success"
 Cohesion: 0.67
 Nodes (3): success, fillColor, strokeColor
 
+### Community 503 - "primary"
+Cohesion: 0.67
+Nodes (3): primary, fillColor, strokeColor
+
+### Community 506 - "secondary"
+Cohesion: 0.67
+Nodes (3): secondary, fillColor, strokeColor
+
 ## Knowledge Gaps
-- **2801 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `schemaVersion`, `contentVersion`, `characters` (+2796 more)
+- **2827 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `schemaVersion`, `contentVersion`, `characters` (+2822 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **35 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **33 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `getDataDir()` connect `getDataDir` to `bash/index.ts`, `mcp_discovery.ts`, `sessionLoop`, `app.ts`, `context-builder.ts`, `system-cache.test.ts`, `toolStore.ts`, `offlineMiner.ts`, `copy-on-write.ts`, `context-references.ts`, `src/config.ts`, `inner.ts`?**
-  _High betweenness centrality (0.017) - this node is a cross-community bridge._
-- **Why does `DesktopServerStatus` connect `ServerManager` to `server-manager.ts`, `main.ts`, `desktop-contract.ts`, `SettingsPage.tsx`, `preload.ts`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Why does `useI18n()` connect `useI18n` to `SessionPanel.tsx`, `api/skills.ts`, `themeApi.ts`, `HomePage.tsx`, `runPolicy.ts`, `UpdatePanel.tsx`, `api/characters.ts`, `i18n/index.ts`, `ThemeStudio.tsx`, `apiGet`, `App.tsx`, `SettingsPage.tsx`, `GoalPanel.tsx`, `api/tools.ts`?**
-  _High betweenness centrality (0.007) - this node is a cross-community bridge._
+- **Why does `getDataDir()` connect `getDataDir` to `toolStore.ts`, `bash/index.ts`, `mcp_discovery.ts`, `db/schema.ts`, `app.ts`, `system-cache.test.ts`, `offlineMiner.ts`, `context-builder.ts`, `outer.ts`, `src/config.ts`, `inner.ts`, `attachments.ts`, `data-paths.ts`?**
+  _High betweenness centrality (0.004) - this node is a cross-community bridge._
+- **Why does `getDb()` connect `db/schema.ts` to `visual-store.ts`, `app.ts`, `offlineMiner.ts`, `routes/characters.ts`, `getDataDir`, `src/config.ts`, `outer.ts`, `asset-gc.ts`, `sub-agent.ts`?**
+  _High betweenness centrality (0.003) - this node is a cross-community bridge._
 - **What connects `$schema`, `.opencode/plugins/graphify.js`, `schemaVersion` to the rest of the system?**
-  _2801 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `mcp-client.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.14619883040935672 - nodes in this community are weakly interconnected._
+  _2827 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `toolStore.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.1053763440860215 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.08695652173913043 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
 - **Should `themeDefinitions.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.12987012987012986 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.12631578947368421 - nodes in this community are weakly interconnected._
+- **Should `App.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.11904761904761904 - nodes in this community are weakly interconnected._

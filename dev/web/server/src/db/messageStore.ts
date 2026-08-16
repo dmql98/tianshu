@@ -71,7 +71,10 @@ export const messageStore = {
       supersedes_message_id: data.supersedes_message_id || null,
       created_at: now,
     }
-    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, turn_id, run_id, status, supersedes_message_id, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @turn_id, @run_id, @status, @supersedes_message_id, @created_at)`).run(row)
+    // 只绑定 SQL 引用的命名参数（node:sqlite 的 allowUnknownNamedParameters=false
+    // 会拒绝多余字段，§7.3）；id 由自增生成，不参与 INSERT。
+    const { id: _autoId, ...insertParams } = row
+    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, turn_id, run_id, status, supersedes_message_id, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @turn_id, @run_id, @status, @supersedes_message_id, @created_at)`).run(insertParams)
     row.id = Number(result.lastInsertRowid)
     getDb().prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(now, sessionId)
     return row

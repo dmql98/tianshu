@@ -22,15 +22,48 @@ extraResources:
       - '!**/*.map'
       - '!**/package-lock.json'
 
+# ── Windows（§2.1/§9.1）────────────────────────────────────────────
+# 保留旧 artifactName（TianShu-Setup-<version>-x64.exe），维持历史差分更新链。
 win:
   target:
     - target: nsis
       arch: [x64]
   artifactName: TianShu-Setup-${version}-${arch}.${ext}
 
+# ── macOS（§2.2/§9.1/§9.2）──────────────────────────────────────────
+# 首版两个独立包（mac-x64 / mac-arm64），不做 Universal App。
+# DMG 是新用户入口，ZIP 是 electron-updater 载荷（latest-mac.yml 必须含两者）。
+# 正式发布在 CI 通过 -c.mac.notarize=true 启用公证（§9.2）；本地无证书构建
+# 保持 notarize: false，避免强行公证失败。签名/公证凭据只来自 CI secrets。
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  artifactName: TianShu-${version}-mac-${arch}.${ext}
+  hardenedRuntime: true
+  notarize: false
+  # macOS 正式包需要 icon.icns（§9.3）：当前仓库只有 icon.ico/icon.png，
+  # .icns 需在 macOS 主机从高分辨率源图生成（外部前置条件），
+  # 生成后放入 assets/icon.icns；缺失时 electron-builder 使用默认图标并警告。
+
+# ── Linux（§2.3/§9.1）───────────────────────────────────────────────
+# 首版以 x64 AppImage 为正式自动更新渠道；.deb 仅作为安装便利包，
+# 不承诺通过 electron-updater 自更新。
+linux:
+  category: Utility
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  artifactName: TianShu-${version}-linux-${arch}.${ext}
+
 # 公开更新直接发布到当前公开源码仓库 dmql98/tianshu（任务书 §10.1 允许的路径）。
 # electron-updater 读取生成的 app-update.yml 决定 feed；客户端内不包含任何 token。
-# 本地构建 `--publish never`（见 package.json dist:win），仅 CI 在打 tag 时发布。
+# 本地构建 `--publish never`（见 package.json dist:*），仅 CI 在打 tag 时发布。
 publish:
   provider: github
   owner: dmql98

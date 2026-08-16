@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "engines": { "node": "24.x" },
+  "devDependencies": {
+    "js-yaml": "^4.1.0"
+  },
   "scripts": {
     "install:all": "npm ci --prefix web/server && npm ci --prefix web/client && npm ci --prefix desktop",
     "build:server": "npm run build --prefix web/server",
@@ -11,7 +14,10 @@
     "build": "npm run build:server && npm run build:client && npm run build:desktop",
     "dev": "node scripts/dev-desktop.mjs",
     "prepare:desktop": "node scripts/prepare-desktop-runtime.mjs",
-    "dist:win": "npm run build && npm run prepare:desktop && npm run dist:win --prefix desktop",
+    "dist:win": "npm run build && node scripts/prepare-desktop-runtime.mjs --platform win32 --arch x64 && npm run dist:win --prefix desktop",
+    "dist:mac:x64": "npm run build && node scripts/prepare-desktop-runtime.mjs --platform darwin --arch x64 && npm run dist:mac:x64 --prefix desktop",
+    "dist:mac:arm64": "npm run build && node scripts/prepare-desktop-runtime.mjs --platform darwin --arch arm64 && npm run dist:mac:arm64 --prefix desktop",
+    "dist:linux:x64": "npm run build && node scripts/prepare-desktop-runtime.mjs --platform linux --arch x64 && npm run dist:linux:x64 --prefix desktop",
     "test:desktop": "npm test --prefix desktop",
     "test:server": "npm test --prefix web/server"
   }

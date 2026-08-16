@@ -21,6 +21,16 @@ const api = {
     ipcRenderer.on('updater:state', handler)
     return () => ipcRenderer.removeListener('updater:state', handler)
   },
+  onOpenSession: (listener: (sessionId: string) => void) => {
+    const handler = (_event: IpcRendererEvent, sessionId: string) => listener(sessionId)
+    ipcRenderer.on('desktop:open-session', handler)
+    return () => ipcRenderer.removeListener('desktop:open-session', handler)
+  },
+  onResumeSync: (listener: () => void) => {
+    const handler = () => listener()
+    ipcRenderer.on('desktop:resume-sync', handler)
+    return () => ipcRenderer.removeListener('desktop:resume-sync', handler)
+  },
   openDirectoryDialog: (defaultPath?: string) =>
     ipcRenderer.invoke('desktop:open-directory', defaultPath),
 }

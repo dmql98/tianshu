@@ -10,6 +10,7 @@
 !/docs/
 /docs/*
 !/docs/客户端分发与自动更新-OpenCode实施计划.md
+!/docs/跨平台客户端与Node-SQLite迁移开发指南.md
 
 # CI 发布管线
 !/.github/

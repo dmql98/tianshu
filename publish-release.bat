@@ -229,6 +229,7 @@ exit /b 1
 echo ============================================================
 echo  TianShu Release Verifier  v!CURRENT_VERSION!
 echo ============================================================
-set "TS_VERSION=!CURRENT_VERSION!"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$t='v'+$env:TS_VERSION; $h=@{'User-Agent'='tianshu-verify'}; try { $r=Invoke-RestMethod -Uri ('https://api.github.com/repos/dmql98/tianshu/releases/tags/'+$t) -Headers $h -TimeoutSec 30 } catch { Write-Output ('[VERIFY] FAIL: release '+$t+' not found: '+$_.Exception.Message); exit 1 }; $names=@($r.assets | ForEach-Object {$_.name}); $exe='TianShu-Setup-'+$env:TS_VERSION+'-x64.exe'; $req=@($exe, ($exe+'.blockmap'), 'latest.yml'); $miss=@($req | Where-Object {$names -notcontains $_}); if($miss.Count -gt 0){ Write-Output ('[VERIFY] FAIL missing assets: '+($miss -join ', ')); exit 1 }; Write-Output ('[VERIFY] OK: release '+$t+' has all 3 assets'); foreach($n in $req){ try { $u='https://github.com/dmql98/tianshu/releases/download/'+$t+'/'+$n; $w=Invoke-WebRequest -Uri $u -Method Head -MaximumRedirection 5 -TimeoutSec 30 -UseBasicParsing; Write-Output ('  '+$w.StatusCode+'  '+$n) } catch { Write-Output ('  FAIL  '+$n); exit 1 } }; Write-Output '[VERIFY] done'; exit 0"
+rem 多平台资产清单校验（迁移指南 §13）：latest*.yml + Windows exe/blockmap
+rem + macOS x64/arm64 dmg+zip + Linux AppImage。
+node "%~dp0dev\scripts\verify-desktop-release.mjs" --remote "v!CURRENT_VERSION!" --repo dmql98/tianshu
 exit /b %errorlevel%

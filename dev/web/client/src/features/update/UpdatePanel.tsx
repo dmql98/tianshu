@@ -47,7 +47,7 @@ export default function UpdatePanel() {
       case 'disabled':
         return (
           <div className="setting-row">
-            <div className="setting-info"><span className="setting-label">{t('自动更新')}</span><span className="setting-hint">{t('仅打包客户端支持自动更新')}</span></div>
+            <div className="setting-info"><span className="setting-label">{t('自动更新')}</span><span className="setting-hint">{state.disabledReason || t('仅打包客户端支持自动更新')}</span></div>
             <div className="setting-control"><span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>disabled</span></div>
           </div>
         )
@@ -56,7 +56,7 @@ export default function UpdatePanel() {
       case 'available':
         return (
           <div className="setting-row">
-            <div className="setting-info"><span className="setting-label">{t('发现新版本')}</span><span className="setting-hint">{t('发现 {version}，点击下载后手动安装', { version: state.targetVersion ? `v${state.targetVersion}` : t('新版本') })}</span></div>
+            <div className="setting-info"><span className="setting-label">{t('发现新版本')}</span><span className="setting-hint">{t('发现 {version}，点击下载后手动安装', { version: state.targetVersion ? `v${state.targetVersion}` : t('新版本') })}{typeof state.packageSize === 'number' ? `（安装包 ${formatBytes(state.packageSize)}）` : ''}</span></div>
             <div className="setting-control">
               <button className="btn primary" onClick={() => void download()}>{t('下载更新')}</button>
             </div>
@@ -66,7 +66,7 @@ export default function UpdatePanel() {
         const percent = state.percent ?? 0
         return (
           <div className="setting-row" style={{ alignItems: 'flex-start' }}>
-            <div className="setting-info"><span className="setting-label">{t('正在下载')}</span></div>
+            <div className="setting-info"><span className="setting-label">{t('正在下载')}</span><span className="setting-hint">{state.isDelta === true ? t('差分下载（增量）') : state.isDelta === false ? t('完整下载') : ''}</span></div>
             <div className="setting-control" style={{ minWidth: 260 }}>
               <div style={{ height: 8, borderRadius: 4, background: 'var(--bg-input,#eae6df)', overflow: 'hidden', marginBottom: 6 }}>
                 <div style={{ height: '100%', width: `${percent}%`, background: 'var(--jade,#1f9d72)', transition: 'width 0.2s' }} />
@@ -89,7 +89,7 @@ export default function UpdatePanel() {
         }
         return (
           <div className="setting-row">
-            <div className="setting-info"><span className="setting-label">{t('更新已就绪')}</span><span className="setting-hint">{t('安装时将自动重启天枢')}</span></div>
+            <div className="setting-info"><span className="setting-label">{t('更新已就绪')}</span><span className="setting-hint">{t('下载完成，重启以应用更新')}{state.isDelta === true ? `（${t('差分下载')}）` : state.isDelta === false ? `（${t('完整下载')}）` : ''}</span></div>
             <div className="setting-control">
               <button className="btn primary" style={{ marginRight: 8 }} onClick={() => void install()}>{t('立即重启安装')}</button>
               <button className="btn" onClick={() => setDismissed(true)}>{t('稍后')}</button>

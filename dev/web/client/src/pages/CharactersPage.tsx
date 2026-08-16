@@ -107,7 +107,7 @@ export default function CharactersPage() {
                     <div className="star-info">
                       <div className="star-tags">
                         <span className="star-tag blue">{roleLabelKeys[char.role] ? t(roleLabelKeys[char.role]) : char.role}</span>
-                        <span className="star-tag">{char.default_strategy}</span>
+                        <span className="star-tag">{t(char.default_strategy)}</span>
                         {char.model && <span className="star-tag">{char.model}</span>}
                         {char.source === 'builtin' && <span className="star-tag" style={{ background: 'rgba(120,120,200,0.15)', color: 'var(--ink-mid)' }}>{t('内置')}</span>}
                         {char.source === 'user' && char.overridesBuiltin && <span className="star-tag" style={{ background: 'rgba(40,160,120,0.15)', color: 'var(--ink-mid)' }}>{t('已自定义')}</span>}

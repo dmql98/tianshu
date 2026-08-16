@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import type { Server, Socket } from 'socket.io'
 import { getDb } from '../../db/schema.js'
+import { withTransaction } from '../../db/sqlite-db.js'
 import { runStore, isParked, type RunPhase } from './run-store.js'
 import { checkpointStore } from './checkpoint-store.js'
 
@@ -46,7 +47,7 @@ export const runEventStore = {
 
   append(runId: string, type: string, payload: Record<string, unknown>): RunEventRow | null {
     const db = getDb()
-    return db.transaction(() => {
+    return withTransaction(db, () => {
       const run = runStore.get(runId)
       if (!run) throw new Error(`Run "${runId}" not found`)
       const terminal = terminalStatus(type, payload)
@@ -99,7 +100,7 @@ export const runEventStore = {
           (@event_id, @run_id, @session_id, @seq, @type, @payload, @created_at)
       `).run(row)
       return row
-    })()
+    })
   },
 }
 
@@ -111,6 +112,27 @@ export function publishRunEvent(
 ): RunEventRow | null {
   const row = runEventStore.append(runId, type, payload)
   if (!row) return null
+  // The packaged desktop server is a forked Node child. Send approval prompts
+  // directly to Electron's main process as well as Socket.IO so a suspended or
+  // disconnected renderer cannot hide a request that is blocking the run.
+  if (type === 'approval.requested' && typeof process.send === 'function') {
+    const session = getDb().prepare('SELECT title FROM sessions WHERE id = ?').get(row.session_id) as
+      | { title?: string }
+      | undefined
+    try {
+      process.send({
+        type: 'approval-required',
+        sessionId: row.session_id,
+        runId: row.run_id,
+        toolCallId: typeof payload.tool_call_id === 'string' ? payload.tool_call_id : '',
+        sessionTitle: session?.title,
+        toolName: typeof payload.tool_name === 'string' ? payload.tool_name : undefined,
+        approvalKind: payload.approval_kind === 'workspace' ? 'workspace' : 'risk',
+      })
+    } catch {
+      /* desktop IPC may already be closing; Socket.IO delivery still proceeds */
+    }
+  }
   // The transaction above has committed before anything reaches Socket.IO.
   target.emit(type, {
     ...payload,

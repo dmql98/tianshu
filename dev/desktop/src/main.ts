@@ -1,14 +1,16 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { ServerManager } from './server-manager.js'
+import { bundledNodePath, verifyBundledNode } from './runtime-paths.js'
 import { UpdateManager } from './updater.js'
 import type {
   DesktopAppInfo,
   DesktopServerStatus,
   UpdateState,
 } from '../../shared/desktop-contract.js'
+import type { ServerMessage } from '../../shared/server-ipc.js'
 
 const isDev = !app.isPackaged
 const DEV_URL = process.env.TIANSHU_DEV_URL || 'http://127.0.0.1:3457'
@@ -17,6 +19,95 @@ let mainWindow: BrowserWindow | null = null
 let serverManager: ServerManager | null = null
 let updateManager: UpdateManager | null = null
 let serverUrl = DEV_URL
+const approvalNotifications = new Map<string, Notification>()
+const seenApprovalNotifications = new Set<string>()
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('cn.tianshu.desktop')
+}
+
+function safeNoticeLabel(value: unknown, fallback: string, maxLength = 120): string {
+  if (typeof value !== 'string') return fallback
+  const clean = value.replace(/[\r\n\t]+/g, ' ').trim()
+  return clean ? clean.slice(0, maxLength) : fallback
+}
+
+function sendToMainWindow(channel: string, ...args: unknown[]): void {
+  const win = mainWindow
+  if (!win || win.isDestroyed()) return
+  const send = () => {
+    if (!win.isDestroyed()) win.webContents.send(channel, ...args)
+  }
+  if (win.webContents.isLoadingMainFrame()) win.webContents.once('did-finish-load', send)
+  else send()
+}
+
+function openSessionFromDesktop(sessionId: string): void {
+  const win = mainWindow
+  if (!win || win.isDestroyed()) return
+  if (win.isMinimized()) win.restore()
+  if (!win.isVisible()) win.show()
+  win.focus()
+  sendToMainWindow('desktop:open-session', sessionId)
+}
+
+function showApprovalNotification(
+  notice: Extract<ServerMessage, { type: 'approval-required' }>,
+): void {
+  if (!Notification.isSupported()) return
+  const sessionId = safeNoticeLabel(notice.sessionId, '', 200)
+  const toolCallId = safeNoticeLabel(notice.toolCallId, '', 200)
+  if (!sessionId || !toolCallId) return
+
+  const key = `${sessionId}:${toolCallId}`
+  if (seenApprovalNotifications.has(key)) return
+  // Bound replay de-duplication for very long-lived desktop processes.
+  if (seenApprovalNotifications.size >= 500) {
+    const oldest = seenApprovalNotifications.values().next().value
+    if (oldest) seenApprovalNotifications.delete(oldest)
+  }
+  seenApprovalNotifications.add(key)
+
+  const sessionTitle = safeNoticeLabel(notice.sessionTitle, '未命名会话', 80)
+  const toolName = safeNoticeLabel(notice.toolName, '一项操作', 100)
+  const notification = new Notification({
+    id: `approval-${toolCallId}`,
+    groupId: 'tianshu-approvals',
+    groupTitle: '天枢授权请求',
+    title: '天枢需要授权',
+    body: `会话“${sessionTitle}”需要授权：${toolName}`,
+    timeoutType: 'never',
+    urgency: 'critical',
+    actions: process.platform === 'win32' || process.platform === 'darwin'
+      ? [
+          { type: 'button', text: '稍后' },
+          { type: 'button', text: '跳到会话' },
+        ]
+      : undefined,
+  })
+
+  const open = () => openSessionFromDesktop(sessionId)
+  notification.on('click', open)
+  notification.on('action', (event) => {
+    if (event.actionIndex === 1) open()
+    else notification.close()
+  })
+  notification.on('close', () => approvalNotifications.delete(key))
+  approvalNotifications.set(key, notification)
+  notification.show()
+}
+
+function clearApprovalNotifications(
+  notice: Extract<ServerMessage, { type: 'approval-cleared' }>,
+): void {
+  const prefix = `${notice.sessionId}:`
+  for (const [key, notification] of approvalNotifications) {
+    if (notice.toolCallId ? key === `${prefix}${notice.toolCallId}` : key.startsWith(prefix)) {
+      notification.close()
+      approvalNotifications.delete(key)
+    }
+  }
+}
 
 function updaterLogFile(): string {
   return join(app.getPath('userData'), 'logs', 'updater.log')
@@ -133,6 +224,9 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Runs and Socket.IO live outside the renderer, but Chromium otherwise
+      // throttles its timers while minimized and can make streaming look dead.
+      backgroundThrottling: false,
     },
   })
   mainWindow = win
@@ -174,6 +268,11 @@ function createWindow(): void {
     mainWindow = null
   })
 
+  // Force an authoritative renderer reconciliation after returning from the
+  // background. Focus is included for platforms that do not emit restore.
+  win.on('restore', () => sendToMainWindow('desktop:resume-sync'))
+  win.on('focus', () => sendToMainWindow('desktop:resume-sync'))
+
   void win.loadURL(serverUrl)
 }
 
@@ -194,20 +293,38 @@ if (!app.requestSingleInstanceLock()) {
 
     const manager = new ServerManager({
       packaged: app.isPackaged,
-      nodePath: join(process.resourcesPath, 'runtime', 'node', 'node.exe'),
+      // 跨平台解析内置 Node 可执行文件（win32 -> node.exe，POSIX -> bin/node）。
+      nodePath: bundledNodePath(process.resourcesPath),
       serverEntry: join(process.resourcesPath, 'server', 'dist', 'index.js'),
       clientDist: join(process.resourcesPath, 'client'),
       userDataDir: userData,
       devUrl: DEV_URL,
+      // 启动前校验：Node 文件存在 + runtime-manifest 与当前平台/架构一致（§8.5）。
+      preflight: () => {
+        const check = verifyBundledNode(process.resourcesPath)
+        return check.ok ? null : check.message ?? '内置 Node 校验失败'
+      },
     })
     serverManager = manager
     registerIpc(manager)
+    manager.onApprovalRequired(showApprovalNotification)
+    manager.onApprovalCleared(clearApprovalNotifications)
 
-    // ── updater (disabled in dev; packaged only) ──
+    // ── updater（§11.4：dev 禁用；packaged 才启用；Linux 仅 AppImage 安装形态）──
+    // Linux 下 deb / unpacked 运行没有 APPIMAGE 环境变量 → 禁用自动更新，
+    // UI 显示"请手动下载新版本"而不是反复报错。
+    const isSupportedInstallForm =
+      process.platform !== 'linux' || Boolean(process.env.APPIMAGE)
+    const updaterEnabled = app.isPackaged && isSupportedInstallForm
+    const updaterDisabledReason =
+      app.isPackaged && !isSupportedInstallForm
+        ? '当前安装方式（非 AppImage）不支持自动更新，请手动下载新版本'
+        : undefined
     updateManager = new UpdateManager({
       updater: autoUpdater,
       currentVersion: app.getVersion(),
-      enabled: app.isPackaged,
+      enabled: updaterEnabled,
+      disabledReason: updaterDisabledReason,
       stopServer: async () => {
         if (serverManager) await serverManager.stop()
       },

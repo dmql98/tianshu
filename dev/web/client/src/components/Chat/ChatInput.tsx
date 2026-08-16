@@ -341,12 +341,18 @@ export default function ChatInput() {
         <select
           value={session?.current_strategy || 'Ask Risky'}
           onChange={e => handleStrategyChange(e.target.value as Strategy)}
-          title={t('审批模式')}
+          title={session?.current_strategy === 'Auto Approve'
+            ? t('所有工具操作和授权路径均自动允许')
+            : session?.current_strategy === 'Auto in Workspace'
+              ? t('授权工作区内自动允许，新增路径时询问')
+            : t('审批模式')}
           className="io-select"
         >
-          <option value="Read Only">Read Only</option>
-          <option value="Ask Risky">Ask Risky</option>
-          <option value="Auto Approve">Auto Approve</option>
+          <option value="Read Only">{t('Read Only')}</option>
+          <option value="Ask Every Change">{t('Ask Every Change')}</option>
+          <option value="Ask Risky">{t('Ask Risky')}</option>
+          <option value="Auto in Workspace">{t('Auto in Workspace')}</option>
+          <option value="Auto Approve">{t('Auto Approve')}</option>
         </select>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { getDb } from './schema.js'
+import { withTransaction } from './sqlite-db.js'
 import { normalizeStrategy } from '../agent/strategy.js'
 
 export interface SessionRow {
@@ -139,7 +140,7 @@ export const sessionStore = {
   },
   delete(id: string): boolean {
     const db = getDb()
-    return db.transaction(() => {
+    return withTransaction(db, () => {
       // Cascade through every table that references the session (FK is ON).
       const runs = db.prepare('SELECT id FROM runs WHERE session_id = ?').all(id) as { id: string }[]
       const runIds = runs.map(r => r.id)
@@ -166,6 +167,6 @@ export const sessionStore = {
       db.prepare('DELETE FROM trajectories WHERE session_id = ?').run(id)
       db.prepare('DELETE FROM messages WHERE session_id = ?').run(id)
       return db.prepare('DELETE FROM sessions WHERE id = ?').run(id).changes > 0
-    })()
+    })
   },
 }

@@ -1,7 +1,18 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client'
 import type { SessionSummary } from '@/types'
+import type { CharacterMotion } from './characters'
 
 export const fetchSessions = () => apiGet<SessionSummary[]>('/api/sessions')
+
+export interface SessionPresence {
+  sessionId: string
+  runId: string | null
+  motion: CharacterMotion
+  since: number
+}
+
+export const fetchSessionPresences = () =>
+  apiGet<SessionPresence[]>('/api/sessions/presences')
 
 /** 最近普通对话摘要（HOME_PAGE_DEVELOPMENT_PLAN §4.2）：服务端已清洗截断最后消息。 */
 export interface RecentSessionSummary extends SessionSummary {

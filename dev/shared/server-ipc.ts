@@ -10,6 +10,16 @@ export type ServerMessage =
   | { type: 'ready'; port: number }
   | { type: 'fatal'; message: string }
   | { type: 'log'; level: string; message: string }
+  | {
+      type: 'approval-required'
+      sessionId: string
+      runId: string
+      toolCallId: string
+      sessionTitle?: string
+      toolName?: string
+      approvalKind?: 'workspace' | 'risk'
+    }
+  | { type: 'approval-cleared'; sessionId: string; toolCallId?: string }
 
 export type DesktopMessage =
   | { type: 'shutdown' }

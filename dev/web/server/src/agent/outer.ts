@@ -351,6 +351,14 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     : limitSummary
       ? 'run.max_turns'
       : 'run.completed'
+  // Cache stats are emitted as SESSION CUMULATIVE totals (baseline from prior
+  // runs + this run), matching what is persisted to sessions below, so the UI
+  // cache hit number stays consistent with the DB and updates per run.
+  const hitTotal = (session.cache_hit_tokens || 0) + totalCacheHitTokens
+  const missTotal = (session.cache_miss_tokens || 0) + totalCacheMissTokens
+  const cumulativeRatio = hitTotal + missTotal > 0
+    ? ((hitTotal / (hitTotal + missTotal)) * 100).toFixed(1)
+    : 'N/A'
   socket.emit(terminalEvent, {
     session_id: sessionId,
     run_id: runId,
@@ -364,21 +372,16 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
       },
     } : {}),
     usage: { input_tokens: totalInputTokens, output_tokens: totalOutputTokens },
-    cache: { hitTokens: totalCacheHitTokens, missTokens: totalCacheMissTokens, hitRatio },
+    cache: { hitTokens: hitTotal, missTokens: missTotal, hitRatio: cumulativeRatio },
   })
 
   if (totalInputTokens > 0 || totalOutputTokens > 0) {
-    // Accumulate across runs (input/output) AND across runs for cache tokens —
-    // previously cache_hit/miss were overwritten with the last run's totals,
-    // which made cache_hit_ratio reflect only the final run, not the session.
-    const hit = (session.cache_hit_tokens || 0) + totalCacheHitTokens
-    const miss = (session.cache_miss_tokens || 0) + totalCacheMissTokens
     sessionStore.update(sessionId, {
       input_tokens: (session.input_tokens || 0) + totalInputTokens,
       output_tokens: (session.output_tokens || 0) + totalOutputTokens,
-      cache_hit_tokens: hit,
-      cache_miss_tokens: miss,
-      cache_hit_ratio: hit + miss > 0 ? ((hit / (hit + miss)) * 100).toFixed(1) : 'N/A',
+      cache_hit_tokens: hitTotal,
+      cache_miss_tokens: missTotal,
+      cache_hit_ratio: cumulativeRatio,
     })
   }
 

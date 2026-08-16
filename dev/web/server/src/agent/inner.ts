@@ -7,6 +7,7 @@ import type { ToolResult } from '../tools/types.js'
 import { getSessionState, isToolApprovedForSession, approveToolForSession } from './session.js'
 import { logLLMCall } from '../debug/llm-logger.js'
 import type { Strategy } from './session.js'
+import { decideToolApproval } from './strategy.js'
 import type { Server, Socket } from 'socket.io'
 import type { MCPClient } from '../tools/mcp-client.js'
 import { resolve as pathResolve } from 'path'
@@ -22,8 +23,9 @@ import { approvalRegistry } from './runtime/approval-registry.js'
 import { CONTROL_TOOL_SET } from './loop/control-registry.js'
 import { normalizeToolCalls, buildInvalidToolCall } from './tool-call-normalizer.js'
 import { stableArgsHash } from './loop/loop-policy.js'
+import { decideWorkspaceApproval } from './workspace-approval.js'
 
-const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch'])
+const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch', 'get_time', 'debug_sessions'])
 
 /** Outcome category of a tool call for progress assessment (§8.5). */
 function outcomeKindFor(name: string): ToolCallRecord['outcomeKind'] {
@@ -107,9 +109,7 @@ function checkToolBinding(characterId: string, toolName: string, args: Record<st
 
 function checkStrategy(toolName: string, strategy: Strategy): 'allow' | 'ask' | 'deny' {
   const dangerous = getDangerousTools().includes(toolName)
-  if (strategy === 'Read Only' && dangerous) return 'deny'
-  if (strategy === 'Ask Risky' && dangerous) return 'ask'
-  return 'allow'
+  return decideToolApproval(strategy, { dangerous, readOnly: READ_ONLY_TOOLS.has(toolName) })
 }
 
 export interface SubAgentRequestData {
@@ -376,6 +376,12 @@ export async function innerLoop(
         tool_input: toolCallsAcc.length > 0 ? JSON.stringify(toolCallsAcc) : null,
         token_speed: finalTokenSpeed || null,
       })
+      // Cache stats are reported as SESSION CUMULATIVE totals (DB baseline from
+      // previous runs + this run's accumulation) so the UI stays consistent
+      // with sessions.cache_hit_ratio and updates live during the run.
+      const sess = sessionStore.getById(sessionId)
+      const hitTotal = (sess?.cache_hit_tokens || 0) + totalCacheHitTokens
+      const missTotal = (sess?.cache_miss_tokens || 0) + totalCacheMissTokens
       socket?.emit('message.metrics', {
         session_id: sessionId,
         run_id: opts.run_id,
@@ -383,10 +389,10 @@ export async function innerLoop(
         token_speed: finalTokenSpeed,
         token_speed_estimated: tokenSpeedEstimated,
         cache: {
-          hitTokens: totalCacheHitTokens,
-          missTokens: totalCacheMissTokens,
-          hitRatio: totalCacheHitTokens + totalCacheMissTokens > 0
-            ? ((totalCacheHitTokens / (totalCacheHitTokens + totalCacheMissTokens)) * 100).toFixed(1)
+          hitTokens: hitTotal,
+          missTokens: missTotal,
+          hitRatio: hitTotal + missTotal > 0
+            ? ((hitTotal / (hitTotal + missTotal)) * 100).toFixed(1)
             : 'N/A',
         },
       })
@@ -595,7 +601,7 @@ export async function innerLoop(
         // Ask sequentially — user approval is interactive, can't batch
         const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
           if (!socket || !sessionId) { resolve('reject'); return }
-          socket.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[Ask Risky] ${name}`, tool_input: JSON.stringify(args) })
+          socket.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[${strategyState.current_strategy}] ${name}`, tool_input: JSON.stringify(args) })
           approvalRegistry.register(sessionId, tc.id, opts.run_id, resolve)
         })
         if (choice === 'reject') {
@@ -660,31 +666,37 @@ export async function innerLoop(
 
     let result = await execWithRoots()
 
-    if (result.escaped && sessionId && socket) {
+    if (result.escaped && sessionId) {
       const escapedPath = result.error?.replace('Path escapes workspace: ', '') || ''
       const absEscapedPath = pathResolve(workspace || getDataDir(), escapedPath)
       // File requests authorize their containing directory; directory
       // requests keep that directory as the least useful permission scope.
       const approvedPath = workspaceApprovalRoot(absEscapedPath)
-      const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
-        socket.emit('approval.requested', {
-          session_id: sessionId,
-          run_id: opts.run_id,
-          tool_call_id: p.tc.id,
-          tool_name: p.name,
-          tool_input: JSON.stringify(p.args),
-          approval_kind: 'workspace',
-          requested_path: absEscapedPath,
-          permission_root: approvedPath,
+      const strategy = getSessionState(sessionId).current_strategy
+      const choice = await decideWorkspaceApproval(strategy, () =>
+        new Promise<'once' | 'always' | 'reject'>((resolve) => {
+          if (!socket) { resolve('reject'); return }
+          socket.emit('approval.requested', {
+            session_id: sessionId,
+            run_id: opts.run_id,
+            tool_call_id: p.tc.id,
+            tool_name: p.name,
+            tool_input: JSON.stringify(p.args),
+            approval_kind: 'workspace',
+            requested_path: absEscapedPath,
+            permission_root: approvedPath,
+          })
+          approvalRegistry.register(sessionId, p.tc.id, opts.run_id, resolve)
         })
-        approvalRegistry.register(sessionId, p.tc.id, opts.run_id, resolve)
-      })
+      )
       if (choice !== 'reject') {
         if (choice === 'always') {
           let updatedWorkspaces: string[] | undefined
           const dbSession = sessionStore.getById(sessionId)
           if (dbSession) {
-            const ws: string[] = dbSession.workspaces ? JSON.parse(dbSession.workspaces) : []
+            const ws: string[] = dbSession.workspaces
+              ? JSON.parse(dbSession.workspaces)
+              : dbSession.workspace ? [dbSession.workspace] : []
             const isCovered = ws.some((w: string) => isPathWithin(w, approvedPath))
             if (!isCovered && !ws.includes(approvedPath)) {
               ws.push(approvedPath)
@@ -692,7 +704,7 @@ export async function innerLoop(
             }
             updatedWorkspaces = ws
           }
-          socket.emit('workspace.updated', {
+          socket?.emit('workspace.updated', {
             session_id: sessionId,
             workspaces: updatedWorkspaces,
           })

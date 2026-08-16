@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './schema.js'
+import { withTransaction } from './sqlite-db.js'
 
 export interface TurnRow {
   id: string
@@ -14,7 +15,7 @@ export interface TurnRow {
 export const turnStore = {
   create(sessionId: string, triggerType: TurnRow['trigger_type'] = 'user'): TurnRow {
     const db = getDb()
-    return db.transaction(() => {
+    return withTransaction(db, () => {
       const next = db.prepare(
         'SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM turns WHERE session_id = ?',
       ).get(sessionId) as { ordinal: number }
@@ -34,7 +35,7 @@ export const turnStore = {
           (@id, @session_id, @ordinal, @trigger_type, @user_message_id, @status, @created_at)
       `).run(row)
       return row
-    })()
+    })
   },
 
   attachUserMessage(turnId: string, messageId: number) {

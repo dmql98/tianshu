@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { connectSocket } from '@/api/socket'
 import { fetchCharacterPresence, type CharacterMotion } from '@/api/characters'
+import { motionForRunEvent } from './motion'
 
 export const MOTION_END_EVENT = 'tianshu:motion-ended'
 
@@ -10,21 +11,11 @@ interface SemanticEvent {
   character_id?: string
 }
 
-function eventMotion(type: string): CharacterMotion | null {
-  if (type === 'run.cancelled') return 'idle'
-  if (type === 'run.failed' || type === 'run.interrupted') return 'error'
-  if (type === 'run.completed') return 'success'
-  if (type.startsWith('tool.')) return 'working'
-  if (type === 'message.delta') return 'speaking'
-  if (type === 'run.started' || type === 'run.retrying' || type === 'run.queued') return 'thinking'
-  if (type === 'approval.requested') return 'listening'
-  return null
-}
-
 const EVENT_TYPES = [
   'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
-  'run.cancelled', 'run.interrupted', 'message.delta', 'tool.started', 'tool.output',
-  'tool.completed', 'approval.requested',
+  'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
+  'run.continuation_queued', 'message.delta', 'tool.started', 'tool.output',
+  'tool.completed', 'approval.requested', 'ask_user',
 ]
 
 export function useCharacterPresence(characterId: string, sessionId?: string, enabled = true): CharacterMotion {
@@ -60,7 +51,7 @@ export function useCharacterPresence(characterId: string, sessionId?: string, en
       const listener = (event: SemanticEvent) => {
         if (sessionId && event.session_id !== sessionId) return
         if (!sessionId && event.character_id && event.character_id !== characterId) return
-        const next = eventMotion(type)
+        const next = motionForRunEvent(type)
         if (!next) return
         setMotion(next)
         if (next === 'success' || next === 'error') scheduleIdle(8000)

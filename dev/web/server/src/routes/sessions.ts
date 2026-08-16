@@ -2,8 +2,10 @@ import { Hono } from 'hono'
 import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { getDb } from '../db/schema.js'
+import { withTransaction } from '../db/sqlite-db.js'
 import { providerStore } from '../db/providerStore.js'
 import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-title.js'
+import { characterPresenceProjector } from '../character/presence-projector.js'
 
 const router = new Hono()
 
@@ -13,6 +15,7 @@ router.get('/recent', (c) => {
   const limit = raw ? Number.parseInt(raw, 10) : 3
   return c.json(sessionStore.listRecent(limit))
 })
+router.get('/presences', (c) => c.json(characterPresenceProjector.listBySession()))
 router.post('/', async (c) => {
   const body = await c.req.json()
   const session = sessionStore.create({ id: body.id, ...body })
@@ -89,7 +92,7 @@ router.post('/:id/fork', async (c) => {
     return c.json({ error: 'A valid assistant message is required' }, 400)
   }
 
-  const result = getDb().transaction(() => {
+  const result = withTransaction(getDb(), () => {
     const title = sessionStore.nextForkTitle(source.title)
     const session = sessionStore.create({
       id: targetId,
@@ -116,7 +119,7 @@ router.post('/:id/fork', async (c) => {
     })
     messageStore.copyFirst(sourceId, targetId, throughIndex + 1)
     return { session, messages: messageStore.getMessages(targetId) }
-  })()
+  })
 
   return c.json(result, 201)
 })

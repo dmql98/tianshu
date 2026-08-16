@@ -151,6 +151,11 @@ export function registerChatSocket(io: Server, socket: Socket) {
   socket.on('abort', (data: { session_id?: string }) => {
     if (!data.session_id) return
     approvalRegistry.cancelSession(data.session_id)
+    if (typeof process.send === 'function') {
+      try {
+        process.send({ type: 'approval-cleared', sessionId: data.session_id })
+      } catch { /* desktop IPC may already be closing */ }
+    }
     const inMemoryAccepted = abortSession(data.session_id)
     // A stuck run (e.g. awaiting_approval with no live coordinator entry)
     // can't be aborted in-memory. Force it terminal at the DB level and
@@ -185,6 +190,11 @@ export function registerChatSocket(io: Server, socket: Socket) {
     const choice: ApprovalChoice = data.choice === 'once' || data.choice === 'always' ? data.choice : 'reject'
     const { accepted, runId } = approvalRegistry.respond(sessionId, toolCallId, choice)
     if (runId) checkpointStore.clearForRun(runId, 'approval.requested')
+    if (accepted && typeof process.send === 'function') {
+      try {
+        process.send({ type: 'approval-cleared', sessionId, toolCallId })
+      } catch { /* desktop IPC may already be closing */ }
+    }
     ack?.({ status: accepted ? 'ok' : 'no_pending' })
   })
 }

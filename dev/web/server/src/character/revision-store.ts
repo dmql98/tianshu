@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto'
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { getDb } from '../db/schema.js'
+import { withTransaction } from '../db/sqlite-db.js'
 import { characterMetaStore, type CharacterRecord } from '../db/characterStore.js'
 import { characterContentStore, characterDir } from './store.js'
 import { registerAssetRefs } from './asset-refs.js'
@@ -69,7 +70,7 @@ export const characterRevisionStore = {
     const serialized = stableJson(snapshot)
     const manifestHash = createHash('sha256').update(serialized).digest('hex')
     const db = getDb()
-    return db.transaction(() => {
+    return withTransaction(db, () => {
       const now = Date.now()
       const definition = this.getDefinition(characterId)
       if (!definition) {
@@ -128,7 +129,7 @@ export const characterRevisionStore = {
         `).run(row.id, characterId, assetId, row.id, now)
       }
       return row
-    })()
+    })
   },
 
   ensureCurrent(characterId: string): CharacterRevisionRow {
