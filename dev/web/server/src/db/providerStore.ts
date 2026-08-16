@@ -7,7 +7,7 @@ const DATA_DIR = () => getDataDir()
 
 export interface ProviderRecord {
   id: string; name: string; base_url: string; api_key: string
-  models: Array<{ id: string; name: string; context_window?: number; supports_vision?: boolean }>
+  models: ModelInfo[]
   enabled_models?: string[]
   is_builtin?: boolean
   envKey?: string
@@ -18,10 +18,18 @@ export interface ProviderRecord {
   runtime_plugin?: string
   /** 请求格式（openai | anthropic | gemini）。 */
   format?: 'openai' | 'anthropic' | 'gemini'
+  /** 调用协议：chat/completions（默认）、OpenAI Responses API（/v1/responses），
+   *  或 'auto'（运行时探测哪条路能拿到缓存命中；LM Studio 等本地服务自动切 responses）。 */
+  api_style?: 'auto' | 'chat_completions' | 'responses'
 }
 
 export interface ModelInfo {
   id: string; name: string; context_window?: number; supports_vision?: boolean
+  enabled?: boolean
+  /** 该模型单独指定的调用协议；优先于 provider 级 api_style。 */
+  api_style?: 'auto' | 'chat_completions' | 'responses'
+  /** 上下文窗口被用户手动覆盖过；刷新模型列表时保留手动值。 */
+  context_window_overridden?: boolean
 }
 
 function readAll(): ProviderRecord[] {
@@ -52,8 +60,7 @@ ensureIds()
 export const providerStore = {
   getAll: () => readAll(),
   getById: (id: string) => readAll().find(p => p.id === id) || null,
-  getByPresetId: (presetId: string) => readAll().find(p => p.preset_id === presetId) || null,
-  /**
+  getByPresetId: (presetId: string) => readAll().find(p => p.preset_id === presetId) || null,  /**
    * 每个预设只允许添加一次：preset_id 已存在时返回冲突，不重复写入。
    * 自定义 Provider 无 preset_id，继续使用独立生成的 ID。
    */
@@ -72,4 +79,17 @@ export const providerStore = {
     all[idx] = { ...all[idx], ...patch, id }; writeAll(all); return all[idx]
   },
   delete: (id: string) => { const all = readAll(); const filtered = all.filter(p => p.id !== id); if (filtered.length === all.length) return false; writeAll(filtered); return true },
+}
+
+/** Resolve the effective API protocol for a given model: model-level override
+ *  wins, then provider-level, otherwise undefined (= auto-detect). */
+export function resolveProviderApiStyle(
+  provider: Pick<ProviderRecord, 'api_style' | 'models'>,
+  modelId?: string | null,
+): ProviderRecord['api_style'] {
+  if (modelId) {
+    const m = provider.models?.find(x => x.id === modelId)
+    if (m?.api_style) return m.api_style
+  }
+  return provider.api_style
 }

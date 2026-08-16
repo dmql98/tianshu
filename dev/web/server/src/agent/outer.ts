@@ -1,7 +1,7 @@
 import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { characterMetaStore, type CharacterRecord } from '../db/characterStore.js'
-import { providerStore } from '../db/providerStore.js'
+import { providerStore, resolveProviderApiStyle } from '../db/providerStore.js'
 import { characterContentStore } from '../character/store.js'
 import { detectInsight } from '../evolution/index.js'
 import { getCharacterToolDefinitions } from '../tools/definitions.js'
@@ -75,6 +75,13 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
 
   const model = session.model || provider.models[0]?.id
   if (!model) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'No model configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+
+  // Effective protocol for this run's model: model-level override > provider
+  // level > auto-detect (resolved in the LLM client at request time).
+  const effProvider = {
+    ...provider,
+    api_style: resolveProviderApiStyle(provider, model),
+  }
 
   const modelConfig = provider.models.find(m => m.id === model)
   const contextWindow = modelConfig?.context_window || DEFAULT_CONTEXT_WINDOW
@@ -207,7 +214,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   // ── #4 Cold resume: session untouched > 24h → compact ──
   const isColdResume = Date.now() - (session.updated_at || 0) > COLD_RESUME_MS
   if (isColdResume && messages.length > systemMessageEnd(messages) + 1) {
-    const result = await selectAndSummarize(messages, provider, model)
+    const result = await selectAndSummarize(messages, effProvider, model)
     if (result.didCompact) {
       messages.length = 0
       messages.push(...result.messages)
@@ -251,7 +258,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     socket,
     io,
     signal,
-    provider,
+    provider: effProvider,
     model,
     characterId: session.character_id,
     workspace,

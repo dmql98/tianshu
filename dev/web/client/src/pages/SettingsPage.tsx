@@ -10,6 +10,23 @@ import type { DesktopServerStatus } from '../../../../shared/desktop-contract.js
 import UpdatePanel from '@/features/update/UpdatePanel'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
+
+/** Parse a hand-entered context value like "128k", "1m" or "200000". */
+function parseContextOverride(raw: string): number | null {
+  const s = raw.trim().toLowerCase()
+  if (!s) return null
+  if (s.endsWith('k')) { const n = parseFloat(s.slice(0, -1)); return Number.isFinite(n) && n > 0 ? Math.round(n * 1000) : null }
+  if (s.endsWith('m')) { const n = parseFloat(s.slice(0, -1)); return Number.isFinite(n) && n > 0 ? Math.round(n * 1000_000) : null }
+  const n = parseInt(s, 10)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function formatContext(tokens?: number): string {
+  if (!tokens || tokens <= 0) return ''
+  if (tokens >= 1000000) return (tokens / 1000000).toFixed(tokens % 1000000 ? 1 : 0) + 'm'
+  if (tokens >= 1000) return (tokens / 1000).toFixed(tokens % 1000 ? 1 : 0) + 'k'
+  return String(tokens)
+}
 import SystemRunPolicySettings from '@/features/run-policy/SystemRunPolicySettings'
 import ThemeSelector from '@/features/theme/ThemeSelector'
 import ThemeStudio from '@/features/theme/ThemeStudio'
@@ -207,7 +224,12 @@ export default function SettingsPage() {
       setTestResult(prev => ({
         ...prev,
         [providerId]: res.ok
-          ? { ok: true, msg: `${t('连通')} (${res.status})` }
+          ? {
+              ok: true,
+              msg: `${t('连通')} (${res.status})` + (res.protocols
+                ? ` · ${t('协议')}: ${res.protocols.responses ? 'Chat + Responses' : 'Chat'}`
+                : ''),
+            }
           : { ok: false, msg: res.error || t('连接失败') },
       }))
     } catch (e: any) {
@@ -233,6 +255,22 @@ export default function SettingsPage() {
       model.enabled = model.enabled === false ? true : false
       try { await update(provider.id, { models }) } catch {}
     }
+  }
+
+  const handleModelApiStyle = async (provider: Provider, modelId: string, apiStyle: string) => {
+    const models = (provider.models || []).map((m: any) =>
+      m.id === modelId ? { ...m, api_style: apiStyle } : m
+    )
+    try { await update(provider.id, { models }); showToast(t('已保存')) } catch { showToast(t('保存失败'), 'err') }
+  }
+
+  const handleContextOverride = async (provider: Provider, modelId: string, raw: string) => {
+    const parsed = parseContextOverride(raw)
+    if (parsed == null) { showToast(t('上下文格式无效'), 'err'); return }
+    const models = (provider.models || []).map((m: any) =>
+      m.id === modelId ? { ...m, context_window: parsed, context_window_overridden: true } : m
+    )
+    try { await update(provider.id, { models }); showToast(t('已保存')) } catch { showToast(t('保存失败'), 'err') }
   }
 
   // ── 保存 handlers ──
@@ -358,9 +396,34 @@ export default function SettingsPage() {
                         <div key={model.id} className="model-item" onClick={() => toggleModel(provider, model.id)}>
                           <div className={`toggle ${on ? 'on' : ''}`} style={{flexShrink:0}} />
                           <span className="model-item-name">{model.name || model.id}</span>
-                          {model.context_window && (
-                            <span className="model-item-ctx">{Math.round(model.context_window / 1000)}k</span>
-                          )}
+                          <input
+                            key={`ctx-${model.id}-${model.context_window}`}
+                            type="text"
+                            defaultValue={formatContext(model.context_window)}
+                            placeholder={model.context_window ? undefined : t('上下文')}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => e.stopPropagation()}
+                            onKeyDown={e => {
+                              e.stopPropagation()
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                            }}
+                            onBlur={e => handleContextOverride(provider, model.id, e.target.value)}
+                            className="model-item-ctx-input"
+                            title={t('上下文窗口（可手动覆盖，如 128k / 1m）')}
+                            style={{width:52,marginLeft:6,fontSize:'calc(11px * var(--ui-font-scale))',padding:'1px 4px',textAlign:'right'}}
+                          />
+                          <select
+                            value={(model as any).api_style || 'auto'}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => handleModelApiStyle(provider, model.id, e.target.value)}
+                            className="io-select"
+                            title={t('API 协议')}
+                            style={{marginLeft:8,width:76,fontSize:'calc(11px * var(--ui-font-scale))',padding:'1px 2px'}}
+                          >
+                            <option value="auto">{t('自动')}</option>
+                            <option value="chat_completions">Chat</option>
+                            <option value="responses">Resp</option>
+                          </select>
                         </div>
                       )
                     }) || (

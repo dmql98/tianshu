@@ -1,4 +1,4 @@
-import { streamChatCompletion, type LLMMessage } from '../../llm/client.js'
+import { streamChatCompletion, type LLMMessage, type ProviderConfig } from '../../llm/client.js'
 import { contentToText, systemMessageEnd, KEEP_TOKENS } from './loop-policy.js'
 
 /**
@@ -137,7 +137,7 @@ export function selectEntries(
 
 async function llmSummarize(
   head: LLMMessage[],
-  provider: { base_url: string; api_key: string },
+  provider: ProviderConfig,
   model: string,
   previousSummary?: string,
 ): Promise<string> {
@@ -150,6 +150,7 @@ async function llmSummarize(
   try {
     for await (const chunk of streamChatCompletion({
       baseUrl: provider.base_url, apiKey: provider.api_key, model,
+      apiStyle: provider.api_style,
       messages: [{ role: 'user', content: prompt }],
     })) {
       if (chunk.type === 'delta' && chunk.text) summary += chunk.text
@@ -199,7 +200,7 @@ export interface CompactResult {
 
 export async function selectAndSummarize(
   messages: LLMMessage[],
-  provider: { base_url: string; api_key: string },
+  provider: ProviderConfig,
   model: string,
 ): Promise<CompactResult> {
   const sysEnd = systemMessageEnd(messages)

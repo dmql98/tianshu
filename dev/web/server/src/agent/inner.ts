@@ -1,6 +1,6 @@
-import { messageStore } from '../db/messageStore.js'
+﻿import { messageStore } from '../db/messageStore.js'
 import { characterMetaStore, type ToolBinding } from '../db/characterStore.js'
-import { streamChatCompletion, type LLMMessage, type ToolCall } from '../llm/client.js'
+import { streamChatCompletion, type LLMMessage, type ToolCall, type ProviderConfig } from '../llm/client.js'
 import { getDangerousTools, validateConstraints } from '../tools/definitions.js'
 import { executeTool } from '../tools/executor.js'
 import type { ToolResult } from '../tools/types.js'
@@ -142,7 +142,7 @@ export interface InnerResult {
 export async function streamWithRetry(
   messages: LLMMessage[],
   tools: any[] | undefined,
-  provider: { base_url: string; api_key: string },
+  provider: ProviderConfig,
   model: string,
   signal?: AbortSignal,
   opts: { thinking?: boolean; reasoning_effort?: string } = {},
@@ -168,6 +168,7 @@ export async function streamWithRetry(
       model, messages, tools, signal,
       thinking: opts.thinking,
       reasoning_effort: opts.reasoning_effort,
+      apiStyle: provider.api_style,
     })
 
     for await (const chunk of gen) {
@@ -234,7 +235,7 @@ export async function streamWithRetry(
 export async function innerLoop(
   messages: LLMMessage[],
   tools: any[] | undefined,
-  provider: { base_url: string; api_key: string },
+  provider: ProviderConfig,
   model: string,
   characterId: string,
   workspace: string | undefined,

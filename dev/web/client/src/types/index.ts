@@ -168,6 +168,8 @@ export interface ProviderModel {
   name: string
   context_window?: number
   supports_vision?: boolean
+  /** 该模型单独指定的调用协议：auto / chat_completions / responses。 */
+  api_style?: string
 }
 
 export interface Provider {

@@ -764,6 +764,9 @@ textarea:focus{border-color:var(--gold)}
 .model-item:hover{background:var(--bg-hover)}
 .model-item-name{font-size:calc(12px * var(--ui-font-scale));font-family:monospace;color:var(--ink-mid);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .model-item-ctx{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint);flex-shrink:0}
+.model-item-ctx-input{border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--ink-mid);outline:none;font-family:monospace;flex-shrink:0}
+.model-item-ctx-input:hover{border-color:var(--gold)}
+.model-item-ctx-input:focus{border-color:var(--gold);color:var(--ink-deep)}
 .evo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .evo-item{padding:8px 10px;border-radius:6px;background:var(--bg-input);border:1px solid var(--border-light)}
 .evo-item label{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);display:block;margin-bottom:4px}

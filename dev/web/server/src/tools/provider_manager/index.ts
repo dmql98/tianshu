@@ -32,6 +32,11 @@ export const tool: ToolModule = {
         type: 'string',
         description: 'Comma-separated model IDs (e.g. "gpt-4o,gpt-4o-mini"). Optional for create.',
       },
+      api_style: {
+        type: 'string',
+        enum: ['auto', 'chat_completions', 'responses'],
+        description: 'API protocol: "auto" (default, probes which API reports cache hits; use for LM Studio), "chat_completions", or "responses" (force OpenAI Responses API).',
+      },
     },
     required: ['action'],
   },
@@ -71,6 +76,7 @@ export const tool: ToolModule = {
 
       const { record } = providerStore.create({
         id, name: args.name, base_url: args.base_url, api_key: args.api_key, models,
+        ...(args.api_style === 'auto' || args.api_style === 'responses' || args.api_style === 'chat_completions' ? { api_style: args.api_style } : {}),
       })
       return { output: `Provider "${record!.id}" created\n  Name: ${record!.name}\n  URL: ${record!.base_url}\n  Models: ${models.length > 0 ? models.map(m => m.id).join(', ') : '(none)'}` }
     }
@@ -84,6 +90,7 @@ export const tool: ToolModule = {
       if (args.name !== undefined) patch.name = args.name
       if (args.base_url !== undefined) patch.base_url = args.base_url
       if (args.api_key !== undefined) patch.api_key = args.api_key
+      if (args.api_style !== undefined) patch.api_style = args.api_style
       if (args.models !== undefined) {
         patch.models = args.models.split(',').map((s: string) => s.trim()).filter(Boolean).map((mid: string) => ({ id: mid, name: mid }))
       }

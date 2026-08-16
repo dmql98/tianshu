@@ -2,7 +2,7 @@ import type { Server, Socket } from 'socket.io'
 import { sessionStore } from '../../db/sessionStore.js'
 import { disconnectMCPServer } from '../../tools/mcp-client.js'
 import type { MCPClient } from '../../tools/mcp-client.js'
-import type { LLMMessage } from '../../llm/client.js'
+import type { LLMMessage, ProviderConfig } from '../../llm/client.js'
 import type { ProviderCapability } from '../attachments.js'
 import type { ComposeContext } from '../compose.js'
 import { composeMessages } from '../compose.js'
@@ -36,7 +36,7 @@ export interface LoopEngineContext {
   socket?: Socket
   io?: Server
   signal?: AbortSignal
-  provider: { base_url: string; api_key: string }
+  provider: ProviderConfig
   model: string
   characterId: string
   workspace: string

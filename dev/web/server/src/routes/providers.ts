@@ -120,7 +120,18 @@ router.post('/:id/test', async (c) => {
       signal: AbortSignal.timeout(10000),
     })
     if (res.ok) {
-      return c.json({ ok: true, status: res.status })
+      // Probe which API protocols report cache hits. chat/completions is the
+      // default; responses is reported when /v1/responses returns
+      // usage.input_tokens_details.cached_tokens.
+      let protocols: { chat: boolean; responses?: boolean } = { chat: true }
+      try {
+        const { probeResponsesApi } = await import('../llm/client.js')
+        const sample = provider.models?.[0]?.id
+        if (sample) protocols.responses = await probeResponsesApi(provider.base_url, provider.api_key || '', sample)
+      } catch {
+        /* protocol probe is best-effort */
+      }
+      return c.json({ ok: true, status: res.status, protocols })
     } else {
       return c.json({ ok: false, status: res.status, error: `HTTP ${res.status}` })
     }
@@ -144,10 +155,18 @@ router.get('/:id/models', async (c) => {
     const models = (body.data || body.models || []).map((m: any) => {
       const mid = (m.id || m.name || '').toLowerCase()
       const apiValue = m.context_window || m.context_length
+      // Preserve per-model overrides (enabled / api_style / hand-set context)
+      // so refreshing the list never silently resets them.
+      const existing = (provider.models || []).find(x => x.id === (m.id || m.name))
       return {
         id: m.id || m.name,
         name: m.name || m.id,
-        context_window: apiValue || catalog[mid] || undefined,
+        context_window: existing?.context_window_overridden
+          ? existing?.context_window
+          : (apiValue || catalog[mid] || existing?.context_window),
+        context_window_overridden: existing?.context_window_overridden,
+        enabled: existing?.enabled,
+        api_style: existing?.api_style,
       }
     })
     return c.json(models)

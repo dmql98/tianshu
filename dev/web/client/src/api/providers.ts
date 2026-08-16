@@ -5,6 +5,7 @@ export interface ProviderModel {
   id: string
   name: string
   context_window?: number
+  api_style?: 'auto' | 'chat_completions' | 'responses'
 }
 
 export interface ProviderPresetField {
@@ -51,4 +52,4 @@ export const fetchProviderModels = (id: string) =>
   apiGet<ProviderModel[]>(`/api/providers/${id}/models`)
 
 export const testProvider = (id: string) =>
-  apiPost<{ ok: boolean; status?: number; error?: string }>(`/api/providers/${id}/test`)
+  apiPost<{ ok: boolean; status?: number; error?: string; protocols?: { chat: boolean; responses?: boolean } }>(`/api/providers/${id}/test`)

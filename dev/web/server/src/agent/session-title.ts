@@ -1,4 +1,4 @@
-import { streamChatCompletion } from '../llm/client.js'
+import { streamChatCompletion, type ProviderConfig } from '../llm/client.js'
 
 const MAX_SOURCE_CHARS = 2400
 const MAX_TITLE_CHARS = 32
@@ -41,7 +41,7 @@ export function fallbackSessionTitle(input: string): string {
 
 export async function generateSessionTitle(input: {
   content: string
-  provider: { base_url: string; api_key: string }
+  provider: ProviderConfig
   model: string
   signal?: AbortSignal
 }): Promise<string> {
@@ -54,6 +54,7 @@ export async function generateSessionTitle(input: {
       apiKey: input.provider.api_key,
       model: input.model,
       signal: input.signal,
+      apiStyle: input.provider.api_style,
       messages: [
         {
           role: 'system',

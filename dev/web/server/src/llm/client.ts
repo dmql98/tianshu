@@ -37,6 +37,67 @@ export interface LLMUsage {
   cache_miss_tokens?: number
 }
 
+/** Provider API surface: chat/completions vs the OpenAI Responses API. */
+export type ProviderApiStyle = 'auto' | 'chat_completions' | 'responses'
+
+/** The provider slice threaded through the agent loop (matches ProviderRecord). */
+export interface ProviderConfig {
+  base_url: string
+  api_key: string
+  api_style?: ProviderApiStyle
+}
+
+// ── Auto protocol detection ────────────────────────────────────────────────
+// Decision criterion is NOT the provider name but "which API reports prompt
+// cache hits": chat/completions (prompt_cache_hit_tokens / prompt_tokens_details
+// .cached_tokens) vs Responses API (input_tokens_details.cached_tokens). LM
+// Studio / llama.cpp only report cache hits through /v1/responses, so auto
+// probes it once per base URL and remembers the decision for the process.
+const protocolDecisions = new Map<string, 'chat_completions' | 'responses'>()
+
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '')
+}
+
+/** Probe whether /v1/responses reports cache-hit tokens. One cheap non-stream
+ *  request (1 output token). False on any failure / missing field. */
+export async function probeResponsesApi(baseUrl: string, apiKey: string, model: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${normalizeBaseUrl(baseUrl)}/responses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model,
+        instructions: 'Reply with the single token "ok".',
+        input: 'hi',
+        stream: false,
+        max_output_tokens: 1,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return false
+    const body = await res.json()
+    return typeof body?.usage?.input_tokens_details?.cached_tokens === 'number'
+  } catch {
+    return false
+  }
+}
+
+/** Resolve the effective protocol for an auto-configured provider (cached). */
+async function resolveApiStyle(opts: LLMOptions): Promise<'chat_completions' | 'responses'> {
+  const key = normalizeBaseUrl(opts.baseUrl)
+  const decided = protocolDecisions.get(key)
+  if (decided) return decided
+  const decidedStyle = await probeResponsesApi(opts.baseUrl, opts.apiKey, opts.model)
+    ? 'responses' as const
+    : 'chat_completions' as const
+  protocolDecisions.set(key, decidedStyle)
+  return decidedStyle
+}
+
 export interface LLMChunk {
   type: 'delta' | 'done' | 'error' | 'usage'
   text?: string
@@ -74,6 +135,8 @@ export interface LLMOptions {
   reasoning_effort?: string
   signal?: AbortSignal
   onChunk?: (chunk: LLMChunk) => void
+  /** Provider API protocol. Defaults to chat/completions. */
+  apiStyle?: ProviderApiStyle
 }
 
 function parseUsage(raw: any): LLMUsage {
@@ -84,6 +147,8 @@ function parseUsage(raw: any): LLMUsage {
   if (typeof raw?.prompt_cache_hit_tokens === 'number') usage.cache_hit_tokens = raw.prompt_cache_hit_tokens
   if (typeof raw?.prompt_cache_miss_tokens === 'number') usage.cache_miss_tokens = raw.prompt_cache_miss_tokens
   if (raw?.prompt_tokens_details?.cached_tokens != null) usage.cache_hit_tokens = raw.prompt_tokens_details.cached_tokens
+  // OpenAI Responses API: cached prompt tokens live under input_tokens_details.
+  if (raw?.input_tokens_details?.cached_tokens != null) usage.cache_hit_tokens = raw.input_tokens_details.cached_tokens
   if (usage.cache_hit_tokens !== undefined && usage.cache_miss_tokens === undefined) {
     usage.cache_miss_tokens = Math.max(0, usage.input_tokens - usage.cache_hit_tokens)
   }
@@ -91,6 +156,18 @@ function parseUsage(raw: any): LLMUsage {
 }
 
 export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LLMChunk> {
+  if (opts.apiStyle === 'responses') {
+    yield* streamResponses(opts)
+    return
+  }
+  if (opts.apiStyle === 'auto' || opts.apiStyle === undefined) {
+    const decided = await resolveApiStyle(opts)
+    if (decided === 'responses') {
+      yield* streamResponses(opts)
+      return
+    }
+    // decided === 'chat_completions': fall through to the default path below.
+  }
   const { baseUrl, apiKey, model, messages, tools, thinking, reasoning_effort, signal } = opts
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`
   const body: Record<string, unknown> = {
@@ -287,5 +364,202 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
       if (parsed.usage) latestUsage = parseUsage(parsed.usage)
     }
     return chunks
+  }
+}
+
+// ── OpenAI Responses API (/v1/responses) ──────────────────────────────────
+// Some providers (e.g. LM Studio / llama.cpp) expose prompt-cache hit tokens
+// only through the Responses API (`usage.input_tokens_details.cached_tokens`),
+// not through chat/completions. Stream events are mapped to the same LLMChunk
+// contract so the rest of the agent loop is protocol-agnostic.
+
+function responsesText(m: LLMMessage): string {
+  if (m.content == null) return ''
+  if (typeof m.content === 'string') return m.content
+  return m.content
+    .map(p => ('text' in p ? p.text || '' : '[media attachment]'))
+    .join('\n')
+}
+
+/** Convert agent LLMMessage[] into Responses API `input` items. */
+function toResponsesInput(messages: LLMMessage[]): unknown[] {
+  const items: unknown[] = []
+  for (const m of messages) {
+    if (m.role === 'system') continue
+    if (m.role === 'tool') {
+      items.push({
+        type: 'function_call_output',
+        call_id: m.tool_call_id || `call_${items.length}`,
+        output: responsesText(m),
+      })
+      continue
+    }
+    if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+      for (const tc of m.tool_calls) {
+        items.push({
+          type: 'function_call',
+          call_id: tc.id || `call_${items.length}`,
+          name: tc.function.name,
+          arguments: tc.function.arguments || '{}',
+        })
+      }
+      continue
+    }
+    const text = responsesText(m)
+    if (!text) continue
+    // Responses API: user messages carry `input_text` parts; assistant
+    // messages carry `output_text` parts. Using the wrong part type makes the
+    // provider reject the whole `input` union (LM Studio 400 invalid_union).
+    items.push({
+      type: 'message',
+      role: m.role,
+      content: [{ type: m.role === 'assistant' ? 'output_text' : 'input_text', text }],
+    })
+  }
+  return items
+}
+
+async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
+  const { baseUrl, apiKey, model, messages, tools, thinking, reasoning_effort, signal } = opts
+  const url = `${baseUrl.replace(/\/+$/, '')}/responses`
+
+  const instructions = messages
+    .filter(m => m.role === 'system')
+    .map(m => responsesText(m))
+    .filter(Boolean)
+    .join('\n\n')
+
+  const body: Record<string, unknown> = {
+    model,
+    instructions: instructions || undefined,
+    input: toResponsesInput(messages),
+    stream: true,
+    stream_options: INCLUDE_USAGE ? { include_usage: true } : undefined,
+  }
+  if (tools && tools.length > 0) {
+    // Responses API expects flat function tools ({type,name,description,
+    // parameters}); chat/completions wraps them under a `function` key.
+    body.tools = tools.map(t => ({
+      type: 'function' as const,
+      name: t.function.name,
+      description: t.function.description,
+      parameters: t.function.parameters,
+    }))
+  }
+  if (thinking) {
+    body.reasoning = { effort: reasoning_effort || 'medium' }
+  }
+
+  let finishReason: string | undefined
+  let latestUsage: LLMUsage | undefined
+
+  const onAbort = () => { reader?.cancel().catch(() => {}) }
+  let reader: any = null
+  signal?.addEventListener('abort', onAbort, { once: true })
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal,
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      yield { type: 'error', text: `LLM API ${res.status}: ${text}` }
+      return
+    }
+
+    reader = res.body?.getReader()
+    if (!reader) { yield { type: 'error', text: 'No response body' }; return }
+    const decoder = new TextDecoder()
+    let buffer = ''
+    // Tool-call assembly state (streamed as delta events).
+    const toolCallState = new Map<string, { name: string; arguments: string }>()
+
+    while (true) {
+      if (signal?.aborted) return
+      const { done, value } = await reader.read()
+      if (signal?.aborted) return
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith('data:')) continue
+        const payload = trimmed.slice(5).trim()
+        if (!payload || payload === '[DONE]') continue
+        let ev: any
+        try { ev = JSON.parse(payload) } catch { continue }
+        if (!ev.type) continue
+
+        if (ev.type === 'response.output_text.delta') {
+          yield { type: 'delta', text: ev.delta || '' }
+        } else if (ev.type === 'response.reasoning_text.delta') {
+          yield { type: 'delta', reasoning: ev.delta || '' }
+        } else if (ev.type === 'response.output_item.added' && ev.item?.type === 'function_call') {
+          // Key on item.id (fc_...): function_call_arguments.delta/done reference
+          // it via item_id. item.call_id (call_...) is a DIFFERENT id.
+          toolCallState.set(ev.item.id, {
+            name: ev.item.name || '',
+            arguments: ev.item.arguments || '',
+          })
+        } else if (ev.type === 'response.function_call_arguments.delta') {
+          const st = toolCallState.get(ev.item_id)
+          if (st) st.arguments += ev.delta || ''
+        } else if (ev.type === 'response.output_item.done' && ev.item?.type === 'function_call') {
+          const st = toolCallState.get(ev.item.id) || { name: ev.item.name || '', arguments: ev.item.arguments || '' }
+          yield {
+            type: 'delta',
+            tool_calls: [{
+              id: ev.item.call_id || ev.item.id || '',
+              type: 'function' as const,
+              function: { name: st.name, arguments: st.arguments },
+            }],
+          }
+        } else if (ev.type === 'response.completed') {
+          const r = ev.response
+          if (r?.usage) latestUsage = parseUsage(r.usage)
+          finishReason = r?.status === 'completed' ? (r?.incomplete_details?.reason || 'stop') : 'length'
+          yield { type: 'usage', usage: latestUsage!, usage_type: 'final' }
+          yield {
+            type: 'done',
+            finish_reason: finishReason,
+            usage: latestUsage,
+            completion: { finishReason, sawDoneMarker: false, compatibleTerminal: true },
+          }
+          return
+        } else if (ev.type === 'error') {
+          yield { type: 'error', text: ev.message || JSON.stringify(ev) }
+          return
+        }
+      }
+    }
+
+    // EOF without response.completed: treat as incomplete (retryable).
+    if (finishReason) {
+      yield {
+        type: 'done',
+        finish_reason: finishReason,
+        usage: latestUsage,
+        completion: { finishReason, sawDoneMarker: false, compatibleTerminal: true },
+      }
+    } else {
+      yield { type: 'error', text: new IncompleteLLMStreamError('EOF before response.completed').message }
+    }
+  } catch (err: any) {
+    if (err.name === 'AbortError' || signal?.aborted) return
+    const errorText = describeTransportError(err)
+    let host = 'unknown'
+    try { host = new URL(url).host } catch {}
+    console.error(`[llm] responses request failed host=${host}: ${errorText}`)
+    yield { type: 'error', text: errorText }
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
   }
 }

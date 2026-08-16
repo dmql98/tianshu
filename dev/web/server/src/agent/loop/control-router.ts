@@ -4,7 +4,7 @@ import { sessionStore } from '../../db/sessionStore.js'
 import { spawnAndRunSubAgent, summarizeAndMerge } from '../sub-agent.js'
 import { disconnectMCPServer } from '../../tools/mcp-client.js'
 import type { MCPClient } from '../../tools/mcp-client.js'
-import type { LLMMessage } from '../../llm/client.js'
+import type { LLMMessage, ProviderConfig } from '../../llm/client.js'
 import type { InnerResult, SubAgentRequestData } from '../inner.js'
 import { checkpointStore } from '../runtime/checkpoint-store.js'
 import { planStore } from '../plan/plan-store.js'
@@ -24,7 +24,7 @@ export async function handleSubAgentRequest(input: {
   req: SubAgentRequestData
   result: InnerResult
   session: { id: string; character_id: string; parent_id?: string | null; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; current_strategy?: string | null; approval_mode?: string | null }
-  provider: { base_url: string; api_key: string }
+  provider: ProviderConfig
   model: string
   signal?: AbortSignal
   io?: Server

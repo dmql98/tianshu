@@ -4,7 +4,7 @@ import { sessionStore } from '../db/sessionStore.js'
 import { innerLoop, type InnerResult } from './inner.js'
 import { getCharacterToolDefinitions } from '../tools/definitions.js'
 import { buildSkillIndex } from './skill-loader.js'
-import type { LLMMessage } from '../llm/client.js'
+import type { LLMMessage, ProviderConfig } from '../llm/client.js'
 import type { Server, Socket } from 'socket.io'
 import { normalizeStrategy, type Strategy, type StrategyInput } from './strategy.js'
 import { randomUUID } from 'crypto'
@@ -73,7 +73,7 @@ export async function spawnAndRunSubAgent(
   task: string,
   targetCharacterId: string,
   parentSession: { id: string; character_id: string; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; current_strategy?: string | null; approval_mode?: string | null },
-  provider: { base_url: string; api_key: string },
+  provider: ProviderConfig,
   model: string,
   strategyOverride?: StrategyInput,
   signal?: AbortSignal,
