@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/inner.ts": {
-    "mtime": 1786922719.2016401,
-    "ast_hash": "9065d352d3d64cf9de995c83f1593ac4",
+    "mtime": 1786868363.4476252,
+    "ast_hash": "e05e8228cf9a3ac239f49df9fab72132",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop.ts": {
@@ -965,13 +965,13 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/loop-engine.ts": {
-    "mtime": 1786922758.8306785,
-    "ast_hash": "a036395439654f24ce3382f258d35a2c",
+    "mtime": 1786868374.2010036,
+    "ast_hash": "b9c4494de6375e28d10b798fbe60af01",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/loop-policy.ts": {
-    "mtime": 1786922732.2392042,
-    "ast_hash": "a35fc6feaa2a7b8196617156c22a6e13",
+    "mtime": 1786534659.7006247,
+    "ast_hash": "9039011cac3f76d5b961cf478495f742",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/loop.test.ts": {
@@ -4052,41 +4052,6 @@
   "web/server/test/workspace-approval.test.ts": {
     "mtime": 1786841102.9722357,
     "ast_hash": "5b582217434a4692482f67eb687148a0",
-    "semantic_hash": ""
-  },
-  "\u77e5\u8bc6\u4f53\u7cfb\u6784\u5efa/00-\u77e5\u8bc6\u4f53\u7cfb\u603b\u4f53\u8bbe\u8ba1.md": {
-    "mtime": 1786871521.156823,
-    "ast_hash": "150b19b43076cf1c7eceb9b88aa2ce33",
-    "semantic_hash": ""
-  },
-  "\u77e5\u8bc6\u4f53\u7cfb\u6784\u5efa/01-\u7b2c\u4e00\u671f-\u89d2\u8272\u79c1\u6709\u8bb0\u5fc6\u4e0e\u8de8\u4f1a\u8bdd\u673a\u5236.md": {
-    "mtime": 1786871408.6650257,
-    "ast_hash": "a432d28053a354e2c40ed51ba6b907c2",
-    "semantic_hash": ""
-  },
-  "\u77e5\u8bc6\u4f53\u7cfb\u6784\u5efa/02-\u7b2c\u4e8c\u671f-\u72ec\u7acb\u6587\u4ef6\u77e5\u8bc6\u5e93.md": {
-    "mtime": 1786871449.7334504,
-    "ast_hash": "75ef06eefc0b37d8a3fe050f3bd777b3",
-    "semantic_hash": ""
-  },
-  "\u77e5\u8bc6\u4f53\u7cfb\u6784\u5efa/03-\u7b2c\u4e09\u671f-\u6743\u9650\u6cbb\u7406\u4e0e\u6574\u4f53\u9a8c\u6536.md": {
-    "mtime": 1786871477.4064126,
-    "ast_hash": "ddbfb5027a5ac5ecdadaea0c9d32b269",
-    "semantic_hash": ""
-  },
-  "\u77e5\u8bc6\u4f53\u7cfb\u6784\u5efa/README.md": {
-    "mtime": 1786871345.3314476,
-    "ast_hash": "c6b931bf63667f54bc6e7f0c61ea0901",
-    "semantic_hash": ""
-  },
-  "\u77e5\u8bc6\u4f53\u7cfb\u6784\u5efa/huihua.txt": {
-    "mtime": 1786876273.4021542,
-    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
-    "semantic_hash": ""
-  },
-  "\u77e5\u8bc6\u4f53\u7cfb\u6784\u5efa/\u65b0\u5efa \u6587\u672c\u6587\u6863.txt": {
-    "mtime": 1786872442.008273,
-    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   }
 }

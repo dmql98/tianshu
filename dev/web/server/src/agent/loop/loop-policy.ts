@@ -62,6 +62,20 @@ export function shouldCompact(messages: LLMMessage[], contextWindow = DEFAULT_CO
   return estimateTokens(messages) > contextWindow * COMPACT_THRESHOLD
 }
 
+/**
+ * Token-based variants backed by the provider-reported input token count
+ * (usage.input), which is far more accurate than the char/4 estimate — the
+ * local estimate badly under-counts CJK text and can delay compaction until
+ * overflow. Callers pass the last request's actual input tokens.
+ */
+export function shouldSnipTokens(usedTokens: number, contextWindow = DEFAULT_CONTEXT_WINDOW): boolean {
+  return usedTokens > contextWindow * SNIP_RATIO
+}
+
+export function shouldCompactTokens(usedTokens: number, contextWindow = DEFAULT_CONTEXT_WINDOW): boolean {
+  return usedTokens > contextWindow * COMPACT_THRESHOLD
+}
+
 export function systemMessageEnd(messages: LLMMessage[]): number {
   let i = 0
   while (i < messages.length && messages[i].role === 'system') i++

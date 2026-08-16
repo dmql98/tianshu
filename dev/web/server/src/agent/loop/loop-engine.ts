@@ -8,7 +8,7 @@ import type { ComposeContext } from '../compose.js'
 import { composeMessages } from '../compose.js'
 import { innerLoop, detectDoomLoop, type ToolCallRecord } from '../inner.js'
 import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-cache.js'
-import { estimateTokens, shouldSnip, shouldCompact, trimToolResults } from './loop-policy.js'
+import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults } from './loop-policy.js'
 import { selectAndSummarize } from './context-compactor.js'
 import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
@@ -427,16 +427,19 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       composeCtx.systemAlerts!.push(`[System Alert] Repeated failures detected (last: ${lastTool}). Two strikes with the same tool type — do NOT retry with minor changes. Switch to a completely different tool category.`)
     }
 
-    // Snip stale tool results first (cache-friendly), then compact if still over limit
-    if (shouldSnip(messages, contextWindow)) {
+    // Snip stale tool results first (cache-friendly), then compact if still over limit.
+    // Use the provider-reported input token count (accurate) with a local
+    // estimate fallback when usage isn't available (e.g. first turn / no usage).
+    const usedTokens = result.lastInputTokens ?? estimateTokens(messages)
+    if (shouldSnipTokens(usedTokens, contextWindow)) {
       const snipTokensBefore = estimateTokens(messages)
       const didSnip = trimToolResults(messages)
       if (didSnip) {
         const after = estimateTokens(messages)
-        console.log(`[session] ${sessionId} turn ${turn}: snip trimmed (${snipTokensBefore}→${after} tok)`)
+        console.log(`[session] ${sessionId} turn ${turn}: snip trimmed (${snipTokensBefore}→${after} tok, used ${usedTokens})`)
       }
     }
-    if (shouldCompact(messages, contextWindow)) {
+    if (shouldCompactTokens(usedTokens, contextWindow)) {
       const compact = await selectAndSummarize(messages, provider, model)
       if (compact.didCompact) {
         messages.length = 0

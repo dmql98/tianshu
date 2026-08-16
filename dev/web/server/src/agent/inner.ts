@@ -129,6 +129,8 @@ export interface InnerResult {
   totalOutputTokens: number
   totalCacheHitTokens?: number
   totalCacheMissTokens?: number
+  /** 最近一次请求的实际输入 token（上下文真实占用），用于压缩判定；读不到时为 undefined（回退本地估算）。 */
+  lastInputTokens?: number
   error?: string
   toolCallRecords?: ToolCallRecord[]
   subAgentRequest?: SubAgentRequestData
@@ -326,7 +328,7 @@ export async function innerLoop(
       if (result.reasoning) msg.reasoning_content = result.reasoning
       newMessages.push(msg)
     }
-    return { type: 'aborted', messages: newMessages, fullText: result.text, reasoningText: result.reasoning, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
+    return { type: 'aborted', messages: newMessages, fullText: result.text, reasoningText: result.reasoning, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input }
   }
 
   if (result.usage) {
@@ -407,7 +409,7 @@ export async function innerLoop(
   }
 
   if (toolCallsAcc.length === 0) {
-    return { type: 'final_answer', messages: newMessages, fullText, reasoningText, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
+    return { type: 'final_answer', messages: newMessages, fullText, reasoningText, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input }
   }
 
   const delegateCall = toolCallsAcc.find(tc => tc.function.name === 'delegate_to_agent')
@@ -442,7 +444,7 @@ export async function innerLoop(
       totalInputTokens,
       totalOutputTokens,
       totalCacheHitTokens,
-      totalCacheMissTokens,
+      totalCacheMissTokens, lastInputTokens: result.usage?.input,
       toolCallRecords: toolCallsAcc.map(tc => ({
         toolName: tc.function.name,
         hasError: true,
@@ -459,7 +461,7 @@ export async function innerLoop(
     return {
       type: 'sub_agent_request',
       messages: newMessages, fullText, reasoningText,
-      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
       subAgentRequest: {
         task: args.task || '',
         target_character_id: args.target_character_id || '',
@@ -480,7 +482,7 @@ export async function innerLoop(
     return {
       type: 'submit_result',
       messages: newMessages, fullText, reasoningText,
-      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
       toolCallRecords: [],
       taskCompleteSummary: summary,
       evidence,
@@ -494,7 +496,7 @@ export async function innerLoop(
     return {
       type: 'ask_user',
       messages: newMessages, fullText, reasoningText,
-      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
       toolCallRecords: [],
       question: args.question || '',
     }
@@ -516,7 +518,7 @@ export async function innerLoop(
     return {
       type: 'create_plan',
       messages: newMessages, fullText, reasoningText,
-      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
       toolCallRecords: [],
       planRequest: {
         goal: typeof args.goal === 'string' ? args.goal : undefined,
@@ -536,7 +538,7 @@ export async function innerLoop(
     return {
       type: 'update_plan_step',
       messages: newMessages, fullText, reasoningText,
-      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
       toolCallRecords: [],
       planStepUpdate: {
         ordinal,
@@ -773,8 +775,8 @@ export async function innerLoop(
   }
 
   if (signal?.aborted) {
-    return { type: 'aborted', messages: newMessages, fullText, reasoningText, toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
+    return { type: 'aborted', messages: newMessages, fullText, reasoningText, toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input }
   }
 
-  return { type: 'tool_calls_executed', messages: newMessages, fullText, reasoningText, toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallRecords }
+  return { type: 'tool_calls_executed', messages: newMessages, fullText, reasoningText, toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input, toolCallRecords }
 }
