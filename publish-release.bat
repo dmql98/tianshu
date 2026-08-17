@@ -205,10 +205,11 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo  v!VERSION! 已推送，GitHub Actions 正在构建全平台 Release：
-echo    - Windows x64：EXE
-echo    - macOS Intel：DMG + ZIP
-echo    - macOS Apple Silicon：DMG + ZIP
-echo    - Linux x64：AppImage + DEB
+echo    - Windows x64：EXE（完成后立即公布）
+echo    - macOS Intel：DMG + ZIP（完成后立即公布）
+echo    - macOS Apple Silicon：DMG + ZIP（完成后立即公布）
+echo    - Linux x64：AppImage + DEB（完成后立即公布）
+echo  各平台使用同一版本号，彼此不等待。
 echo  进度：https://github.com/dmql98/tianshu/actions
 echo  完成后校验：publish-release.bat --verify
 echo ============================================================
@@ -219,7 +220,7 @@ if not exist ".github\workflows\desktop-release.yml" (
   echo [错误] 缺少 .github\workflows\desktop-release.yml，无法发布多平台安装包。
   exit /b 1
 )
-for %%j in (build-windows-x64 build-macos-x64 build-macos-arm64 build-linux-x64 assemble-release publish-release) do (
+for %%j in (build-windows-x64 build-macos-x64 build-macos-arm64 build-linux-x64 publish-windows publish-macos-x64 publish-macos-arm64 publish-linux assemble-release publish-release) do (
   findstr /R /C:"^[ ][ ]%%j:" ".github\workflows\desktop-release.yml" >nul
   if errorlevel 1 (
     echo [错误] 发布流水线缺少 %%j 任务，已中止以避免只发布部分平台。

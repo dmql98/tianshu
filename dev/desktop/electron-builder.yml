@@ -59,7 +59,14 @@ linux:
       arch: [x64]
     - target: deb
       arch: [x64]
-  artifactName: TianShu-${version}-linux-${arch}.${ext}
+  # electron-builder 会按目标格式改写 ${arch}：AppImage x64 -> x86_64，
+  # deb x64 -> amd64。公开发布名是 updater 协议的一部分，因此不使用该宏。
+
+appImage:
+  artifactName: TianShu-${version}-linux-x64.${ext}
+
+deb:
+  artifactName: TianShu-${version}-linux-x64.${ext}
 
 # 公开更新直接发布到当前公开源码仓库 dmql98/tianshu（任务书 §10.1 允许的路径）。
 # electron-updater 读取生成的 app-update.yml 决定 feed；客户端内不包含任何 token。

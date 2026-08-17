@@ -1,22 +1,23 @@
 name: Desktop Release
 
-# 多平台构建与单点发布（迁移指南 §10）。
+# 多平台并行构建、独立早期发布与最终汇总（迁移指南 §10）。
 #
 # 拓扑（§10.1）：
-#   validate (advisory)       build-windows-x64
-#                            build-macos-x64      (Intel runner)
-#                            build-macos-arm64    (Apple Silicon runner)
-#                            build-linux-x64
-#                                     ↓
-#        assemble-release
-#             ↓
-#        publish-release
+#   validate (advisory)       build-windows-x64 → publish-windows
+#                            build-macos-x64   → publish-macos-x64
+#                            build-macos-arm64 → publish-macos-arm64
+#                            build-linux-x64   → publish-linux
+#                                  └──── all builds ────┘
+#                                            ↓
+#                                   assemble-release
+#                                            ↓
+#                                   publish-release (reconcile)
 #
 # 关键约束：
-#   - 各构建 job 只上传 Actions artifact，绝不调用 gh release（§2.5/§10.3）；
+#   - 各构建 job 只上传 Actions artifact；对应 publish job 成功后立即追加到同版本 Release；
 #   - assemble-release 校验并合并 updater 元数据（§10.5/§10.6）；
-#   - publish-release 是唯一拥有 contents: write 的 job（§10.7），
-#     元数据（latest*.yml）最后上传，避免客户端看到未就绪的版本。
+#   - publish job 只上传自己的独占文件，创建同一 Release 发生并发竞争时会重试确认；
+#   - publish-release 在所有构建结束后合并 macOS 元数据并补齐 manifest.json。
 #   - macOS 有凭据时签名+公证；缺失凭据时发布带 UNSIGNED 标记的测试包。
 #   - 单个平台失败不阻塞其他成功平台；assemble/publish 只处理实际存在的 artifacts。
 #   - validate 与平台构建并行且不作为其前置条件，避免全局校验拖掉所有平台。
@@ -333,6 +334,183 @@ jobs:
             dev/desktop/release/latest-linux.yml
           if-no-files-found: error
 
+  # ───────────── independent early publishing ─────────────
+  # 各平台构建完成即公布，不依赖其他平台；concurrency 只用于该平台自身防重。
+  publish-windows:
+    needs: build-windows-x64
+    if: ${{ needs.build-windows-x64.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-release-publish-${{ github.ref_name }}-windows
+      cancel-in-progress: false
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-win32-x64
+          path: early-assets
+      - name: Publish Windows immediately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" \
+              --title "天枢 v${VERSION}" \
+              --notes "天枢桌面客户端 v${VERSION}。各平台构建完成后会陆续追加到本 Release；最终状态见 manifest.json。" \
+              --draft || true
+            # 另一平台可能刚刚创建了同一 Release；等待 GitHub API 可见。
+            for ATTEMPT in 1 2 3 4 5; do
+              gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && break
+              sleep 2
+            done
+            gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null
+          fi
+          shopt -s nullglob
+          PAYLOADS=(early-assets/TianShu-*)
+          ((${#PAYLOADS[@]} > 0))
+          [ -f early-assets/latest.yml ]
+          gh release upload "$TAG" --repo "${{ github.repository }}" "${PAYLOADS[@]}" --clobber
+          gh release upload "$TAG" --repo "${{ github.repository }}" early-assets/latest.yml --clobber
+          if [ "$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)" = "true" ]; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --draft=false
+          fi
+
+  publish-linux:
+    needs: build-linux-x64
+    if: ${{ needs.build-linux-x64.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-release-publish-${{ github.ref_name }}-linux
+      cancel-in-progress: false
+    steps:
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-linux-x64
+          path: early-assets
+      - name: Publish Linux immediately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" \
+              --title "天枢 v${VERSION}" \
+              --notes "天枢桌面客户端 v${VERSION}。各平台构建完成后会陆续追加到本 Release；最终状态见 manifest.json。" \
+              --draft || true
+            for ATTEMPT in 1 2 3 4 5; do
+              gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && break
+              sleep 2
+            done
+            gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null
+          fi
+          shopt -s nullglob
+          PAYLOADS=(early-assets/TianShu-*)
+          ((${#PAYLOADS[@]} > 0))
+          [ -f early-assets/latest-linux.yml ]
+          gh release upload "$TAG" --repo "${{ github.repository }}" "${PAYLOADS[@]}" --clobber
+          gh release upload "$TAG" --repo "${{ github.repository }}" early-assets/latest-linux.yml --clobber
+          if [ "$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)" = "true" ]; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --draft=false
+          fi
+
+  publish-macos-x64:
+    needs: build-macos-x64
+    if: ${{ needs.build-macos-x64.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-release-publish-${{ github.ref_name }}-macos-x64
+      cancel-in-progress: false
+    steps:
+      - name: Download macOS x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-macos-x64
+          path: early-assets
+      - name: Publish macOS x64 installer immediately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" \
+              --title "天枢 v${VERSION}" \
+              --notes "天枢桌面客户端 v${VERSION}。各平台构建完成后会陆续追加到本 Release；最终状态见 manifest.json。" \
+              --draft || true
+            for ATTEMPT in 1 2 3 4 5; do
+              gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && break
+              sleep 2
+            done
+            gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null
+          fi
+          shopt -s nullglob
+          # latest-mac.yml 需合并两个架构，由最终汇总任务发布。
+          ASSETS=(early-assets/*.dmg early-assets/*.zip early-assets/*-UNSIGNED.txt)
+          ((${#ASSETS[@]} > 0))
+          gh release upload "$TAG" --repo "${{ github.repository }}" "${ASSETS[@]}" --clobber
+          if [ "$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)" = "true" ]; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --draft=false
+          fi
+
+  publish-macos-arm64:
+    needs: build-macos-arm64
+    if: ${{ needs.build-macos-arm64.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-release-publish-${{ github.ref_name }}-macos-arm64
+      cancel-in-progress: false
+    steps:
+      - name: Download macOS arm64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-macos-arm64
+          path: early-assets
+      - name: Publish macOS arm64 installer immediately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" \
+              --title "天枢 v${VERSION}" \
+              --notes "天枢桌面客户端 v${VERSION}。各平台构建完成后会陆续追加到本 Release；最终状态见 manifest.json。" \
+              --draft || true
+            for ATTEMPT in 1 2 3 4 5; do
+              gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && break
+              sleep 2
+            done
+            gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null
+          fi
+          shopt -s nullglob
+          # latest-mac.yml 需合并两个架构，由最终汇总任务发布。
+          ASSETS=(early-assets/*.dmg early-assets/*.zip early-assets/*-UNSIGNED.txt)
+          ((${#ASSETS[@]} > 0))
+          gh release upload "$TAG" --repo "${{ github.repository }}" "${ASSETS[@]}" --clobber
+          if [ "$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)" = "true" ]; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --draft=false
+          fi
+
   # ─────────────────────── assemble-release ────────────────────
   assemble-release:
     needs: [build-windows-x64, build-macos-x64, build-macos-arm64, build-linux-x64]
@@ -371,7 +549,10 @@ jobs:
     if: ${{ needs.assemble-release.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 唯一拥有 write 的 job（§10.7）
+      contents: write
+    concurrency:
+      group: desktop-release-publish-${{ github.ref_name }}-reconcile
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -379,6 +560,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: dev/.node-version
+      - name: Install release verifier dependencies
+        working-directory: dev
+        run: npm ci --no-audit --no-fund
       - name: Download assembled assets
         uses: actions/download-artifact@v4
         with:
@@ -395,8 +579,13 @@ jobs:
             gh release create "v${VERSION}" --repo "${{ github.repository }}" \
               --title "天枢 v${VERSION}" \
               --notes "天枢桌面客户端 v${VERSION}。各平台独立构建，成功产物均会发布；macOS 的 *-UNSIGNED.txt 表示该架构为未签名测试包。完整状态见 manifest.json。" \
-              --draft
-            echo "draft release v${VERSION} created"
+              --draft || true
+            for ATTEMPT in 1 2 3 4 5; do
+              gh release view "v${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1 && break
+              sleep 2
+            done
+            gh release view "v${VERSION}" --repo "${{ github.repository }}" >/dev/null
+            echo "draft release v${VERSION} is ready"
           else
             echo "release v${VERSION} already exists; will upload assets"
           fi

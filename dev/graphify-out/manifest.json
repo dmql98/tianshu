@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1786932787.574125,
-    "ast_hash": "0743076c71da25e0d5317735524fa53e",
+    "mtime": 1786933825.768052,
+    "ast_hash": "29df7ff26a13e786d12a1a0eb51594e2",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -1410,8 +1410,8 @@
     "semantic_hash": ""
   },
   "desktop/electron-builder.yml": {
-    "mtime": 1786838888.041575,
-    "ast_hash": "ff9466510d470f3a7d2fd5d317aa0a3f",
+    "mtime": 1786934140.4773333,
+    "ast_hash": "7577313ad006c3f4e8beaad49d11d840",
     "semantic_hash": ""
   },
   "assets/readme/character-profile.png": {
