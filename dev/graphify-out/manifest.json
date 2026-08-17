@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/ChatInput.tsx": {
-    "mtime": 1786963814.006278,
-    "ast_hash": "f24fddf1413b3855f26f0208e4ae7e23",
+    "mtime": 1786973283.777789,
+    "ast_hash": "0693a13fec97aae32ee50f2cf2de4120",
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/FilePanel.tsx": {
@@ -425,8 +425,8 @@
     "semantic_hash": ""
   },
   "web/server/src/llm/client.ts": {
-    "mtime": 1786965201.1121,
-    "ast_hash": "8c19958710cd284a42247842497db761",
+    "mtime": 1786974804.5606334,
+    "ast_hash": "63062ef30e33a70a46a8bdc7c6432810",
     "semantic_hash": ""
   },
   "web/server/src/llm/errors.test.ts": {
@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1786962030.0478933,
-    "ast_hash": "f53d56a88df5013d256301984ed529a7",
+    "mtime": 1786974225.836509,
+    "ast_hash": "51160fc35618d7d338d3aa3c6d90b75b",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -4617,6 +4617,11 @@
   "web/client/src/components/ModelCompactDialog.tsx": {
     "mtime": 1786970287.1932745,
     "ast_hash": "b71c7ffce821f080b256499e235cff18",
+    "semantic_hash": ""
+  },
+  "web/server/src/llm/client-responses.test.ts": {
+    "mtime": 1786974896.3496108,
+    "ast_hash": "fb88719e2f7897f72667066cb76d323e",
     "semantic_hash": ""
   }
 }

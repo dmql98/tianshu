@@ -531,22 +531,40 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
             arguments: ev.item.arguments || '',
           })
         } else if (ev.type === 'response.function_call_arguments.delta') {
-          const st = toolCallState.get(ev.item_id)
-          if (st) st.arguments += ev.delta || ''
+          const st = toolCallState.get(ev.item_id) || { name: '', arguments: '' }
+          st.arguments += ev.delta || ''
+          toolCallState.set(ev.item_id, st)
+        } else if (ev.type === 'response.function_call_arguments.done') {
+          // Some providers deliver the FULL accumulated arguments here instead
+          // of streaming deltas; the done payload is authoritative.
+          const st = toolCallState.get(ev.item_id) || { name: '', arguments: '' }
+          if (typeof ev.arguments === 'string') st.arguments = ev.arguments
+          toolCallState.set(ev.item_id, st)
         } else if (ev.type === 'response.output_item.done' && ev.item?.type === 'function_call') {
-          const st = toolCallState.get(ev.item.id) || { name: ev.item.name || '', arguments: ev.item.arguments || '' }
+          // Prefer the authoritative full arguments on the done item. Delta
+          // accumulation can be empty for providers that only send arguments
+          // via function_call_arguments.done, or none at all.
+          const st = toolCallState.get(ev.item.id) || { name: '', arguments: '' }
           yield {
             type: 'delta',
             tool_calls: [{
               id: ev.item.call_id || ev.item.id || '',
               type: 'function' as const,
-              function: { name: st.name, arguments: st.arguments },
+              function: {
+                name: st.name || ev.item.name || '',
+                arguments: ev.item.arguments || st.arguments,
+              },
             }],
           }
+          toolCallState.delete(ev.item.id)
         } else if (ev.type === 'response.completed') {
           const r = ev.response
           if (r?.usage) latestUsage = parseUsage(r.usage)
-          finishReason = r?.status === 'completed' ? (r?.incomplete_details?.reason || 'stop') : 'length'
+          const sawToolCalls = toolCallState.size > 0
+            || (Array.isArray(r?.output) && r.output.some((o: any) => o.type === 'function_call'))
+          finishReason = r?.status === 'completed'
+            ? (r?.incomplete_details?.reason || (sawToolCalls ? 'tool_calls' : 'stop'))
+            : 'length'
           yield { type: 'usage', usage: latestUsage!, usage_type: 'final' }
           yield {
             type: 'done',

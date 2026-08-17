@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "web/client/src/api/providers.ts": {
-    "mtime": 1786870577.8447783,
-    "ast_hash": "927678f8e46d1c4afb002f322367a4b3",
+    "mtime": 1786970201.748167,
+    "ast_hash": "de06ed5207adc571c74ea61e6cbc1738",
     "semantic_hash": ""
   },
   "web/client/src/api/sessions.ts": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "web/client/src/pages/SettingsPage.tsx": {
-    "mtime": 1786962030.275563,
-    "ast_hash": "94bbb8a7fbc37de3e63c90f8255fcbe0",
+    "mtime": 1786970253.0893495,
+    "ast_hash": "b0646d81afaaf4a31f9cb7e0c7bb62a9",
     "semantic_hash": ""
   },
   "web/client/src/pages/SkillsPage.tsx": {
@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "web/client/src/types/index.ts": {
-    "mtime": 1786962030.2784898,
-    "ast_hash": "41f445b6d955167574da088f3c3d9c8c",
+    "mtime": 1786970200.557284,
+    "ast_hash": "cd53f793d97a958dc2776b6f333f9b9f",
     "semantic_hash": ""
   },
   "web/client/src/views/McpView.tsx": {
@@ -3915,8 +3915,8 @@
     "semantic_hash": ""
   },
   "web/client/src/i18n/dict.ts": {
-    "mtime": 1786963666.071642,
-    "ast_hash": "0bfe798abfa2ae86050ca2d4205c96bb",
+    "mtime": 1786970265.4920037,
+    "ast_hash": "5d2455f9407ddba820a5ef261f7fb918",
     "semantic_hash": ""
   },
   "web/client/src/i18n/index.ts": {
@@ -4612,6 +4612,11 @@
   "web/server/test/run-stall-watchdog.test.ts": {
     "mtime": 1786962030.310153,
     "ast_hash": "3167bb255647afc2b3e49be12bbc3fdb",
+    "semantic_hash": ""
+  },
+  "web/client/src/components/ModelCompactDialog.tsx": {
+    "mtime": 1786970287.1932745,
+    "ast_hash": "b71c7ffce821f080b256499e235cff18",
     "semantic_hash": ""
   }
 }
