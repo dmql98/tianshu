@@ -40,6 +40,7 @@ export function getDb(): TianshuDatabase {
   try { db.exec("ALTER TABLE sessions ADD COLUMN workspaces TEXT") } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN compaction_summary TEXT') } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN compaction_until_id INTEGER DEFAULT 0') } catch { }
+  try { db.exec('ALTER TABLE sessions ADD COLUMN trimmed_until_id INTEGER DEFAULT 0') } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN cache_hit_tokens INTEGER DEFAULT 0') } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN cache_miss_tokens INTEGER DEFAULT 0') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN cache_hit_ratio TEXT DEFAULT 'N/A'") } catch { }
@@ -50,6 +51,8 @@ export function getDb(): TianshuDatabase {
   try { db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT') } catch { }
   try { db.exec('ALTER TABLE messages ADD COLUMN token_speed REAL') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN dataspace TEXT") } catch { }
+  try { db.exec('ALTER TABLE sessions ADD COLUMN context_usage INTEGER') } catch { }
+  try { db.exec('ALTER TABLE messages ADD COLUMN is_error INTEGER') } catch { }
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
@@ -74,6 +77,8 @@ export function getDb(): TianshuDatabase {
       cache_hit_ratio TEXT DEFAULT 'N/A',
       compaction_summary TEXT,
       compaction_until_id INTEGER DEFAULT 0,
+      trimmed_until_id INTEGER DEFAULT 0,
+      context_usage INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -89,6 +94,7 @@ export function getDb(): TianshuDatabase {
       tool_status TEXT,
       attachments TEXT,
       token_speed REAL,
+      is_error INTEGER,
       created_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS events (

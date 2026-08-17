@@ -7,6 +7,7 @@ export interface MessageRow {
   tool_output: string | null; tool_status: string | null
   attachments: string | null
   token_speed: number | null
+  is_error: number | null
   turn_id: string | null
   run_id: string | null
   status: 'active' | 'superseded'
@@ -40,6 +41,10 @@ export const messageStore = {
   updateContent(id: number, content: string) {
     getDb().prepare('UPDATE messages SET content = ? WHERE id = ?').run(content, id)
   },
+  /** P2-3: 持久化工具调用修复（移除孤儿调用后回写 tool_input）。 */
+  updateToolInput(id: number, toolInput: string) {
+    getDb().prepare('UPDATE messages SET tool_input = ? WHERE id = ?').run(toolInput, id)
+  },
   addMessage(sessionId: string, data: Partial<MessageRow> & { role: string }): MessageRow {
     // Write-time guard: assistant tool calls persisted to durable history must
     // have canonical (JSON-parseable) function.arguments. Half-serialized or
@@ -65,6 +70,7 @@ export const messageStore = {
       tool_output: data.tool_output || null, tool_status: data.tool_status || null,
       attachments: data.attachments || null,
       token_speed: data.token_speed ?? null,
+      is_error: data.is_error ?? null,
       turn_id: data.turn_id || null,
       run_id: data.run_id || null,
       status: data.status || 'active',
@@ -74,7 +80,7 @@ export const messageStore = {
     // 只绑定 SQL 引用的命名参数（node:sqlite 的 allowUnknownNamedParameters=false
     // 会拒绝多余字段，§7.3）；id 由自增生成，不参与 INSERT。
     const { id: _autoId, ...insertParams } = row
-    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, turn_id, run_id, status, supersedes_message_id, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @turn_id, @run_id, @status, @supersedes_message_id, @created_at)`).run(insertParams)
+    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, is_error, turn_id, run_id, status, supersedes_message_id, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @is_error, @turn_id, @run_id, @status, @supersedes_message_id, @created_at)`).run(insertParams)
     row.id = Number(result.lastInsertRowid)
     getDb().prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(now, sessionId)
     return row
@@ -84,11 +90,11 @@ export const messageStore = {
     const result = getDb().prepare(`
       INSERT INTO messages (
         session_id, role, content, reasoning_content, tool_name, tool_input,
-        tool_output, tool_status, attachments, token_speed, turn_id, run_id,
+        tool_output, tool_status, attachments, token_speed, is_error, turn_id, run_id,
         status, supersedes_message_id, created_at
       )
       SELECT ?, role, content, reasoning_content, tool_name, tool_input,
-        tool_output, tool_status, attachments, token_speed, turn_id, run_id,
+        tool_output, tool_status, attachments, token_speed, is_error, turn_id, run_id,
         status, supersedes_message_id, created_at
       FROM messages
       WHERE session_id = ?

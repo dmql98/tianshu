@@ -1,4 +1,4 @@
-﻿import { messageStore } from '../db/messageStore.js'
+import { messageStore } from '../db/messageStore.js'
 import { characterMetaStore, type ToolBinding } from '../db/characterStore.js'
 import { streamChatCompletion, type LLMMessage, type ToolCall, type ProviderConfig } from '../llm/client.js'
 import { getDangerousTools, validateConstraints } from '../tools/definitions.js'
@@ -22,7 +22,7 @@ import { isTransientLLMError } from '../llm/errors.js'
 import { approvalRegistry } from './runtime/approval-registry.js'
 import { CONTROL_TOOL_SET } from './loop/control-registry.js'
 import { normalizeToolCalls, buildInvalidToolCall } from './tool-call-normalizer.js'
-import { stableArgsHash } from './loop/loop-policy.js'
+import { stableArgsHash, estimateTextTokens } from './loop/loop-policy.js'
 import { decideWorkspaceApproval } from './workspace-approval.js'
 
 const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch', 'get_time', 'debug_sessions'])
@@ -51,12 +51,7 @@ function determineToolChanged(name: string, result: ToolResult): boolean {
   return (name === 'update_plan_step' || name === 'create_plan') && !result.error
 }
 
-function estimateTokenCount(text: string): number {
-  const cjk = (text.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length
-  const nonCjk = text.replace(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g, '')
-  const words = (nonCjk.match(/[A-Za-z0-9_]+|[^\sA-Za-z0-9_]/g) || []).length
-  return cjk + Math.ceil(words * 0.75)
-}
+// P1-1: token 计量统一走 loop-policy.estimateTextTokens，删除本文件的重复估算器。
 
 export type ToolOutcomeKind = 'read' | 'write' | 'state_change' | 'verification' | 'control' | 'other'
 
@@ -265,7 +260,7 @@ export async function innerLoop(
     if (firstOutputAt == null) firstOutputAt = now
     streamedOutput += piece
     const elapsedSeconds = Math.max((now - firstOutputAt) / 1000, 0.25)
-    return estimateTokenCount(streamedOutput) / elapsedSeconds
+    return estimateTextTokens(streamedOutput) / elapsedSeconds
   }
 
   let result
@@ -292,13 +287,20 @@ export async function innerLoop(
           })
         }
         if (chunk.type === 'usage' && socket && sessionId) {
+          const inputTokens = chunk.usage?.input_tokens || 0
           socket.emit('usage', {
             session_id: sessionId,
             run_id: opts.run_id,
-            input_tokens: chunk.usage?.input_tokens || 0,
+            input_tokens: inputTokens,
             output_tokens: chunk.usage?.output_tokens || 0,
             usage_type: chunk.usage_type || 'stream',
           })
+          // Persist the provider-reported input token count so a reload / page
+          // refresh keeps showing the real context usage instead of falling back
+          // to the character-based estimate (which jumps the progress bar).
+          if (inputTokens > 0) {
+            sessionStore.update(sessionId, { context_usage: inputTokens })
+          }
         }
       },
       (retry) => socket?.emit('run.retrying', {
@@ -309,6 +311,12 @@ export async function innerLoop(
       }),
     )
   } catch (err: any) {
+    if (signal?.aborted) {
+      // User cancellation is NOT an LLM failure: surface it as 'aborted' so the
+      // loop engine exits without emitting run.retrying (which previously made
+      // the client re-arm the stop button and look like the click "didn't take").
+      return { type: 'aborted', messages: [], fullText: '', reasoningText: '', toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
+    }
     const errorText = err.message || 'LLM error'
     logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: '', reasoning: '', toolCalls: [], usage: null }, errorText)
     return { type: 'error', messages: [], fullText: '', reasoningText: '', toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, error: errorText }
@@ -344,7 +352,7 @@ export async function innerLoop(
   const streamSeconds = firstOutputAt == null ? 0 : Math.max((Date.now() - firstOutputAt) / 1000, 0.05)
   const measuredOutputTokens = result.usage?.output || 0
   const finalTokenSpeed = streamSeconds > 0
-    ? (measuredOutputTokens > 0 ? measuredOutputTokens : estimateTokenCount(streamedOutput)) / streamSeconds
+    ? (measuredOutputTokens > 0 ? measuredOutputTokens : estimateTextTokens(streamedOutput)) / streamSeconds
     : 0
   const tokenSpeedEstimated = measuredOutputTokens <= 0
 
@@ -426,6 +434,7 @@ export async function innerLoop(
           tool_input: JSON.stringify({ call_id: tc.id, args: tc.function.arguments }),
           tool_output: error,
           tool_status: 'error',
+          is_error: 1,
         })
       }
       socket?.emit('control.rejected', {
@@ -565,7 +574,7 @@ export async function innerLoop(
       messageStore.addMessage(sessionId, {
         role: 'tool', content: JSON.stringify({ error: errorText }),
         tool_name: 'invalid_tool_call', tool_input: JSON.stringify({ call_id: tc.id, args: tc.function.arguments }),
-        tool_output: errorText, tool_status: 'error',
+        tool_output: errorText, tool_status: 'error', is_error: 1,
       })
     }
     newMessages.push({ role: 'tool', content: JSON.stringify({ error: errorText }), tool_call_id: tc.id })
@@ -636,7 +645,7 @@ export async function innerLoop(
     }
     toolCallRecords.push(rec)
     if (sessionId) {
-      messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: p.skipReason!, tool_status: 'error' })
+      messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: p.skipReason!, tool_status: 'error', is_error: 1 })
     }
     newMessages.push({ role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_call_id: p.tc.id })
     socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
@@ -758,10 +767,14 @@ export async function innerLoop(
       toolContent = JSON.stringify({ output: truncate(result.output || ''), error: truncateError(result.error || '') })
     }
 
+    const toolMsg: LLMMessage = { role: 'tool', content: toolContent, tool_call_id: p.tc.id }
     if (sessionId) {
-      messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ output: result.output, error: result.error }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: result.error || result.output, tool_status: toolStatus, attachments: storedAttachments ? JSON.stringify(storedAttachments) : null })
+      const stored = messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ output: result.output, error: result.error }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: result.error || result.output, tool_status: toolStatus, attachments: storedAttachments ? JSON.stringify(storedAttachments) : null, is_error: result.error ? 1 : 0 })
+      // P0-4: 给运行中的 tool 消息附带 DB id，供 trimToolResults 记录
+      // trimmed_until_id 水印，重载时按同一剪枝实现恢复一致的内存态。
+      ;(toolMsg as any).__dbId = stored.id
     }
-    newMessages.push({ role: 'tool', content: toolContent, tool_call_id: p.tc.id })
+    newMessages.push(toolMsg)
     socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: result.error || result.output, tool_status: toolStatus, duration_ms: duration })
   }
 

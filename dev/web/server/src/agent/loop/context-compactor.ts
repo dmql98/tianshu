@@ -1,5 +1,5 @@
-import { streamChatCompletion, type LLMMessage, type ProviderConfig } from '../../llm/client.js'
-import { contentToText, systemMessageEnd, KEEP_TOKENS } from './loop-policy.js'
+import { streamChatCompletion, type LLMMessage, type LLMOptions, type ProviderConfig } from '../../llm/client.js'
+import { contentToText, systemMessageEnd, KEEP_TOKENS, estimateTextTokens } from './loop-policy.js'
 
 /**
  * Context compactor: summarization, history selection and compaction.
@@ -7,6 +7,11 @@ import { contentToText, systemMessageEnd, KEEP_TOKENS } from './loop-policy.js'
  */
 
 export const SUMMARY_OUTPUT_TOKENS = 2048
+
+// P0-3: 摘要调用默认复用会话前缀（system + tools + 消息），把压缩指令作为
+// 最后一条 user 消息，让辅助调用成为主请求的真实前缀以复用 provider KV cache。
+// 通道不支持长前缀时设 TSS_COMPACT_REPLAY_PREFIX=0 回退到旧的独立 prompt。
+const REPLAY_PREFIX = process.env.TSS_COMPACT_REPLAY_PREFIX !== '0'
 
 const SUMMARY_TEMPLATE = `Output exactly the structure below and keep section order. Do not include <template> tags.
 <template>
@@ -109,49 +114,113 @@ export function selectEntries(
   let total = 0
   let split = serialized.length
   for (let i = serialized.length - 1; i >= 0; i--) {
-    total += Math.ceil(serialized[i].text.length / 4)
+    total += estimateTextTokens(serialized[i].text)
     if (total > tokenBudget) { split = i + 1; break }
     split = i
   }
 
   if (split === 0) return
 
+  // P0-2: 平衡切点保护。token 预算选出的切点可能切断 tool call/result 配对，
+  // 向左扩张 recent 直到 recent 内部自洽且边界不跨配对。
+  split = repairSplitForPairs(serialized, split)
+  if (split === 0) return
+
   const recentMsgs = serialized.slice(split).map(e => e.msg)
   const headMsgs = serialized.slice(0, split).map(e => e.msg)
-
-  // Ensure split doesn't break tool_calls/tool_response pairs
-  // If the first message in recent is a tool response, its parent assistant(tool_calls)
-  // must also stay in recent — find it in head and move everything after it to recent
-  if (recentMsgs.length > 0 && recentMsgs[0].role === 'tool') {
-    for (let i = headMsgs.length - 1; i >= 0; i--) {
-      if (headMsgs[i].role === 'assistant' && headMsgs[i].tool_calls) {
-        const moved = headMsgs.splice(i)
-        recentMsgs.unshift(...moved)
-        break
-      }
-    }
-  }
 
   return { head: headMsgs, recent: recentMsgs }
 }
 
+function callIdsOf(m: LLMMessage): string[] {
+  if (m.role !== 'assistant' || !m.tool_calls) return []
+  return m.tool_calls.filter(tc => tc.id).map(tc => tc.id!)
+}
+
+/**
+ * 把 cut 向左扩张，直到满足：
+ * - recent 内每个 tool 结果都有其 assistant(tool_calls) 调用；
+ * - recent 内每个 assistant 调用都有其 tool 结果；
+ * - 紧邻 cut 左侧的 head 最后一条消息不能是调用落在 recent 里的 assistant(tool_calls)。
+ *
+ * 历史数据里无法配对的「永久孤儿」调用/结果（整段会话都不存在对方）按中性处理，
+ * 避免它们让整段会话都进 recent 而永远无法压缩。
+ */
+export function repairSplitForPairs(
+  serialized: Array<{ msg: LLMMessage }>,
+  split: number,
+): number {
+  // 永久孤儿集合：全量会话中不存在配对的 id。
+  const allResults = new Set<string>()
+  const allCalls = new Set<string>()
+  for (const { msg } of serialized) {
+    if (msg.role === 'tool' && msg.tool_call_id) allResults.add(msg.tool_call_id)
+    for (const id of callIdsOf(msg)) allCalls.add(id)
+  }
+
+  while (split < serialized.length) {
+    const results = new Set<string>()
+    const calls = new Set<string>()
+    for (let i = split; i < serialized.length; i++) {
+      const m = serialized[i].msg
+      if (m.role === 'tool' && m.tool_call_id && allCalls.has(m.tool_call_id)) {
+        results.add(m.tool_call_id)
+      }
+      for (const id of callIdsOf(m)) {
+        if (allResults.has(id)) calls.add(id)
+      }
+    }
+    // 每个可配对的结果在 recent 内有其调用；每个可配对的调用在 recent 内有其结果。
+    const resultsCovered = [...results].every(id => calls.has(id))
+    const callsCovered = [...calls].every(id => results.has(id))
+    // 紧邻左侧 head 的最后一条调用不得把结果落在 recent。
+    let crossing = false
+    if (split > 0) {
+      const prev = serialized[split - 1].msg
+      if (prev.role === 'assistant' && prev.tool_calls) {
+        for (const id of callIdsOf(prev)) {
+          if (results.has(id)) { crossing = true; break }
+        }
+      }
+    }
+    if (resultsCovered && callsCovered && !crossing) return split
+    split -= 1
+  }
+  return 0
+}
+
+/** 摘要指令：前缀复用模式下作为会话尾部唯一的 user 消息（P0-3）。 */
+function compactionInstruction(previousSummary?: string): string {
+  return previousSummary
+    ? `Update the anchored summary below using the conversation history above. Preserve still-true details, remove stale details, and merge in new facts.\n<previous-summary>\n${previousSummary}\n</previous-summary>\n\n${SUMMARY_TEMPLATE}`
+    : `Create a new anchored summary from the conversation history.\n\n${SUMMARY_TEMPLATE}`
+}
+
+export interface SummarizeOptions {
+  /** 主请求的 tools，用于 prefix 对齐（复用 KV cache）。 */
+  tools?: LLMOptions['tools']
+}
+
 async function llmSummarize(
   head: LLMMessage[],
+  systemMsgs: LLMMessage[],
   provider: ProviderConfig,
   model: string,
   previousSummary?: string,
+  opts?: SummarizeOptions,
 ): Promise<string> {
-  const convo = serializeForSummary(head)
-  const prompt = previousSummary
-    ? `Update the anchored summary below using the conversation history above. Preserve still-true details, remove stale details, and merge in new facts.\n<previous-summary>\n${previousSummary}\n</previous-summary>\n\n${SUMMARY_TEMPLATE}\n\n${convo}`
-    : `Create a new anchored summary from the conversation history.\n\n${SUMMARY_TEMPLATE}\n\n${convo}`
+  const instruction = compactionInstruction(previousSummary)
+  const messages: LLMMessage[] = REPLAY_PREFIX
+    ? [...systemMsgs, ...head, { role: 'user', content: instruction }]
+    : [{ role: 'user', content: `${instruction}\n\n${serializeForSummary(head)}` }]
 
   let summary = ''
   try {
     for await (const chunk of streamChatCompletion({
       baseUrl: provider.base_url, apiKey: provider.api_key, model,
       apiStyle: provider.api_style,
-      messages: [{ role: 'user', content: prompt }],
+      messages,
+      tools: opts?.tools,
     })) {
       if (chunk.type === 'delta' && chunk.text) summary += chunk.text
       if (chunk.type === 'error') throw new Error(chunk.text)
@@ -202,6 +271,7 @@ export async function selectAndSummarize(
   messages: LLMMessage[],
   provider: ProviderConfig,
   model: string,
+  opts?: SummarizeOptions,
 ): Promise<CompactResult> {
   const sysEnd = systemMessageEnd(messages)
   if (sysEnd >= messages.length) return { messages, didCompact: false }
@@ -211,7 +281,8 @@ export async function selectAndSummarize(
   const selected = selectEntries(conversation, KEEP_TOKENS)
   if (!selected || selected.head.length === 0) return { messages, didCompact: false }
 
-  const summary = await llmSummarize(selected.head, provider, model, previousSummary)
+  const systemMsgs = messages.slice(0, sysEnd)
+  const summary = await llmSummarize(selected.head, systemMsgs, provider, model, previousSummary, opts)
   const compacted = compactHistory(messages, summary, selected.recent)
 
   let compactedUntilId = 0

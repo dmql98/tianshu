@@ -10,6 +10,17 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 /**
+ * 读取非负整数环境变量，缺失/非法时回退默认值。
+ * 供上下文阈值类配置使用（P2-2：配置化）。
+ */
+export function envInt(name: string, def: number): number {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return def
+  const n = Number.parseInt(raw, 10)
+  return Number.isFinite(n) && n >= 0 ? n : def
+}
+
+/**
  * Legacy data directory used ONLY as a migration source for pre-0.1.6 installs.
  * It is never the default write target for dev / new installs
  * (BUILTIN_CONTENT_DEVELOPMENT_PLAN §3.1 / §16.1).

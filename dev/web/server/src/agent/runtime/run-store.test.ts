@@ -13,9 +13,15 @@ import { join } from 'path'
 
 const tmpData = mkdtempSync(join(tmpdir(), 'tianshu-runstore-'))
 process.env.TIANSHU_DATA_DIR = tmpData
+process.env.TIANSHU_CONFIG_DIR = tmpData
 
 const { getDb, closeDb } = await import('../../db/schema.js')
+const { setSystemRunPolicy } = await import('../../config.js')
+// 固定系统运行策略：max_turns 断言依赖 absoluteTurns=50，而不是读取本机配置。
+setSystemRunPolicy({ maxAbsoluteTurnsPerRun: 50, dynamicLimitEnabled: false })
 const { sessionStore } = await import('../../db/sessionStore.js')
+const { characterMetaStore } = await import('../../db/characterStore.js')
+const { characterRevisionStore } = await import('../../character/revision-store.js')
 const { runStore } = await import('./run-store.js')
 const { runEventStore, publishRunEvent, forceCancelRun, forceCancelSessionRuns } = await import('./run-event-store.js')
 const { runCoordinator } = await import('./run-coordinator.js')
@@ -27,29 +33,26 @@ function assert(cond: unknown, message: string): asserts cond {
 const db = getDb()
 const NOW = Date.now()
 
-function seedCharacter(characterId: string, revisionId: string, revisionNo = 1) {
-  db.prepare(`
-    INSERT INTO character_definitions (id, current_revision_id, status, created_at, updated_at)
-    VALUES (?, ?, 'active', ?, ?)
-  `).run(characterId, revisionId, NOW, NOW)
-  db.prepare(`
-    INSERT INTO character_revisions (id, character_id, revision_no, manifest_hash, snapshot, visual_manifest, created_at)
-    VALUES (?, ?, ?, ?, '{}', NULL, ?)
-  `).run(revisionId, characterId, revisionNo, `hash-${revisionId}`, NOW)
+// ensureCurrent 按实时状态的 hash 判定陈旧（revision-store.ts:135）。种子必须用
+// 真实发布机制建立与 meta 一致的基线 revision，手动插入的假 hash 会被顶掉重发。
+function seedCharacter(characterId: string) {
+  characterMetaStore.create({ id: characterId, name: 'test' })
+  characterRevisionStore.ensureCurrent(characterId)
 }
 
-function publishRevision(characterId: string, revisionId: string, revisionNo: number) {
-  db.prepare(`
-    INSERT INTO character_revisions (id, character_id, revision_no, manifest_hash, snapshot, visual_manifest, created_at)
-    VALUES (?, ?, ?, ?, '{}', NULL, ?)
-  `).run(revisionId, characterId, revisionNo, `hash-${revisionId}`, NOW)
-  db.prepare('UPDATE character_definitions SET current_revision_id = ?, updated_at = ? WHERE id = ?')
-    .run(revisionId, NOW, characterId)
+function baselineRevision(characterId: string): string {
+  return characterRevisionStore.getDefinition(characterId)!.current_revision_id!
+}
+
+/** 发布一版新 revision：先改实时 meta，再发布，保证后续 ensureCurrent 命中。 */
+function publishRevision(characterId: string): string {
+  characterMetaStore.update(characterId, { description: `v${Date.now()}` })
+  return characterRevisionStore.publish(characterId).id
 }
 
 function newChar(): string {
   const id = `char_${randomUUID().slice(0, 8)}`
-  seedCharacter(id, `rev_${id}_1`)
+  seedCharacter(id)
   return id
 }
 
@@ -62,28 +65,30 @@ try {
   {
     const charId = newChar()
     const session = makeSession(charId)
+    const rev1 = baselineRevision(charId)
     const run1 = runStore.create(session)
-    assert(run1.character_revision_id === `rev_${charId}_1`, 'run1 fixed to current revision')
+    assert(run1.character_revision_id === rev1, 'run1 fixed to current revision')
     assert(/^[0-9a-f]{64}$/.test(run1.character_snapshot_hash), 'snapshot hash is sha256 hex')
     assert(run1.status === 'queued' && run1.source === 'chat' && run1.max_turns === 50, 'default run fields')
 
-    publishRevision(charId, `rev_${charId}_2`, 2)
+    const rev2 = publishRevision(charId)
     const run2 = runStore.create(session)
-    assert(run2.character_revision_id === `rev_${charId}_2`, 'new run uses the newer revision')
-    assert(runStore.get(run1.id)!.character_revision_id === `rev_${charId}_1`, 'old run keeps its pinned snapshot')
+    assert(run2.character_revision_id === rev2, 'new run uses the newer revision')
+    assert(runStore.get(run1.id)!.character_revision_id === rev1, 'old run keeps its pinned snapshot')
     console.log('  OK follow_latest: new runs move, old runs keep fixed revision')
   }
 
   // ---- P0 #7: pinned sessions always use the pinned revision -------------
   {
     const charId = newChar()
-    publishRevision(charId, `rev_${charId}_2`, 2)
+    const rev1 = baselineRevision(charId)
+    publishRevision(charId)
     const pinned = makeSession(charId, {
       character_binding_mode: 'pinned',
-      pinned_character_revision_id: `rev_${charId}_1`,
+      pinned_character_revision_id: rev1,
     })
     const run = runStore.create(pinned)
-    assert(run.character_revision_id === `rev_${charId}_1`, 'pinned session resolves to old revision')
+    assert(run.character_revision_id === rev1, 'pinned session resolves to old revision')
 
     const badPinned = makeSession(charId, {
       character_binding_mode: 'pinned',
@@ -96,7 +101,7 @@ try {
     const otherChar = newChar()
     const crossChar = makeSession(charId, {
       character_binding_mode: 'pinned',
-      pinned_character_revision_id: `rev_${otherChar}_1`,
+      pinned_character_revision_id: baselineRevision(otherChar),
     })
     threw = false
     try { runStore.create(crossChar) } catch { threw = true }

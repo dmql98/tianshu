@@ -113,7 +113,11 @@ export default function ChatInput() {
   const starColor = character?.color || 'var(--gold)'
   const canSend = (input.trim().length > 0 || attachments.length > 0) && !blockInput
 
-  // Context usage estimate (match RightPanel logic)
+  // Context usage estimate (match RightPanel logic). Prefer the provider-
+  // reported real token count (`context_usage`, persisted server-side) once the
+  // official API has replied — never fall back to the character estimate for a
+  // session that has a real measurement, otherwise the bar jumps between the
+  // two (the char/4 guess overcounts CJK-heavy / tool-output-heavy contexts).
   const msgs = session?.messages || []
   let totalChars = 0
   for (const m of msgs) {
@@ -125,7 +129,10 @@ export default function ChatInput() {
     if (m.reasoning) totalChars += m.reasoning.length
     totalChars += 16
   }
-  const tokenEst = session?.context_usage ?? Math.ceil(totalChars / 4)
+  const hasRealUsage = typeof session?.context_usage === 'number' && session.context_usage > 0
+  const tokenEst = hasRealUsage
+    ? session.context_usage!
+    : Math.ceil(totalChars / 4)
   const contextWindow = session?.context_window || 200000
   const contextPct = Math.min(100, Math.round((tokenEst / contextWindow) * 100))
   const cacheHit = session?.cacheStats?.hitRatio || session?.cache_hit_ratio

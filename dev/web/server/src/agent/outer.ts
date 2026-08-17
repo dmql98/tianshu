@@ -180,20 +180,23 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
 
   const tools = toolDefs.length > 0 ? toolDefs : undefined
 
-  // Build system prompt — cached by fingerprint
+  // Build system prompt — cached by fingerprint. P2-1: 工具清单默认不进 system
+  // 文本；仅 TSS_SYSTEM_TOOLS_LIST=1 时列出（variant 纳入缓存 key 防串缓存）。
+  const toolsListingVariant = process.env.TSS_SYSTEM_TOOLS_LIST === '1' ? 'tools-listed' : 'tools-param'
   const key = stableKey(
     charMeta.id,
     normalizeTools(toolDefs),
     charMeta.skills,
     charContent.soul,
     charContent.user,
+    toolsListingVariant,
   )
   let systemPrompt = getCached(key)
   if (!systemPrompt) {
     const comp = extractComponents(charMeta.id, normalizeTools(toolDefs), charMeta.skills, charContent.soul, charContent.user)
     const reasons = diagnoseMiss(charMeta.id, comp)
     console.log(`[system-cache] miss ${key}: ${reasons.join(', ')} (${toolDefs.length} tools, ${(charMeta.skills || []).length} skills)`)
-    systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), resolveDataspace(session.dataspace))
+    systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), resolveDataspace(session.dataspace), { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' })
     setCached(key, systemPrompt)
   }
 
@@ -205,6 +208,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     compactionSummary: session.compaction_summary || null,
     rows: messageStore.getMessages(sessionId, 2000),
     compactionUntilId: session.compaction_until_id || 0,
+    trimmedUntilId: session.trimmed_until_id || 0,
     providerBaseUrl: provider.base_url,
     cap,
     workspace: resolveWorkspace(session.workspace),
@@ -214,7 +218,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   // ── #4 Cold resume: session untouched > 24h → compact ──
   const isColdResume = Date.now() - (session.updated_at || 0) > COLD_RESUME_MS
   if (isColdResume && messages.length > systemMessageEnd(messages) + 1) {
-    const result = await selectAndSummarize(messages, effProvider, model)
+    const result = await selectAndSummarize(messages, effProvider, model, { tools })
     if (result.didCompact) {
       messages.length = 0
       messages.push(...result.messages)
@@ -234,10 +238,14 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   }
   if (shouldSnip(messages, contextWindow)) {
     const snipTokensBefore = estimateTokens(messages)
-    const didSnip = trimToolResults(messages)
+    const { pruned: didSnip, trimmedUntilId } = trimToolResults(messages)
     if (didSnip) {
       const after = estimateTokens(messages)
       console.log(`[session] ${sessionId} snip: trimmed old tool results (${snipTokensBefore}→${after} tok)`)
+      // P0-4: 持久化剪枝水印，重载时按同一剪枝恢复内存态。
+      if (trimmedUntilId > (session.trimmed_until_id || 0)) {
+        sessionStore.update(sessionId, { trimmed_until_id: trimmedUntilId })
+      }
     }
   }
 

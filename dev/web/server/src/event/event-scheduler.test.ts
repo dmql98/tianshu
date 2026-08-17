@@ -17,6 +17,7 @@ process.env.TIANSHU_DATA_DIR = tmpData
 const { getDb, closeDb } = await import('../db/schema.js')
 const { eventDefinitionStore } = await import('./definition-store.js')
 const { eventOccurrenceStore } = await import('./occurrence-store.js')
+const { characterMetaStore } = await import('../db/characterStore.js')
 const { claimDue, fireDefinition } = await import('./event-scheduler.js')
 
 function assert(cond: unknown, message: string): asserts cond {
@@ -35,6 +36,8 @@ function seedCharacter(characterId: string, revisionId: string) {
     INSERT INTO character_revisions (id, character_id, revision_no, manifest_hash, snapshot, visual_manifest, created_at)
     VALUES (?, ?, 1, 'h', '{}', NULL, ?)
   `).run(revisionId, characterId, NOW)
+  // makeSnapshot 依赖 characterMetaStore（character.json），DB 行之外必须种 meta。
+  characterMetaStore.create({ id: characterId, name: 'test' })
 }
 
 function makeDefinition(overrides: Record<string, unknown> = {}) {

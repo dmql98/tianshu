@@ -200,16 +200,17 @@ function isTerminalStatus(status: string): boolean {
  *
  * Returns a summary of what was repaired.
  */
-export function recoverContinuationState(): { interrupted: string[]; repairedEvents: string[] } {
+export function recoverContinuationState(): { interrupted: string[]; repairedEvents: string[]; cancelledQueued: string[] } {
   const interrupted: string[] = []
   const repairedEvents: string[] = []
+  const cancelledQueued: string[] = []
 
-  // 1. Orphaned running/preparing runs (their in-memory coordinator + run
-  //    closures died with the previous process). Mark interrupted rather than
-  //    re-executing tools — never duplicate side effects. append() performs the
-  //    status transition to `interrupted` and persists the durable event.
+  // 1. Orphaned running/preparing/cancelling runs (their in-memory coordinator
+  //    + run closures died with the previous process). Mark interrupted rather
+  //    than re-executing tools — never duplicate side effects. append()
+  //    performs the status transition to `interrupted` and persists the event.
   const orphans = getDb().prepare(
-    `SELECT id FROM runs WHERE status IN ('running', 'preparing')`,
+    `SELECT id FROM runs WHERE status IN ('running', 'preparing', 'cancelling')`,
   ).all() as Array<{ id: string }>
   for (const row of orphans) {
     const event = runEventStore.append(row.id, 'run.interrupted', { reason: 'orphaned_after_restart' })
@@ -234,5 +235,14 @@ export function recoverContinuationState(): { interrupted: string[]; repairedEve
     }
   }
 
-  return { interrupted, repairedEvents }
+  // 3. Cancel orphaned queued runs: the coordinator that would have started
+  //    them died with the previous process, so they will never execute. Without
+  //    this, a queued run stays non-terminal forever and re-sticks the client
+  //    (resumeActiveRun treats any non-terminal run as "running").
+  for (const row of queued) {
+    const event = runEventStore.append(row.id, 'run.cancelled', { status: 'cancelled', reason: 'orphaned_after_restart' })
+    if (event) cancelledQueued.push(row.id)
+  }
+
+  return { interrupted, repairedEvents, cancelledQueued }
 }

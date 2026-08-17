@@ -28,6 +28,7 @@ import { startEventScheduler, stopEventScheduler } from './event/event-scheduler
 import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
 import { runStore } from './agent/runtime/run-store.js'
 import { forceCancelSessionRuns, recoverContinuationState } from './agent/runtime/run-event-store.js'
+import { startRunStallWatchdog } from './agent/runtime/run-stall-watchdog.js'
 
 export interface StartServerOptions {
   host?: string
@@ -184,9 +185,10 @@ export async function startTianshuServer(
   // runs and repair missing `run.queued` durable events. Never re-executes
   // tools or resurrects historical max_turns runs.
   {
-    const { interrupted, repairedEvents } = recoverContinuationState()
+    const { interrupted, repairedEvents, cancelledQueued } = recoverContinuationState()
     if (interrupted.length > 0) console.log(`[startup] interrupted ${interrupted.length} orphaned run(s)`)
     if (repairedEvents.length > 0) console.log(`[startup] repaired ${repairedEvents.length} queued run event(s)`)
+    if (cancelledQueued.length > 0) console.log(`[startup] cancelled ${cancelledQueued.length} orphaned queued run(s)`)
   }
 
   const app = new Hono()
@@ -246,6 +248,16 @@ export async function startTianshuServer(
       methods: ['GET', 'POST'],
     },
     maxHttpBufferSize: 50 * 1024 * 1024,
+    // Keep-alive tuning for the localhost desktop/dev carrier:
+    // - pingInterval 25s (default) keeps the socket alive;
+    // - pingTimeout 60s tolerates event-loop stalls (DB, asset GC, LLM
+    //   streaming) without dropping clients — the 20s default kicks sockets
+    //   whenever the process is busy that long, which reads as random
+    //   disconnects;
+    // - connectTimeout guards the initial handshake on a busy restart.
+    pingInterval: 25_000,
+    pingTimeout: 60_000,
+    connectTimeout: 15_000,
   })
   setEventDefinitionRuntime(io)
   setGoalRuntime(io)
@@ -253,6 +265,9 @@ export async function startTianshuServer(
   io.on('connection', (socket) => registerChatSocket(io, socket))
   startEventScheduler(io)
   startAssetGC()
+  // Interrupt runs that stopped making progress (hung tool / MCP / LLM path),
+  // so a stalled run can never pin the UI in thinking/speaking forever.
+  const stopStallWatchdog = startRunStallWatchdog(io)
   initThemeStore()
 
   let closed = false
@@ -276,6 +291,7 @@ export async function startTianshuServer(
       // Order: timers → Socket.IO → HTTP server → DB.
       stopEventScheduler()
       stopAssetGC()
+      stopStallWatchdog()
       await withTimeout((done) => {
         try {
           io.close(() => done())

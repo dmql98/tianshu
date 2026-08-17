@@ -4,9 +4,11 @@ import { getDataDir } from '../../config.js'
 import { builtinPromptsRoot } from '../../content/paths.js'
 import { characterMetaStore, type CharacterRecord } from '../../db/characterStore.js'
 import { characterContentStore } from '../../character/store.js'
+import { messageStore } from '../../db/messageStore.js'
 import { buildSkillIndex } from '../skill-loader.js'
 import { normalizeTools } from '../system-cache.js'
 import { truncateToolOutput } from '../../tools/truncate.js'
+import { pruneToolResultContent } from './tool-result-pruner.js'
 import { reconstructParts, lowerContentToProvider, textPart, resolveProviderFormat, type ProviderCapability, type ProviderFormat } from '../attachments.js'
 import type { LLMMessage } from '../../llm/client.js'
 import type { MessageRow } from '../../db/messageStore.js'
@@ -47,12 +49,22 @@ export function loadPromptTemplate(charId: string): string {
   return '## System Prompt\n\n{{GUIDANCE}}'
 }
 
+export interface StaticPromptOptions {
+  /**
+   * 是否在 system prompt 文本里列出可用工具。工具已通过 API `tools` 参数下发，
+   * 默认不在 system 文本重复列出（P2-1，省 token / 保前缀缓存稳定）；仅当通道
+   * 不支持 tools 参数时打开。由 TSS_SYSTEM_TOOLS_LIST=1 控制。
+   */
+  includeToolsListing?: boolean
+}
+
 export function assembleStaticPrompt(
   charMeta: CharacterRecord,
   charContent: { soul: string; user: string },
   toolDefs: any[],
   workspace: string,
   dataspace?: string,
+  opts?: StaticPromptOptions,
 ): string {
   const parts: string[] = []
 
@@ -62,8 +74,9 @@ export function assembleStaticPrompt(
   // Load configurable prompt template
   parts.push(loadPromptTemplate(charMeta.id).trim())
 
-  // List available tools — sorted for deterministic ordering (Reasonix #6)
-  if (toolDefs.length > 0) {
+  // List available tools — sorted for deterministic ordering (Reasonix #6).
+  // P2-1: 默认省略（工具已在 tools 参数下发）；仅 TSS_SYSTEM_TOOLS_LIST=1 时列出。
+  if (opts?.includeToolsListing && toolDefs.length > 0) {
     const sorted = normalizeTools(toolDefs)
     const toolListings = sorted.map((t: any) =>
       `- ${t.function.name}: ${t.function.description}`
@@ -86,17 +99,39 @@ export function assembleStaticPrompt(
   return parts.join('\n\n')
 }
 
+/**
+ * 结构化工具结果错误判定（P1-2）：优先读 is_error 列，旧数据缺失时回退解析
+ * content 字符串（`{output, error}`）。
+ */
+export function toolResultIsError(row: Pick<MessageRow, 'is_error' | 'content'>): boolean {
+  if (row.is_error != null) return row.is_error === 1
+  try {
+    const parsed = JSON.parse(row.content || '{}')
+    return !!(parsed && typeof parsed === 'object' && (parsed as Record<string, unknown>).error)
+  } catch {
+    return false
+  }
+}
+
 export function rowToLLMMessage(
   row: MessageRow,
   sessionId: string,
   cap: ProviderCapability,
   format: ProviderFormat,
+  trimmedUntilId = 0,
 ): LLMMessage | null {
   if (row.role === 'tool') {
     let callId = ''
     try { const p = JSON.parse(row.tool_input || '{}'); if (p.call_id) callId = p.call_id } catch {}
     if (!callId) return null
     let content = row.content || ''
+    // P1-2: content 缺失时从结构化列重建（is_error 决定 error 字段归属），
+    // 避免依赖解析；旧数据 content 为空时也能产出可发送的消息。
+    if (!content) {
+      const err = toolResultIsError(row)
+      const val = row.tool_output || ''
+      content = JSON.stringify(err ? { output: '', error: val } : { output: val, error: '' })
+    }
     // Byte-stable pass-through: provider prefix caching matches on the exact
     // stored bytes. Only rewrite the serialized content when an output/error is
     // actually over the length limit and needs truncation; otherwise keep the
@@ -116,6 +151,12 @@ export function rowToLLMMessage(
         if (needsRewrite) content = JSON.stringify(parsed)
       }
     } catch {}
+    // P0-4: id <= trimmed_until_id 的行在运行中已被 head/tail 剪枝，重载时用
+    // 同一实现恢复剪枝后的 content，保证「会话恢复 == 运行中内存态」。
+    // 剪枝是确定性的，已剪内容再剪是幂等的，因此幂等安全。
+    if (trimmedUntilId > 0 && row.id <= trimmedUntilId) {
+      content = pruneToolResultContent(content)
+    }
     // Tool-produced media (e.g. webfetch images) ride the same media pipe.
     if (row.attachments) {
       const { media } = reconstructParts(content, row.attachments, sessionId)
@@ -223,28 +264,54 @@ export async function expandContextReferences(
 }
 
 /**
- * Ensure every assistant(tool_calls) message has matching tool responses;
- * inject placeholders for missing ones (legacy DB rows).
+ * 修复悬空 assistant(tool_calls)：调用在会话里没有任何 tool 结果的孤儿调用，
+ * 从消息里移除（同时把移除持久化到 assistant 行的 tool_input，P2-3）。
+ *
+ * 幂等性：修复结果写入 DB 后，下次加载读到的是已修复的 tool_input，不再有孤儿
+ * 调用 → 不再重复修复/重复告警。旧数据无法持久化（无 __dbId / 无 sessionId）时
+ * 仅做内存移除，结果同样确定且幂等（同一输入 → 同一输出）。
+ *
+ * 替代旧「注入 [reconstructed] 占位」做法：占位无法在 SQLite 按 id 排位插入到
+ * 调用之后（会落到会话尾部破坏配对），移除孤儿调用才是可落库且幂等的修复。
  */
-export function fixOrphanToolCalls(messages: LLMMessage[]): void {
+export function fixOrphanToolCalls(
+  messages: LLMMessage[],
+  opts: { sessionId?: string } = {},
+): void {
+  const orphans: Array<{ msg: LLMMessage; keepIds: string[]; orphanCount: number }> = []
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i]
-    if (m.role === 'assistant' && m.tool_calls) {
-      const expectedIds = new Set(m.tool_calls.filter(tc => tc.id).map(tc => tc.id!))
-      for (let j = i + 1; j < messages.length; j++) {
-        const toolId = messages[j].tool_call_id
-        if (messages[j].role === 'tool' && toolId && expectedIds.has(toolId)) {
-          expectedIds.delete(toolId)
-        }
-        if (messages[j].role === 'assistant') break
-      }
-      if (expectedIds.size > 0) {
-        for (const id of expectedIds) {
-          messages.splice(i + 1, 0, { role: 'tool', content: JSON.stringify({ output: '', error: '[reconstructed]' }), tool_call_id: id })
-          console.warn(`[messages] Injected placeholder tool response for missing call_id: ${id}`)
-        }
-      }
+    if (m.role !== 'assistant' || !m.tool_calls || m.tool_calls.length === 0) continue
+    const allIds = m.tool_calls.filter(tc => tc.id).map(tc => tc.id!)
+    const present = new Set<string>()
+    for (let j = i + 1; j < messages.length; j++) {
+      if (messages[j].role === 'assistant') break
+      const toolId = messages[j].tool_call_id
+      if (messages[j].role === 'tool' && toolId) present.add(toolId)
+      if (present.size >= allIds.length) break
     }
+    const orphanIds = allIds.filter(id => !present.has(id))
+    if (orphanIds.length === 0) continue
+    const keepIds = allIds.filter(id => !orphanIds.includes(id))
+    orphans.push({ msg: m, keepIds, orphanCount: orphanIds.length })
+  }
+
+  for (const { msg, keepIds, orphanCount } of orphans) {
+    const dbId = (msg as unknown as { __dbId?: number }).__dbId
+    if (opts.sessionId && typeof dbId === 'number') {
+      const kept = (msg.tool_calls ?? []).filter(tc => tc.id && keepIds.includes(tc.id)).map(tc => ({
+        id: tc.id,
+        type: tc.type,
+        function: { name: tc.function.name, arguments: tc.function.arguments },
+      }))
+      messageStore.updateToolInput(dbId, JSON.stringify(kept))
+    }
+    // 内存态同步：移除孤儿调用；全部移除后该消息不再携带 tool_calls。
+    if (msg.tool_calls) {
+      msg.tool_calls = msg.tool_calls.filter(tc => keepIds.includes(tc.id ?? ''))
+      if (msg.tool_calls.length === 0) delete msg.tool_calls
+    }
+    console.warn(`[messages] Removed ${orphanCount} orphaned tool call(s) without results (session ${opts.sessionId ?? '?'})`)
   }
 }
 
@@ -255,6 +322,8 @@ export interface SessionContextInput {
   compactionSummary: string | null
   rows: MessageRow[]
   compactionUntilId: number
+  /** P0-4: 已被 trimToolResults 剪枝的消息 id 上界（重载时恢复剪枝后 content）。 */
+  trimmedUntilId: number
   providerBaseUrl: string
   cap: ProviderCapability
   workspace: string
@@ -279,14 +348,14 @@ export async function buildInitialMessages(input: SessionContextInput): Promise<
   }
   for (const row of input.rows) {
     if (input.compactionUntilId > 0 && row.id <= input.compactionUntilId) continue
-    let m = rowToLLMMessage(row, input.characterId, input.cap, format)
+    let m = rowToLLMMessage(row, input.characterId, input.cap, format, input.trimmedUntilId)
     if (m) {
       m = await expandContextReferences(m, input.workspace)
       ;(m as any).__dbId = row.id
       messages.push(m)
     }
   }
-  fixOrphanToolCalls(messages)
+  fixOrphanToolCalls(messages, { sessionId: input.characterId })
   return messages
 }
 

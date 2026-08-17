@@ -33,6 +33,7 @@ export function stableKey(
   skills: string[] | undefined,
   soul: string,
   user: string,
+  variant = '',
 ): string {
   const t = normalizeTools(tools)
   const tStr = t.map(x => x.function.name).join(',')
@@ -43,6 +44,7 @@ export function stableKey(
     's:', sStr,
     'so:', shortHash(soul || ''),
     'u:', shortHash(user || ''),
+    ...(variant ? ['v:', variant] : []),
   ].join('|')
   return shortHash(raw)
 }

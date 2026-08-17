@@ -116,6 +116,7 @@ router.post('/:id/fork', async (c) => {
       execution_mode: source.execution_mode,
       reasoning_effort: source.reasoning_effort,
       context_window: source.context_window,
+      context_usage: source.context_usage,
     })
     messageStore.copyFirst(sourceId, targetId, throughIndex + 1)
     return { session, messages: messageStore.getMessages(targetId) }

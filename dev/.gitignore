@@ -13,6 +13,9 @@ dist/
 data/*.db*
 web/server/data/*.db*
 
+# Isolated run.bat dev data dir (own sessions.db / characters / skills)
+/devdata/
+
 # Runtime data
 data/providers.json
 data/debug/

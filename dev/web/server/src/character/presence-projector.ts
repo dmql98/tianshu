@@ -25,6 +25,25 @@ const MOTIONS: Array<[RegExp, CharacterMotion, number]> = [
 
 const TERMINAL_MOTION_TTL_MS = 8_000
 
+// Hardening: even if a run somehow lacks a durable terminal event (defensive —
+// the stall watchdog and startup recovery normally guarantee one), the
+// presence must reflect the run's ACTUAL terminal status rather than the last
+// stream event, otherwise the UI stays stuck in thinking/speaking forever.
+const TERMINAL_MOTION_BY_STATUS: Record<string, { motion: CharacterMotion; priority: number }> = {
+  completed: { motion: 'success', priority: 90 },
+  failed: { motion: 'error', priority: 100 },
+  interrupted: { motion: 'error', priority: 100 },
+  max_turns: { motion: 'error', priority: 100 },
+  budget_exhausted: { motion: 'error', priority: 100 },
+  cancelled: { motion: 'idle', priority: 110 },
+}
+
+function terminalMotionForRun(runId: string): { motion: CharacterMotion; priority: number } | null {
+  const row = getDb().prepare('SELECT status FROM runs WHERE id = ?').get(runId) as { status?: string } | undefined
+  if (!row?.status) return null
+  return TERMINAL_MOTION_BY_STATUS[row.status] ?? null
+}
+
 function mapEvent(type: string): { motion: CharacterMotion; priority: number } | null {
   const match = MOTIONS.find(([pattern]) => pattern.test(type))
   return match ? { motion: match[1], priority: match[2] } : null
@@ -50,11 +69,13 @@ export const characterPresenceProjector = {
     const rows = getDb().prepare(`
       WITH ranked AS (
         SELECT re.type, re.created_at, re.run_id, re.session_id,
+               r.status AS run_status,
                ROW_NUMBER() OVER (
                  PARTITION BY re.session_id
                  ORDER BY re.created_at DESC, re.seq DESC
                ) AS rank
         FROM run_events re
+        JOIN runs r ON r.id = re.run_id
         WHERE re.session_id IS NOT NULL
           AND re.type IN (
             'run.cancelled', 'run.failed', 'run.interrupted', 'run.max_turns',
@@ -63,7 +84,7 @@ export const characterPresenceProjector = {
             'run.queued', 'run.continuation_queued', 'approval.requested', 'ask_user'
           )
       )
-      SELECT type, created_at, run_id, session_id
+      SELECT type, created_at, run_id, session_id, run_status
       FROM ranked
       WHERE rank = 1
     `).all() as Array<{
@@ -71,11 +92,13 @@ export const characterPresenceProjector = {
       created_at: number
       run_id: string
       session_id: string
+      run_status: string
     }>
 
     const presences: SessionPresence[] = []
     for (const event of rows) {
-      const mapped = mapEvent(event.type)
+      const terminal = event.run_status ? TERMINAL_MOTION_BY_STATUS[event.run_status] ?? null : null
+      const mapped = terminal ?? mapEvent(event.type)
       if (!mapped) continue
       presences.push({
         sessionId: event.session_id,
@@ -104,7 +127,8 @@ export const characterPresenceProjector = {
       character_revision_id: string
     }>
     for (const event of row) {
-      const mapped = mapEvent(event.type)
+      const terminal = terminalMotionForRun(event.run_id)
+      const mapped = terminal ?? mapEvent(event.type)
       if (!mapped) continue
       return {
         characterId,

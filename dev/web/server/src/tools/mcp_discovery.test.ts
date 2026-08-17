@@ -2,7 +2,17 @@
  * Run: npx tsx src/tools/mcp_discovery.test.ts
  */
 
-import { normalizeDiscoveredEntry } from './mcp_discovery.js'
+import { mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+
+// replaceWorkspace 用 getDataDir() 替换 ${workspaceFolder}（mcp_discovery.ts），
+// 测试需要确定性的 data dir，断言目标也是 getDataDir() 而非 process.cwd()。
+const tmpData = mkdtempSync(join(tmpdir(), 'tianshu-mcp-'))
+process.env.TIANSHU_DATA_DIR = tmpData
+
+const { normalizeDiscoveredEntry } = await import('./mcp_discovery.js')
+const { getDataDir } = await import('../config.js')
 
 // opencode: command as array + `environment`
 const openCodeEntry = normalizeDiscoveredEntry('codegraph', {
@@ -28,13 +38,13 @@ if (!claudeEntry || claudeEntry.command !== 'npx' || claudeEntry.args.length !==
   throw new Error(`claude string-command normalization failed: ${JSON.stringify(claudeEntry)}`)
 }
 
-// cursor: ${workspaceFolder} placeholder replaced
+// cursor: ${workspaceFolder} placeholder replaced with getDataDir()
 const cursorEntry = normalizeDiscoveredEntry('codegraph', {
   type: 'stdio',
   command: 'codegraph',
   args: ['serve', '--mcp', '--path', '${workspaceFolder}'],
 }, 'cursor', { replaceWorkspace: true })
-if (!cursorEntry || cursorEntry.args[cursorEntry.args.length - 1] !== process.cwd()) {
+if (!cursorEntry || cursorEntry.args[cursorEntry.args.length - 1] !== getDataDir()) {
   throw new Error(`cursor workspace placeholder not replaced: ${JSON.stringify(cursorEntry)}`)
 }
 
@@ -56,3 +66,5 @@ if (normalizeDiscoveredEntry('bad', { command: [] }, 'claude') !== null) {
 }
 
 console.log('  OK MCP discovery normalizes opencode/claude/cursor configs and flags remote servers')
+
+rmSync(tmpData, { recursive: true, force: true })

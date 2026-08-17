@@ -25,6 +25,7 @@ export interface SessionSummary {
   event_id?: string | null
   current_strategy?: Strategy
   context_window?: number | null
+  context_usage?: number | null
   reasoning_effort?: string
   execution_mode?: string
   input_tokens?: number
@@ -45,7 +46,7 @@ export interface Session extends SessionSummary {
   reasoning_effort?: string
   compacted?: boolean
   cacheStats?: { hitTokens: number; missTokens: number; hitRatio: string }
-  context_usage?: number
+  context_usage?: number | null
 }
 
 export interface Message {

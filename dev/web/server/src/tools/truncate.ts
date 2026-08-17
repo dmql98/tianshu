@@ -2,9 +2,11 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { createHash } from 'crypto'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
+import { envInt } from '../config.js'
 
 export const getOutputDir = () => resolve(getDataDir(), 'tool-output')
-const MAX_OUTPUT_CHARS = 64000
+// P2-2: 超长工具输出截断上限（配置化）。
+const MAX_OUTPUT_CHARS = envInt('TSS_TOOL_OUTPUT_MAX_CHARS', 64000)
 
 function ensureDir() {
   const dir = getOutputDir()

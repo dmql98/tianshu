@@ -62,6 +62,9 @@ export interface LoopEngineContext {
     active_group?: string | null
     current_strategy?: string | null
     approval_mode?: string | null
+    compaction_until_id?: number | null
+    compaction_summary?: string | null
+    trimmed_until_id?: number | null
   }
 }
 
@@ -259,12 +262,16 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     if (result.totalCacheMissTokens) totalCacheMissTokens += result.totalCacheMissTokens
 
     if (result.type === 'error') {
+      // Cancellation is not a retryable error: exit immediately instead of
+      // emitting run.retrying (belt-and-suspenders; innerLoop now returns
+      // 'aborted' on cancellation, so this mostly guards races at the boundary).
+      if (signal?.aborted) break
       const errMsg = result.error?.toLowerCase() || ''
 
       if (errMsg.includes('context length') || errMsg.includes('maximum context') || errMsg.includes('context_length') || errMsg.includes('too many tokens')) {
         if (!overflowCompacted) {
           console.log(`[session] ${sessionId} overflow, force compacting and retrying...`)
-          const compact = await selectAndSummarize(messages, provider, model)
+          const compact = await selectAndSummarize(messages, provider, model, { tools })
           if (compact.didCompact) {
             messages.length = 0
             messages.push(...compact.messages)
@@ -430,17 +437,29 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     // Snip stale tool results first (cache-friendly), then compact if still over limit.
     // Use the provider-reported input token count (accurate) with a local
     // estimate fallback when usage isn't available (e.g. first turn / no usage).
-    const usedTokens = result.lastInputTokens ?? estimateTokens(messages)
-    if (shouldSnipTokens(usedTokens, contextWindow)) {
+    // CRITICAL: `lastInputTokens` reflects the request that JUST completed,
+    // which does NOT include the messages appended to `messages` this turn
+    // (`result.messages`). Project the NEXT request's size by adding this
+    // turn's messages, otherwise a large tool output lets the next request
+    // blow past the window before compaction has a chance to fire.
+    const lastMeasured = result.lastInputTokens
+    const projectedTokens = lastMeasured !== undefined
+      ? lastMeasured + estimateTokens(result.messages)
+      : estimateTokens(messages)
+    if (shouldSnipTokens(projectedTokens, contextWindow)) {
       const snipTokensBefore = estimateTokens(messages)
-      const didSnip = trimToolResults(messages)
+      const { pruned: didSnip, trimmedUntilId } = trimToolResults(messages)
       if (didSnip) {
         const after = estimateTokens(messages)
-        console.log(`[session] ${sessionId} turn ${turn}: snip trimmed (${snipTokensBefore}→${after} tok, used ${usedTokens})`)
+        console.log(`[session] ${sessionId} turn ${turn}: snip trimmed (${snipTokensBefore}→${after} tok, used ${projectedTokens})`)
+        // P0-4: 持久化剪枝水印，重载时恢复同一内存态。
+        if (trimmedUntilId > (session.trimmed_until_id || 0)) {
+          sessionStore.update(sessionId, { trimmed_until_id: trimmedUntilId })
+        }
       }
     }
-    if (shouldCompactTokens(usedTokens, contextWindow)) {
-      const compact = await selectAndSummarize(messages, provider, model)
+    if (shouldCompactTokens(projectedTokens, contextWindow)) {
+      const compact = await selectAndSummarize(messages, provider, model, { tools })
       if (compact.didCompact) {
         messages.length = 0
         messages.push(...compact.messages)

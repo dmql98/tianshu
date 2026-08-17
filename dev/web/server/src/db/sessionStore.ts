@@ -18,9 +18,11 @@ export interface SessionRow {
   current_strategy: string | null
   reasoning_effort: string | null
   context_window: number | null
+  context_usage: number | null
   input_tokens: number; output_tokens: number
   cache_hit_tokens: number; cache_miss_tokens: number; cache_hit_ratio: string | null
   compaction_summary: string | null; compaction_until_id: number | null
+  trimmed_until_id: number | null
   created_at: number; updated_at: number
 }
 
@@ -43,9 +45,9 @@ export function cleanMessagePreview(content: string | null | undefined): string 
   return chars.slice(0, RECENT_PREVIEW_MAX).join('')
 }
 
-const INSERT_COLS = 'id, character_id, title, model, provider_id, workspace, workspaces, dataspace, parent_id, active_group, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, created_at, updated_at'
-const INSERT_PARAMS = '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @dataspace, @parent_id, @active_group, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @created_at, @updated_at'
-const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, dataspace=@dataspace, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, updated_at=@updated_at'
+const INSERT_COLS = 'id, character_id, title, model, provider_id, workspace, workspaces, dataspace, parent_id, active_group, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, context_usage, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, trimmed_until_id, created_at, updated_at'
+const INSERT_PARAMS = '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @dataspace, @parent_id, @active_group, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @context_usage, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @trimmed_until_id, @created_at, @updated_at'
+const UPDATE_COLS = 'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, dataspace=@dataspace, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, context_usage=@context_usage, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, trimmed_until_id=@trimmed_until_id, updated_at=@updated_at'
 
 export const sessionStore = {
   list(limit = 50): SessionRow[] {
@@ -117,11 +119,13 @@ export const sessionStore = {
       current_strategy: data.current_strategy ? normalizeStrategy(data.current_strategy) : null,
       reasoning_effort: data.reasoning_effort ?? null,
       context_window: data.context_window ?? null,
+      context_usage: data.context_usage ?? null,
       input_tokens: data.input_tokens || 0, output_tokens: data.output_tokens || 0,
       cache_hit_tokens: data.cache_hit_tokens || 0, cache_miss_tokens: data.cache_miss_tokens || 0,
       cache_hit_ratio: data.cache_hit_ratio ?? 'N/A',
       compaction_summary: data.compaction_summary ?? null,
       compaction_until_id: data.compaction_until_id ?? null,
+      trimmed_until_id: data.trimmed_until_id ?? null,
       created_at: now, updated_at: now,
     }
     getDb().prepare(`INSERT INTO sessions (${INSERT_COLS}) VALUES (${INSERT_PARAMS})`).run(row)

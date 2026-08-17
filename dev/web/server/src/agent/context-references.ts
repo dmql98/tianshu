@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { getDataDir } from '../config.js'
+import { estimateTextTokens } from './loop/loop-policy.js'
 
 export interface ContextReference {
   raw: string
@@ -67,10 +68,6 @@ function parseLineRange(value: string): { path: string; lineStart: number | null
     }
   }
   return { path: value, lineStart: null, lineEnd: null }
-}
-
-function estimateTokenCount(text: string): number {
-  return Math.ceil(text.length / 4)
 }
 
 function truncateContent(content: string, maxBytes: number): string {
@@ -262,7 +259,7 @@ export async function preprocessContextReferences(
     }
 
     const label = lineStart ? `@${kind}:${resolvedTarget}:${lineStart}${lineEnd && lineEnd !== lineStart ? `-${lineEnd}` : ''}` : `@${kind}:${resolvedTarget}`
-    const tokens = estimateTokenCount(result.content)
+    const tokens = estimateTextTokens(result.content)
     let block = `[${label} (${tokens} tokens)]\n`
 
     if (kind === 'url') {
@@ -310,7 +307,7 @@ export async function preprocessContextReferences(
   segments.push(message.slice(lastEnd))
 
   const resultMessage = segments.join('')
-  const injectedTokens = estimateTokenCount(resultMessage) - estimateTokenCount(message)
+  const injectedTokens = estimateTextTokens(resultMessage) - estimateTextTokens(message)
 
   return {
     message: resultMessage,

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy, type WorkspaceGroup } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
-import { connectSocket, getSocket } from '@/api/socket'
+import { connectSocket, getSocket, bumpConnectionGeneration, isCurrentGeneration, waitForSocketReady } from '@/api/socket'
 import { useProvidersStore } from './providersStore'
 import type { CharacterMotion } from '@/api/characters'
 import { motionForRunEvent } from '@/features/character-presence/motion'
@@ -22,12 +22,28 @@ const PARKED_RUN_STATUS = new Set(['awaiting_approval', 'awaiting_input', 'pause
 const TERMINAL_EVENT_TYPES = new Set([
   'run.completed', 'run.failed', 'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
 ])
+// Event types the per-run temporary listeners (sendMessage) actually register.
+// isHandledByTemporaryListener must only claim types they listen for —
+// otherwise an event nobody handles (e.g. run.interrupted) gets dropped while
+// a temporary listener is active and the session stays stuck "streaming".
+const TEMP_STREAM_TYPES = new Set([
+  'strategy.updated', 'message.delta', 'message.metrics', 'tool.started',
+  'tool.completed', 'tool.output', 'approval.requested', 'run.started',
+  'run.completed', 'run.cancelled', 'run.interrupted', 'usage', 'run.compacted',
+  'run.retrying', 'run.failed',
+])
 // Highest persisted event seq seen per run (survives reconnects to resume replay)
 const runSeqByRunId = new Map<string, number>()
 const pendingApprovalBySession = new Map<string, PendingApproval>()
 const sessionMotionSince = new Map<string, number>()
 const sessionMotionTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const TERMINAL_MOTION_TTL_MS = 8_000
+
+// Abort latch: the stop button stays in a "stopping" state from the click
+// until the server confirms a terminal event (or the safety timer fires), so
+// a slow or racing abort never looks like the click "didn't take".
+let abortingSessionId: string | null = null
+let abortTimer: ReturnType<typeof setTimeout> | null = null
 
 interface PendingApproval {
   session_id: string
@@ -94,7 +110,7 @@ function savePersistedDefaults(data: Record<string, string | undefined>) {
 
 // ── Store ──
 
-export type ActiveRunPhase = 'idle' | 'running' | 'continuation_pending' | 'parked'
+export type ActiveRunPhase = 'idle' | 'running' | 'continuation_pending' | 'parked' | 'cancelling'
 
 export interface ActiveRunState {
   runId: string | null
@@ -238,6 +254,23 @@ export const useChatStore = create<ChatState>((set, get) => {
     set(state => ({ sessionMotions: { ...state.sessionMotions, [sessionId]: motion } }))
   }
 
+  /** A run really terminated (or the chain was cancelled): leave the stopping state. */
+  function settleAbort(sessionId: string) {
+    if (abortingSessionId === null) return
+    if (abortingSessionId === sessionId) abortingSessionId = null
+    if (abortTimer) { clearTimeout(abortTimer); abortTimer = null }
+    updateSessionRun(sessionId, {
+      activeRun: { ...IDLE_RUN },
+      activeRunId: null,
+      isStreaming: false,
+    })
+  }
+
+  /** While a session is aborting, ignore events that would re-arm its streaming state. */
+  function isAbortingSession(sessionId?: string): boolean {
+    return abortingSessionId !== null && (sessionId === undefined || sessionId === abortingSessionId)
+  }
+
   // ── Persistent socket listeners (registered once) ──
   function initPersistentListeners() {
     const socket = connectSocket()
@@ -270,33 +303,69 @@ export const useChatStore = create<ChatState>((set, get) => {
     // After reconnect, replay persisted events for every tracked run. Background
     // sessions can stream too; replaying only the visible session leaves the
     // others permanently stale after a transport interruption.
-    socket.on('connect', () => {
+    socket.on('connect', async () => {
+      // Fresh connection generation: any replay started by an earlier
+      // connect/disconnect cycle is now stale and must not land its results.
+      const generation = bumpConnectionGeneration()
       set({ socketConnected: true })
-      const state = get()
-      // Session creation notifications (especially sub-agent sessions) are
-      // ephemeral socket events. Reconcile the authoritative session tree on
-      // every connect so an event missed while offline is not lost forever.
-      void state.loadSessions()
-      for (const [sessionId, record] of Object.entries(state.sessionRuns)) {
-        const runId = record.activeRunId
-        if (!runId) continue
-        const afterSeq = runSeqByRunId.get(runId) || 0
-        fetchRunEvents(runId, afterSeq)
-          .then(events => {
-            if (events.length === 0) return
-            applyRunEvents(sessionId, events)
-            runSeqByRunId.set(runId, events[events.length - 1].seq ?? afterSeq)
-          })
-          .catch(() => {})
+      try {
+        // Readiness handshake: the transport may be up while the (restarted)
+        // server is still settling its connection handler; replaying before it
+        // answers races its setup. On timeout (older server) we proceed anyway.
+        const ready = await waitForSocketReady(socket)
+        if (!ready) console.warn('[socket] readiness ack not received; replaying anyway')
+        if (!isCurrentGeneration(generation) || !get().socketConnected) return
+        const state = get()
+        // Session creation notifications (especially sub-agent sessions) are
+        // ephemeral socket events. Reconcile the authoritative session tree on
+        // every connect so an event missed while offline is not lost forever.
+        void state.loadSessions()
+        // Replay run events through a small concurrency pool: a reconnect
+        // burst firing dozens of parallel fetches at once is what makes the UI
+        // jank. Results from a generation that died meanwhile are discarded.
+        const targets = Object.entries(state.sessionRuns)
+          .filter(([, record]) => !!record.activeRunId)
+          .map(([sessionId, record]) => ({ sessionId, runId: record.activeRunId as string }))
+        const REPLAY_POOL_SIZE = 3
+        let cursor = 0
+        const worker = async () => {
+          while (cursor < targets.length) {
+            const target = targets[cursor++]
+            if (!isCurrentGeneration(generation)) return
+            const afterSeq = runSeqByRunId.get(target.runId) || 0
+            try {
+              const events = await fetchRunEvents(target.runId, afterSeq)
+              if (!isCurrentGeneration(generation)) return
+              if (events.length === 0) continue
+              applyRunEvents(target.sessionId, events)
+              runSeqByRunId.set(target.runId, events[events.length - 1].seq ?? afterSeq)
+            } catch {
+              // Run may be gone after the restart; skip it.
+            }
+          }
+        }
+        await Promise.all(Array.from(
+          { length: Math.min(REPLAY_POOL_SIZE, targets.length) },
+          () => worker(),
+        ))
+      } catch (error) {
+        console.error('[socket] reconnect replay failed:', error)
       }
     })
-    socket.on('disconnect', () => set({ socketConnected: false }))
+    socket.on('disconnect', () => {
+      // Invalidate any replay still in flight from the connection that just died.
+      bumpConnectionGeneration()
+      set({ socketConnected: false })
+    })
 
     // Live context usage — every LLM call reports the real prompt size, so the
     // context progress bar tracks actual tokens instead of a character estimate.
+    // Only accept positive counts: a 0/absent value mid-stream (or for a
+    // provider that doesn't report usage) must NOT overwrite the last real one,
+    // otherwise the bar collapses then jumps back up.
     socket.off('usage')
     socket.on('usage', (data: { session_id: string; input_tokens: number }) => {
-      if (!data.session_id || typeof data.input_tokens !== 'number') return
+      if (!data.session_id || typeof data.input_tokens !== 'number' || data.input_tokens <= 0) return
       set(state => ({
         sessions: state.sessions.map(s =>
           s.id === data.session_id ? { ...s, context_usage: data.input_tokens } : s
@@ -389,6 +458,9 @@ export const useChatStore = create<ChatState>((set, get) => {
     function isHandledByTemporaryListener(data: RunEvent): boolean {
       const state = get()
       if (!state._currentCleanup || data.session_id !== state.activeSessionId) return false
+      // Only claim events the temporary listener actually registers; an event
+      // it does not listen for must fall through to the persistent handler.
+      if (!data.type || !TEMP_STREAM_TYPES.has(data.type)) return false
       const s = state.sessions.find(x => x.id === data.session_id)
       if (s?.session_type === 'event') return false
       return !data.run_id || data.run_id === state._activeRunId
@@ -503,6 +575,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
       })
       handleTerminalForContinuation(data)
+      settleAbort(data.session_id)
     })
 
     socket.off('run.max_turns')
@@ -515,6 +588,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
       })
       handleTerminalForContinuation(data)
+      settleAbort(data.session_id)
     })
 
     socket.off('run.cancelled')
@@ -527,6 +601,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         return { ...sess, messages }
       })
       handleTerminalForContinuation(data)
+      settleAbort(data.session_id)
     })
 
     socket.off('run.limit_warning')
@@ -574,10 +649,40 @@ export const useChatStore = create<ChatState>((set, get) => {
         activeRunId: null,
         isStreaming: false,
       })
+      settleAbort(data.session_id)
+    })
+
+    // Server-initiated interruption (stall watchdog / startup recovery): the
+    // run will never produce more events, so reset the streaming state here —
+    // without this a stalled run pinned the session in thinking/speaking
+    // forever, even across client restarts.
+    socket.off('run.interrupted')
+    socket.on('run.interrupted', (data: RunEvent) => {
+      if (isHandledByTemporaryListener(data)) return
+      const reasonText = data.reason === 'stalled' || data.reason === 'stalled_active'
+        ? '运行停滞超时，已被服务端自动中断'
+        : data.reason === 'orphaned_after_restart'
+          ? '服务端重启，遗留的运行已中断'
+          : '运行已中断'
+      updateSessionMessage(data.session_id, sess => ({
+        ...sess,
+        messages: [...sess.messages, {
+          id: uid(), role: 'assistant' as const,
+          content: `[${reasonText}]`,
+          timestamp: Date.now(),
+        }],
+      }))
+      updateSessionRun(data.session_id, {
+        activeRun: { ...IDLE_RUN },
+        activeRunId: null,
+        isStreaming: false,
+      })
+      settleAbort(data.session_id)
     })
 
     socket.off('run.started')
     socket.on('run.started', (data: RunEvent & { context_window?: number }) => {
+      if (isAbortingSession(data.session_id)) return
       const prev = get().sessionRuns[resolveSessionRoot(data.session_id)]?.activeRun
       updateSessionRun(data.session_id, {
         activeRun: {
@@ -606,6 +711,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     socket.off('run.retrying')
     socket.on('run.retrying', (data: RunEvent) => {
+      if (isAbortingSession(data.session_id)) return
       updateSessionRun(data.session_id, { isStreaming: true })
     })
 
@@ -747,6 +853,7 @@ export const useChatStore = create<ChatState>((set, get) => {
   // `run.continuation_queued` from the previous run: record the pending target.
   function handleContinuationQueued(data: RunEvent) {
     const sessionId = data.session_id
+    if (isAbortingSession(sessionId)) return
     const prev = get().sessionRuns[resolveSessionRoot(sessionId)]
     if (!data.run_id || (prev?.activeRunId && data.run_id !== prev.activeRunId)) return
     if (!data.next_run_id) return
@@ -766,6 +873,7 @@ export const useChatStore = create<ChatState>((set, get) => {
   // A successor `run.queued` with trigger auto_limit takes over as the active run.
   function handleAutoSuccessorQueued(data: RunEvent) {
     const sessionId = data.session_id
+    if (isAbortingSession(sessionId)) return
     if (data.trigger !== 'auto_limit' && data.trigger !== undefined) return
     const prev = get().sessionRuns[resolveSessionRoot(sessionId)]
     const pending = prev?.activeRun.nextRunId
@@ -930,13 +1038,14 @@ export const useChatStore = create<ChatState>((set, get) => {
         ])
         const currentSessions = get().sessions
         const sessions: Session[] = list.map(s => {
-          // Preserve already-loaded messages
+          // Preserve already-loaded messages and the live context usage
           const existing = currentSessions.find(x => x.id === s.id)
           return {
             ...s,
             current_strategy: normalizeStrategy(s.current_strategy),
             messages: existing?.messages || [],
             workspaces: s.workspaces ? JSON.parse(s.workspaces as string) : undefined,
+            context_usage: existing?.context_usage ?? s.context_usage ?? undefined,
           }
         })
         // Load child sessions
@@ -1364,6 +1473,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       const onRunStarted = (data: RunEvent & { context_window?: number }) => {
         if (!belongsToRun(data)) return
+        if (isAbortingSession(data.session_id)) return
         set({ tokenUsage: { input: 0, output: 0, total: 0 } })
         const prev = get().sessionRuns[session!.id]?.activeRun
         updateSessionRun(session!.id, {
@@ -1523,6 +1633,13 @@ export const useChatStore = create<ChatState>((set, get) => {
           return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
         })
         if (data.session_id === session!.id) {
+          if (isAbortingSession(data.session_id)) {
+            // The whole chain was cancelled: force idle immediately, whatever
+            // the terminal payload says about continuations.
+            settleAbort(data.session_id)
+            cleanup()
+            return
+          }
           const summary = data.limit_summary || data.result?.limitSummary
           const continuationScheduled = !!summary?.continuationScheduled
             || !!data.continuationScheduled || !!data.result?.continuationScheduled
@@ -1583,6 +1700,35 @@ export const useChatStore = create<ChatState>((set, get) => {
             activeRunId: null,
             isStreaming: false,
           })
+          settleAbort(data.session_id)
+          cleanup()
+        }
+      }
+
+      const onInterrupted = (data: RunEvent) => {
+        if (!belongsToRun(data)) return
+        const s = findSession(data.session_id)
+        if (!s) return
+        const reasonText = data.reason === 'stalled' || data.reason === 'stalled_active'
+          ? '运行停滞超时，已被服务端自动中断'
+          : data.reason === 'orphaned_after_restart'
+            ? '服务端重启，遗留的运行已中断'
+            : '运行已中断'
+        updateMsg(data.session_id, sess => ({
+          ...sess,
+          messages: [...sess.messages, {
+            id: uid(), role: 'assistant' as const,
+            content: `[${reasonText}]`,
+            timestamp: Date.now(),
+          }],
+        }))
+        if (data.session_id === session!.id) {
+          updateSessionRun(session!.id, {
+            activeRun: { ...IDLE_RUN },
+            activeRunId: null,
+            isStreaming: false,
+          })
+          settleAbort(data.session_id)
           cleanup()
         }
       }
@@ -1602,6 +1748,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         socket.off('run.compacted', onCompacted)
         socket.off('run.retrying', onRetrying)
         socket.off('run.failed', onFailed)
+        socket.off('run.interrupted', onInterrupted)
         // Only drop the listener ref. The session's run record is kept so a
         // still-running background session keeps being tracked after switching
         // away (it is cleared by updateSessionRun when the run actually ends).
@@ -1610,6 +1757,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       const onRetrying = (data: RunEvent) => {
         if (!belongsToRun(data)) return
+        if (isAbortingSession(data.session_id)) return
         updateSessionRun(data.session_id, { isStreaming: true })
       }
 
@@ -1627,6 +1775,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       socket.on('run.compacted', onCompacted)
       socket.on('run.retrying', onRetrying)
       socket.on('run.failed', onFailed)
+      socket.on('run.interrupted', onInterrupted)
 
       set({ _currentCleanup: cleanup })
       updateSessionRun(session!.id, { activeRunId: runId })
@@ -1731,22 +1880,69 @@ export const useChatStore = create<ChatState>((set, get) => {
     abortRun: () => {
       const socket = getSocket()
       const state = get()
-      if (socket?.connected && state.activeSessionId) {
-        socket.emit('abort', { session_id: state.activeSessionId })
-      } else if (state._activeRunId) {
-        // Whole-chain cancel: auto continuations under the same root are stopped
-        // too (§11.1).
-        void cancelRun(state._activeRunId, true).catch(() => {})
-      }
-      if (state.activeSessionId) {
-        updateSessionRun(state.activeSessionId, {
-          activeRun: { ...IDLE_RUN },
-          activeRunId: null,
-          isStreaming: false,
+      const sessionId = state.activeSessionId
+      const record = sessionId ? state.sessionRuns[resolveSessionRoot(sessionId)] : null
+      const runId = record?.activeRunId ?? record?.activeRun.runId ?? state._activeRunId
+      if (!sessionId && !runId) return
+
+      // Keep the stop/stopping affordance visible until the server confirms a
+      // terminal event, instead of optimistically flipping back to send — the
+      // old behavior made the button reappear on the next stream event and
+      // feel like the click "didn't take" (needing many clicks).
+      abortingSessionId = sessionId ?? abortingSessionId
+      if (abortTimer) clearTimeout(abortTimer)
+      if (sessionId) {
+        const prev = record?.activeRun ?? { ...IDLE_RUN }
+        updateSessionRun(sessionId, {
+          activeRun: {
+            ...prev,
+            runId: prev.runId ?? runId ?? null,
+            phase: 'cancelling',
+            nextRunId: null,
+          },
+          activeRunId: prev.runId ?? runId ?? null,
+          isStreaming: true,
         })
       } else {
-        set({ activeRun: { ...IDLE_RUN }, _activeRunId: null, isStreaming: false })
+        set({ activeRun: { ...IDLE_RUN, phase: 'cancelling' }, _activeRunId: null, isStreaming: true })
       }
+
+      const cancelViaHttp = () => {
+        if (runId) void cancelRun(runId, true).catch(() => {})
+      }
+      if (socket?.connected && sessionId) {
+        // Primary path: socket abort, acked by the server. If the ack is
+        // missing/bad (socket raced a reconnect), fall back to HTTP cancel.
+        socket.emit('abort', { session_id: sessionId }, (resp: unknown) => {
+          const ok = typeof resp === 'object' && resp !== null
+            && (resp as { status?: string }).status === 'ok'
+          if (!ok) cancelViaHttp()
+        })
+        setTimeout(() => {
+          // Ack never arrived (emit lost / server restarting): cancel via HTTP.
+          if (abortingSessionId === sessionId) cancelViaHttp()
+        }, 1500)
+      } else {
+        // Whole-chain cancel: auto continuations under the same root are stopped
+        // too (§11.1).
+        cancelViaHttp()
+      }
+
+      // Safety net: if no terminal event lands (server process died mid-abort),
+      // force the stopping state to clear so the UI never sticks.
+      abortTimer = setTimeout(() => {
+        const sid = abortingSessionId
+        abortingSessionId = null
+        if (sid) {
+          updateSessionRun(sid, {
+            activeRun: { ...IDLE_RUN },
+            activeRunId: null,
+            isStreaming: false,
+          })
+        } else {
+          set({ activeRun: { ...IDLE_RUN }, _activeRunId: null, isStreaming: false })
+        }
+      }, 10_000)
     },
 
     setActiveRunPhase: (phase, patch = {}) => {

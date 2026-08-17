@@ -1,19 +1,22 @@
-/**
+﻿/**
  * Run: npx tsx src/character/asset-lifecycle.test.ts
  *
  * Covers: run/occurrence asset refs registration, player leases, deletion
  * guards, and the delayed GC for archived characters.
  */
 
-import { mkdtempSync, rmSync, existsSync } from 'fs'
+import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, resolve } from 'path'
 
 const tmpData = mkdtempSync(join(tmpdir(), 'tianshu-assets-'))
 process.env.TIANSHU_DATA_DIR = tmpData
 
 const { getDb, closeDb } = await import('../db/schema.js')
 const { characterVisualStore } = await import('./visual-store.js')
+const { characterMetaStore } = await import('../db/characterStore.js')
+const { characterRevisionStore } = await import('./revision-store.js')
+const { characterDir } = await import('./store.js')
 const { registerAssetRefs, touchPlayerLease, hasProtectingRef } = await import('./asset-refs.js')
 const { runAssetGC, ASSET_RETENTION_MS, PLAYER_LEASE_MS } = await import('./asset-gc.js')
 const { sessionStore } = await import('../db/sessionStore.js')
@@ -28,26 +31,21 @@ function assert(cond: unknown, message: string): asserts cond {
 const db = getDb()
 const NOW = Date.now()
 
-function seedCharacter(characterId: string, revisionId: string, snapshot: string) {
-  db.prepare(`
-    INSERT INTO character_definitions (id, current_revision_id, status, created_at, updated_at)
-    VALUES (?, ?, 'active', ?, ?)
-  `).run(characterId, revisionId, NOW, NOW)
-  db.prepare(`
-    INSERT INTO character_revisions (id, character_id, revision_no, manifest_hash, snapshot, visual_manifest, created_at)
-    VALUES (?, ?, 1, 'h', ?, NULL, ?)
-  `).run(revisionId, characterId, snapshot, NOW)
-}
-
-function makeSnapshot(visual: Record<string, unknown> | null) {
-  return JSON.stringify({ meta: { id: 'c', name: 'x' }, content: { soul: '', user: '', memory: '' }, visual })
+// ensureCurrent 按实时状态（meta + visual.json）的 hash 判定陈旧。种子必须把
+// 实时状态建好并用真实发布机制建立一致基线，run 才能从快照里取到 visual 资产。
+function seedCharacter(characterId: string, visual: Record<string, unknown> | null) {
+  characterMetaStore.create({ id: characterId, name: 'x' })
+  const dir = resolve(characterDir(characterId), 'visual')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(resolve(dir, 'visual.json'), JSON.stringify(visual), 'utf-8')
+  characterRevisionStore.ensureCurrent(characterId)
 }
 
 try {
   // ---- run creation registers asset refs from its fixed revision -----------
   {
     const visual = { schemaVersion: 1, defaultMotion: 'idle', motions: { idle: { assetId: 'asset_run' } } }
-    seedCharacter('char_run', 'rev_run', makeSnapshot(visual))
+    seedCharacter('char_run', visual)
     const session = sessionStore.create({ id: 'sess_run', character_id: 'char_run' })
     const run = runStore.create(session)
     const ref = db.prepare(
@@ -60,7 +58,7 @@ try {
   // ---- occurrence creation registers asset refs ------------------------------
   {
     const visual = { schemaVersion: 1, defaultMotion: 'idle', motions: { idle: { assetId: 'asset_occ' } } }
-    seedCharacter('char_occ', 'rev_occ', makeSnapshot(visual))
+    seedCharacter('char_occ', visual)
     const definition = eventDefinitionStore.create({
       name: 'occ-test', type: 'once', instruction: 'x', character_id: 'char_occ',
     })
@@ -75,7 +73,7 @@ try {
   // ---- player lease protects an asset from GC --------------------------------
   {
     const visual = { schemaVersion: 1, defaultMotion: 'idle', motions: { idle: { assetId: 'asset_lease' } } }
-    seedCharacter('char_lease', 'rev_lease', makeSnapshot(visual))
+    seedCharacter('char_lease', visual)
     // Simulate an archived character with a live lease and no other refs.
     db.prepare("UPDATE character_definitions SET status = 'archived', updated_at = ? WHERE id = 'char_lease'")
       .run(NOW - ASSET_RETENTION_MS - 1000)
@@ -90,7 +88,7 @@ try {
   // ---- GC removes unprotected assets after retention --------------------------
   {
     const visual = { schemaVersion: 1, defaultMotion: 'idle', motions: { idle: { assetId: 'asset_gc' } } }
-    seedCharacter('char_gc', 'rev_gc', makeSnapshot(visual))
+    seedCharacter('char_gc', visual)
     const added = characterVisualStore.addAsset('char_gc', {
       bytes: new Uint8Array([1, 2, 3]), filename: 'gc.png', mime: 'image/png',
     })
@@ -108,7 +106,7 @@ try {
   // ---- GC keeps assets inside the retention window ----------------------------
   {
     const visual = { schemaVersion: 1, defaultMotion: 'idle', motions: { idle: { assetId: 'asset_fresh' } } }
-    seedCharacter('char_fresh', 'rev_fresh', makeSnapshot(visual))
+    seedCharacter('char_fresh', visual)
     characterVisualStore.addAsset('char_fresh', {
       bytes: new Uint8Array([1]), filename: 'fresh.png', mime: 'image/png',
     })

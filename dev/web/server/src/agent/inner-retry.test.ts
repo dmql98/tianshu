@@ -33,7 +33,9 @@ try {
   const result = await streamWithRetry(
     [{ role: 'user', content: 'test' }],
     undefined,
-    { base_url: 'https://example.invalid/v1', api_key: '' },
+    // api_style 固定为 chat_completions：auto 会对 base_url 先探测 /responses，
+    // 探测会吃掉第一条 fetch mock（transient 失败），导致 retry 断言失效。
+    { base_url: 'https://example.invalid/v1', api_key: '', api_style: 'chat_completions' },
     'test-model',
     undefined,
     {},
@@ -96,7 +98,7 @@ async function attemptIsolation() {
     const result = await streamWithRetry(
       [{ role: 'user', content: 'test' }],
       undefined,
-      { base_url: 'https://example.invalid/v1', api_key: '' },
+      { base_url: 'https://example.invalid/v1', api_key: '', api_style: 'chat_completions' },
       'test-model',
       undefined,
       {},

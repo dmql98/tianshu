@@ -15,6 +15,13 @@ import type { Strategy } from '../agent/session.js'
 import { isStrategyInput, normalizeStrategy, type StrategyInput } from '../agent/strategy.js'
 
 export function registerChatSocket(io: Server, socket: Socket) {
+  // Readiness handshake: the client waits for this ack after (re)connect
+  // before replaying session/run state, so the replay never races the
+  // connection-handler setup on a freshly restarted server. The ack proves
+  // the socket is fully registered AND the event loop is responsive.
+  socket.on('app:hello', (_data: unknown, ack?: (resp: unknown) => void) => {
+    ack?.({ status: 'ok', ts: Date.now() })
+  })
   socket.on('strategy.set', (data: { session_id: string; strategy: StrategyInput }, ack?: (resp: unknown) => void) => {
     const { session_id } = data
     if (!session_id) { ack?.({ error: 'No session_id' }); return }
@@ -148,8 +155,8 @@ export function registerChatSocket(io: Server, socket: Socket) {
     })
   })
 
-  socket.on('abort', (data: { session_id?: string }) => {
-    if (!data.session_id) return
+  socket.on('abort', (data: { session_id?: string }, ack?: (resp: unknown) => void) => {
+    if (!data.session_id) { ack?.({ error: 'Missing session_id' }); return }
     approvalRegistry.cancelSession(data.session_id)
     if (typeof process.send === 'function') {
       try {
@@ -175,6 +182,7 @@ export function registerChatSocket(io: Server, socket: Socket) {
         occurred_at: event.created_at,
       })
     }
+    ack?.({ status: inMemoryAccepted ? 'ok' : 'no_active_run' })
   })
 
   // Central approval responses: route to the waiting run via the registry
