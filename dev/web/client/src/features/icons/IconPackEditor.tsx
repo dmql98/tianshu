@@ -280,26 +280,36 @@ export default function IconPackEditor({ pack, focusOverrides, onClose, onSaved,
                   const filled = !!currentSlots[slot.key]
                   const slotRef = currentSlots[slot.key]
                   return (
-                    <button
-                      type="button"
-                      key={slot.key}
-                      className={`iconpack-slot ${filled ? 'filled' : ''}`}
-                      onClick={() => openPicker(slot.key, slot.name)}
-                      title={`${slot.name} · ${slot.key}`}
-                    >
-                      <span className="iconpack-slot-icon">
-                        {filled && slotRef ? (
-                          <IconAsset url={slotRef.url} tint={slotRef.tint} size={20} />
-                        ) : (
-                          <Icon name={slot.key} size={20} />
-                        )}
-                      </span>
-                      <span className="iconpack-slot-name">{slot.name}</span>
-                      <span className="iconpack-slot-key">{slot.key}</span>
+                    <div className={`iconpack-slot-cell ${filled ? 'filled' : ''}`} key={slot.key}>
+                      <button
+                        type="button"
+                        className={`iconpack-slot ${filled ? 'filled' : ''}`}
+                        onClick={() => openPicker(slot.key, slot.name)}
+                        title={`${slot.name} · ${slot.key}`}
+                      >
+                        <span className="iconpack-slot-icon">
+                          {filled && slotRef ? (
+                            <IconAsset url={slotRef.url} tint={slotRef.tint} size={20} />
+                          ) : (
+                            <Icon name={slot.key} size={20} />
+                          )}
+                        </span>
+                        <span className="iconpack-slot-name">{slot.name}</span>
+                        <span className="iconpack-slot-key">{slot.key}</span>
+                      </button>
                       <span className="iconpack-slot-tag" data-filled={filled} aria-hidden="true">
                         {filled ? '●' : '○'}
                       </span>
-                    </button>
+                      {filled && (
+                        <button
+                          type="button"
+                          className="iconpack-slot-reset"
+                          onClick={() => void handleResetSlot(slot.key, slot.name)}
+                        >
+                          {t('还原')}
+                        </button>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -310,7 +320,7 @@ export default function IconPackEditor({ pack, focusOverrides, onClose, onSaved,
         {/* 底部说明 */}
         <div className="iconpack-editor-foot">
           <span>
-            {t('点击任意槽位上传替换；已填槽位可在槽位菜单中「还原」')}
+            {t('点击任意槽位上传替换；已填槽位右上角出现「还原」按钮')}
           </span>
           <button className="btn sm" type="button" onClick={onClose}>{t('完成')}</button>
         </div>

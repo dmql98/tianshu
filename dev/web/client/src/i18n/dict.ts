@@ -937,7 +937,7 @@ export const dict: Record<string, DictEntry> = {
   '文件超过 512 KB 限制': { zh: '文件超过 512 KB 限制', en: 'File exceeds the 512 KB limit' },
   '替换图标「{name}」': { zh: '替换图标「{name}」', en: 'Replace icon "{name}"' },
   '枚': { zh: '枚', en: 'icons' },
-  '点击任意槽位上传替换；已填槽位可在槽位菜单中「还原」': { zh: '点击任意槽位上传替换；已填槽位可在槽位菜单中「还原」', en: 'Click any slot to upload a replacement; filled slots can be reset from their menu' },
+  '点击任意槽位上传替换；已填槽位右上角出现「还原」按钮': { zh: '点击任意槽位上传替换；已填槽位右上角出现「还原」按钮', en: 'Click any slot to upload a replacement; filled slots show a "Reset" button at top right' },
   '用户图标包及其素材保存在系统数据目录': { zh: '用户图标包及其素材保存在系统数据目录', en: 'User icon packs and assets are stored in the system data directory' },
   '界面图标风格；切换图标包 = 给全部语义槽位换一套图形': { zh: '界面图标风格；切换图标包 = 给全部语义槽位换一套图形', en: 'UI icon style; switching packs re-skins every semantic slot' },
   '管理覆盖': { zh: '管理覆盖', en: 'Manage overrides' },
@@ -949,6 +949,7 @@ export const dict: Record<string, DictEntry> = {
   '请先创建图标库': { zh: '请先创建图标库', en: 'Create the icon library first' },
   '请输入图标库名称': { zh: '请输入图标库名称', en: 'Please enter an icon library name' },
   '还原失败': { zh: '还原失败', en: 'Reset failed' },
+  '还原': { zh: '还原', en: 'Reset' },
   '重命名…': { zh: '重命名…', en: 'Rename…' },
   '随主题着色（仅单色 SVG；PNG/多色图请取消勾选原样显示）': { zh: '随主题着色（仅单色 SVG；PNG/多色图请取消勾选原样显示）', en: 'Tint with theme (single-color SVG only; uncheck to show PNG/multi-color as-is)' },
 }
