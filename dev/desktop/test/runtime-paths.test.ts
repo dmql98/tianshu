@@ -28,7 +28,9 @@ afterEach(() => {
 
 describe('bundledNodePath', () => {
   it('win32 解析到 runtime/node/node.exe', () => {
-    expect(bundledNodePath('C:\\res', 'win32')).toBe('C:\\res\\runtime\\node\\node.exe')
+    // platform 参数决定可执行文件布局，分隔符仍由当前测试宿主决定；
+    // CI 的 validate 运行在 Linux，不能把 Windows 分隔符硬编码进断言。
+    expect(bundledNodePath('C:\\res', 'win32')).toBe(join('C:\\res', 'runtime', 'node', 'node.exe'))
   })
 
   it('darwin/linux 解析到 runtime/node/bin/node', () => {

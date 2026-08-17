@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1786923998.7498002,
-    "ast_hash": "b13ca3b260bb26bbb05d60cae0278655",
+    "mtime": 1786932372.8589678,
+    "ast_hash": "cf3fcff884bcf025b52b8e8cf7e693de",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -3985,8 +3985,8 @@
     "semantic_hash": ""
   },
   "desktop/test/runtime-paths.test.ts": {
-    "mtime": 1786838810.135473,
-    "ast_hash": "c3a0c44117e2d0a5512516078676bd33",
+    "mtime": 1786932639.533597,
+    "ast_hash": "07b59f3eef687a0a536f1b230fba23aa",
     "semantic_hash": ""
   },
   "scripts/assemble-desktop-release.mjs": {
