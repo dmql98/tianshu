@@ -30,6 +30,10 @@ function formatContext(tokens?: number): string {
 import SystemRunPolicySettings from '@/features/run-policy/SystemRunPolicySettings'
 import ThemeSelector from '@/features/theme/ThemeSelector'
 import ThemeStudio from '@/features/theme/ThemeStudio'
+import IconPackSelector from '@/features/icons/IconPackSelector'
+import IconPackEditor from '@/features/icons/IconPackEditor'
+import Icon from '@/features/icons/Icon'
+import type { CustomIconPack } from '@/features/icons/iconPacksApi'
 import type { ThemeDefinition } from '@/features/theme/themeDefinitions'
 import { useI18n, useI18nStore } from '@/i18n'
 import type { Locale } from '@/i18n'
@@ -74,6 +78,11 @@ export default function SettingsPage() {
   // ── 主题工作台 ──
   const [studioOpen, setStudioOpen] = useState(false)
   const [studioEditing, setStudioEditing] = useState<ThemeDefinition | undefined>(undefined)
+
+  // ── 图标包编辑器 ──
+  const [iconPackEditorOpen, setIconPackEditorOpen] = useState(false)
+  const [iconPackEditorTarget, setIconPackEditorTarget] = useState<CustomIconPack | null>(null)
+  const [iconPackEditorOverrides, setIconPackEditorOverrides] = useState(false)
 
   // ── 会话设置 ──
   const [workspace, setWorkspace] = useState(ls('defaultWorkspace', 'C:\\.Tianshu'))
@@ -176,6 +185,18 @@ export default function SettingsPage() {
   const closeStudio = () => {
     setStudioOpen(false)
     setStudioEditing(undefined)
+  }
+
+  const openIconPackEditor = (pack: CustomIconPack | null, focusOverrides = false) => {
+    setIconPackEditorTarget(pack)
+    setIconPackEditorOverrides(focusOverrides)
+    setIconPackEditorOpen(true)
+  }
+
+  const closeIconPackEditor = () => {
+    setIconPackEditorOpen(false)
+    setIconPackEditorTarget(null)
+    setIconPackEditorOverrides(false)
   }
 
   const updateDisplayPreferences = (patch: Partial<DisplayPreferences>) => {
@@ -316,12 +337,12 @@ export default function SettingsPage() {
   }
 
   const tabs = [
-    { id: 'provider', label: `🔗 ${t('模型服务')}` },
-    { id: 'system', label: `⚙️ ${t('系统')}` },
-    { id: 'display', label: `🎨 ${t('显示')}` },
-    { id: 'session', label: `💬 ${t('会话')}` },
-    { id: 'event', label: `⚡ ${t('事件')}` },
-    { id: 'about', label: `ℹ️ ${t('关于')}` },
+    { id: 'provider', icon: 'nav-mcp', label: t('模型服务') },
+    { id: 'system', icon: 'nav-settings', label: t('系统') },
+    { id: 'display', icon: 'palette', label: t('显示') },
+    { id: 'session', icon: 'nav-chat', label: t('会话') },
+    { id: 'event', icon: 'nav-events', label: t('事件') },
+    { id: 'about', icon: 'info', label: t('关于') },
   ]
 
   return (
@@ -330,15 +351,16 @@ export default function SettingsPage() {
       <div className="settings-nav">
         <div className="settings-nav-header"><span className="settings-nav-title">设置</span></div>
         <div className="settings-nav-list">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`settings-nav-item ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  className={`settings-nav-item ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <Icon name={tab.icon} size={15} ariaHidden />
+                  {tab.label}
+                </button>
+              ))}
         </div>
       </div>
 
@@ -499,6 +521,10 @@ export default function SettingsPage() {
             <ThemeSelector
               showToast={showToast}
               onOpenStudio={openStudio}
+            />
+            <IconPackSelector
+              showToast={showToast}
+              onOpenEditor={openIconPackEditor}
             />
             <div className="setting-row">
               <div className="setting-info"><span className="setting-label">{t('界面字体')}</span><span className="setting-hint">{t('应用到所有页面的普通界面文字')}</span></div>
@@ -770,6 +796,17 @@ export default function SettingsPage() {
             )
             showToast(t('主题已应用'))
           }}
+          showToast={showToast}
+        />
+      )}
+
+      {/* 图标包编辑器 */}
+      {iconPackEditorOpen && (
+        <IconPackEditor
+          pack={iconPackEditorTarget}
+          focusOverrides={iconPackEditorOverrides}
+          onClose={closeIconPackEditor}
+          onSaved={() => { /* 选择器自行刷新；无需额外动作 */ }}
           showToast={showToast}
         />
       )}

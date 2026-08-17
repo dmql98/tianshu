@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "id": "lucide",
+  "name": "Lucide",
+  "description": "线性 · 1.8px · 随主题着色",
+  "source": "builtin",
+  "readOnly": true,
+  "slots": {
+    "add": {
+      "file": "add.svg",
+      "tint": true
+    },
+    "archived": {
+      "file": "archived.svg",
+      "tint": true
+    },
+    "attach": {
+      "file": "attach.svg",
+      "tint": true
+    },
+    "close": {
+      "file": "close.svg",
+      "tint": true
+    },
+    "copy": {
+      "file": "copy.svg",
+      "tint": true
+    },
+    "delete": {
+      "file": "delete.svg",
+      "tint": true
+    },
+    "error": {
+      "file": "error.svg",
+      "tint": true
+    },
+    "export": {
+      "file": "export.svg",
+      "tint": true
+    },
+    "file": {
+      "file": "file.svg",
+      "tint": true
+    },
+    "folder": {
+      "file": "folder.svg",
+      "tint": true
+    },
+    "folder-open": {
+      "file": "folder-open.svg",
+      "tint": true
+    },
+    "goal": {
+      "file": "goal.svg",
+      "tint": true
+    },
+    "home": {
+      "file": "home.svg",
+      "tint": true
+    },
+    "image": {
+      "file": "image.svg",
+      "tint": true
+    },
+    "info": {
+      "file": "info.svg",
+      "tint": true
+    },
+    "menu": {
+      "file": "menu.svg",
+      "tint": true
+    },
+    "more": {
+      "file": "more.svg",
+      "tint": true
+    },
+    "nav-characters": {
+      "file": "nav-characters.svg",
+      "tint": true
+    },
+    "nav-chat": {
+      "file": "nav-chat.svg",
+      "tint": true
+    },
+    "nav-events": {
+      "file": "nav-events.svg",
+      "tint": true
+    },
+    "nav-knowledge": {
+      "file": "nav-knowledge.svg",
+      "tint": true
+    },
+    "nav-market": {
+      "file": "nav-market.svg",
+      "tint": true
+    },
+    "nav-mcp": {
+      "file": "nav-mcp.svg",
+      "tint": true
+    },
+    "nav-settings": {
+      "file": "nav-settings.svg",
+      "tint": true
+    },
+    "nav-skills": {
+      "file": "nav-skills.svg",
+      "tint": true
+    },
+    "nav-tools": {
+      "file": "nav-tools.svg",
+      "tint": true
+    },
+    "package": {
+      "file": "package.svg",
+      "tint": true
+    },
+    "palette": {
+      "file": "palette.svg",
+      "tint": true
+    },
+    "pin": {
+      "file": "pin.svg",
+      "tint": true
+    },
+    "preview": {
+      "file": "preview.svg",
+      "tint": true
+    },
+    "question": {
+      "file": "question.svg",
+      "tint": true
+    },
+    "rename": {
+      "file": "rename.svg",
+      "tint": true
+    },
+    "running": {
+      "file": "running.svg",
+      "tint": true
+    },
+    "send": {
+      "file": "send.svg",
+      "tint": true
+    },
+    "success": {
+      "file": "success.svg",
+      "tint": true
+    },
+    "tool-bash": {
+      "file": "tool-bash.svg",
+      "tint": true
+    },
+    "tool-edit": {
+      "file": "tool-edit.svg",
+      "tint": true
+    },
+    "tool-glob": {
+      "file": "tool-glob.svg",
+      "tint": true
+    },
+    "tool-grep": {
+      "file": "tool-grep.svg",
+      "tint": true
+    },
+    "tool-read": {
+      "file": "tool-read.svg",
+      "tint": true
+    },
+    "tool-write": {
+      "file": "tool-write.svg",
+      "tint": true
+    },
+    "waiting": {
+      "file": "waiting.svg",
+      "tint": true
+    },
+    "warning": {
+      "file": "warning.svg",
+      "tint": true
+    }
+  },
+  "createdAt": "2026-08-17T06:20:18.192Z",
+  "updatedAt": "2026-08-17T06:20:18.192Z"
+}

@@ -18,8 +18,15 @@ content/builtin/
 ├── LICENSES.md
 ├── characters/        # 内置角色定义（character.json + soul.md 等）
 ├── skills/            # 内置技能 package（skill-package.json + SKILL.md）
+├── iconpacks/         # 内置图标包（pack.json + assets/*.svg，只读）
 └── providers/         # Provider 公开预设（provider.json + icon.svg）
 ```
+
+图标包（iconpacks/）与用户图标库同构：每个包一个目录 `lucide/`、
+`streamline-freehand/`，内含 `pack.json` + `assets/` SVG。差异仅在来源：
+内置包只读（服务端从本层读取），用户包可写（`<dataDir>/iconpacks`）。
+新增/替换内置图标 = 将 SVG 放入对应包的 `assets/` 并更新 `pack.json`，
+再运行 `node scripts/generate-builtin-iconpacks.mjs` 重建清单。
 
 ## 使用
 

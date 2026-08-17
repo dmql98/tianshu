@@ -31,6 +31,11 @@ export function themesRoot(): string {
   return resolve(dataRoot(), 'themes')
 }
 
+/** 用户图标包目录：<dataDir>/iconpacks（ICON_PACK_PLAN §6）。 */
+export function iconPacksRoot(): string {
+  return resolve(dataRoot(), 'iconpacks')
+}
+
 /** 内容层状态文件：<dataDir>/content-state.json（builtin 隐藏状态等）。 */
 export function contentStateFile(): string {
   return resolve(dataRoot(), 'content-state.json')

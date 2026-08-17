@@ -1,25 +1,26 @@
-﻿import { useState } from 'react'
+﻿﻿import { useState } from 'react'
 import type { Message } from '@/types'
 import { useI18n } from '@/i18n'
+import Icon from '@/features/icons/Icon'
 
 interface Props {
   message: Message
 }
 
-const icons: Record<string, string> = {
-  read: '📄',
-  write: '✏️',
-  edit: '🔧',
-  bash: '⚙️',
-  grep: '🔍',
-  glob: '📂',
+const iconByTool: Record<string, string> = {
+  read: 'tool-read',
+  write: 'tool-write',
+  edit: 'tool-edit',
+  bash: 'tool-bash',
+  grep: 'tool-grep',
+  glob: 'tool-glob',
 }
 
 export default function ToolCall({ message }: Props) {
   const [expanded, setExpanded] = useState(false)
   const t = useI18n()
   const status = message.tool_status || 'running'
-  const icon = icons[message.tool_name || ''] || '⚙️'
+  const icon = iconByTool[message.tool_name || ''] || 'tool-bash'
 
   return (
     <div className="msg-group star">
@@ -27,7 +28,7 @@ export default function ToolCall({ message }: Props) {
         className={`tool-tag ${status === 'success' ? 'success' : status === 'error' ? 'error' : ''} ${expanded ? 'expanded' : ''}`}
         onClick={() => setExpanded(!expanded)}
       >
-        <span>{icon}</span>
+        <Icon name={icon} size={13} ariaHidden />
         {message.tool_name} · {status === 'success' ? `✓ ${t('成功')}` : status === 'error' ? `✗ ${t('失败')}` : t('执行中...')}
         <span className="expand-icon">▶</span>
       </span>

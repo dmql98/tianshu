@@ -43,6 +43,10 @@ export function builtinPromptsRoot(): string {
   return resolve(builtinContentRoot(), 'prompts')
 }
 
+export function builtinIconPacksRoot(): string {
+  return resolve(builtinContentRoot(), 'iconpacks')
+}
+
 /** 内容来源：内置只读层 / 用户可写层。 */
 export type ContentSource = 'builtin' | 'user'
 

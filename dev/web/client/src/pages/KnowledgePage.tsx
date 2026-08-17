@@ -1,4 +1,5 @@
 import { useI18n } from '@/i18n'
+import Icon from '@/features/icons/Icon'
 
 export default function KnowledgePage() {
   const t = useI18n()
@@ -11,7 +12,7 @@ export default function KnowledgePage() {
         </div>
         <div className="header-actions">
           <div className="header-search"><input placeholder={t('搜索文档...')}/></div>
-          <button className="btn">📁 {t('新建文件夹')}</button>
+          <button className="btn"><Icon name="add" size={13} ariaHidden /> {t('新建文件夹')}</button>
           <button className="btn primary">↑ {t('上传文档')}</button>
         </div>
       </div>
@@ -24,7 +25,7 @@ export default function KnowledgePage() {
             <button className="tree-add" title={t('新建文件夹')}>+</button>
           </div>
           <div className="tree-body">
-            <div className="tree-item active"><span className="icon">📂</span>{t('知识库')}</div>
+            <div className="tree-item active"><span className="icon" style={{display:'inline-flex'}}><Icon name="folder-open" size={13} ariaHidden /></span>{t('知识库')}</div>
             <div className="tree-empty">{t('暂无文件夹')}</div>
           </div>
         </div>
@@ -35,9 +36,9 @@ export default function KnowledgePage() {
             <span className="doc-title">{t('文档列表')}</span>
             <span className="doc-count">{t('0 个文件')}</span>
           </div>
-          <div className="doc-breadcrumb"><span>🏠 {t('知识库')}</span></div>
+          <div className="doc-breadcrumb"><span style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="home" size={12} ariaHidden /> {t('知识库')}</span></div>
           <div className="doc-body">
-            <div className="doc-empty-icon">📂</div>
+            <div className="doc-empty-icon"><Icon name="folder-open" size={20} ariaHidden /></div>
             <div className="doc-empty-title">{t('暂无文档')}</div>
             <div className="doc-empty-desc">{t('拖拽文件到此处或点击上传')}</div>
             <button className="doc-empty-btn">{t('选择文件')}</button>
@@ -48,7 +49,7 @@ export default function KnowledgePage() {
         <div className="preview-panel">
           <div className="preview-header">{t('文档预览')}</div>
           <div className="preview-body">
-            <div className="preview-empty-icon">👁️</div>
+            <div className="preview-empty-icon"><Icon name="preview" size={20} ariaHidden /></div>
             <div className="preview-empty-text">{t('选择文档查看详情')}</div>
           </div>
         </div>

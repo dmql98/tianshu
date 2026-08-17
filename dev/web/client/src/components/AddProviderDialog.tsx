@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 import { useProvidersStore } from '@/stores/providersStore'
 import { createProvider, fetchBuiltinProviders, type ProviderPreset } from '@/api/providers'
@@ -209,7 +210,7 @@ export default function AddProviderDialog({ onClose }: Props) {
                   style={{borderStyle: 'dashed'}}
                   onClick={handleCustom}
                 >
-                  <div className="provider-list-icon" style={{fontSize:18}}>➕</div>
+                  <div className="provider-list-icon"><Icon name="add" size={16} ariaHidden /></div>
                   <div className="provider-list-info">
                     <div className="provider-list-name">{t('自定义服务商')}</div>
                   </div>

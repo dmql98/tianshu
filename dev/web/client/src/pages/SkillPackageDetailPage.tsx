@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from 'react'
+﻿﻿import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { fetchSkillChild, fetchSkillPackage, type SkillChildDetail, type SkillPackageDetail } from '@/api/skills'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 
 type Tab = 'overview' | 'children' | 'resources' | 'bindings' | 'stats'
@@ -57,7 +58,7 @@ export default function SkillPackageDetailPage() {
       </div>
       <div className="detail-body">
         <aside className="detail-side">
-          <div className="detail-side-icon" style={{ background: 'rgba(200,150,10,0.08)' }}>📦</div>
+          <div className="detail-side-icon" style={{ background: 'rgba(200,150,10,0.08)' }}><Icon name="package" size={26} ariaHidden /></div>
           <div className="detail-side-name">{detail.name}</div>
           <div className="detail-side-desc">{detail.description || t('暂无描述')}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -87,7 +88,7 @@ export default function SkillPackageDetailPage() {
             <div className="detail-section"><div className="detail-section-title">{t('子技能')}</div>
               {detail.children.length === 0 ? <div className="empty-state" style={{ padding: 20 }}>{t('该技能包只有根技能，无需额外激活子技能')}</div> : <div className="tool-list">
                 {detail.children.map(item => <div key={item.id} className="tool-item" style={{ cursor: 'pointer', background: child?.id === item.id ? 'rgba(42,157,92,0.06)' : undefined }} onClick={() => openChild(item.id)}>
-                  <span>⚡</span><div style={{ flex: 1 }}><div className="tool-name">{item.name}</div><div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{item.description}</div></div>
+                  <span style={{ display: 'inline-flex' }}><Icon name="nav-skills" size={13} ariaHidden /></span><div style={{ flex: 1 }}><div className="tool-name">{item.name}</div><div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{item.description}</div></div>
                 </div>)}
               </div>}
             </div>
@@ -95,7 +96,7 @@ export default function SkillPackageDetailPage() {
           </div>}
 
           {tab === 'resources' && <div className="tab-page active"><div className="detail-section"><div className="detail-section-title">{t('共享资源')}</div>
-            {detail.files.length === 0 ? <div className="empty-state" style={{ padding: 20 }}>{t('暂无共享资源')}</div> : <div className="tool-list">{detail.files.map(file => <div key={file.path} className="tool-item"><span>📄</span><div className="tool-name">{file.path}</div><span className="skill-origin evolved">{file.type}</span></div>)}</div>}
+            {detail.files.length === 0 ? <div className="empty-state" style={{ padding: 20 }}>{t('暂无共享资源')}</div> : <div className="tool-list">{detail.files.map(file => <div key={file.path} className="tool-item"><span style={{ display: 'inline-flex' }}><Icon name="file" size={13} ariaHidden /></span><div className="tool-name">{file.path}</div><span className="skill-origin evolved">{file.type}</span></div>)}</div>}
           </div></div>}
 
           {tab === 'bindings' && <div className="tab-page active"><div className="detail-section"><div className="detail-section-title">{t('绑定角色')}</div><div className="empty-state" style={{ padding: 20 }}>{t('请在角色详情的"技能"页签绑定或解绑整个技能包')}</div></div></div>}

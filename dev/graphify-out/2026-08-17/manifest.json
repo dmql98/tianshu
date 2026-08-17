@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1786867429.6162996,
-    "ast_hash": "bdc706a1a41c18608d36eca0eef13821",
+    "mtime": 1786933825.768052,
+    "ast_hash": "29df7ff26a13e786d12a1a0eb51594e2",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1786838946.95875,
-    "ast_hash": "a4cedf2f7b8cb4aa32ef6c105bf7a372",
+    "mtime": 1786933444.5321333,
+    "ast_hash": "a401211add48552940e2d082de1a79ed",
     "semantic_hash": ""
   },
   "scripts/dev-desktop.mjs": {
@@ -1410,8 +1410,8 @@
     "semantic_hash": ""
   },
   "desktop/electron-builder.yml": {
-    "mtime": 1786838888.041575,
-    "ast_hash": "ff9466510d470f3a7d2fd5d317aa0a3f",
+    "mtime": 1786934140.4773333,
+    "ast_hash": "7577313ad006c3f4e8beaad49d11d840",
     "semantic_hash": ""
   },
   "assets/readme/character-profile.png": {
@@ -3985,18 +3985,18 @@
     "semantic_hash": ""
   },
   "desktop/test/runtime-paths.test.ts": {
-    "mtime": 1786838810.135473,
-    "ast_hash": "c3a0c44117e2d0a5512516078676bd33",
+    "mtime": 1786932639.533597,
+    "ast_hash": "07b59f3eef687a0a536f1b230fba23aa",
     "semantic_hash": ""
   },
   "scripts/assemble-desktop-release.mjs": {
-    "mtime": 1786839676.7037916,
-    "ast_hash": "637f7a7db8e557ba3c463555d8fe4ff5",
+    "mtime": 1786931441.7795725,
+    "ast_hash": "1328e8747337a033a8443494fbcf08a8",
     "semantic_hash": ""
   },
   "scripts/verify-desktop-release.mjs": {
-    "mtime": 1786839031.9013324,
-    "ast_hash": "27ae9880ec407c784762ea933c16e6b9",
+    "mtime": 1786931441.7805734,
+    "ast_hash": "7f1b86c7977bb4c6182750b50a61e23f",
     "semantic_hash": ""
   },
   "web/client/src/api/socket.test.ts": {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { fetchSkillPackages, type SkillPackageMeta } from '@/api/skills'
 import { fetchCharacters } from '@/api/characters'
 import { useI18n } from '@/i18n'
+import Icon from '@/features/icons/Icon'
 
 const categoryLabels: Record<string, string> = {
   finance: '金融分析',
@@ -60,7 +61,7 @@ export default function SkillView() {
                 return (
                   <div key={`${category}/${pkg.id}`} className="skill-card" style={{ cursor: 'default' }}>
                     <div className="skill-card-header">
-                      <div className="skill-icon" style={{ background: 'rgba(200,150,10,0.08)' }}>📦</div>
+                      <div className="skill-icon" style={{ background: 'rgba(200,150,10,0.08)' }}><Icon name="package" size={18} ariaHidden /></div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div className="skill-name">{pkg.name}</div>
                         <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{pkg.id}{pkg.version ? ` · v${pkg.version}` : ''}</div>

@@ -7,6 +7,7 @@ import type { Session } from '@/types'
 import type { I18nState } from '@/i18n'
 import { useI18n } from '@/i18n'
 import { motionLabelKey } from '@/features/character-presence/motion'
+import Icon from '@/features/icons/Icon'
 
 type T = I18nState['t']
 
@@ -238,7 +239,7 @@ export default function SessionPanel() {
           ></div>
           <div className="session-info">
             <div className="session-title">
-              {session.pinned && <span style={{ marginRight: 4 }}>⭐</span>}
+              {session.pinned && <span style={{ marginRight: 4, display: 'inline-flex' }}><Icon name="pin" size={12} ariaHidden /></span>}
               {session.title || t('新会话')}
             </div>
             <div className="session-meta">
@@ -260,7 +261,7 @@ export default function SessionPanel() {
         <span className="ctx-title">{t('会话')}</span>
         <div className="ctx-actions">
           <button onClick={toggleBatchMode} title={isBatchMode ? t('退出批量') : t('批量操作')}>
-            {isBatchMode ? '✓' : '☰'}
+            <Icon name={isBatchMode ? 'close' : 'menu'} size={14} ariaHidden />
           </button>
         </div>
       </div>
@@ -280,8 +281,8 @@ export default function SessionPanel() {
               onClick={() => toggleWorkspaceCollapse(group.name)}
               onContextMenu={e => handleProjectContextMenu(e, group.name)}
             >
-              <span className="project-icon">📁</span>
-              <span className="project-name">{group.name === 'default' ? t('默认') : group.name.split(/[/\\]/).pop() || group.name}</span>
+              <span className="project-icon"><Icon name="folder" size={14} ariaHidden /></span>
+              <span className="project-name">{group.name === 'default' ? t('默认') : group.name.split(/[/\\\\]/).pop() || group.name}</span>
               <button
                 type="button"
                 className="project-add-btn"
@@ -337,15 +338,15 @@ export default function SessionPanel() {
           onClick={e => e.stopPropagation()}
         >
           <ContextMenuItem
-            icon={contextMenu.session.pinned ? '⭐' : '☆'}
+            icon={contextMenu.session.pinned ? 'pin' : 'pin'}
             label={contextMenu.session.pinned ? t('取消收藏') : t('收藏')}
             onClick={() => handleTogglePin(contextMenu.session)}
           />
-          <ContextMenuItem icon="✏️" label={t('重命名')} onClick={() => handleRename(contextMenu.session)} />
-          <ContextMenuItem icon="📋" label={t('复制 ID')} onClick={() => handleCopyId(contextMenu.session)} />
-          <ContextMenuItem icon="📤" label={t('导出')} onClick={() => handleExport(contextMenu.session)} />
+          <ContextMenuItem icon="rename" label={t('重命名')} onClick={() => handleRename(contextMenu.session)} />
+          <ContextMenuItem icon="copy" label={t('复制 ID')} onClick={() => handleCopyId(contextMenu.session)} />
+          <ContextMenuItem icon="export" label={t('导出')} onClick={() => handleExport(contextMenu.session)} />
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-          <ContextMenuItem icon="🗑️" label={t('删除')} danger onClick={() => handleDelete(contextMenu.session)} />
+          <ContextMenuItem icon="delete" label={t('删除')} danger onClick={() => handleDelete(contextMenu.session)} />
         </div>
       )}
 
@@ -368,13 +369,13 @@ export default function SessionPanel() {
         >
           {projectMenu.workspace !== 'default' && (
             <ContextMenuItem
-              icon="📂"
+              icon="folder-open"
               label={t('打开所在文件夹')}
               onClick={() => handleOpenProjectFolder(projectMenu.workspace)}
             />
           )}
           <ContextMenuItem
-            icon="🗑️"
+            icon="delete"
             label={t('删除项目')}
             danger
             onClick={() => handleDeleteProject(projectMenu.workspace)}
@@ -409,7 +410,7 @@ function ContextMenuItem({ icon, label, danger, onClick }: {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <span style={{ fontSize: 13 }}>{icon}</span>
+      <Icon name={icon} size={13} ariaHidden />
       {label}
     </div>
   )

@@ -2,6 +2,7 @@
 import { fetchGoals, createGoal, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
 import { getSocket } from '@/api/socket'
 import PlanDialog from './PlanDialog'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 
 const goalStatusKeys: Record<string, string> = {
@@ -104,7 +105,7 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
       {activeGoal ? (
         <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontWeight: 600 }}>🎯 {activeGoal.outcome}</span>
+            <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="goal" size={14} ariaHidden />{activeGoal.outcome}</span>
             <span style={{ color: activeGoal.status === 'active' ? 'var(--jade)' : 'var(--gold)' }}>{t(goalStatusKeys[activeGoal.status])}</span>
           </div>
           {activeGoal.verification && (

@@ -1,6 +1,7 @@
 ﻿import { useMemo } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 
 interface FileEntry {
@@ -61,7 +62,7 @@ export default function FilePanel() {
             entries.push({
               name: att.name,
               source: 'attachment',
-              icon: att.mime?.startsWith('image/') ? '🖼️' : '📎',
+              icon: att.mime?.startsWith('image/') ? 'image' : 'attach',
             })
           }
         }
@@ -77,7 +78,7 @@ export default function FilePanel() {
           const key = `read:${filePath}`
           if (!seen.has(key)) {
             seen.add(key)
-            entries.push({ name: filePath.split(/[/\\]/).pop() || filePath, path: filePath, source: 'tool-read', icon: '📖' })
+            entries.push({ name: filePath.split(/[/\\\\]/).pop() || filePath, path: filePath, source: 'tool-read', icon: 'tool-read' })
           }
         }
 
@@ -86,7 +87,7 @@ export default function FilePanel() {
           const key = `write:${filePath}`
           if (!seen.has(key)) {
             seen.add(key)
-            entries.push({ name: filePath.split(/[/\\]/).pop() || filePath, path: filePath, source: 'tool-write', icon: '✏️' })
+            entries.push({ name: filePath.split(/[/\\\\]/).pop() || filePath, path: filePath, source: 'tool-write', icon: 'tool-write' })
           }
         }
       }
@@ -111,7 +112,7 @@ export default function FilePanel() {
             <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>{t('无附件')}</div>
           ) : attachments.map((f, i) => (
             <div key={i} className="fp-file-item">
-              <span className="fp-file-icon">{f.icon}</span>
+              <span className="fp-file-icon"><Icon name={f.icon} size={14} ariaHidden /></span>
               <span className="fp-file-name">{f.name}</span>
             </div>
           ))}
@@ -124,7 +125,7 @@ export default function FilePanel() {
             <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: '4px 0' }}>{t('无文件操作')}</div>
           ) : toolFiles.map((f, i) => (
             <div key={i} className="fp-file-item">
-              <span className="fp-file-icon">{f.icon}</span>
+              <span className="fp-file-icon"><Icon name={f.icon} size={14} ariaHidden /></span>
               <span className="fp-file-name" title={f.path}>{f.name}</span>
               {f.path && (
                 <button
@@ -132,12 +133,11 @@ export default function FilePanel() {
                   title={t('打开所在目录')}
                   style={{
                     marginLeft: 'auto', background: 'none', border: 'none',
-                    color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 'calc(12px * var(--ui-font-scale))',
-                    padding: '0 2px', flexShrink: 0,
+                    color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 2px', flexShrink: 0, display: 'grid', placeItems: 'center',
                   }}
                   onMouseEnter={e => (e.currentTarget.style.color = 'var(--gold)')}
                   onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-faint)')}
-                >📂</button>
+                ><Icon name="folder-open" size={13} ariaHidden /></button>
               )}
             </div>
           ))}

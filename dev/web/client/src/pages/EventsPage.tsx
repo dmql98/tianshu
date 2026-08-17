@@ -10,6 +10,7 @@ import {
 } from '@/api/eventDefinitions'
 import type { I18nState } from '@/i18n'
 import { useI18n } from '@/i18n'
+import Icon from '@/features/icons/Icon'
 
 type T = I18nState['t']
 
@@ -26,11 +27,11 @@ const statusColors: Record<string, string> = {
 type EventLane = 'pending' | 'running' | 'completed' | 'failed' | 'archived'
 
 const eventLanes: Array<{ id: EventLane; label: string; icon: string }> = [
-  { id: 'pending', label: '等待', icon: '⏳' },
-  { id: 'running', label: '运行中', icon: '▶' },
-  { id: 'completed', label: '成功', icon: '✓' },
-  { id: 'failed', label: '失败', icon: '✗' },
-  { id: 'archived', label: '归档', icon: '📦' },
+  { id: 'pending', label: '等待', icon: 'waiting' },
+  { id: 'running', label: '运行中', icon: 'running' },
+  { id: 'completed', label: '成功', icon: 'success' },
+  { id: 'failed', label: '失败', icon: 'error' },
+  { id: 'archived', label: '归档', icon: 'archived' },
 ]
 
 function timeAgo(ts: number | null, t: T): string {
@@ -259,7 +260,7 @@ export default function EventsPage() {
             {eventLanes.map(lane => (
               <section key={lane.id} className={`lane ${lane.id}`}>
                 <div className="lane-header">
-                  <span>{lane.icon}</span>
+                  <span style={{display:'inline-flex'}}><Icon name={lane.icon} size={13} ariaHidden /></span>
                   <span>{t(lane.label)}</span>
                   <span className="lane-count">{groupedDefinitions[lane.id].length}</span>
                 </div>
@@ -280,7 +281,7 @@ export default function EventsPage() {
                         </div>
                         <div className="event-card-title">{def.name}</div>
                         <div className="event-card-agent">
-                          <span className="agent-icon">{charName(def.character_id)[0] || '👤'}</span>
+                          <span className="agent-icon"><Icon name="nav-characters" size={13} ariaHidden /></span>
                           <span className="agent-name">{charName(def.character_id)}</span>
                         </div>
                         <div className={`card-payload ${isExpanded ? 'card-payload-expanded' : ''}`}>{def.instruction}</div>

@@ -4,5 +4,6 @@
   "characters": true,
   "skills": true,
   "providers": true,
-  "prompts": true
+  "prompts": true,
+  "iconpacks": true
 }

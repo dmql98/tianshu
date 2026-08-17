@@ -1,4 +1,5 @@
 import { useChatStore } from '@/stores/chatStore'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 
 export default function ApprovalDialog() {
@@ -11,7 +12,7 @@ export default function ApprovalDialog() {
   return (
     <div className="approval-overlay">
       <div className="approval-dialog">
-        <div className="approval-title">⚠️ {isWorkspaceApproval ? t('工作区权限申请') : t('操作确认')}</div>
+        <div className="approval-title"><span style={{display:'inline-flex',marginRight:6,verticalAlign:'-2px'}}><Icon name="warning" size={16} ariaHidden /></span>{isWorkspaceApproval ? t('工作区权限申请') : t('操作确认')}</div>
         {isWorkspaceApproval ? (
           <div className="approval-workspace-request">
             {t('将')} <strong>{pendingApproval.permission_root}</strong> {t('添加到授权工作区')}

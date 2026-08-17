@@ -8,6 +8,7 @@
  * - "恢复默认"仅把选择恢复为 system，不重置字体等显示设置。
  */
 import { useCallback, useEffect, useState } from 'react'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 import {
   BUILTIN_THEMES,
@@ -226,10 +227,10 @@ export default function ThemeSelector({ showToast, onOpenStudio }: ThemeSelector
           <div className="theme-card-wrap" key={theme.id}>
             {themeCard(theme, { mode: 'custom', themeId: theme.id })}
             <div className="theme-card-menu">
-              <button type="button" className="theme-menu-btn" onClick={() => onOpenStudio?.(theme)}>✎ 编辑</button>
+              <button type="button" className="theme-menu-btn" onClick={() => onOpenStudio?.(theme)}><Icon name="tool-edit" size={11} ariaHidden /> 编辑</button>
               <button type="button" className="theme-menu-btn" onClick={() => handleDuplicate(theme)}>⧉ 复制</button>
-              <button type="button" className="theme-menu-btn" onClick={() => handleRename(theme)}>✏ 重命名</button>
-              <button type="button" className="theme-menu-btn danger" onClick={() => handleDelete(theme)}>🗑 删除</button>
+              <button type="button" className="theme-menu-btn" onClick={() => handleRename(theme)}><Icon name="rename" size={11} ariaHidden /> 重命名</button>
+              <button type="button" className="theme-menu-btn danger" onClick={() => handleDelete(theme)}><Icon name="delete" size={11} ariaHidden /> 删除</button>
             </div>
           </div>
         ))}

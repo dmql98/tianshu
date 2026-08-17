@@ -18,16 +18,17 @@ import HomePage from './pages/HomePage'
 import ThemeBackdrop from './features/theme/ThemeBackdrop'
 import UpdateNotificationDialog from './features/update/UpdateNotificationDialog'
 import DesktopTitleBar from './components/DesktopTitleBar'
+import Icon from './features/icons/Icon'
 import { useI18n } from './i18n'
 
 const navItems = [
-  { to: '/chat', icon: '💬', label: '会话' },
-  { to: '/characters', icon: '🎭', label: '角色' },
-  { to: '/skills', icon: '⚡', label: '技能' },
-  { to: '/tools', icon: '🔧', label: '工具' },
-  { to: '/mcp', icon: '🔗', label: 'MCP' },
-  { to: '/knowledge', icon: '📚', label: '知识' },
-  { to: '/market', icon: '🏪', label: '市场' },
+  { to: '/chat', icon: 'nav-chat', label: '会话' },
+  { to: '/characters', icon: 'nav-characters', label: '角色' },
+  { to: '/skills', icon: 'nav-skills', label: '技能' },
+  { to: '/tools', icon: 'nav-tools', label: '工具' },
+  { to: '/mcp', icon: 'nav-mcp', label: 'MCP' },
+  { to: '/knowledge', icon: 'nav-knowledge', label: '知识' },
+  { to: '/market', icon: 'nav-market', label: '市场' },
 ]
 
 export default function App() {
@@ -111,7 +112,7 @@ export default function App() {
             to={item.to}
             title={t(item.label)}
           >
-            {item.icon}
+            <Icon name={item.icon} size={20} ariaHidden />
             <span className="nav-label">{t(item.label)}</span>
           </NavLink>
         ))}
@@ -121,7 +122,7 @@ export default function App() {
           to="/events"
           title={t('事件')}
         >
-          ⚡
+          <Icon name="nav-events" size={20} ariaHidden />
           <span className="nav-label">{t('事件')}</span>
           {activeEventCount > 0 && <span className="nav-badge">{activeEventCount}</span>}
         </NavLink>
@@ -131,7 +132,7 @@ export default function App() {
           to="/settings"
           title={t('设置')}
         >
-          ⚙️
+          <Icon name="nav-settings" size={20} ariaHidden />
           <span className="nav-label">{t('设置')}</span>
         </NavLink>
       </nav>
@@ -170,7 +171,9 @@ export default function App() {
             border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(44,36,24,0.3)',
             textAlign: 'center', maxWidth: 400,
           }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>
+              <Icon name="nav-settings" size={40} ariaHidden />
+            </div>
             <div style={{ fontSize: 'calc(18px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)', marginBottom: 8 }}>
               {t('需要配置系统路径')}
             </div>

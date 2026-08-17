@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { submitRunInput } from '@/api/runs'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 
 /**
@@ -34,7 +35,7 @@ export default function AskUserDialog() {
   return (
     <div className="approval-overlay">
       <div className="approval-dialog" style={{ maxWidth: 480, width: '100%' }}>
-        <div className="approval-title">❓ {t('需要您确认')}</div>
+        <div className="approval-title"><span style={{display:'inline-flex',marginRight:6,verticalAlign:'-2px'}}><Icon name="question" size={16} ariaHidden /></span>{t('需要您确认')}</div>
         <div className="approval-path" style={{ whiteSpace: 'pre-wrap', marginBottom: 12 }}>
           {pendingAskUser.question}
         </div>

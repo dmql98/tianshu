@@ -5,6 +5,7 @@ import { updateSession } from '@/api/sessions'
 import { fetchCharacters } from '@/api/characters'
 import type { Character, Strategy } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
+import Icon from '@/features/icons/Icon'
 import { useCharacterPresence } from '@/features/character-presence/useCharacterPresence'
 import { useI18n } from '@/i18n'
 
@@ -228,7 +229,7 @@ export default function ChatInput() {
                 }}>
                   {a.dataUrl
                     ? <img src={a.dataUrl} style={{ width: 16, height: 16, borderRadius: 2, objectFit: 'cover' }} />
-                    : <span style={{ fontSize: 12 }}>{a.mime?.startsWith('image/') ? '🖼️' : '📎'}</span>
+                    : <span style={{ display: 'inline-flex' }}><Icon name={a.mime?.startsWith('image/') ? 'image' : 'attach'} size={14} ariaHidden /></span>
                   }
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
                   <span

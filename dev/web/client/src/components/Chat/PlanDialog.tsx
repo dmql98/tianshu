@@ -6,7 +6,7 @@ import { useI18n } from '@/i18n'
 const statusMeta: Record<PlanStep['status'], { icon: string; label: string; tone: string }> = {
   pending: { icon: '○', label: '等待', tone: 'muted' },
   in_progress: { icon: '▶', label: '进行中', tone: 'running' },
-  blocked: { icon: '⛔', label: '阻塞', tone: 'danger' },
+  blocked: { icon: '⊗', label: '阻塞', tone: 'danger' },
   completed: { icon: '✓', label: '已完成', tone: 'success' },
   skipped: { icon: '↷', label: '已跳过', tone: 'muted' },
   failed: { icon: '✗', label: '失败', tone: 'danger' },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useDesktopUpdater } from './useDesktopUpdater'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 
 function formatBytes(bytes?: number): string {
@@ -61,7 +62,7 @@ export default function UpdateNotificationDialog() {
         <div className="update-dialog-body">
           {phase === 'available' && (
             <>
-              <div className="update-dialog-title">🎉 {t('发现新版本')}</div>
+              <div className="update-dialog-title"><span style={{ display: 'inline-flex', marginRight: 6, verticalAlign: '-2px' }}><Icon name="success" size={18} ariaHidden /></span>{t('发现新版本')}</div>
               <div className="update-dialog-desc">
                 {t('天枢 {current} 有新版本 {target} 可更新，是否现在下载？', { current: currentVersion, target: targetVersion })}
               </div>

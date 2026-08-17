@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { browseDirectory, resolvePath, type DirEntry } from '@/api/workspace'
+import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 
 interface Props {
@@ -137,7 +138,7 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
-              <span style={{ fontSize: 16, flexShrink: 0 }}>📁</span>
+              <span style={{ flexShrink: 0, display: 'inline-flex' }}><Icon name="folder" size={15} ariaHidden /></span>
               <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{entry.name}</span>
               <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', flexShrink: 0 }}>▸</span>
             </div>
