@@ -15,6 +15,23 @@ const STRICT_STREAM = process.env.STRICT_LLM_STREAM_COMPLETION !== '0'
 // terminal policy below.
 const TERMINAL_FINISH_REASONS = new Set(['stop', 'tool_calls', 'length', 'content_filter', 'function_call', 'end_turn'])
 
+/**
+ * 归一化"输入超上下文窗口"判定（P1-6，对齐 deepseek-harness 的
+ * CONTEXT_WINDOW_EXCEEDED_CODE 思路）。调用方不要再各自字符串匹配——
+ * 错误措辞一变即失效；finish_reason 是强信号，文本匹配作兜底。
+ */
+export function isContextOverflowError(message: string, finishReason?: string): boolean {
+  if (finishReason === 'length' || finishReason === 'max_output_tokens') return true
+  const m = message.toLowerCase()
+  return m.includes('context length')
+    || m.includes('maximum context')
+    || m.includes('context_length')
+    || m.includes('context window')
+    || m.includes('too many tokens')
+    || m.includes('input tokens exceeds')
+    || m.includes('token limit')
+}
+
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string | null | import('../agent/attachments.js').ProviderContentBlock[]
@@ -137,6 +154,8 @@ export interface LLMOptions {
   onChunk?: (chunk: LLMChunk) => void
   /** Provider API protocol. Defaults to chat/completions. */
   apiStyle?: ProviderApiStyle
+  /** 输出 token 上限（P1-5：摘要等辅助调用用；不设置则不携带）。 */
+  max_tokens?: number
 }
 
 function parseUsage(raw: any): LLMUsage {
@@ -173,6 +192,7 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
   const body: Record<string, unknown> = {
     model, messages, stream: true,
     ...(INCLUDE_USAGE ? { stream_options: { include_usage: true } } : {}),
+    ...(opts.max_tokens != null ? { max_tokens: opts.max_tokens } : {}),
   }
   if (tools && tools.length > 0) body.tools = tools
   if (thinking) {
@@ -435,6 +455,7 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
     input: toResponsesInput(messages),
     stream: true,
     stream_options: INCLUDE_USAGE ? { include_usage: true } : undefined,
+    ...(opts.max_tokens != null ? { max_output_tokens: opts.max_tokens } : {}),
   }
   if (tools && tools.length > 0) {
     // Responses API expects flat function tools ({type,name,description,

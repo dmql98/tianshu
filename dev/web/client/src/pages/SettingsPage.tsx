@@ -10,6 +10,7 @@ import type { DesktopServerStatus } from '../../../../shared/desktop-contract.js
 import UpdatePanel from '@/features/update/UpdatePanel'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
+import ModelCompactDialog from '@/components/ModelCompactDialog'
 
 /** Parse a hand-entered context value like "128k", "1m" or "200000". */
 function parseContextOverride(raw: string): number | null {
@@ -65,6 +66,7 @@ export default function SettingsPage() {
   const [testing, setTesting] = useState<Record<string, boolean>>({})
   const [showAddModal, setShowAddModal] = useState(false)
   const [editTarget, setEditTarget] = useState<Provider | null>(null)
+  const [compactTarget, setCompactTarget] = useState<{ provider: Provider; modelId: string } | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
   // ── 显示设置 ──
@@ -446,6 +448,16 @@ export default function SettingsPage() {
                             <option value="chat_completions">Chat</option>
                             <option value="responses">Resp</option>
                           </select>
+                          <button
+                            onClick={e => { e.stopPropagation(); setCompactTarget({ provider, modelId: model.id }) }}
+                            title={t('压缩策略')}
+                            style={{marginLeft:8,background:'none',border:'none',cursor:'pointer',color:'var(--ink-light)',fontSize:'calc(13px * var(--ui-font-scale))',padding:'0 2px',flexShrink:0}}
+                          >
+                            ⚙
+                          </button>
+                          {(model as any).compact_threshold_ratio != null || (model as any).compact_retain_ratio != null || (model as any).compact_provider != null || (model as any).compact_model != null ? (
+                            <span style={{width:6,height:6,borderRadius:3,background:'var(--jade)',marginLeft:6,flexShrink:0}} />
+                          ) : null}
                         </div>
                       )
                     }) || (
@@ -470,6 +482,11 @@ export default function SettingsPage() {
         {/* 编辑服务弹窗 */}
         {editTarget && (
           <EditProviderDialog provider={editTarget} onClose={() => setEditTarget(null)} />
+        )}
+
+        {/* 压缩策略弹窗 */}
+        {compactTarget && (
+          <ModelCompactDialog provider={compactTarget.provider} modelId={compactTarget.modelId} onClose={() => setCompactTarget(null)} />
         )}
 
         {/* 系统 */}

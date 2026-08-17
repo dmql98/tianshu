@@ -30,6 +30,12 @@ export interface ModelInfo {
   api_style?: 'auto' | 'chat_completions' | 'responses'
   /** 上下文窗口被用户手动覆盖过；刷新模型列表时保留手动值。 */
   context_window_overridden?: boolean
+  /** P1-4 模型级压缩策略（未配置回退全局默认）：触发阈值 / 保留比。 */
+  compact_threshold_ratio?: number
+  compact_retain_ratio?: number
+  /** 独立摘要 provider id / model（P1-4/P1-5）。 */
+  compact_provider?: string
+  compact_model?: string
 }
 
 function readAll(): ProviderRecord[] {

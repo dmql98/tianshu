@@ -16,9 +16,61 @@ export const SOFT_COMPACT_RATIO = 0.5
 export const SNIP_RATIO = 0.6
 export const COMPACT_THRESHOLD = 0.75
 export const COLD_RESUME_MS = 24 * 60 * 60 * 1000
-export const KEEP_TOKENS = envInt('TSS_KEEP_TOKENS', 8000)
+/** 保留预算下限/上限（P1-3：预算按窗口缩放时的夹取范围）。 */
+export const KEEP_TOKENS_MIN = envInt('TSS_KEEP_TOKENS_MIN', 4000)
+export const KEEP_TOKENS_MAX = envInt('TSS_KEEP_TOKENS_MAX', 64000)
+/** 保留比：默认 0.16，对齐 deepseek-harness（P1-3）。 */
+export const COMPACT_RETAIN_RATIO = parseFloat(process.env.TSS_COMPACT_RETAIN_RATIO || '0.16') || 0.16
+/** 单次压缩重试上限（P0-1，对齐 compactionRetries）。 */
+export const MAX_COMPACT_ATTEMPTS = envInt('TSS_COMPACT_RETRIES', 2)
+/** 溢出触发的压缩重试上限（P1-6，对齐 maxOverflowRetries）。 */
+export const MAX_OVERFLOW_COMPACTS = envInt('TSS_OVERFLOW_RETRIES', 2)
 export const SNIP_KEEP_TOOL_TURNS = envInt('TSS_SNIP_KEEP_TOOL_TURNS', 3)
 export const SUMMARY_OUTPUT_TOKENS = 2048
+
+/**
+ * 可配置的压缩策略（P1-4）：阈值/保留比/摘要模型。模型级（ModelInfo 扩展字段）
+ * 优先，未配置时回退全局默认。thresholdRatio 等均可在模型目录逐模型覆盖。
+ */
+export interface CompactPolicy {
+  thresholdRatio: number
+  retainRatio: number
+  summarizationProvider?: string
+  summarizationModel?: string
+}
+
+export const DEFAULT_COMPACT_POLICY: CompactPolicy = {
+  thresholdRatio: COMPACT_THRESHOLD,
+  retainRatio: COMPACT_RETAIN_RATIO,
+}
+
+export function resolveCompactPolicy(modelConfig?: {
+  compact_threshold_ratio?: number
+  compact_retain_ratio?: number
+  compact_provider?: string
+  compact_model?: string
+} | null): CompactPolicy {
+  return {
+    thresholdRatio: modelConfig?.compact_threshold_ratio ?? COMPACT_THRESHOLD,
+    retainRatio: modelConfig?.compact_retain_ratio ?? COMPACT_RETAIN_RATIO,
+    summarizationProvider: modelConfig?.compact_provider ?? '',
+    summarizationModel: modelConfig?.compact_model ?? '',
+  }
+}
+
+/**
+ * 按窗口计算保留预算（P1-3）：retainRatio×contextWindow，夹在 KEEP_TOKENS_MIN/MAX。
+ * attempt>0 时逐级减半（P0-1 重试时压缩更激进），下限 KEEP_TOKENS_MIN。
+ */
+export function resolveKeepTokens(
+  contextWindow = DEFAULT_CONTEXT_WINDOW,
+  attempt = 0,
+  policy: CompactPolicy = DEFAULT_COMPACT_POLICY,
+): number {
+  const scaled = Math.floor(contextWindow * policy.retainRatio)
+  const budget = Math.min(KEEP_TOKENS_MAX, Math.max(KEEP_TOKENS_MIN, scaled))
+  return Math.max(KEEP_TOKENS_MIN, budget >> attempt)
+}
 
 const IMAGE_TOKEN_EQUIVALENT = 1100
 
@@ -73,8 +125,8 @@ export function shouldSnip(messages: LLMMessage[], contextWindow = DEFAULT_CONTE
   return estimateTokens(messages) > contextWindow * SNIP_RATIO
 }
 
-export function shouldCompact(messages: LLMMessage[], contextWindow = DEFAULT_CONTEXT_WINDOW): boolean {
-  return estimateTokens(messages) > contextWindow * COMPACT_THRESHOLD
+export function shouldCompact(messages: LLMMessage[], contextWindow = DEFAULT_CONTEXT_WINDOW, policy: CompactPolicy = DEFAULT_COMPACT_POLICY): boolean {
+  return estimateTokens(messages) > contextWindow * policy.thresholdRatio
 }
 
 /**
@@ -87,8 +139,8 @@ export function shouldSnipTokens(usedTokens: number, contextWindow = DEFAULT_CON
   return usedTokens > contextWindow * SNIP_RATIO
 }
 
-export function shouldCompactTokens(usedTokens: number, contextWindow = DEFAULT_CONTEXT_WINDOW): boolean {
-  return usedTokens > contextWindow * COMPACT_THRESHOLD
+export function shouldCompactTokens(usedTokens: number, contextWindow = DEFAULT_CONTEXT_WINDOW, policy: CompactPolicy = DEFAULT_COMPACT_POLICY): boolean {
+  return usedTokens > contextWindow * policy.thresholdRatio
 }
 
 export function systemMessageEnd(messages: LLMMessage[]): number {

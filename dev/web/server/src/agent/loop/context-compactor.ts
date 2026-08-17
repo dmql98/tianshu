@@ -1,5 +1,10 @@
 import { streamChatCompletion, type LLMMessage, type LLMOptions, type ProviderConfig } from '../../llm/client.js'
-import { contentToText, systemMessageEnd, KEEP_TOKENS, estimateTextTokens } from './loop-policy.js'
+import { providerStore } from '../../db/providerStore.js'
+import {
+  contentToText, systemMessageEnd, estimateTextTokens, estimateTokens,
+  DEFAULT_CONTEXT_WINDOW, DEFAULT_COMPACT_POLICY, MAX_COMPACT_ATTEMPTS,
+  resolveKeepTokens, shouldCompactTokens, type CompactPolicy,
+} from './loop-policy.js'
 
 /**
  * Context compactor: summarization, history selection and compaction.
@@ -7,6 +12,14 @@ import { contentToText, systemMessageEnd, KEEP_TOKENS, estimateTextTokens } from
  */
 
 export const SUMMARY_OUTPUT_TOKENS = 2048
+
+/** 摘要长度保险（P2-7）：LLM 输出的摘要超过该 token 上限时按节截断。 */
+export const COMPACT_SUMMARY_CAP = 2048
+
+/** 硬约束：压缩只能作用于 system 块之后的对话，system 前缀逐字节保留。 */
+const COMPACTED_PREFIX = '[Compacted History]'
+const isCompactedSummary = (m: LLMMessage) =>
+  m.role === 'system' && typeof m.content === 'string' && m.content.startsWith(COMPACTED_PREFIX)
 
 // P0-3: 摘要调用默认复用会话前缀（system + tools + 消息），把压缩指令作为
 // 最后一条 user 消息，让辅助调用成为主请求的真实前缀以复用 provider KV cache。
@@ -199,6 +212,57 @@ function compactionInstruction(previousSummary?: string): string {
 export interface SummarizeOptions {
   /** 主请求的 tools，用于 prefix 对齐（复用 KV cache）。 */
   tools?: LLMOptions['tools']
+  /** 压缩保留预算（P0-1 重试时逐级递减）；缺省按 contextWindow×retainRatio。 */
+  keepTokens?: number
+  /** 上下文窗口（P1-3 保留预算缩放用）；缺省 DEFAULT_CONTEXT_WINDOW。 */
+  contextWindow?: number
+  /** 模型级压缩策略（P1-4）。 */
+  policy?: CompactPolicy
+  /** 独立摘要 provider id（P1-4 模型级策略 / P1-5 环境变量）。 */
+  summarizationProviderId?: string
+  /** 独立摘要模型名。 */
+  summarizationModel?: string
+  /** 直接指定摘要 provider（优先于 id 解析）。 */
+  summarizationProvider?: ProviderConfig
+}
+
+/** 解析摘要调用目标：显式 provider > 环境变量 TSS_COMPACT_PROVIDER/MODEL > 主链路。 */
+function resolveSummarizerTarget(
+  provider: ProviderConfig,
+  model: string,
+  opts?: SummarizeOptions,
+): { provider: ProviderConfig; model: string } {
+  if (opts?.summarizationProvider) {
+    return { provider: opts.summarizationProvider, model: opts.summarizationModel || model }
+  }
+  const providerId = opts?.summarizationProviderId || process.env.TSS_COMPACT_PROVIDER || ''
+  const modelName = opts?.summarizationModel || process.env.TSS_COMPACT_MODEL || ''
+  if (providerId) {
+    const sp = providerStore.getById(providerId)
+    if (sp) {
+      return {
+        provider: { ...sp, api_style: sp.api_style },
+        model: modelName || sp.models[0]?.id || model,
+      }
+    }
+  }
+  if (modelName) return { provider, model: modelName }
+  return { provider, model }
+}
+
+/** 摘要长度保险：按行保留完整节标题，超出 COMPACT_SUMMARY_CAP 后截断并标注。 */
+export function capSummaryLength(summary: string): string {
+  const total = estimateTextTokens(summary)
+  if (total <= COMPACT_SUMMARY_CAP) return summary
+  let out = ''
+  let acc = 0
+  for (const line of summary.split('\n')) {
+    const t = estimateTextTokens(line) + 1
+    if (acc + t > COMPACT_SUMMARY_CAP) break
+    out += line + '\n'
+    acc += t
+  }
+  return (out.trimEnd() || summary.slice(0, Math.max(0, Math.floor(COMPACT_SUMMARY_CAP * 4)))) + '\n(truncated)'
 }
 
 async function llmSummarize(
@@ -210,6 +274,7 @@ async function llmSummarize(
   opts?: SummarizeOptions,
 ): Promise<string> {
   const instruction = compactionInstruction(previousSummary)
+  const target = resolveSummarizerTarget(provider, model, opts)
   const messages: LLMMessage[] = REPLAY_PREFIX
     ? [...systemMsgs, ...head, { role: 'user', content: instruction }]
     : [{ role: 'user', content: `${instruction}\n\n${serializeForSummary(head)}` }]
@@ -217,10 +282,12 @@ async function llmSummarize(
   let summary = ''
   try {
     for await (const chunk of streamChatCompletion({
-      baseUrl: provider.base_url, apiKey: provider.api_key, model,
-      apiStyle: provider.api_style,
+      baseUrl: target.provider.base_url, apiKey: target.provider.api_key, model: target.model,
+      apiStyle: target.provider.api_style,
       messages,
       tools: opts?.tools,
+      // P1-5: 摘要输出上限，防摘要无限膨胀。
+      max_tokens: SUMMARY_OUTPUT_TOKENS,
     })) {
       if (chunk.type === 'delta' && chunk.text) summary += chunk.text
       if (chunk.type === 'error') throw new Error(chunk.text)
@@ -229,7 +296,7 @@ async function llmSummarize(
     console.warn('[summarize] LLM failed, fallback to truncation:', err.message)
     return buildCompactionSummary(head)
   }
-  return summary || buildCompactionSummary(head)
+  return capSummaryLength(summary) || buildCompactionSummary(head)
 }
 
 export function compactHistory(
@@ -265,6 +332,11 @@ export interface CompactResult {
   summary?: string
   recent?: LLMMessage[]
   compactedUntilId?: number
+  /** 压缩后确实小于原上下文（收缩保证）。 */
+  shrinkVerified?: boolean
+  reason?: 'nothing_to_select' | 'system_prompt_modified' | 'not_smaller'
+  tokensBefore?: number
+  tokensAfter?: number
 }
 
 export async function selectAndSummarize(
@@ -276,14 +348,37 @@ export async function selectAndSummarize(
   const sysEnd = systemMessageEnd(messages)
   if (sysEnd >= messages.length) return { messages, didCompact: false }
 
+  const contextWindow = opts?.contextWindow ?? DEFAULT_CONTEXT_WINDOW
+  const policy = opts?.policy ?? DEFAULT_COMPACT_POLICY
+  const budget = opts?.keepTokens ?? resolveKeepTokens(contextWindow, 0, policy)
+
   const conversation = messages.slice(sysEnd)
   const previousSummary = extractPreviousSummary(messages)
-  const selected = selectEntries(conversation, KEEP_TOKENS)
+  const selected = selectEntries(conversation, budget)
   if (!selected || selected.head.length === 0) return { messages, didCompact: false }
 
   const systemMsgs = messages.slice(0, sysEnd)
   const summary = await llmSummarize(selected.head, systemMsgs, provider, model, previousSummary, opts)
   const compacted = compactHistory(messages, summary, selected.recent)
+
+  const tokensBefore = estimateTokens(messages)
+  const tokensAfter = estimateTokens(compacted)
+
+  // 硬约束断言：初始 system prompt 必须逐字节原样保留。压缩只作用于
+  // system 之后的对话；若未来改动破坏该结构，立即判为无效压缩。
+  const cSysEnd = systemMessageEnd(compacted)
+  const sysBefore = JSON.stringify(messages.slice(0, sysEnd).filter(m => !isCompactedSummary(m)))
+  const sysAfter = JSON.stringify(compacted.slice(0, cSysEnd).filter(m => !isCompactedSummary(m)))
+  if (sysBefore !== sysAfter) {
+    console.error('[compact] system prompt was modified — compaction aborted')
+    return { messages, didCompact: false, reason: 'system_prompt_modified' }
+  }
+
+  // 收缩保证：摘要 + recent 必须严格小于被压缩的完整上下文，否则视为无效压缩
+  // （摘要模型失控 / recent 尾部过大时压缩形同虚设，必须显式失败而非假装成功）。
+  if (tokensAfter >= tokensBefore) {
+    return { messages, didCompact: false, reason: 'not_smaller', tokensBefore, tokensAfter }
+  }
 
   let compactedUntilId = 0
   for (const m of selected.head) {
@@ -291,5 +386,46 @@ export async function selectAndSummarize(
     if (typeof dbId === 'number' && dbId > compactedUntilId) compactedUntilId = dbId
   }
 
-  return { messages: compacted, didCompact: true, summary, recent: selected.recent, compactedUntilId }
+  return { messages: compacted, didCompact: true, summary, recent: selected.recent, compactedUntilId, shrinkVerified: true }
+}
+
+export interface CompactRetryResult {
+  didCompact: boolean
+  summary?: string
+  compactedUntilId?: number
+  /** 实际发生的压缩次数（含重试）。 */
+  attempts: number
+}
+
+/**
+ * 带收缩重试的压缩（P0-1）：成功后用压缩后的新上下文重测，仍超阈值则
+ * 降低保留预算再压一次（最多 MAX_COMPACT_ATTEMPTS 次），对齐
+ * deepseek-harness 的 compactionRetries。**就地替换 messages**（与现有调用
+ * 约定一致）。系统提示词永远不被压缩。
+ */
+export async function compactWithRetries(
+  messages: LLMMessage[],
+  provider: ProviderConfig,
+  model: string,
+  opts?: SummarizeOptions,
+): Promise<CompactRetryResult> {
+  const contextWindow = opts?.contextWindow ?? DEFAULT_CONTEXT_WINDOW
+  const policy = opts?.policy ?? DEFAULT_COMPACT_POLICY
+  let attempts = 0
+  let summary: string | undefined
+  let compactedUntilId: number | undefined
+
+  while (attempts <= MAX_COMPACT_ATTEMPTS) {
+    const keepTokens = resolveKeepTokens(contextWindow, attempts, policy)
+    const result = await selectAndSummarize(messages, provider, model, { ...opts, keepTokens })
+    if (!result.didCompact) break
+    messages.length = 0
+    messages.push(...result.messages)
+    attempts++
+    summary = result.summary
+    compactedUntilId = result.compactedUntilId
+    if (!shouldCompactTokens(estimateTokens(messages), contextWindow, policy)) break
+  }
+
+  return { didCompact: attempts > 0, summary, compactedUntilId, attempts }
 }

@@ -21,14 +21,15 @@ import { runStore } from './runtime/run-store.js'
 import { characterRevisionStore, type CharacterRevisionSnapshot } from '../character/revision-store.js'
 import {
   DEFAULT_CONTEXT_WINDOW,
-  SOFT_COMPACT_RATIO, COMPACT_THRESHOLD, COLD_RESUME_MS,
+  SOFT_COMPACT_RATIO, COLD_RESUME_MS,
   estimateTokens, shouldSnip, systemMessageEnd, trimToolResults,
+  resolveCompactPolicy, shouldCompact, type CompactPolicy,
 } from './loop/loop-policy.js'
 import {
   resolveWorkspace, resolveWorkspaces, resolveDataspace,
   assembleStaticPrompt, buildInitialMessages,
 } from './loop/context-builder.js'
-import { selectAndSummarize } from './loop/context-compactor.js'
+import { compactWithRetries } from './loop/context-compactor.js'
 import { runLoopEngine } from './loop/loop-engine.js'
 import { getControlToolDefinitions } from './loop/control-registry.js'
 import { goalStore } from './plan/plan-store.js'
@@ -86,6 +87,9 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   const modelConfig = provider.models.find(m => m.id === model)
   const contextWindow = modelConfig?.context_window || DEFAULT_CONTEXT_WINDOW
   sessionStore.update(sessionId, { context_window: contextWindow })
+
+  // P1-4: 按模型解析压缩策略（阈值/保留比/摘要模型），未配置回退全局默认。
+  const compactPolicy: CompactPolicy = resolveCompactPolicy(modelConfig)
 
   const cap: ProviderCapability = resolveCapability(model, modelConfig?.supports_vision)
 
@@ -201,12 +205,14 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
   }
 
   // Memory + compaction summary at fixed positions so prefix cache stays stable
+  // P2-8: 按 compaction_until_id 水位读取，取消 2000 行硬上限（未被压缩的旧消息
+  // 超过 2000 条时不得被静默丢弃）。
   const messages: LLMMessage[] = await buildInitialMessages({
     characterId: sessionId,
     systemPrompt,
     memory: charContent.memory || null,
     compactionSummary: session.compaction_summary || null,
-    rows: messageStore.getMessages(sessionId, 2000),
+    rows: messageStore.getMessagesAfter(sessionId, session.compaction_until_id || 0, 100000),
     compactionUntilId: session.compaction_until_id || 0,
     trimmedUntilId: session.trimmed_until_id || 0,
     providerBaseUrl: provider.base_url,
@@ -215,24 +221,28 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     activeSkills: sessionSkillStore.bodies(sessionId),
   })
 
-  // ── #4 Cold resume: session untouched > 24h → compact ──
+  // ── #4 Cold resume: session untouched > 24h → 仅在超阈值时压缩 ──
+  // P2-8: 不再"一刀切只留 KEEP_TOKENS"，而是仅在确实超过阈值时压缩，且保留
+  // 预算按窗口缩放（P1-3）。system 前缀永不压缩。
   const isColdResume = Date.now() - (session.updated_at || 0) > COLD_RESUME_MS
-  if (isColdResume && messages.length > systemMessageEnd(messages) + 1) {
-    const result = await selectAndSummarize(messages, effProvider, model, { tools })
+  if (isColdResume && messages.length > systemMessageEnd(messages) + 1 && shouldCompact(messages, contextWindow, compactPolicy)) {
+    const result = await compactWithRetries(messages, effProvider, model, {
+      tools, contextWindow, policy: compactPolicy,
+      summarizationProviderId: compactPolicy.summarizationProvider,
+      summarizationModel: compactPolicy.summarizationModel,
+    })
     if (result.didCompact) {
-      messages.length = 0
-      messages.push(...result.messages)
       sessionStore.update(sessionId, {
         compaction_summary: result.summary!,
         compaction_until_id: result.compactedUntilId || null,
       })
-      console.log(`[session] ${sessionId} cold resume (>24h): compacted to ${result.messages.length} msgs`)
+      console.log(`[session] ${sessionId} cold resume (>24h): compacted to ${messages.length} msgs`)
     }
   }
 
   // ── #4 Snip stale tool results at 60% before considering compaction ──
   const estTokens = estimateTokens(messages)
-  if (estTokens > contextWindow * SOFT_COMPACT_RATIO && estTokens < contextWindow * COMPACT_THRESHOLD) {
+  if (estTokens > contextWindow * SOFT_COMPACT_RATIO && estTokens < contextWindow * compactPolicy.thresholdRatio) {
     const pct = ((estTokens / contextWindow) * 100).toFixed(0)
     console.log(`[session] ${sessionId} context at ${pct}% (soft threshold 50%)`)
   }
@@ -276,6 +286,7 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     tools,
     mcpClients,
     contextWindow,
+    compactPolicy,
     maxTurns,
     policy: runPolicy,
     messages,

@@ -3,9 +3,21 @@ import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { getDb } from '../db/schema.js'
 import { withTransaction } from '../db/sqlite-db.js'
-import { providerStore } from '../db/providerStore.js'
+import { providerStore, resolveProviderApiStyle } from '../db/providerStore.js'
+import { characterMetaStore } from '../db/characterStore.js'
+import { characterContentStore } from '../character/store.js'
 import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-title.js'
 import { characterPresenceProjector } from '../character/presence-projector.js'
+import { runCoordinator } from '../agent/runtime/run-coordinator.js'
+import {
+  resolveWorkspace, resolveDataspace,
+  assembleStaticPrompt, buildInitialMessages,
+} from '../agent/loop/context-builder.js'
+import { selectAndSummarize } from '../agent/loop/context-compactor.js'
+import { estimateTokens, DEFAULT_CONTEXT_WINDOW, resolveCompactPolicy } from '../agent/loop/loop-policy.js'
+import { resolveCapability } from '../agent/attachments.js'
+import { getCharacterToolDefinitions } from '../tools/definitions.js'
+import { sessionSkillStore } from '../agent/session-skill-store.js'
 
 const router = new Hono()
 
@@ -130,6 +142,95 @@ router.get('/:id/messages', (c) => {
   if (!session) return c.json({ error: 'Not found' }, 404)
   const messages = messageStore.getMessages(id, 100000)
   return c.json({ session, messages, total: messages.length })
+})
+
+/**
+ * Manual context compaction for an idle session (POST /:id/compact).
+ *
+ * Rebuilds the model-facing messages exactly like a run start (outer.ts) so
+ * the compaction summary is generated from the same conversation content,
+ * then persists compaction_summary / compaction_until_id so every later run
+ * resumes from the compacted context. Rejects while the session has an active
+ * run to avoid racing the in-memory turn loop.
+ */
+router.post('/:id/compact', async (c) => {
+  const id = c.req.param('id')
+  const session = sessionStore.getById(id)
+  if (!session) return c.json({ error: 'Not found' }, 404)
+
+  const coord = runCoordinator.state(id)
+  if (coord.state !== 'idle' || coord.queueLength > 0) {
+    return c.json({ error: 'busy', message: '会话正在运行，无法压缩' }, 409)
+  }
+
+  const provider = session.provider_id ? providerStore.getById(session.provider_id) : null
+  if (!provider) return c.json({ error: 'No provider configured' }, 400)
+  const model = session.model || provider.models[0]?.id
+  if (!model) return c.json({ error: 'No model configured' }, 400)
+
+  const charMeta = characterMetaStore.getById(session.character_id)
+  if (!charMeta) return c.json({ error: 'Character not found' }, 404)
+  const charContent = characterContentStore.get(session.character_id)
+
+  const effProvider = {
+    ...provider,
+    api_style: resolveProviderApiStyle(provider, model),
+  }
+  const modelConfig = provider.models.find(m => m.id === model)
+  const contextWindow = modelConfig?.context_window || DEFAULT_CONTEXT_WINDOW
+  const compactPolicy = resolveCompactPolicy(modelConfig)
+  const cap = resolveCapability(model, modelConfig?.supports_vision)
+  const toolDefs = getCharacterToolDefinitions(charMeta.tools)
+
+  const systemPrompt = assembleStaticPrompt(
+    charMeta,
+    charContent,
+    toolDefs,
+    resolveWorkspace(session.workspace),
+    resolveDataspace(session.dataspace),
+    { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' },
+  )
+  const messages = await buildInitialMessages({
+    characterId: session.id,
+    systemPrompt,
+    memory: charContent.memory || null,
+    compactionSummary: session.compaction_summary || null,
+    rows: messageStore.getMessagesAfter(id, session.compaction_until_id || 0, 100000),
+    compactionUntilId: session.compaction_until_id || 0,
+    trimmedUntilId: session.trimmed_until_id || 0,
+    providerBaseUrl: provider.base_url,
+    cap,
+    workspace: resolveWorkspace(session.workspace),
+    activeSkills: sessionSkillStore.bodies(id),
+  })
+
+  const tokensBefore = estimateTokens(messages)
+  const result = await selectAndSummarize(messages, effProvider, model, {
+    tools: toolDefs.length > 0 ? toolDefs : undefined,
+    contextWindow,
+    policy: compactPolicy,
+    summarizationProviderId: compactPolicy.summarizationProvider,
+    summarizationModel: compactPolicy.summarizationModel,
+  })
+  if (!result.didCompact) {
+    return c.json({ ok: true, didCompact: false, reason: result.reason || 'nothing_to_compact', tokensBefore })
+  }
+
+  const tokensAfter = estimateTokens(result.messages)
+  sessionStore.update(id, {
+    compaction_summary: result.summary!,
+    compaction_until_id: result.compactedUntilId || null,
+    context_usage: tokensAfter,
+  })
+  return c.json({
+    ok: true,
+    didCompact: true,
+    summary: result.summary,
+    compactedUntilId: result.compactedUntilId || null,
+    tokensBefore,
+    tokensAfter,
+    messageCount: result.messages.length,
+  })
 })
 
 export default router

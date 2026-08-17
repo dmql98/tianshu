@@ -41,6 +41,21 @@ export const deleteSession = (id: string) =>
 export const fetchSessionMessages = (id: string) =>
   apiGet<{ session: SessionSummary; messages: any[]; total: number }>(`/api/sessions/${id}/messages`)
 
+/** 手动压缩会话上下文：返回压缩前后的 token 估算，didCompact=false 表示无需压缩。 */
+export interface CompactSessionResult {
+  ok: boolean
+  didCompact: boolean
+  reason?: string
+  summary?: string
+  compactedUntilId?: number | null
+  tokensBefore?: number
+  tokensAfter?: number
+  messageCount?: number
+}
+
+export const compactSession = (id: string) =>
+  apiPost<CompactSessionResult>(`/api/sessions/${id}/compact`)
+
 export const keepMessages = (sessionId: string, count: number) =>
   apiDelete(`/api/sessions/${sessionId}/messages?keep=${count}`)
 

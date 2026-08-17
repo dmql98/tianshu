@@ -8,8 +8,9 @@ import type { ComposeContext } from '../compose.js'
 import { composeMessages } from '../compose.js'
 import { innerLoop, detectDoomLoop, type ToolCallRecord } from '../inner.js'
 import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-cache.js'
-import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults } from './loop-policy.js'
-import { selectAndSummarize } from './context-compactor.js'
+import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults, MAX_OVERFLOW_COMPACTS, type CompactPolicy } from './loop-policy.js'
+import { compactWithRetries, selectAndSummarize } from './context-compactor.js'
+import { isContextOverflowError } from '../../llm/client.js'
 import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
@@ -46,6 +47,8 @@ export interface LoopEngineContext {
   tools: any[] | undefined
   mcpClients: Map<string, MCPClient>
   contextWindow: number
+  /** 模型级压缩策略（P1-4）：阈值 / 保留比 / 摘要模型，未配置时回退全局默认。 */
+  compactPolicy: CompactPolicy
   maxTurns: number
   policy: RunPolicySnapshot
   messages: LLMMessage[]
@@ -125,7 +128,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   const {
     sessionId, runId, socket, io, signal, provider, model, characterId,
     workspace, workspaces, dataspace, cap, tools, mcpClients,
-    contextWindow, maxTurns, policy, messages, composeCtx, opts, session,
+    contextWindow, compactPolicy, maxTurns, policy, messages, composeCtx, opts, session,
     executionMode, goal,
   } = ctx
 
@@ -135,7 +138,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   let totalCacheHitTokens = 0
   let totalCacheMissTokens = 0
   let consecutiveErrors = 0
-  let overflowCompacted = false
+  let overflowCompacts = 0
   const toolCallHistory: ToolCallRecord[] = []
   let prevPrefixShape: PrefixShape | undefined
   let limitSummary: RunLimitSummary | undefined
@@ -164,6 +167,9 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
 
   while (turn < absoluteTurns && !signal?.aborted) {
     turn++
+
+    // Per-turn guard: pre-request compaction must not fire twice in one turn.
+    let turnCompacted = false
 
     // Soft limit reached for the first time: warn + inject a single convergence
     // prompt (RUN_LIMIT_POLICY_PLAN §9.2). Only when dynamic limits are on.
@@ -228,7 +234,8 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         )
       }
     }
-    const composedMsgs = composeMessages(messages, {
+    const turnAlerts = composeCtx.systemAlerts
+    let composedMsgs = composeMessages(messages, {
       ...composeCtx,
       preserveReasoning: opts.thinking === true || isReasoningModel(model) || messages.some(m => m.role === 'assistant' && !!m.reasoning_content),
     })
@@ -237,6 +244,36 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     // AFTER this point are deliberate carry-overs for the next turn (retry /
     // doom-loop / convergence notes).
     composeCtx.systemAlerts = []
+
+    // ── 回合内预请求压力检查（P0-2）──
+    // 单回合内一次超大工具输出可能让本次请求直接击穿窗口；发送前用真实的
+    // composedMsgs 重测一次，超过阈值则先压缩历史（压缩绝不触碰 system）再发。
+    if (!turnCompacted && shouldCompactTokens(estimateTokens(composedMsgs), contextWindow, compactPolicy)) {
+      const compact = await compactWithRetries(messages, provider, model, {
+        tools, contextWindow, policy: compactPolicy,
+        summarizationProviderId: compactPolicy.summarizationProvider,
+        summarizationModel: compactPolicy.summarizationModel,
+      })
+      if (compact.didCompact) {
+        turnCompacted = true
+        // Compaction may have summarized away the create_plan details; force
+        // the next turn to re-inject the current plan render.
+        lastPlanAlert = ''
+        sessionStore.update(sessionId, {
+          compaction_summary: compact.summary!,
+          compaction_until_id: compact.compactedUntilId || null,
+        })
+        socket?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted before request to avoid overflow' })
+        // 前缀已变：用与首帧一致的动态上下文重算本轮要发送的消息，并让下一次
+        // 前缀形状对比按冷启动处理（形状确实变了，避免误报缓存差异）。
+        composedMsgs = composeMessages(messages, {
+          ...composeCtx,
+          systemAlerts: turnAlerts,
+          preserveReasoning: opts.thinking === true || isReasoningModel(model) || messages.some(m => m.role === 'assistant' && !!m.reasoning_content),
+        })
+        prevPrefixShape = undefined
+      }
+    }
 
     // Prefix-shape diagnostics: detect what changed versus last request
     const curShape = capturePrefixShape(composedMsgs, tools)
@@ -266,16 +303,20 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       // emitting run.retrying (belt-and-suspenders; innerLoop now returns
       // 'aborted' on cancellation, so this mostly guards races at the boundary).
       if (signal?.aborted) break
-      const errMsg = result.error?.toLowerCase() || ''
+      const errMsg = result.error || ''
 
-      if (errMsg.includes('context length') || errMsg.includes('maximum context') || errMsg.includes('context_length') || errMsg.includes('too many tokens')) {
-        if (!overflowCompacted) {
+      // P1-6: 溢出识别走归一化判定（含 finish_reason 强信号），每次重试都从
+      // "压缩后的新上下文"再次发请求（最多 MAX_OVERFLOW_COMPACTS 次）。
+      if (isContextOverflowError(errMsg)) {
+        if (overflowCompacts < MAX_OVERFLOW_COMPACTS) {
           console.log(`[session] ${sessionId} overflow, force compacting and retrying...`)
-          const compact = await selectAndSummarize(messages, provider, model, { tools })
+          const compact = await compactWithRetries(messages, provider, model, {
+            tools, contextWindow, policy: compactPolicy,
+            summarizationProviderId: compactPolicy.summarizationProvider,
+            summarizationModel: compactPolicy.summarizationModel,
+          })
           if (compact.didCompact) {
-            messages.length = 0
-            messages.push(...compact.messages)
-            overflowCompacted = true
+            overflowCompacts++
             // Compaction may have summarized away the create_plan details; force
             // the next turn to re-inject the current plan render.
             lastPlanAlert = ''
@@ -458,11 +499,13 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         }
       }
     }
-    if (shouldCompactTokens(projectedTokens, contextWindow)) {
-      const compact = await selectAndSummarize(messages, provider, model, { tools })
+    if (shouldCompactTokens(projectedTokens, contextWindow, compactPolicy)) {
+      const compact = await compactWithRetries(messages, provider, model, {
+        tools, contextWindow, policy: compactPolicy,
+        summarizationProviderId: compactPolicy.summarizationProvider,
+        summarizationModel: compactPolicy.summarizationModel,
+      })
       if (compact.didCompact) {
-        messages.length = 0
-        messages.push(...compact.messages)
         // Compaction may have summarized away the create_plan details; force
         // the next turn to re-inject the current plan render.
         lastPlanAlert = ''

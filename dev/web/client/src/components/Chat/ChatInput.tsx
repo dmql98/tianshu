@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useEffect } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useProvidersStore } from '@/stores/providersStore'
-import { updateSession } from '@/api/sessions'
+import { updateSession, compactSession } from '@/api/sessions'
 import { fetchCharacters } from '@/api/characters'
 import type { Character, Strategy } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
@@ -40,6 +40,9 @@ export default function ChatInput() {
   const [input, setInput] = useState('')
   const [character, setCharacter] = useState<Character | null>(null)
   const [isFocused, setIsFocused] = useState(false)
+  const [compacting, setCompacting] = useState(false)
+  const [compactNotice, setCompactNotice] = useState<string | null>(null)
+  const compactNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, setStrategy, tokenUsage } = useChatStore()
@@ -75,6 +78,34 @@ export default function ChatInput() {
     if ((!input.trim() && attachments.length === 0) || blockInput) return
     sendMessage(input.trim())
     setInput('')
+  }
+
+  const showCompactNotice = (text: string) => {
+    if (compactNoticeTimer.current) clearTimeout(compactNoticeTimer.current)
+    setCompactNotice(text)
+    compactNoticeTimer.current = setTimeout(() => setCompactNotice(null), 3000)
+  }
+
+  const handleCompact = async () => {
+    if (!activeSessionId || compacting || blockInput) return
+    setCompacting(true)
+    try {
+      const res = await compactSession(activeSessionId)
+      if (res.didCompact && typeof res.tokensAfter === 'number') {
+        useChatStore.setState(state => ({
+          sessions: state.sessions.map(s =>
+            s.id === activeSessionId ? { ...s, context_usage: res.tokensAfter, compacted: true } : s
+          ),
+        }))
+        showCompactNotice(t('已压缩至 {tokens}', { tokens: formatTokens(res.tokensAfter) }))
+      } else {
+        showCompactNotice(t('无需压缩'))
+      }
+    } catch {
+      showCompactNotice(t('压缩失败'))
+    } finally {
+      setCompacting(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -299,11 +330,24 @@ export default function ChatInput() {
       </div>
       <div className="input-options">
         <div className="input-ctx">
-          <div className="input-ctx-cache">{t('缓存命中')}：{cacheHit || '--'}</div>
-          <div className="input-ctx-bar">
-            <div className="fill" style={{ width: `${contextPct}%` }}></div>
-            <span className="input-ctx-text">{formatTokens(tokenEst)} / {formatTokens(contextWindow)}</span>
+          <div className="input-ctx-cache">
+            <span>{t('缓存命中')}：{cacheHit || '--'}</span>
+            <button
+              className="ctx-compact-btn"
+              onClick={handleCompact}
+              disabled={!activeSessionId || blockInput || compacting}
+              title={t('压缩上下文')}
+            >
+              {compacting ? '…' : '⇕'}
+            </button>
           </div>
+          <div className="input-ctx-row">
+            <div className="input-ctx-bar">
+              <div className="fill" style={{ width: `${contextPct}%` }}></div>
+              <span className="input-ctx-text">{formatTokens(tokenEst)} / {formatTokens(contextWindow)}</span>
+            </div>
+          </div>
+          {compactNotice && <div className="input-ctx-notice">{compactNotice}</div>}
         </div>
         <select
           value={currentModelKey}

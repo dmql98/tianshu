@@ -2,9 +2,9 @@
  * Run: npx tsx src/agent/loop/loop-policy.test.ts
  */
 
-import { estimateTokens, shouldCompact, shouldSnip, trimToolResults, systemMessageEnd } from './loop-policy.js'
+import { estimateTokens, shouldCompact, shouldSnip, trimToolResults, systemMessageEnd, resolveKeepTokens, resolveCompactPolicy } from './loop-policy.js'
 import { detectDoomLoop, evaluateFinalAnswer } from './completion-evaluator.js'
-import { selectEntries } from './context-compactor.js'
+import { selectEntries, compactHistory, capSummaryLength } from './context-compactor.js'
 import { envInt } from '../../config.js'
 import type { LLMMessage } from '../../llm/client.js'
 import type { ToolCallRecord } from '../inner.js'
@@ -218,6 +218,66 @@ function assertBalancedSeq(msgs: LLMMessage[], label: string): void {
     else process.env[KEY] = prev
   }
   console.log('  OK P2-2 envInt threshold config')
+}
+
+// ---- P1-3: 保留预算按窗口缩放 + 重试递减 --------------------------------------
+{
+  const at = resolveKeepTokens(200000, 0)
+  assert(at === 32000, `200k window → 16% = 32000 (got ${at})`)
+  const attempt1 = resolveKeepTokens(200000, 1)
+  assert(attempt1 === 16000, `200k window attempt 1 halves budget (got ${attempt1})`)
+  const attempt2 = resolveKeepTokens(200000, 2)
+  assert(attempt2 === 8000, `200k window attempt 2 halves again (got ${attempt2})`)
+  const tiny = resolveKeepTokens(10000, 0)
+  assert(tiny === 4000, `small window clamps to KEEP_TOKENS_MIN=4000 (got ${tiny})`)
+  const huge = resolveKeepTokens(2_000_000, 0)
+  assert(huge === 64000, `huge window clamps to KEEP_TOKENS_MAX=64000 (got ${huge})`)
+  console.log('  OK P1-3 resolveKeepTokens scales with window, clamps, and decrements on retry')
+}
+
+// ---- P1-4: 按模型策略解析（阈值/保留比/摘要模型） ------------------------------
+{
+  const defaults = resolveCompactPolicy(null)
+  assert(defaults.thresholdRatio === 0.75 && defaults.retainRatio === 0.16, 'defaults used when modelConfig absent')
+  const perModel = resolveCompactPolicy({
+    compact_threshold_ratio: 0.9,
+    compact_retain_ratio: 0.2,
+    compact_provider: 'prov_a',
+    compact_model: 'summary-1',
+  })
+  assert(perModel.thresholdRatio === 0.9 && perModel.retainRatio === 0.2, 'per-model ratios honored')
+  assert(perModel.summarizationProvider === 'prov_a' && perModel.summarizationModel === 'summary-1', 'per-model summarizer honored')
+  const partial = resolveCompactPolicy({ compact_retain_ratio: 0.1 })
+  assert(partial.thresholdRatio === 0.75 && partial.retainRatio === 0.1, 'partial override keeps defaults for the rest')
+  console.log('  OK P1-4 resolveCompactPolicy honors per-model fields, falls back to defaults')
+}
+
+// ---- 硬约束: compactHistory 逐字节保留 system 前缀 ----------------------------
+{
+  const messages: LLMMessage[] = [
+    { role: 'system', content: 'SYS_PROMPT_BYTES_1' },
+    { role: 'system', content: 'SYS_PROMPT_BYTES_2' },
+    userMsg('q0'), asm('a0'), userMsg('q1'), asm('a1'),
+  ]
+  const compacted = compactHistory(messages, '## Goal\n- x', messages.slice(2))
+  const sysEnd = systemMessageEnd(compacted)
+  const kept = compacted.slice(0, sysEnd).map(m => m.content)
+  assert(kept[0] === 'SYS_PROMPT_BYTES_1', 'first system message byte-identical')
+  assert(kept[1] === 'SYS_PROMPT_BYTES_2', 'second system message byte-identical')
+  assert(typeof kept[2] === 'string' && kept[2].startsWith('[Compacted History]'), 'new summary appended inside system block')
+  assert(compacted.length === messages.length + 1, 'summary message appended + recent tail re-appended')
+  console.log('  OK hard-constraint: compactHistory preserves initial system prompt byte-identically')
+}
+
+// ---- P2-7: 摘要长度保险按节截断 ----------------------------------------------
+{
+  const big = '## Goal\n- a\n' + '## Progress\n- ' + 'y'.repeat(12000)
+  const capped = capSummaryLength(big)
+  assert(capped.endsWith('(truncated)'), 'over-cap summary marked truncated')
+  assert(capped.includes('## Goal') && capped.includes('## Progress'), 'section headers kept')
+  const small = '## Goal\n- done'
+  assert(capSummaryLength(small) === small, 'under-cap summary untouched')
+  console.log('  OK P2-7 capSummaryLength bounds summary, keeps section headers')
 }
 
 console.log('ALL LOOP TESTS PASSED')

@@ -22,6 +22,15 @@ export const messageStore = {
     ).all(sessionId, limit) as MessageRow[]
     return rows.reverse()
   },
+  /**
+   * P2-8: 按 compaction_until_id 水位读取未压缩消息（升序），替代"硬编码取最近
+   * N 条"——未被压缩的旧消息超过 N 条时不得被静默丢弃。afterId=0 等价全量。
+   */
+  getMessagesAfter(sessionId: string, afterId: number, limit = 100000): MessageRow[] {
+    return getDb().prepare(
+      "SELECT * FROM messages WHERE session_id = ? AND status = 'active' AND id > ? ORDER BY id ASC LIMIT ?",
+    ).all(sessionId, afterId, limit) as MessageRow[]
+  },
   getById(id: number): MessageRow | null {
     return getDb().prepare('SELECT * FROM messages WHERE id = ?').get(id) as MessageRow | null
   },
