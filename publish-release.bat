@@ -4,7 +4,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 rem ============================================================
-rem  TianShu Release Publisher
+rem  TianShu All-platform Release Publisher
 rem
 rem  Normal:
 rem    publish-release.bat
@@ -34,6 +34,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
+call :verify_release_workflow
+if errorlevel 1 exit /b 1
+
 call :read_current_version
 if errorlevel 1 exit /b 1
 
@@ -49,7 +52,7 @@ if /i "%~1"=="--dry-run" (
 )
 
 echo ============================================================
-echo  TianShu Release Publisher
+echo  TianShu All-platform Release Publisher
 echo ============================================================
 echo  当前版本：!CURRENT_VERSION!
 if not defined NEW_VERSION set /p "NEW_VERSION= 更新版本："
@@ -109,6 +112,7 @@ git status --short
 echo.
 
 if defined DRYRUN (
+  echo [DRY-RUN] 运行服务端测试、桌面端测试和完整构建
   if not defined RESUME_RELEASE echo [DRY-RUN] 更新 dev\desktop\package.json 和 package-lock.json 到 !NEW_VERSION!
   echo [DRY-RUN] git add -A
   echo [DRY-RUN] git commit -m "chore: prepare v!NEW_VERSION! release"
@@ -126,7 +130,11 @@ if errorlevel 2 (
   exit /b 1
 )
 
-rem ---- 1. update desktop package + lockfile version ----
+rem ---- 1. preflight before changing version or creating an irreversible tag ----
+call :run_release_checks
+if errorlevel 1 exit /b 1
+
+rem ---- 2. update desktop package + lockfile version ----
 if not defined RESUME_RELEASE (
   pushd "dev\desktop"
   call npm version !NEW_VERSION! --no-git-tag-version
@@ -146,7 +154,7 @@ if not "!CURRENT_VERSION!"=="!NEW_VERSION!" (
 )
 set "VERSION=!NEW_VERSION!"
 
-rem ---- 2. stage + commit (skip when resuming a failed tag push) ----
+rem ---- 3. stage + commit (skip when resuming a failed tag push) ----
 if not defined RESUME_RELEASE (
   git add -A
   git diff --cached --quiet
@@ -161,7 +169,7 @@ if not defined RESUME_RELEASE (
   )
 )
 
-rem ---- 3. create local tag ----
+rem ---- 4. create local tag ----
 git rev-parse -q --verify "refs/tags/v!VERSION!" >nul 2>&1
 if errorlevel 1 (
   git tag "v!VERSION!"
@@ -173,7 +181,7 @@ if errorlevel 1 (
   echo [信息] 本地标签 v!VERSION! 已存在，将继续推送。
 )
 
-rem ---- 4. push branch + tag, retry transient network failures ----
+rem ---- 5. push branch + tag, retry transient network failures ----
 for /f %%b in ('git rev-parse --abbrev-ref HEAD') do set "BRANCH=%%b"
 if "!BRANCH!"=="HEAD" (
   echo [错误] 当前处于 detached HEAD，不能发布。
@@ -196,10 +204,52 @@ if errorlevel 1 (
 
 echo.
 echo ============================================================
-echo  v!VERSION! 已推送，GitHub Actions 正在构建 Release。
+echo  v!VERSION! 已推送，GitHub Actions 正在构建全平台 Release：
+echo    - Windows x64：EXE
+echo    - macOS Intel：DMG + ZIP
+echo    - macOS Apple Silicon：DMG + ZIP
+echo    - Linux x64：AppImage + DEB
 echo  进度：https://github.com/dmql98/tianshu/actions
 echo  完成后校验：publish-release.bat --verify
 echo ============================================================
+exit /b 0
+
+:verify_release_workflow
+if not exist ".github\workflows\desktop-release.yml" (
+  echo [错误] 缺少 .github\workflows\desktop-release.yml，无法发布多平台安装包。
+  exit /b 1
+)
+for %%j in (build-windows-x64 build-macos-x64 build-macos-arm64 build-linux-x64 assemble-release publish-release) do (
+  findstr /R /C:"^[ ][ ]%%j:" ".github\workflows\desktop-release.yml" >nul
+  if errorlevel 1 (
+    echo [错误] 发布流水线缺少 %%j 任务，已中止以避免只发布部分平台。
+    exit /b 1
+  )
+)
+echo [检查] 多平台发布流水线完整。
+exit /b 0
+
+:run_release_checks
+echo.
+echo ============================================================
+echo  发布前检查：测试与完整构建
+echo ============================================================
+call npm test --prefix dev\web\server
+if errorlevel 1 (
+  echo [错误] 服务端测试失败，尚未修改版本或创建标签。
+  exit /b 1
+)
+call npm test --prefix dev\desktop
+if errorlevel 1 (
+  echo [错误] 桌面端测试失败，尚未修改版本或创建标签。
+  exit /b 1
+)
+call npm run build --prefix dev
+if errorlevel 1 (
+  echo [错误] 完整构建失败，尚未修改版本或创建标签。
+  exit /b 1
+)
+echo [检查] 测试与完整构建通过。
 exit /b 0
 
 :read_current_version
@@ -229,7 +279,6 @@ exit /b 1
 echo ============================================================
 echo  TianShu Release Verifier  v!CURRENT_VERSION!
 echo ============================================================
-rem 多平台资产清单校验（迁移指南 §13）：latest*.yml + Windows exe/blockmap
-rem + macOS x64/arm64 dmg+zip + Linux AppImage。
-node "%~dp0dev\scripts\verify-desktop-release.mjs" --remote "v!CURRENT_VERSION!" --repo dmql98/tianshu
+rem 校验已发布的成功平台；单个平台失败不会让其他平台 Release 无效。
+node "%~dp0dev\scripts\verify-desktop-release.mjs" --remote "v!CURRENT_VERSION!" --repo dmql98/tianshu --allow-partial
 exit /b %errorlevel%

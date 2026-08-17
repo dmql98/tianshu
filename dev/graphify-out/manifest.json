@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1786867429.6162996,
-    "ast_hash": "bdc706a1a41c18608d36eca0eef13821",
+    "mtime": 1786923998.7498002,
+    "ast_hash": "b13ca3b260bb26bbb05d60cae0278655",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -3990,13 +3990,13 @@
     "semantic_hash": ""
   },
   "scripts/assemble-desktop-release.mjs": {
-    "mtime": 1786839676.7037916,
-    "ast_hash": "637f7a7db8e557ba3c463555d8fe4ff5",
+    "mtime": 1786931441.7795725,
+    "ast_hash": "1328e8747337a033a8443494fbcf08a8",
     "semantic_hash": ""
   },
   "scripts/verify-desktop-release.mjs": {
-    "mtime": 1786839031.9013324,
-    "ast_hash": "27ae9880ec407c784762ea933c16e6b9",
+    "mtime": 1786931441.7805734,
+    "ast_hash": "7f1b86c7977bb4c6182750b50a61e23f",
     "semantic_hash": ""
   },
   "web/client/src/api/socket.test.ts": {

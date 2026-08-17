@@ -7,9 +7,9 @@
  *     node ../../../scripts/verify-desktop-release.mjs --platform mac
  *     node ../../../scripts/verify-desktop-release.mjs --platform linux
  *   汇总目录（assemble 输出）：
- *     node scripts/verify-desktop-release.mjs --dir <releaseDir>
+ *     node scripts/verify-desktop-release.mjs --dir <releaseDir> [--allow-partial]
  *   发布后远端校验：
- *     node scripts/verify-desktop-release.mjs --remote <tag> [--repo owner/name]
+ *     node scripts/verify-desktop-release.mjs --remote <tag> [--repo owner/name] [--allow-partial]
  *
  * 校验规则：
  *   - 版本号全部一致（desktop/package.json）；
@@ -105,7 +105,37 @@ function verifyPlatform(cwd, platform) {
   log(`platform ${platform} artifacts OK`)
 }
 
-function verifyDir(dir) {
+const ALL_PLATFORMS = ['win32-x64', 'macos-x64', 'macos-arm64', 'linux-x64']
+
+function requiredAssets(version, platforms) {
+  const required = []
+  if (platforms.includes('win32-x64')) {
+    required.push('latest.yml', `TianShu-Setup-${version}-x64.exe`, `TianShu-Setup-${version}-x64.exe.blockmap`)
+  }
+  if (platforms.includes('macos-x64') || platforms.includes('macos-arm64')) required.push('latest-mac.yml')
+  if (platforms.includes('macos-x64')) {
+    required.push(`TianShu-${version}-mac-x64.dmg`, `TianShu-${version}-mac-x64.zip`)
+  }
+  if (platforms.includes('macos-arm64')) {
+    required.push(`TianShu-${version}-mac-arm64.dmg`, `TianShu-${version}-mac-arm64.zip`)
+  }
+  if (platforms.includes('linux-x64')) {
+    required.push('latest-linux.yml', `TianShu-${version}-linux-x64.AppImage`)
+  }
+  return [...new Set(required)]
+}
+
+function manifestPlatforms(manifest, allowPartial) {
+  if (!allowPartial) return ALL_PLATFORMS
+  if (!Array.isArray(manifest.platforms) || manifest.platforms.length === 0) {
+    fail('partial release manifest has no successful platforms')
+  }
+  const unknown = manifest.platforms.filter(platform => !ALL_PLATFORMS.includes(platform))
+  if (unknown.length > 0) fail(`unknown platforms in manifest: ${unknown.join(', ')}`)
+  return manifest.platforms
+}
+
+function verifyDir(dir, allowPartial = false) {
   const manifestFile = join(dir, 'manifest.json')
   if (!existsSync(manifestFile)) fail(`manifest.json missing in ${dir}`)
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'))
@@ -115,56 +145,50 @@ function verifyDir(dir) {
     if (entry.size !== statSync(file).size) fail(`size mismatch for ${entry.name}`)
     if (entry.sha512 !== sha512Base64(file)) fail(`sha512 mismatch for ${entry.name}`)
   }
-  // §13 必需资产（含可选 deb 不强制）
   const version = desktopVersion()
-  const required = [
-    'latest.yml',
-    'latest-mac.yml',
-    'latest-linux.yml',
-    `TianShu-Setup-${version}-x64.exe`,
-    `TianShu-Setup-${version}-x64.exe.blockmap`,
-    `TianShu-${version}-mac-x64.dmg`,
-    `TianShu-${version}-mac-x64.zip`,
-    `TianShu-${version}-mac-arm64.dmg`,
-    `TianShu-${version}-mac-arm64.zip`,
-    `TianShu-${version}-linux-x64.AppImage`,
-  ]
-  for (const name of required) {
+  const platforms = manifestPlatforms(manifest, allowPartial)
+  for (const name of requiredAssets(version, platforms)) {
     if (!existsSync(join(dir, name))) fail(`missing required release asset: ${name}`)
   }
-  // macOS 合并后的 latest-mac.yml 必须同时包含 x64 和 arm64 zip（§10.6）
-  const macMeta = YAML.load(readFileSync(join(dir, 'latest-mac.yml'), 'utf8'))
-  const urls = (macMeta.files || []).map((f) => f.url)
-  if (!urls.some((u) => u.includes('-mac-x64.zip'))) fail('latest-mac.yml missing mac-x64 zip')
-  if (!urls.some((u) => u.includes('-mac-arm64.zip'))) fail('latest-mac.yml missing mac-arm64 zip')
-  verifyMetadataFile(dir, join(dir, 'latest.yml'), 'win')
-  verifyMetadataFile(dir, join(dir, 'latest-mac.yml'), 'mac(merged)')
-  verifyMetadataFile(dir, join(dir, 'latest-linux.yml'), 'linux')
-  log(`release dir ${dir} OK (${manifest.files.length} files)`)
+  if (platforms.some(platform => platform.startsWith('macos-'))) {
+    const macMeta = YAML.load(readFileSync(join(dir, 'latest-mac.yml'), 'utf8'))
+    const urls = (macMeta.files || []).map((f) => f.url)
+    if (platforms.includes('macos-x64') && !urls.some(url => url.includes('-mac-x64.zip'))) {
+      fail('latest-mac.yml missing mac-x64 zip')
+    }
+    if (platforms.includes('macos-arm64') && !urls.some(url => url.includes('-mac-arm64.zip'))) {
+      fail('latest-mac.yml missing mac-arm64 zip')
+    }
+    verifyMetadataFile(dir, join(dir, 'latest-mac.yml'), 'mac(merged)')
+  }
+  if (platforms.includes('win32-x64')) verifyMetadataFile(dir, join(dir, 'latest.yml'), 'win')
+  if (platforms.includes('linux-x64')) verifyMetadataFile(dir, join(dir, 'latest-linux.yml'), 'linux')
+  log(`release dir ${dir} OK for ${platforms.join(', ')} (${manifest.files.length} files)`)
 }
 
-async function verifyRemote(tag, repo) {
+async function verifyRemote(tag, repo, allowPartial = false) {
   const url = `https://api.github.com/repos/${repo}/releases/tags/${tag}`
   const res = await fetch(url, { headers: { 'User-Agent': 'tianshu-verify', Accept: 'application/vnd.github+json' } })
   if (!res.ok) fail(`release ${tag} not found (HTTP ${res.status})`)
   const release = await res.json()
   const names = new Set((release.assets || []).map((a) => a.name))
   const version = tag.replace(/^v/, '')
-  const required = [
-    'latest.yml',
-    'latest-mac.yml',
-    'latest-linux.yml',
-    `TianShu-Setup-${version}-x64.exe`,
-    `TianShu-Setup-${version}-x64.exe.blockmap`,
-    `TianShu-${version}-mac-x64.dmg`,
-    `TianShu-${version}-mac-x64.zip`,
-    `TianShu-${version}-mac-arm64.dmg`,
-    `TianShu-${version}-mac-arm64.zip`,
-    `TianShu-${version}-linux-x64.AppImage`,
-  ]
+  let platforms = ALL_PLATFORMS
+  if (allowPartial) {
+    const manifestAsset = (release.assets || []).find(asset => asset.name === 'manifest.json')
+    if (!manifestAsset) fail('partial release is missing manifest.json')
+    const manifestResponse = await fetch(manifestAsset.browser_download_url, {
+      headers: { 'User-Agent': 'tianshu-verify', Accept: 'application/octet-stream' },
+    })
+    if (!manifestResponse.ok) fail(`cannot download release manifest (HTTP ${manifestResponse.status})`)
+    const manifest = await manifestResponse.json()
+    if (manifest.version !== version) fail(`release manifest version ${manifest.version} !== ${version}`)
+    platforms = manifestPlatforms(manifest, true)
+  }
+  const required = ['manifest.json', ...requiredAssets(version, platforms)]
   const missing = required.filter((n) => !names.has(n))
   if (missing.length > 0) fail(`missing published assets: ${missing.join(', ')}`)
-  log(`remote release ${tag} OK (${release.assets.length} assets)`)
+  log(`remote release ${tag} OK for ${platforms.join(', ')} (${release.assets.length} assets)`)
 }
 
 async function main() {
@@ -175,11 +199,12 @@ async function main() {
     else if (argv[i] === '--dir') args.dir = argv[++i]
     else if (argv[i] === '--remote') args.remote = argv[++i]
     else if (argv[i] === '--repo') args.repo = argv[++i]
+    else if (argv[i] === '--allow-partial') args.allowPartial = true
     else fail(`Unknown argument: ${argv[i]}`)
   }
   if (args.platform) verifyPlatform(process.cwd(), args.platform)
-  else if (args.dir) verifyDir(resolve(args.dir))
-  else if (args.remote) await verifyRemote(args.remote, args.repo || 'dmql98/tianshu')
+  else if (args.dir) verifyDir(resolve(args.dir), args.allowPartial)
+  else if (args.remote) await verifyRemote(args.remote, args.repo || 'dmql98/tianshu', args.allowPartial)
   else fail('usage: verify-desktop-release.mjs --platform win32|mac-x64|mac-arm64|linux | --dir <dir> | --remote <tag>')
 }
 

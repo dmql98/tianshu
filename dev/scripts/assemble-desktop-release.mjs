@@ -1,7 +1,7 @@
 /**
  * assemble-desktop-release.mjs — 汇总各平台构建产物并合并/校验 updater 元数据。
  *
- * 用法：node scripts/assemble-desktop-release.mjs <artifactsDir> [--out <dir>]
+ * 用法：node scripts/assemble-desktop-release.mjs <artifactsDir> [--out <dir>] [--allow-partial]
  *
  * artifactsDir 结构（GitHub Actions download-artifact@v4，path=<artifactsDir>）：
  *   <artifactsDir>/release-win32-x64/    Windows x64 构建产物
@@ -19,7 +19,7 @@
  *      顶层 path/sha512 兼容字段取 x64，releaseDate 取较新者）。
  *   5. 写出 out/ 目录与 manifest.json（供 publish job 使用）。
  *
- * 失败即退出非 0，publish job 不会运行（§14.1）。
+ * 严格模式缺任一平台即失败；--allow-partial 下只要至少一个平台完整成功即可发布。
  */
 import { createHash } from 'crypto'
 import {
@@ -55,13 +55,15 @@ function sha512Base64(file) {
 function parseArgs(argv) {
   let artifactsDir = null
   let outDir = join(devRoot, 'release-assets')
+  let allowPartial = false
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--out') outDir = argv[++i]
+    else if (argv[i] === '--allow-partial') allowPartial = true
     else if (!artifactsDir) artifactsDir = argv[i]
     else fail(`Unknown argument: ${argv[i]}`)
   }
-  if (!artifactsDir) fail('usage: assemble-desktop-release.mjs <artifactsDir> [--out <dir>]')
-  return { artifactsDir: resolve(artifactsDir), outDir: resolve(outDir) }
+  if (!artifactsDir) fail('usage: assemble-desktop-release.mjs <artifactsDir> [--out <dir>] [--allow-partial]')
+  return { artifactsDir: resolve(artifactsDir), outDir: resolve(outDir), allowPartial }
 }
 
 /** 递归收集目录内所有文件（相对路径）。 */
@@ -117,18 +119,41 @@ function verifyFilesAgainstDisk(outDir, parsed, label) {
 }
 
 function main() {
-  const { artifactsDir, outDir } = parseArgs(process.argv.slice(2))
-  const platforms = ['release-win32-x64', 'release-macos-x64', 'release-macos-arm64', 'release-linux-x64']
-  for (const name of platforms) {
-    if (!existsSync(join(artifactsDir, name))) fail(`missing artifact group: ${name}`)
+  const { artifactsDir, outDir, allowPartial } = parseArgs(process.argv.slice(2))
+  const desktopVersion = JSON.parse(readFileSync(join(devRoot, 'desktop', 'package.json'), 'utf8')).version
+  const platformDefinitions = [
+    {
+      key: 'win32-x64', group: 'release-win32-x64', metadata: 'latest.yml',
+      required: [`TianShu-Setup-${desktopVersion}-x64.exe`, `TianShu-Setup-${desktopVersion}-x64.exe.blockmap`, 'latest.yml'],
+    },
+    {
+      key: 'macos-x64', group: 'release-macos-x64', metadata: 'latest-mac.yml',
+      required: [`TianShu-${desktopVersion}-mac-x64.dmg`, `TianShu-${desktopVersion}-mac-x64.zip`, 'latest-mac.yml'],
+    },
+    {
+      key: 'macos-arm64', group: 'release-macos-arm64', metadata: 'latest-mac.yml',
+      required: [`TianShu-${desktopVersion}-mac-arm64.dmg`, `TianShu-${desktopVersion}-mac-arm64.zip`, 'latest-mac.yml'],
+    },
+    {
+      key: 'linux-x64', group: 'release-linux-x64', metadata: 'latest-linux.yml',
+      required: [`TianShu-${desktopVersion}-linux-x64.AppImage`, 'latest-linux.yml'],
+    },
+  ]
+  const available = platformDefinitions.filter(({ group }) => existsSync(join(artifactsDir, group)))
+  const missing = platformDefinitions.filter(def => !available.includes(def))
+  if (available.length === 0) fail('no successful platform artifact groups were downloaded')
+  if (!allowPartial && missing.length > 0) {
+    fail(`missing artifact groups: ${missing.map(def => def.group).join(', ')}`)
   }
+  log(`platforms available: ${available.map(def => def.key).join(', ')}`)
+  if (missing.length > 0) log(`platforms unavailable: ${missing.map(def => def.key).join(', ')}`)
 
   if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true })
   mkdirSync(outDir, { recursive: true })
 
   // ── 1. 收集 + 复制（冲突检测）───────────────────────────────────
   const seen = new Map() // rel -> source group
-  for (const group of platforms) {
+  for (const { group } of available) {
     for (const { rel, abs } of collectFiles(join(artifactsDir, group))) {
       if (seen.has(rel)) {
         // 允许的冲突：latest-mac.yml（两个 macOS 架构都会生成）稍后合并处理。
@@ -143,70 +168,49 @@ function main() {
     }
   }
 
-  // ── 2. 读取各平台元数据 ─────────────────────────────────────────
-  const winMeta = readMetadata(join(outDir, 'latest.yml'))
-  const macX64Meta = readMetadata(join(outDir, 'latest-mac.yml'))
-  const linuxMeta = readMetadata(join(outDir, 'latest-linux.yml'))
-
-  const desktopVersion = JSON.parse(readFileSync(join(devRoot, 'desktop', 'package.json'), 'utf8')).version
-  for (const [label, meta] of [['win', winMeta], ['mac-x64', macX64Meta], ['linux', linuxMeta]]) {
-    if (meta.version !== desktopVersion) {
-      fail(`${label} metadata version ${meta.version} !== desktop version ${desktopVersion}`)
+  // ── 2. 读取成功平台的元数据并校验必需文件 ───────────────────────
+  const metadata = new Map()
+  for (const def of available) {
+    for (const name of def.required) {
+      if (!existsSync(join(outDir, name))) fail(`${def.key}: missing required release asset: ${name}`)
     }
-    verifyFilesAgainstDisk(outDir, meta, label)
+    const meta = readMetadata(join(artifactsDir, def.group, def.metadata))
+    if (meta.version !== desktopVersion) {
+      fail(`${def.key} metadata version ${meta.version} !== desktop version ${desktopVersion}`)
+    }
+    verifyFilesAgainstDisk(outDir, meta, def.key)
+    metadata.set(def.key, meta)
   }
 
-  // ── 3. 合并 latest-mac.yml：需要 arm64 的 files ─────────────────
-  // electron-builder 每个架构生成同名 latest-mac.yml；arm64 的副本在
-  // release-macos-arm64 组内（上面收集时被跳过），这里单独读取并合并 files。
-  const macArm64Meta = readMetadata(join(artifactsDir, 'release-macos-arm64', 'latest-mac.yml'))
-  if (macArm64Meta.version !== desktopVersion) {
-    fail(`mac-arm64 metadata version ${macArm64Meta.version} !== desktop version ${desktopVersion}`)
+  // ── 3. 合并所有成功 macOS 架构的 latest-mac.yml ─────────────────
+  const macMetadata = [metadata.get('macos-x64'), metadata.get('macos-arm64')].filter(Boolean)
+  if (macMetadata.length > 0) {
+    const mergedFiles = macMetadata
+      .flatMap(meta => meta.files.filter(entry => entry.url.endsWith('.zip')))
+      .filter((entry, index, entries) => entries.findIndex(other => other.url === entry.url) === index)
+      .sort((a, b) => a.url.localeCompare(b.url))
+    if (mergedFiles.length !== macMetadata.length) {
+      fail(`expected one updater ZIP for each successful macOS architecture, found ${mergedFiles.length}`)
+    }
+    const pathEntry = mergedFiles.find(entry => entry.url.includes('-mac-x64.')) || mergedFiles[0]
+    const mergedMac = {
+      version: desktopVersion,
+      files: mergedFiles,
+      path: pathEntry.url,
+      sha512: pathEntry.sha512,
+      releaseDate: macMetadata.map(meta => meta.releaseDate).filter(Boolean).sort().pop() ?? new Date().toISOString(),
+    }
+    writeFileSync(join(outDir, 'latest-mac.yml'), YAML.dump(mergedMac, { lineWidth: 200 }), 'utf8')
+    log(`merged latest-mac.yml with ${mergedFiles.length} successful architecture(s)`)
   }
-  // arm64 文件也要落到 outDir 供上传；上面收集循环里 latest-mac.yml 被跳过，
-  // 但 zip/dmg 已复制。这里校验 arm64 元数据的文件都在磁盘上。
-  verifyFilesAgainstDisk(outDir, macArm64Meta, 'mac-arm64')
-
-  const x64Zips = macX64Meta.files.filter((f) => f.url.endsWith('.zip') && f.url.includes('-mac-x64.'))
-  const arm64Zips = macArm64Meta.files.filter((f) => f.url.endsWith('.zip') && f.url.includes('-mac-arm64.'))
-  if (x64Zips.length === 0) fail('mac-x64 metadata has no mac-x64 zip entry')
-  if (arm64Zips.length === 0) fail('mac-arm64 metadata has no mac-arm64 zip entry')
-
-  const mergedFiles = [...arm64Zips, ...x64Zips].sort((a, b) => a.url.localeCompare(b.url))
-  const pathEntry = x64Zips[0]
-  const mergedMac = {
-    version: desktopVersion,
-    files: mergedFiles,
-    path: pathEntry.url,
-    sha512: pathEntry.sha512,
-    releaseDate: [macX64Meta.releaseDate, macArm64Meta.releaseDate]
-      .filter(Boolean)
-      .sort()
-      .pop() ?? new Date().toISOString(),
-  }
-  writeFileSync(join(outDir, 'latest-mac.yml'), YAML.dump(mergedMac, { lineWidth: 200 }), 'utf8')
-  log(`merged latest-mac.yml with ${mergedFiles.length} files (x64 + arm64)`)
 
   // ── 4. 最终清单 ────────────────────────────────────────────────
-  const required = [
-    'latest.yml',
-    'latest-mac.yml',
-    'latest-linux.yml',
-    `TianShu-Setup-${desktopVersion}-x64.exe`,
-    `TianShu-Setup-${desktopVersion}-x64.exe.blockmap`,
-    `TianShu-${desktopVersion}-mac-x64.dmg`,
-    `TianShu-${desktopVersion}-mac-x64.zip`,
-    `TianShu-${desktopVersion}-mac-arm64.dmg`,
-    `TianShu-${desktopVersion}-mac-arm64.zip`,
-    `TianShu-${desktopVersion}-linux-x64.AppImage`,
-  ]
-  for (const name of required) {
-    if (!existsSync(join(outDir, name))) fail(`missing required release asset: ${name}`)
-  }
-
   const manifest = {
     version: desktopVersion,
     generatedAt: new Date().toISOString(),
+    partial: missing.length > 0,
+    platforms: available.map(def => def.key),
+    missingPlatforms: missing.map(def => def.key),
     files: collectFiles(outDir).map(({ rel }) => {
       const file = join(outDir, rel)
       return { name: rel, size: statSync(file).size, sha512: sha512Base64(file) }

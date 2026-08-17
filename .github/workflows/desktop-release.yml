@@ -18,10 +18,11 @@ name: Desktop Release
 #   - assemble-release 校验并合并 updater 元数据（§10.5/§10.6）；
 #   - publish-release 是唯一拥有 contents: write 的 job（§10.7），
 #     元数据（latest*.yml）最后上传，避免客户端看到未就绪的版本。
-#   - macOS 正式构建必须签名+公证；缺失凭据时构建失败，publish 不运行（§9.2/§14.1）。
+#   - macOS 有凭据时签名+公证；缺失凭据时发布带 UNSIGNED 标记的测试包。
+#   - 单个平台失败不阻塞其他成功平台；assemble/publish 只处理实际存在的 artifacts。
 #
 # GitHub 托管 runner 标签会变化：实施时以官方文档为准（§10.1）——
-#   macos-13 = Intel (x64)，macos-14/macos-15 = Apple Silicon (arm64)。
+#   macos-15-intel = Intel (x64)，macos-15 = Apple Silicon (arm64)。
 
 on:
   push:
@@ -118,13 +119,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-win32-x64
-          path: dev/desktop/release/*
+          path: |
+            dev/desktop/release/TianShu-Setup-*.exe
+            dev/desktop/release/TianShu-Setup-*.exe.blockmap
+            dev/desktop/release/latest.yml
           if-no-files-found: error
 
   # ─────────────────────── build-macos-x64 ─────────────────────
   build-macos-x64:
     needs: validate
-    runs-on: macos-13 # Intel x64（§10.1 注释：以官方 runner 文档为准）
+    # macos-13 已于 2025-12 退役；Intel 构建使用官方替代标签。
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
         with:
@@ -141,7 +146,27 @@ jobs:
       - name: Prepare runtime + packaged smoke (darwin/x64)
         working-directory: dev
         run: node scripts/prepare-desktop-runtime.mjs --platform darwin --arch x64
+      - name: Detect macOS signing and notarization credentials
+        id: signing
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "$MAC_CSC_LINK" ] && [ -n "$MAC_CSC_KEY_PASSWORD" ] \
+            && [ -n "$APPLE_API_KEY" ] && [ -n "$APPLE_API_KEY_ID" ] \
+            && [ -n "$APPLE_API_ISSUER" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::macOS x64 will be published as an unsigned test build"
+          fi
       - name: Build DMG + ZIP (x64, signed + notarized)
+        if: steps.signing.outputs.ready == 'true'
         working-directory: dev/desktop
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
@@ -150,9 +175,18 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        # notarize=true：凭据缺失时构建失败 → publish 不运行（§9.2/§14.1）。
+        # 凭据齐全时生成正式签名、公证包。
         run: npx electron-builder --mac --x64 --publish never -c.mac.notarize=true
+      - name: Build DMG + ZIP (x64, unsigned test build)
+        if: steps.signing.outputs.ready != 'true'
+        working-directory: dev/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npx electron-builder --mac --x64 --publish never -c.mac.notarize=false
+          printf '%s\n' 'UNSIGNED macOS x64 test build. Gatekeeper may require Open Anyway.' > release/macOS-x64-UNSIGNED.txt
       - name: Verify signature and notarization (x64)
+        if: steps.signing.outputs.ready == 'true'
         run: |
           set -euo pipefail
           APP="$(ls -d dist/mac*/天枢.app 2>/dev/null || ls -d dist/mac*/TianShu.app 2>/dev/null || find . -maxdepth 3 -name '天枢.app' | head -1)"
@@ -167,13 +201,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-macos-x64
-          path: dev/desktop/release/*
+          path: |
+            dev/desktop/release/TianShu-*-mac-x64.dmg
+            dev/desktop/release/TianShu-*-mac-x64.zip
+            dev/desktop/release/latest-mac.yml
+            dev/desktop/release/macOS-x64-UNSIGNED.txt
           if-no-files-found: error
 
   # ─────────────────────── build-macos-arm64 ───────────────────
   build-macos-arm64:
     needs: validate
-    runs-on: macos-14 # Apple Silicon arm64（§10.1 注释：以官方 runner 文档为准）
+    runs-on: macos-15 # Apple Silicon arm64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -190,7 +228,27 @@ jobs:
       - name: Prepare runtime + packaged smoke (darwin/arm64)
         working-directory: dev
         run: node scripts/prepare-desktop-runtime.mjs --platform darwin --arch arm64
+      - name: Detect macOS signing and notarization credentials
+        id: signing
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "$MAC_CSC_LINK" ] && [ -n "$MAC_CSC_KEY_PASSWORD" ] \
+            && [ -n "$APPLE_API_KEY" ] && [ -n "$APPLE_API_KEY_ID" ] \
+            && [ -n "$APPLE_API_ISSUER" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::macOS arm64 will be published as an unsigned test build"
+          fi
       - name: Build DMG + ZIP (arm64, signed + notarized)
+        if: steps.signing.outputs.ready == 'true'
         working-directory: dev/desktop
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
@@ -200,7 +258,16 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npx electron-builder --mac --arm64 --publish never -c.mac.notarize=true
+      - name: Build DMG + ZIP (arm64, unsigned test build)
+        if: steps.signing.outputs.ready != 'true'
+        working-directory: dev/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npx electron-builder --mac --arm64 --publish never -c.mac.notarize=false
+          printf '%s\n' 'UNSIGNED macOS arm64 test build. Gatekeeper may require Open Anyway.' > release/macOS-arm64-UNSIGNED.txt
       - name: Verify signature and notarization (arm64)
+        if: steps.signing.outputs.ready == 'true'
         run: |
           set -euo pipefail
           APP="$(find . -maxdepth 3 -name '天枢.app' | head -1)"
@@ -215,7 +282,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-macos-arm64
-          path: dev/desktop/release/*
+          path: |
+            dev/desktop/release/TianShu-*-mac-arm64.dmg
+            dev/desktop/release/TianShu-*-mac-arm64.zip
+            dev/desktop/release/latest-mac.yml
+            dev/desktop/release/macOS-arm64-UNSIGNED.txt
           if-no-files-found: error
 
   # ─────────────────────── build-linux-x64 ─────────────────────
@@ -248,12 +319,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-linux-x64
-          path: dev/desktop/release/*
+          path: |
+            dev/desktop/release/TianShu-*-linux-x64.AppImage
+            dev/desktop/release/TianShu-*-linux-x64.deb
+            dev/desktop/release/latest-linux.yml
           if-no-files-found: error
 
   # ─────────────────────── assemble-release ────────────────────
   assemble-release:
     needs: [build-windows-x64, build-macos-x64, build-macos-arm64, build-linux-x64]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -271,10 +346,10 @@ jobs:
           path: artifacts
       - name: Assemble + merge updater metadata
         working-directory: dev
-        run: node scripts/assemble-desktop-release.mjs ../artifacts --out ../release-assets
+        run: node scripts/assemble-desktop-release.mjs ../artifacts --out ../release-assets --allow-partial
       - name: Verify final release asset manifest
         working-directory: dev
-        run: node scripts/verify-desktop-release.mjs --dir ../release-assets
+        run: node scripts/verify-desktop-release.mjs --dir ../release-assets --allow-partial
       - name: Upload assembled release assets
         uses: actions/upload-artifact@v4
         with:
@@ -285,6 +360,7 @@ jobs:
   # ─────────────────────── publish-release ─────────────────────
   publish-release:
     needs: assemble-release
+    if: ${{ needs.assemble-release.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # 唯一拥有 write 的 job（§10.7）
@@ -310,7 +386,7 @@ jobs:
           if ! gh release view "v${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release create "v${VERSION}" --repo "${{ github.repository }}" \
               --title "天枢 v${VERSION}" \
-              --notes "天枢桌面客户端 v${VERSION}（多平台）。下载指引见发布说明。" \
+              --notes "天枢桌面客户端 v${VERSION}。各平台独立构建，成功产物均会发布；macOS 的 *-UNSIGNED.txt 表示该架构为未签名测试包。完整状态见 manifest.json。" \
               --draft
             echo "draft release v${VERSION} created"
           else
@@ -322,19 +398,22 @@ jobs:
         run: |
           set -euo pipefail
           cd release-assets
-          # 先上传安装包与更新载荷，排除元数据和内部 manifest
+          # 先上传安装包、更新载荷和状态 manifest，元数据最后上传。
           for f in *; do
             case "$f" in
-              latest.yml|latest-mac.yml|latest-linux.yml|manifest.json) continue ;;
+              latest.yml|latest-mac.yml|latest-linux.yml) continue ;;
             esac
             gh release upload "v${VERSION}" --repo "${{ github.repository }}" "$f" --clobber
           done
           # 元数据最后上传，避免客户端看到未就绪的版本（§10.7）
-          gh release upload "v${VERSION}" --repo "${{ github.repository }}" \
-            latest.yml latest-mac.yml latest-linux.yml --clobber
+          for f in latest.yml latest-mac.yml latest-linux.yml; do
+            if [ -f "$f" ]; then
+              gh release upload "v${VERSION}" --repo "${{ github.repository }}" "$f" --clobber
+            fi
+          done
       - name: Publish draft
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "v${VERSION}" --repo "${{ github.repository }}" --draft=false
       - name: Verify published release assets
-        run: node dev/scripts/verify-desktop-release.mjs --remote "v${VERSION}" --repo "${{ github.repository }}"
+        run: node dev/scripts/verify-desktop-release.mjs --remote "v${VERSION}" --repo "${{ github.repository }}" --allow-partial
