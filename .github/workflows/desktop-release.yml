@@ -3,12 +3,11 @@ name: Desktop Release
 # 多平台构建与单点发布（迁移指南 §10）。
 #
 # 拓扑（§10.1）：
-#   validate
-#     ├─ build-windows-x64
-#     ├─ build-macos-x64      (Intel runner)
-#     ├─ build-macos-arm64    (Apple Silicon runner)
-#     └─ build-linux-x64
-#             ↓
+#   validate (advisory)       build-windows-x64
+#                            build-macos-x64      (Intel runner)
+#                            build-macos-arm64    (Apple Silicon runner)
+#                            build-linux-x64
+#                                     ↓
 #        assemble-release
 #             ↓
 #        publish-release
@@ -20,6 +19,7 @@ name: Desktop Release
 #     元数据（latest*.yml）最后上传，避免客户端看到未就绪的版本。
 #   - macOS 有凭据时签名+公证；缺失凭据时发布带 UNSIGNED 标记的测试包。
 #   - 单个平台失败不阻塞其他成功平台；assemble/publish 只处理实际存在的 artifacts。
+#   - validate 与平台构建并行且不作为其前置条件，避免全局校验拖掉所有平台。
 #
 # GitHub 托管 runner 标签会变化：实施时以官方文档为准（§10.1）——
 #   macos-15-intel = Intel (x64)，macos-15 = Apple Silicon (arm64)。
@@ -87,7 +87,6 @@ jobs:
 
   # ─────────────────────── build-windows-x64 ───────────────────
   build-windows-x64:
-    needs: validate
     runs-on: windows-latest # x64
     steps:
       - uses: actions/checkout@v4
@@ -96,6 +95,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: dev/.node-version
+      - name: Verify tag matches desktop version
+        run: node dev/scripts/verify-release-version.mjs "${{ github.ref_name }}"
       - name: Install dependencies
         working-directory: dev
         run: npm run install:all
@@ -127,7 +128,6 @@ jobs:
 
   # ─────────────────────── build-macos-x64 ─────────────────────
   build-macos-x64:
-    needs: validate
     # macos-13 已于 2025-12 退役；Intel 构建使用官方替代标签。
     runs-on: macos-15-intel
     steps:
@@ -137,6 +137,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: dev/.node-version
+      - name: Verify tag matches desktop version
+        run: node dev/scripts/verify-release-version.mjs "${{ github.ref_name }}"
       - name: Install dependencies
         working-directory: dev
         run: npm run install:all
@@ -210,7 +212,6 @@ jobs:
 
   # ─────────────────────── build-macos-arm64 ───────────────────
   build-macos-arm64:
-    needs: validate
     runs-on: macos-15 # Apple Silicon arm64
     steps:
       - uses: actions/checkout@v4
@@ -219,6 +220,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: dev/.node-version
+      - name: Verify tag matches desktop version
+        run: node dev/scripts/verify-release-version.mjs "${{ github.ref_name }}"
       - name: Install dependencies
         working-directory: dev
         run: npm run install:all
@@ -291,7 +294,6 @@ jobs:
 
   # ─────────────────────── build-linux-x64 ─────────────────────
   build-linux-x64:
-    needs: validate
     runs-on: ubuntu-24.04 # x64
     steps:
       - uses: actions/checkout@v4
@@ -300,6 +302,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: dev/.node-version
+      - name: Verify tag matches desktop version
+        run: node dev/scripts/verify-release-version.mjs "${{ github.ref_name }}"
       - name: Install dependencies
         working-directory: dev
         run: npm run install:all
@@ -309,9 +313,13 @@ jobs:
       - name: Prepare runtime + packaged smoke (linux/x64)
         working-directory: dev
         run: node scripts/prepare-desktop-runtime.mjs --platform linux --arch x64
-      - name: Build AppImage + deb (no publish)
+      - name: Build AppImage (no publish)
         working-directory: dev/desktop
-        run: npx electron-builder --linux --x64 --publish never
+        run: npx electron-builder --linux AppImage --x64 --publish never
+      - name: Build optional deb (does not block AppImage release)
+        continue-on-error: true
+        working-directory: dev/desktop
+        run: npx electron-builder --linux deb --x64 --publish never
       - name: Verify local artifacts + metadata hashes
         working-directory: dev/desktop/release
         run: node ../../scripts/verify-desktop-release.mjs --platform linux

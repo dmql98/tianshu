@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1786932372.8589678,
-    "ast_hash": "cf3fcff884bcf025b52b8e8cf7e693de",
+    "mtime": 1786932787.574125,
+    "ast_hash": "0743076c71da25e0d5317735524fa53e",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1786838946.95875,
-    "ast_hash": "a4cedf2f7b8cb4aa32ef6c105bf7a372",
+    "mtime": 1786933444.5321333,
+    "ast_hash": "a401211add48552940e2d082de1a79ed",
     "semantic_hash": ""
   },
   "scripts/dev-desktop.mjs": {
