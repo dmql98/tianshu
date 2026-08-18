@@ -3,12 +3,14 @@ import { useChatStore } from '@/stores/chatStore'
 import { fetchSessionStats } from '@/api/sessions'
 import type { SessionStats } from '@/types'
 
-const POLL_INTERVAL_MS = 3_000
+const POLL_INTERVAL_MS = 1_000
 
 /**
  * Poll the durable per-session run aggregate (GET /api/sessions/:id/stats).
- * Fetches on session activation and every few seconds while the active session
- * is streaming; returns the latest value (null until the first fetch settles).
+ * Fetches on session activation and every second while the active session is
+ * streaming (near-real-time on a loopback desktop server; the server-side
+ * aggregate self-heals after disconnects, unlike client-side event folding);
+ * returns the latest value (null until the first fetch settles).
  */
 export function useSessionStats(sessionId: string | null): SessionStats | null {
   const isStreaming = useChatStore(s => s.isStreaming)

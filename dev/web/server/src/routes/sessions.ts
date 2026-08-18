@@ -272,7 +272,9 @@ router.get('/:id/stats', (c) => {
          AND json_extract(payload, '$.ttft_ms') IS NOT NULL) AS ttftAvgMs
   `).get(id, id, id, id) as { toolMs: number; llmMs: number; decodeMs: number; ttftAvgMs: number | null }
 
-  const cacheTotal = (session.cache_hit_tokens || 0) + (session.cache_miss_tokens || 0)
+  const cacheHitTokens = session.cache_hit_tokens || 0
+  const cacheMissTokens = session.cache_miss_tokens || 0
+  const cacheTotal = cacheHitTokens + cacheMissTokens
   return c.json({
     messageCount: counts.messageCount,
     turns: counts.turns,
@@ -281,7 +283,9 @@ router.get('/:id/stats', (c) => {
     llmMs: sums.llmMs,
     decodeMs: sums.decodeMs,
     ttftAvgMs: sums.ttftAvgMs,
-    cacheHitPercent: cacheTotal > 0 ? Math.round((session.cache_hit_tokens || 0) / cacheTotal * 100) : null,
+    cacheHitPercent: cacheTotal > 0 ? Math.round(cacheHitTokens / cacheTotal * 100) : null,
+    cacheHitTokens,
+    cacheMissTokens,
     inputTokens: session.input_tokens || 0,
     outputTokens: session.output_tokens || 0,
   })

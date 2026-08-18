@@ -89,6 +89,8 @@ export const dict: Record<string, DictEntry> = {
   '停止整条自动续跑链': { zh: '停止整条自动续跑链', en: 'Stop the auto-continuation chain' },
   '发送': { zh: '发送', en: 'Send' },
   '缓存命中': { zh: '缓存命中', en: 'Cache Hit' },
+  '命中缓存': { zh: '命中缓存', en: 'Cache Hits' },
+  '未命中缓存': { zh: '未命中缓存', en: 'Cache Miss' },
   '压缩上下文': { zh: '压缩上下文', en: 'Compact context' },
   '已压缩至 {tokens}': { zh: '已压缩至 {tokens}', en: 'Compacted to {tokens}' },
   '无需压缩': { zh: '无需压缩', en: 'Nothing to compact' },

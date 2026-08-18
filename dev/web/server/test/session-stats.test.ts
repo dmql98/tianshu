@@ -92,6 +92,8 @@ describe('GET /:id/stats', () => {
     expect(body.decodeMs).toBe(2300)
     expect(body.ttftAvgMs).toBe(300)
     expect(body.cacheHitPercent).toBe(75)
+    expect(body.cacheHitTokens).toBe(3000)
+    expect(body.cacheMissTokens).toBe(1000)
     expect(body.inputTokens).toBe(4000)
     expect(body.outputTokens).toBe(1200)
   })

@@ -266,6 +266,9 @@ export interface SessionStats {
   ttftAvgMs: number | null
   /** Cache-hit share of billed input; null when nothing was billed. */
   cacheHitPercent: number | null
+  /** Billed cache-hit / cache-miss prompt tokens (session cumulative). */
+  cacheHitTokens: number
+  cacheMissTokens: number
   inputTokens: number
   outputTokens: number
 }

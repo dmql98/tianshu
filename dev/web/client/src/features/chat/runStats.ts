@@ -31,14 +31,16 @@ export interface StatsCard {
  * 工具调用 · 工具调用时间
  * 首 token 平均 · 输出平均
  * 输入数 · 输出数
+ * 未命中缓存
  * ```
  */
 export function buildStatsCards(stats: SessionStats): StatsCard[] {
+  const cacheKnown = stats.cacheHitPercent !== null
   const cards: StatsCard[] = [
     // Defensive: a stale server endpoint may omit messageCount (added later);
     // never render "undefined".
     { key: '总消息数', value: stats.messageCount != null ? String(stats.messageCount) : '--' },
-    { key: '缓存命中', value: stats.cacheHitPercent !== null ? `${stats.cacheHitPercent}%` : '--' },
+    { key: '缓存命中', value: cacheKnown ? `${stats.cacheHitPercent}%` : '--' },
     { key: '模型调用数', value: String(stats.turns) },
     { key: '模型调用时间', value: stats.llmMs > 0 ? formatDuration(stats.llmMs) : '--' },
     { key: '工具调用', value: String(stats.steps) },
@@ -52,6 +54,8 @@ export function buildStatsCards(stats: SessionStats): StatsCard[] {
     },
     { key: '输入数', value: formatTokens(stats.inputTokens) },
     { key: '输出数', value: formatTokens(stats.outputTokens) },
+    { key: '命中缓存', value: cacheKnown ? formatTokens(stats.cacheHitTokens) : '--' },
+    { key: '未命中缓存', value: cacheKnown ? formatTokens(stats.cacheMissTokens) : '--' },
   ]
   return cards
 }

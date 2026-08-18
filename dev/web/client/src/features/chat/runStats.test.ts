@@ -32,11 +32,13 @@ describe('buildStatsCards', () => {
     decodeMs: 100_000,
     ttftAvgMs: 1_600,
     cacheHitPercent: 100,
+    cacheHitTokens: 9_000,
+    cacheMissTokens: 1_000,
     inputTokens: 40_100_000,
     outputTokens: 13_900,
   }
 
-  it('renders the 10 cards in the requested order', () => {
+  it('renders the 12 cards in the requested order', () => {
     expect(buildStatsCards(stats).map(c => c.key)).toEqual([
       '总消息数',
       '缓存命中',
@@ -48,6 +50,8 @@ describe('buildStatsCards', () => {
       '输出平均',
       '输入数',
       '输出数',
+      '命中缓存',
+      '未命中缓存',
     ])
   })
 
@@ -63,6 +67,8 @@ describe('buildStatsCards', () => {
       '139.0 tok/s',
       '40.1M',
       '13.9K',
+      '9K',
+      '1K',
     ])
   })
 
@@ -76,11 +82,13 @@ describe('buildStatsCards', () => {
       decodeMs: 0,
       ttftAvgMs: null,
       cacheHitPercent: null,
+      cacheHitTokens: 0,
+      cacheMissTokens: 0,
       inputTokens: 0,
       outputTokens: 0,
     })
     expect(cards.map(c => c.value)).toEqual([
-      '0', '--', '0', '--', '0', '--', '--', '--', '0', '0',
+      '0', '--', '0', '--', '0', '--', '--', '--', '0', '0', '--', '--',
     ])
   })
 
@@ -93,6 +101,8 @@ describe('buildStatsCards', () => {
       decodeMs: 0,
       ttftAvgMs: null,
       cacheHitPercent: 100,
+      cacheHitTokens: 9_000,
+      cacheMissTokens: 1_000,
       inputTokens: 1000,
       outputTokens: 0,
     } as unknown as Parameters<typeof buildStatsCards>[0]
