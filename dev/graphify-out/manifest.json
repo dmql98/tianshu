@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "web/client/src/api/client.ts": {
-    "mtime": 1785841477.5849469,
-    "ast_hash": "21425e874493fdb8fbc410bf557728f1",
+    "mtime": 1787094728.155336,
+    "ast_hash": "2e7e2494d209aeee1d83bd915e702094",
     "semantic_hash": ""
   },
   "web/client/src/api/config.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "web/client/src/api/sessions.ts": {
-    "mtime": 1787057360.0316038,
-    "ast_hash": "c5b7d0ee6fd1552beff06758e7951677",
+    "mtime": 1787096606.1077862,
+    "ast_hash": "77b3461502d3b7fd128c02fbc248a27a",
     "semantic_hash": ""
   },
   "web/client/src/api/skills.ts": {
@@ -50,8 +50,8 @@
     "semantic_hash": ""
   },
   "web/client/src/api/socket.ts": {
-    "mtime": 1786962030.251212,
-    "ast_hash": "bf69b92924c942f349b99b5c72a6d5b6",
+    "mtime": 1787094728.1373317,
+    "ast_hash": "94197b5acec4fb59609e750352018eb8",
     "semantic_hash": ""
   },
   "web/client/src/api/tools.ts": {
@@ -85,7 +85,7 @@
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/ChatInput.tsx": {
-    "mtime": 1787091507.528244,
+    "mtime": 1787094203.6827846,
     "ast_hash": "c9425c859f896e11f8843369ec3bba50",
     "semantic_hash": ""
   },
@@ -110,13 +110,13 @@
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/RightPanel.tsx": {
-    "mtime": 1787091540.7640407,
+    "mtime": 1787094203.6837842,
     "ast_hash": "2ac2366e8835ba670eed2b34c7bf0601",
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/SessionPanel.tsx": {
-    "mtime": 1787057360.0346036,
-    "ast_hash": "17d5fb17544dfc7615673ca17cf8d556",
+    "mtime": 1787096620.9516156,
+    "ast_hash": "cd735b4fbbb122dd43456a12f815144a",
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/ThinkingBlock.tsx": {
@@ -180,7 +180,7 @@
     "semantic_hash": ""
   },
   "web/client/src/pages/SettingsPage.tsx": {
-    "mtime": 1787091556.1421988,
+    "mtime": 1787094203.6847842,
     "ast_hash": "e4e52181007d63a6b90aa2a60323ee8d",
     "semantic_hash": ""
   },
@@ -195,7 +195,7 @@
     "semantic_hash": ""
   },
   "web/client/src/stores/chatStore.ts": {
-    "mtime": 1787091710.6858952,
+    "mtime": 1787094203.6867845,
     "ast_hash": "1ef1022a9cb8192c31e2d097ac34c530",
     "semantic_hash": ""
   },
@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "web/client/src/types/index.ts": {
-    "mtime": 1787057401.013097,
-    "ast_hash": "303f213aaa73b70b3b349c0c9a6546dc",
+    "mtime": 1787096649.6914773,
+    "ast_hash": "be70ac43b156e9c10125087c1d96f9ac",
     "semantic_hash": ""
   },
   "web/client/src/views/McpView.tsx": {
@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/inner.ts": {
-    "mtime": 1787091299.317617,
-    "ast_hash": "25bb8c2f125aeb86231f91fd6c7e211b",
+    "mtime": 1787096490.3903017,
+    "ast_hash": "38e78d8c971c97fc38678be164794616",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop.ts": {
@@ -300,7 +300,7 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/outer.ts": {
-    "mtime": 1787091367.1012392,
+    "mtime": 1787094203.6917844,
     "ast_hash": "fae989465d38f2ba062b73d560ba2025",
     "semantic_hash": ""
   },
@@ -330,7 +330,7 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/system-cache.ts": {
-    "mtime": 1787091358.3601127,
+    "mtime": 1787094203.693784,
     "ast_hash": "00ab65115cb4cd170daf5806d0c7872c",
     "semantic_hash": ""
   },
@@ -360,28 +360,18 @@
     "semantic_hash": ""
   },
   "web/server/src/db/schema.ts": {
-    "mtime": 1787091333.5193372,
-    "ast_hash": "d09d0d9220dcd1c6cbbf0964f43e6258",
+    "mtime": 1787096448.3433578,
+    "ast_hash": "472ae1ddaea78c665ab90713454de3e4",
     "semantic_hash": ""
   },
   "web/server/src/db/sessionStore.ts": {
-    "mtime": 1787091333.53603,
+    "mtime": 1787094203.6947842,
     "ast_hash": "d33cf0f323db277ae3370a238be997f1",
     "semantic_hash": ""
   },
   "web/server/src/db/toolStore.ts": {
     "mtime": 1786152081.123276,
     "ast_hash": "11d593d98fc0d9a6778ee3ddd48836de",
-    "semantic_hash": ""
-  },
-  "web/server/src/debug/llm-logger.ts": {
-    "mtime": 1786152207.8251653,
-    "ast_hash": "5c62d525638dbd264c33fd8a2b8e706f",
-    "semantic_hash": ""
-  },
-  "web/server/src/debug/merge-turns.ts": {
-    "mtime": 1786152223.2887032,
-    "ast_hash": "1361ba0b21f421ac61d30ab15462f350",
     "semantic_hash": ""
   },
   "web/server/src/evolution/detectors/offlineMiner.ts": {
@@ -645,8 +635,8 @@
     "semantic_hash": ""
   },
   "web/server/src/routes/sessions.ts": {
-    "mtime": 1787057401.0140967,
-    "ast_hash": "35345c45ee8d1b25ce8d53e4afa1a48e",
+    "mtime": 1787096554.9134727,
+    "ast_hash": "3ec6e65ef1e49ff97f7f01cd280de163",
     "semantic_hash": ""
   },
   "web/server/src/routes/skills.ts": {
@@ -675,8 +665,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/bash/index.ts": {
-    "mtime": 1786282869.9436474,
-    "ast_hash": "4fca4a2d6fb0b50b3d6ff406adb9e803",
+    "mtime": 1787096540.3692777,
+    "ast_hash": "a9dd45f4dab7a816da334b11b7a68421",
     "semantic_hash": ""
   },
   "web/server/src/tools/bash/tool.json": {
@@ -695,8 +685,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/debug_sessions/index.ts": {
-    "mtime": 1786152242.7720802,
-    "ast_hash": "7a5b27f3d4a38c1bdf4d94aba6fb6673",
+    "mtime": 1787096499.0345612,
+    "ast_hash": "b3be3803492edfdab5f12d4a764ef19f",
     "semantic_hash": ""
   },
   "web/server/src/tools/debug_sessions/tool.json": {
@@ -805,8 +795,8 @@
     "semantic_hash": ""
   },
   "web/server/src/tools/skill_manager/index.ts": {
-    "mtime": 1787091387.447109,
-    "ast_hash": "6e7f5943c0fc3e53d2c2601cd3f410c6",
+    "mtime": 1787094203.6967843,
+    "ast_hash": "bca1a7437bd6427cd2fceb1dd449dc4d",
     "semantic_hash": ""
   },
   "web/server/src/tools/skill_manager/tool.json": {
@@ -865,8 +855,8 @@
     "semantic_hash": ""
   },
   "web/server/src/ws/chat.ts": {
-    "mtime": 1786962030.3081522,
-    "ast_hash": "f720a85c4de7d92b57e00fd04a5b64a0",
+    "mtime": 1787094716.9847703,
+    "ast_hash": "16e659dcea1e85006ceb641ed878c487",
     "semantic_hash": ""
   },
   "web/server/tsconfig.json": {
@@ -955,17 +945,17 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/control-registry.ts": {
-    "mtime": 1787091285.6254542,
+    "mtime": 1787094203.6887848,
     "ast_hash": "da855b8f67db1d3200d6286b7eea9663",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/control-router.ts": {
-    "mtime": 1787091644.3517532,
+    "mtime": 1787094203.6897845,
     "ast_hash": "62c9745541070c349f3d504cb0ca61b9",
     "semantic_hash": ""
   },
   "web/server/src/agent/loop/loop-engine.ts": {
-    "mtime": 1787091750.7778766,
+    "mtime": 1787094203.6907847,
     "ast_hash": "1bb0519d111bc68e453b1ca72ac06baa",
     "semantic_hash": ""
   },
@@ -1000,8 +990,8 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/runtime/run-event-store.ts": {
-    "mtime": 1786962030.291584,
-    "ast_hash": "00435e244ef39d09db739ed0e693b2cc",
+    "mtime": 1787094696.2643259,
+    "ast_hash": "ad44b51532bdb96b20694050fa673bde",
     "semantic_hash": ""
   },
   "web/server/src/agent/runtime/run-store.test.ts": {
@@ -1075,8 +1065,8 @@
     "semantic_hash": ""
   },
   "web/server/src/routes/runs.ts": {
-    "mtime": 1787057360.044604,
-    "ast_hash": "7c099e0df6e43a02ce226d10b145b05f",
+    "mtime": 1787096562.7707226,
+    "ast_hash": "ca89731270403316fa1847caff9b46a7",
     "semantic_hash": ""
   },
   "web/client/src/api/eventDefinitions.ts": {
@@ -1125,8 +1115,8 @@
     "semantic_hash": ""
   },
   "web/client/src/components/Chat/GoalPanel.tsx": {
-    "mtime": 1787091534.3748531,
-    "ast_hash": "e9fb18f12d6897cc7aa3c9a5b6f0f436",
+    "mtime": 1787094203.6837842,
+    "ast_hash": "b046eb1b328182bb6cfc199d939b6e1c",
     "semantic_hash": ""
   },
   "web/server/src/agent/plan/plan-store.ts": {
@@ -1140,7 +1130,7 @@
     "semantic_hash": ""
   },
   "web/server/src/routes/goals.ts": {
-    "mtime": 1787091346.0598023,
+    "mtime": 1787094203.6957843,
     "ast_hash": "05880d67c886a2b8b3bff1646b2326cd",
     "semantic_hash": ""
   },
@@ -1280,8 +1270,8 @@
     "semantic_hash": ""
   },
   "desktop/package.json": {
-    "mtime": 1787057401.0090969,
-    "ast_hash": "b6d6775f1db914da27cc25b6b251a3e9",
+    "mtime": 1787095119.5390377,
+    "ast_hash": "773b934ddd1b2613eecf4b5c884fb53b",
     "semantic_hash": ""
   },
   "desktop/scripts/gen-icon.mjs": {
@@ -1580,7 +1570,7 @@
     "semantic_hash": ""
   },
   "web/server/src/agent/runtime/run-resume-service.ts": {
-    "mtime": 1787091340.5498192,
+    "mtime": 1787094203.6927845,
     "ast_hash": "2d187401aa54da1fdc2474452f77b073",
     "semantic_hash": ""
   },
@@ -2745,7 +2735,7 @@
     "semantic_hash": ""
   },
   "content/builtin/characters/coder/soul.md": {
-    "mtime": 1787091404.6788392,
+    "mtime": 1787094203.6062646,
     "ast_hash": "711a662c5758bf055d28abc11706c713",
     "semantic_hash": ""
   },
@@ -2770,12 +2760,12 @@
     "semantic_hash": ""
   },
   "content/builtin/characters/taro/memory.md": {
-    "mtime": 1787091414.5488257,
+    "mtime": 1787094203.6072648,
     "ast_hash": "392b89999d8f2c7f530418d5c79e8bea",
     "semantic_hash": ""
   },
   "content/builtin/characters/taro/soul.md": {
-    "mtime": 1787091414.5338156,
+    "mtime": 1787094203.6082654,
     "ast_hash": "eb4d8799d210a9712cca0086a97312cf",
     "semantic_hash": ""
   },
@@ -2785,12 +2775,12 @@
     "semantic_hash": ""
   },
   "content/builtin/characters/ui-designer/memory.md": {
-    "mtime": 1787091462.9802423,
+    "mtime": 1787094203.6092646,
     "ast_hash": "7f146d027f6abfd0e48674f0a21ca2f6",
     "semantic_hash": ""
   },
   "content/builtin/characters/ui-designer/soul.md": {
-    "mtime": 1787091462.9632394,
+    "mtime": 1787094203.6102645,
     "ast_hash": "264108eae67898934c8a38837cb6fc2d",
     "semantic_hash": ""
   },
@@ -2815,12 +2805,12 @@
     "semantic_hash": ""
   },
   "content/builtin/characters/yi/memory.md": {
-    "mtime": 1787091455.698057,
+    "mtime": 1787094203.6112645,
     "ast_hash": "1bbc60dc6891a96af3d3dc43cc15b3be",
     "semantic_hash": ""
   },
   "content/builtin/characters/yi/soul.md": {
-    "mtime": 1787091455.6835582,
+    "mtime": 1787094203.6122646,
     "ast_hash": "0bf583fc47fb3d460d1560aafdd64eb7",
     "semantic_hash": ""
   },
@@ -2830,12 +2820,12 @@
     "semantic_hash": ""
   },
   "content/builtin/characters/ziwei/memory.md": {
-    "mtime": 1787091455.7287562,
+    "mtime": 1787094203.6132643,
     "ast_hash": "935052adcd9c0567b9112da8d7ac9b70",
     "semantic_hash": ""
   },
   "content/builtin/characters/ziwei/soul.md": {
-    "mtime": 1787091455.7134867,
+    "mtime": 1787094203.6132643,
     "ast_hash": "23d1a9394d6452ba4f7f76e6f5c9472d",
     "semantic_hash": ""
   },
@@ -2845,8 +2835,8 @@
     "semantic_hash": ""
   },
   "content/builtin/prompts/default.md": {
-    "mtime": 1787091404.664471,
-    "ast_hash": "551ff47fe1bbaf48a5cf39bf3e6a6462",
+    "mtime": 1787094203.614265,
+    "ast_hash": "637bfad52f711ab01fbf39e6f5de8881",
     "semantic_hash": ""
   },
   "content/builtin/providers/LICENSES.md": {
@@ -3530,7 +3520,7 @@
     "semantic_hash": ""
   },
   "content/builtin/skills/tianshu/tianshu-system/children/session/SKILL.md": {
-    "mtime": 1787091466.8204901,
+    "mtime": 1787094203.615265,
     "ast_hash": "cfc0b4aac37dc4872002301d5c872c27",
     "semantic_hash": ""
   },
@@ -4640,8 +4630,8 @@
     "semantic_hash": ""
   },
   "web/client/src/features/trajectory/TrajectoryView.tsx": {
-    "mtime": 1787063521.7845592,
-    "ast_hash": "08277cc79da2550eb035b31eb1a7c0f2",
+    "mtime": 1787096665.2146032,
+    "ast_hash": "17ea7efe09fa69ea69d32284e9034e0b",
     "semantic_hash": ""
   },
   "web/client/src/features/trajectory/trajectory.test.ts": {
@@ -4655,8 +4645,8 @@
     "semantic_hash": ""
   },
   "web/server/test/goal-control.test.ts": {
-    "mtime": 1787091665.3472471,
-    "ast_hash": "950d6b47a71a3b899de8b1e450bbd6aa",
+    "mtime": 1787094203.697785,
+    "ast_hash": "8e5af4c19d0c6b0c363da6574f4fdad2",
     "semantic_hash": ""
   },
   "web/server/test/run-trajectory.test.ts": {
@@ -4672,6 +4662,11 @@
   "docs/trajectory-report.md": {
     "mtime": 1787059626.2700164,
     "ast_hash": "02c6b3d4a71ba5a19086050ad467b81b",
+    "semantic_hash": ""
+  },
+  "web/server/src/agent/llm-call-store.ts": {
+    "mtime": 1787096472.1222272,
+    "ast_hash": "8e55ac914182edd123275cc91ad9ca91",
     "semantic_hash": ""
   }
 }
