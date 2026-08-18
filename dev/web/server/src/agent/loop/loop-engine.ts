@@ -173,6 +173,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   // only re-injected when it actually changed, so the trailing context message
   // stays byte-stable on steady-state turns (cache-friendly, fewer tokens).
   let lastPlanAlert = ''
+  let lastGoalAlert = ''
 
   while (turn < absoluteTurns && !signal?.aborted) {
     turn++
@@ -241,6 +242,14 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
           (g.constraints ? `\n约束: ${g.constraints}` : '') +
           (g.verification ? `\n验证标准: ${g.verification}` : ''),
         )
+      } else {
+        // Goal mode mandates a goal + plan: force the model to create the goal
+        // first (re-injected only when the state changes, like the plan alert).
+        const noGoalAlert = '[Policy Goal] 当前会话没有进行中的目标。先调用 create_goal 创建目标（建议包含验证标准），再 create_plan 拆分步骤执行。'
+        if (noGoalAlert !== lastGoalAlert) {
+          composeCtx.systemAlerts!.push(noGoalAlert)
+          lastGoalAlert = noGoalAlert
+        }
       }
     }
     const turnAlerts = composeCtx.systemAlerts

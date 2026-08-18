@@ -205,6 +205,17 @@ export default function ChatInput() {
     }
   }
 
+  function handleExecutionModeChange(mode: 'direct' | 'plan_first' | 'goal') {
+    if (activeSessionId) {
+      updateSession(activeSessionId, { execution_mode: mode }).catch(() => {})
+      useChatStore.setState(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === activeSessionId ? { ...s, execution_mode: mode } : s
+        ),
+      }))
+    }
+  }
+
   // Build model options grouped by provider (only enabled models)
   const modelOptions: { providerId: string; providerName: string; modelId: string; modelName: string }[] = []
   for (const p of providers) {
@@ -369,6 +380,16 @@ export default function ChatInput() {
           <option value="medium">{t('中')}</option>
           <option value="high">{t('高')}</option>
           <option value="max">{t('最高')}</option>
+        </select>
+        <select
+          value={session?.execution_mode || 'direct'}
+          onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
+          title={t('执行模式：Direct 可选计划/目标；Plan-first 必须建计划；Goal 必须建计划与目标')}
+          className="io-select"
+        >
+          <option value="direct">{t('Direct（直接执行）')}</option>
+          <option value="plan_first">{t('Plan-first（先计划后执行）')}</option>
+          <option value="goal">{t('Goal（目标+计划）')}</option>
         </select>
         <select
           value={session?.current_strategy || 'Ask Risky'}

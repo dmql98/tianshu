@@ -266,9 +266,9 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
 
   const composeCtx: ComposeContext = { systemAlerts: [] }
 
-  const rawMode = (session.execution_mode || 'goal') as 'direct' | 'plan_first' | 'goal'
-  // Goal mode is the default for new sessions: goal + plan dual mechanism
-  // (the model freely creates both; users no longer pick a mode manually).
+  const rawMode = (session.execution_mode || 'direct') as 'direct' | 'plan_first' | 'goal'
+  // Execution modes: direct (plan/goal 均可选) / plan_first (必须建计划) /
+  // goal (必须建计划+目标)。由用户在 UI 下拉选择，新会话默认 direct。
   const executionMode = rawMode === 'plan_first' ? 'plan_first' : rawMode === 'goal' ? 'goal' : 'direct'
   const activeGoal = executionMode === 'goal'
     ? goalStore.listForSession(sessionId).find(g => g.status === 'active' || g.status === 'paused') || null

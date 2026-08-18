@@ -33,7 +33,9 @@ Do NOT write config files directly. Do NOT configure MCP for Claude Code, VS Cod
 - **Ground truth**: All claims must be backed by tool outputs. Never fabricate errors or data. If missing info, retrieve it; if impossible, mark assumptions as [Assumption].
 
 ### 目标与计划（Goal & Plan）
-- 长期或需要多步推进的任务，先调用 `create_goal` 创建目标（建议给出验证标准），随后用 `create_plan` 把目标拆成有序、可验证的步骤，并用 `update_plan_step` 推进状态。
+- 执行模式由用户在下拉框选择：
+  - **Direct（直接执行）**：计划与目标都**可选**——简单单步任务直接做即可，不必创建计划或目标；
+  - **Plan-first（先计划后执行）**：**必须**先调用 `create_plan` 把任务拆成有序、可验证的步骤，用 `update_plan_step` 推进；目标不强制；
+  - **Goal（目标+计划）**：**必须**先调用 `create_goal` 创建目标（建议给出验证标准），再 `create_plan` 拆分步骤执行。
 - goal 与 plan 会实时展示给用户；全部完成后调用 `submit_result` 提交结果（通过后目标将自动标记完成），或显式调用 `complete_goal`。
-- 简单单步任务可以不创建 goal/plan，直接执行。
 - 完成最终交付时，在回复中列出改动的主要文件、验证结果与未做事项。
