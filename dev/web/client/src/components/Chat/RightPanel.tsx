@@ -1,18 +1,21 @@
-﻿import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
 import { fetchCharacters } from '@/api/characters'
 import CharacterPicker from './CharacterPicker'
 import GoalPanel from './GoalPanel'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
+import { useSessionStats } from '@/features/chat/useSessionStats'
+import { buildStatsCards } from '@/features/chat/runStats'
 import type { Character } from '@/types'
 import { useI18n } from '@/i18n'
 
 export default function RightPanel() {
-  const { sessions, activeSessionId, addWorkspace, removeWorkspace, tokenUsage } = useChatStore()
+  const { sessions, activeSessionId, addWorkspace, removeWorkspace } = useChatStore()
   const { toggleRightPanel } = useUIStore()
   const t = useI18n()
   const session = sessions.find(s => s.id === activeSessionId)
+  const stats = useSessionStats(activeSessionId)
   const [character, setCharacter] = useState<Character | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const charCache = useRef<Map<string, Character>>(new Map())
@@ -43,8 +46,6 @@ export default function RightPanel() {
   const starColor = character?.color || 'var(--gold)'
   const starName = character?.name || session.character_id || t('未分配')
   const starTitle = character?.description || ''
-  const messages = session.messages || []
-  const toolCalls = messages.filter(m => m.role === 'tool').length
 
   // Parse workspaces
   let workspaces: string[] = []
@@ -58,26 +59,6 @@ export default function RightPanel() {
   }
   // 授权工作区 = all workspaces except the project area
   const authorizedWorkspaces = workspaces.filter(ws => ws !== session.workspace)
-
-  // Context usage estimate (match old frontend logic)
-  let totalChars = 0
-  for (const m of messages) {
-    if (m.role === 'tool') {
-      if (m.tool_output) totalChars += m.tool_output.length
-    } else {
-      if (m.content) totalChars += m.content.length
-    }
-    if (m.reasoning) totalChars += m.reasoning.length
-    totalChars += 16
-  }
-  const tokenEst = Math.ceil(totalChars / 4)
-  const totalTokens = tokenUsage.total || ((session.input_tokens || 0) + (session.output_tokens || 0))
-
-  function formatTokens(n: number): string {
-    if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
-    if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`
-    return String(n)
-  }
 
   return (
     <aside className="right-panel">
@@ -181,10 +162,12 @@ export default function RightPanel() {
             <div style={{ fontSize: 'calc(10px * var(--ui-font-scale))', color: 'var(--gold)', marginTop: 4 }}>⚠ {t('会话已压缩')}</div>
           )}
           <div className="rp-stats">
-            <div className="rp-stat"><div className="rp-stat-value">{messages.length}</div><div className="rp-stat-label">{t('消息')}</div></div>
-            <div className="rp-stat"><div className="rp-stat-value">{formatTokens(totalTokens || tokenEst)}</div><div className="rp-stat-label">Tokens</div></div>
-            <div className="rp-stat"><div className="rp-stat-value">{toolCalls}</div><div className="rp-stat-label">{t('工具调用')}</div></div>
-            <div className="rp-stat"><div className="rp-stat-value">{session.cacheStats?.hitRatio || session.cache_hit_ratio || '--'}</div><div className="rp-stat-label">{t('缓存命中')}</div></div>
+            {(stats ? buildStatsCards(stats) : []).map(card => (
+              <div key={card.key} className="rp-stat">
+                <div className="rp-stat-value">{card.value}</div>
+                <div className="rp-stat-label">{t(card.key)}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

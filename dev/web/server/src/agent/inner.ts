@@ -264,10 +264,13 @@ export async function innerLoop(
   }
 
   let result
+  const llmStart = Date.now()
+  let firstChunkAt: number | null = null
   try {
     result = await streamWithRetry(
       messages, tools, provider, model, signal, opts,
       (chunk) => {
+        if (firstChunkAt === null && (chunk.text || chunk.reasoning)) firstChunkAt = Date.now()
         if (chunk.reasoning && socket) {
           socket.emit('message.delta', {
             session_id: sessionId,
@@ -399,6 +402,12 @@ export async function innerLoop(
         message_id: storedMessage.id,
         token_speed: finalTokenSpeed,
         token_speed_estimated: tokenSpeedEstimated,
+        // Wall-clock timing for the run-stats strip: whole LLM call (incl.
+        // retries), time-to-first-token, and decode span. Persisted as durable
+        // message.metrics payload so the stats survive reloads.
+        llm_ms: Date.now() - llmStart,
+        ttft_ms: firstChunkAt === null ? null : firstChunkAt - llmStart,
+        decode_ms: firstOutputAt == null ? null : Date.now() - firstOutputAt,
         cache: {
           hitTokens: hitTotal,
           missTokens: missTotal,

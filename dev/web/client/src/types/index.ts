@@ -237,6 +237,37 @@ export interface RunEvent {
   reason?: string
   soft_turns?: number
   absolute_turns?: number
+  // Tool/LLM wall-clock timing (durable event payloads, aggregated by
+  // GET /api/sessions/:id/stats for the input-bar stats strip).
+  duration_ms?: number
+  llm_ms?: number
+  ttft_ms?: number | null
+  decode_ms?: number | null
+}
+
+/**
+ * Aggregated per-session run statistics served by GET /api/sessions/:id/stats
+ * and rendered by the sidebar "会话统计" section.
+ */
+export interface SessionStats {
+  /** Total message rows for the session (user + assistant + tool). */
+  messageCount: number
+  /** Assistant LLM calls (durable message.metrics events). */
+  turns: number
+  /** Tool invocations (durable tool.started events). */
+  steps: number
+  /** Summed tool wall time (ms). */
+  toolMs: number
+  /** Summed LLM-call wall time (ms, includes retries). */
+  llmMs: number
+  /** Summed decode span (ms). */
+  decodeMs: number
+  /** Average time-to-first-token (ms); null until any turn records it. */
+  ttftAvgMs: number | null
+  /** Cache-hit share of billed input; null when nothing was billed. */
+  cacheHitPercent: number | null
+  inputTokens: number
+  outputTokens: number
 }
 
 export type RunLimitReason =

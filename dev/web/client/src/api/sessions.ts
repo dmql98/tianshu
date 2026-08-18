@@ -1,8 +1,12 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client'
-import type { SessionSummary } from '@/types'
+import type { SessionStats, SessionSummary } from '@/types'
 import type { CharacterMotion } from './characters'
 
 export const fetchSessions = () => apiGet<SessionSummary[]>('/api/sessions')
+
+/** Aggregated run statistics for the input-bar stats strip. */
+export const fetchSessionStats = (sessionId: string) =>
+  apiGet<SessionStats>(`/api/sessions/${encodeURIComponent(sessionId)}/stats`)
 
 export interface SessionPresence {
   sessionId: string

@@ -321,6 +321,8 @@ export function getDb(): TianshuDatabase {
     );
     CREATE INDEX IF NOT EXISTS idx_run_events_replay
       ON run_events(run_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_run_events_session_type
+      ON run_events(session_id, type);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_run_events_one_terminal
       ON run_events(run_id)
       WHERE type IN ('run.completed', 'run.failed', 'run.cancelled',

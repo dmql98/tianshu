@@ -233,4 +233,58 @@ router.post('/:id/compact', async (c) => {
   })
 })
 
+/**
+ * Aggregated run statistics for the input-bar stats strip (mirrors the
+ * deepseek-harness "N 轮 · M 步 | LLM … · 工具调用 … | 首 token … · … tok/s |
+ * 缓存命中 …% | 输入 … tok · 输出 … tok" line).
+ *
+ * - turns: one durable `message.metrics` per assistant LLM call (a run's
+ *   `turn_no` is never written, so the event log is the source of truth).
+ * - steps: durable `tool.started` events.
+ * - toolMs / llmMs / decodeMs / ttftAvgMs: summed from the durable event
+ *   payloads (`tool.completed.duration_ms`, `message.metrics.llm_ms` /
+ *   `ttft_ms` / `decode_ms`). Events from runs older than the timing fields
+ *   simply contribute zero / are skipped.
+ * - cacheHitPercent / inputTokens / outputTokens: session-cumulative billing.
+ */
+router.get('/:id/stats', (c) => {
+  const id = c.req.param('id')
+  const session = sessionStore.getById(id)
+  if (!session) return c.json({ error: 'Not found' }, 404)
+
+  const counts = getDb().prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM messages WHERE session_id = ?) AS messageCount,
+      (SELECT COUNT(*) FROM run_events WHERE session_id = ? AND type = 'message.metrics') AS turns,
+      (SELECT COUNT(*) FROM run_events WHERE session_id = ? AND type = 'tool.started') AS steps
+  `).get(id, id, id) as { messageCount: number; turns: number; steps: number }
+
+  const sums = getDb().prepare(`
+    SELECT
+      COALESCE((SELECT SUM(CAST(json_extract(payload, '$.duration_ms') AS INTEGER))
+                FROM run_events WHERE session_id = ? AND type = 'tool.completed'), 0) AS toolMs,
+      COALESCE((SELECT SUM(CAST(json_extract(payload, '$.llm_ms') AS INTEGER))
+                FROM run_events WHERE session_id = ? AND type = 'message.metrics'), 0) AS llmMs,
+      COALESCE((SELECT SUM(CAST(json_extract(payload, '$.decode_ms') AS INTEGER))
+                FROM run_events WHERE session_id = ? AND type = 'message.metrics'), 0) AS decodeMs,
+      (SELECT AVG(CAST(json_extract(payload, '$.ttft_ms') AS INTEGER))
+       FROM run_events WHERE session_id = ? AND type = 'message.metrics'
+         AND json_extract(payload, '$.ttft_ms') IS NOT NULL) AS ttftAvgMs
+  `).get(id, id, id, id) as { toolMs: number; llmMs: number; decodeMs: number; ttftAvgMs: number | null }
+
+  const cacheTotal = (session.cache_hit_tokens || 0) + (session.cache_miss_tokens || 0)
+  return c.json({
+    messageCount: counts.messageCount,
+    turns: counts.turns,
+    steps: counts.steps,
+    toolMs: sums.toolMs,
+    llmMs: sums.llmMs,
+    decodeMs: sums.decodeMs,
+    ttftAvgMs: sums.ttftAvgMs,
+    cacheHitPercent: cacheTotal > 0 ? Math.round((session.cache_hit_tokens || 0) / cacheTotal * 100) : null,
+    inputTokens: session.input_tokens || 0,
+    outputTokens: session.output_tokens || 0,
+  })
+})
+
 export default router

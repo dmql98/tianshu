@@ -147,6 +147,15 @@ export const dict: Record<string, DictEntry> = {
   '会话已压缩': { zh: '会话已压缩', en: 'Session was compacted' },
   '消息': { zh: '消息', en: 'Messages' },
   '工具调用': { zh: '工具调用', en: 'Tool Calls' },
+  '模型调用': { zh: '模型调用', en: 'Model Calls' },
+  '总消息数': { zh: '总消息数', en: 'Messages' },
+  '模型调用数': { zh: '模型调用数', en: 'Model Calls' },
+  '模型调用时间': { zh: '模型调用时间', en: 'Model Time' },
+  '工具调用时间': { zh: '工具调用时间', en: 'Tool Time' },
+  '首 token 平均': { zh: '首 token 平均', en: 'Avg TTFT' },
+  '输出平均': { zh: '输出平均', en: 'Avg Output' },
+  '输入数': { zh: '输入数', en: 'Input' },
+  '输出数': { zh: '输出数', en: 'Output' },
 
   // ── 目标与计划 ──
   '进行中': { zh: '进行中', en: 'In Progress' },
