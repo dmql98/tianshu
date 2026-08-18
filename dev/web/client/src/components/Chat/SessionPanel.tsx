@@ -45,7 +45,7 @@ export default function SessionPanel() {
   const {
     sessions, activeSessionId, sessionMotions,
     collapsedWorkspaces, toggleWorkspaceCollapse,
-    createSession, deleteSession, renameSession, toggleSessionStar,
+    createSession, deleteSession, toggleSessionStar,
     deleteProject,
     isBatchMode, selectedSessionIds, toggleBatchMode, toggleSessionSelection,
   } = useChatStore()
@@ -164,14 +164,6 @@ export default function SessionPanel() {
       navigate('/chat')
     }
     setProjectMenu(null)
-  }
-
-  function handleRename(session: Session) {
-    const name = prompt(t('输入新名称：'), session.title || '')
-    if (name !== null) {
-      renameSession(session.id, name)
-    }
-    setContextMenu(null)
   }
 
   function handleCopyId(session: Session) {
@@ -342,7 +334,6 @@ export default function SessionPanel() {
             label={contextMenu.session.pinned ? t('取消收藏') : t('收藏')}
             onClick={() => handleTogglePin(contextMenu.session)}
           />
-          <ContextMenuItem icon="rename" label={t('重命名')} onClick={() => handleRename(contextMenu.session)} />
           <ContextMenuItem icon="copy" label={t('复制 ID')} onClick={() => handleCopyId(contextMenu.session)} />
           <ContextMenuItem icon="export" label={t('导出')} onClick={() => handleExport(contextMenu.session)} />
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />

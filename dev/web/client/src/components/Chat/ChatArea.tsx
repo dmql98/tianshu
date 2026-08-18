@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
 import MessageList from './MessageList'
@@ -12,7 +13,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 export default function ChatArea() {
   const {
     sessions, activeSessionId, pendingApproval, pendingAskUser,
-    socketConnected, isRefreshing, refreshSession,
+    socketConnected, isRefreshing, refreshSession, renameSession,
   } = useChatStore()
   const { toggleSidebar, toggleRightPanel, toggleFilePanel } = useUIStore()
   const t = useI18n()
@@ -21,6 +22,43 @@ export default function ChatArea() {
   const session = sessions.find(s => s.id === activeSessionId)
   // 视图由 URL 决定：/chat/:id = 对话，/chat/:id/trajectory = 轨迹。
   const isTrajectory = location.pathname.endsWith('/trajectory')
+
+  // 会话名内联编辑（覆盖创建时自动生成的名称）
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [draftTitle, setDraftTitle] = useState('')
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const editingRef = useRef(false)
+
+  // 切换会话时退出编辑态
+  useEffect(() => {
+    editingRef.current = false
+    setEditingTitle(false)
+  }, [activeSessionId])
+
+  const startEditTitle = () => {
+    if (!session || editingRef.current) return
+    setDraftTitle(session.title || '')
+    editingRef.current = true
+    setEditingTitle(true)
+  }
+
+  useEffect(() => {
+    if (editingTitle && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
+    }
+  }, [editingTitle])
+
+  const commitTitle = (cancel = false) => {
+    if (!session || !editingRef.current) return
+    editingRef.current = false
+    setEditingTitle(false)
+    if (cancel) return
+    const next = draftTitle.trim()
+    if (next && next !== session.title) {
+      renameSession(session.id, next)
+    }
+  }
 
   const goChat = () => {
     if (activeSessionId && isTrajectory) {
@@ -42,8 +80,29 @@ export default function ChatArea() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <div className="input-top-bar">
           <button className="menu-btn" onClick={toggleSidebar} title={t('展开/收起侧栏')}><Icon name="menu" size={16} ariaHidden /></button>
-          <span className="session-name">{session?.title || t('新会话')}</span>
-          <button className="top-btn" title={t('编辑会话名')}><Icon name="rename" size={15} ariaHidden /></button>
+          {editingTitle ? (
+            <input
+              ref={titleInputRef}
+              className="session-name-edit"
+              value={draftTitle}
+              onChange={e => setDraftTitle(e.target.value)}
+              onBlur={() => commitTitle()}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); commitTitle() }
+                else if (e.key === 'Escape') commitTitle(true)
+              }}
+              placeholder={t('新会话')}
+              spellCheck={false}
+            />
+          ) : (
+            <span className="session-name">{session?.title || t('新会话')}</span>
+          )}
+          <button
+            className={`top-btn ${editingTitle ? 'active' : ''}`}
+            onClick={startEditTitle}
+            title={t('编辑会话名')}
+            aria-label={t('编辑会话名')}
+          ><Icon name="rename" size={15} ariaHidden /></button>
           <div style={{ flex: 1 }}></div>
           {!socketConnected && <span className="connection-state">{t('连接已断开，正在重连…')}</span>}
           <button

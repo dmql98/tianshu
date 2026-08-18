@@ -229,6 +229,7 @@ body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink
 .input-top-bar .menu-btn{width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:calc(14px * var(--ui-font-scale));display:flex;align-items:center;justify-content:center}
 .input-top-bar .menu-btn:hover{background:var(--bg-hover);color:var(--ink-mid)}
 .input-top-bar .session-name{font-size:calc(13px * var(--ui-font-scale));font-weight:500;color:var(--ink-mid);flex:1}
+.input-top-bar .session-name-edit{font-size:calc(13px * var(--ui-font-scale));font-weight:500;color:var(--ink-mid);flex:1;min-width:80px;padding:2px 6px;border:1px solid var(--gold);border-radius:4px;background:var(--bg-input);outline:none}
 .input-top-bar .edit-btn{width:24px;height:24px;border-radius:4px;border:none;background:transparent;color:var(--ink-faint);cursor:pointer;font-size:calc(12px * var(--ui-font-scale))}
 .input-top-bar .edit-btn:hover{color:var(--gold)}
 .input-top-bar .top-btn{width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--ink-light);cursor:pointer;font-size:calc(14px * var(--ui-font-scale));display:flex;align-items:center;justify-content:center;transition:all 0.15s}
