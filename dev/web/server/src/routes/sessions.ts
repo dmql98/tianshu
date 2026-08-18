@@ -272,8 +272,30 @@ router.get('/:id/stats', (c) => {
          AND json_extract(payload, '$.ttft_ms') IS NOT NULL) AS ttftAvgMs
   `).get(id, id, id, id) as { toolMs: number; llmMs: number; decodeMs: number; ttftAvgMs: number | null }
 
-  const cacheHitTokens = session.cache_hit_tokens || 0
-  const cacheMissTokens = session.cache_miss_tokens || 0
+  // Live token billing: sum each LLM call's FINAL usage event so the sidebar
+  // stats update in near-real-time during a run (the session row only receives
+  // cumulative totals when the run ends). Fall back to the session row when no
+  // final usage events exist yet (legacy data / provider without usage).
+  const usageSums = getDb().prepare(`
+    SELECT
+      COALESCE((SELECT SUM(CAST(json_extract(payload, '$.input_tokens') AS INTEGER))
+                FROM run_events WHERE session_id = ? AND type = 'usage'
+                  AND json_extract(payload, '$.usage_type') = 'final'), 0) AS input,
+      COALESCE((SELECT SUM(CAST(json_extract(payload, '$.output_tokens') AS INTEGER))
+                FROM run_events WHERE session_id = ? AND type = 'usage'
+                  AND json_extract(payload, '$.usage_type') = 'final'), 0) AS output,
+      COALESCE((SELECT SUM(CAST(json_extract(payload, '$.cache_hit_tokens') AS INTEGER))
+                FROM run_events WHERE session_id = ? AND type = 'usage'
+                  AND json_extract(payload, '$.usage_type') = 'final'), 0) AS cacheHit,
+      COALESCE((SELECT SUM(CAST(json_extract(payload, '$.cache_miss_tokens') AS INTEGER))
+                FROM run_events WHERE session_id = ? AND type = 'usage'
+                  AND json_extract(payload, '$.usage_type') = 'final'), 0) AS cacheMiss
+  `).get(id, id, id, id) as { input: number; output: number; cacheHit: number; cacheMiss: number }
+
+  const inputTokens = usageSums.input > 0 ? usageSums.input : session.input_tokens || 0
+  const outputTokens = usageSums.output > 0 ? usageSums.output : session.output_tokens || 0
+  const cacheHitTokens = usageSums.cacheHit > 0 ? usageSums.cacheHit : session.cache_hit_tokens || 0
+  const cacheMissTokens = usageSums.cacheMiss > 0 ? usageSums.cacheMiss : session.cache_miss_tokens || 0
   const cacheTotal = cacheHitTokens + cacheMissTokens
   return c.json({
     messageCount: counts.messageCount,
@@ -286,8 +308,8 @@ router.get('/:id/stats', (c) => {
     cacheHitPercent: cacheTotal > 0 ? Math.round(cacheHitTokens / cacheTotal * 100) : null,
     cacheHitTokens,
     cacheMissTokens,
-    inputTokens: session.input_tokens || 0,
-    outputTokens: session.output_tokens || 0,
+    inputTokens,
+    outputTokens,
   })
 })
 

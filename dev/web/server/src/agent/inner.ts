@@ -298,6 +298,8 @@ export async function innerLoop(
             run_id: opts.run_id,
             input_tokens: inputTokens,
             output_tokens: chunk.usage?.output_tokens || 0,
+            cache_hit_tokens: chunk.usage?.cache_hit_tokens || 0,
+            cache_miss_tokens: chunk.usage?.cache_miss_tokens || 0,
             usage_type: chunk.usage_type || 'stream',
           })
           // Persist the provider-reported input token count so a reload / page
