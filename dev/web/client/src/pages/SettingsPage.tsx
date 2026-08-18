@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
@@ -87,7 +87,7 @@ export default function SettingsPage() {
   const [iconPackEditorOverrides, setIconPackEditorOverrides] = useState(false)
 
   // ── 会话设置 ──
-  const [workspace, setWorkspace] = useState(ls('defaultWorkspace', 'C:\\.Tianshu'))
+  const [workspace, setWorkspace] = useState(ls('defaultWorkspace', ''))
   const [compact, setCompact] = useState(lsBool('compact', false))
   const [showReasoning, setShowReasoning] = useState(lsBool('showReasoning', true))
   const [showCost, setShowCost] = useState(lsBool('showCost', false))

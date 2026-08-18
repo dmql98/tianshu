@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from 'react'
-import { fetchGoals, createGoal, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
+import { useState, useEffect } from 'react'
+import { fetchGoals, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
 import { getSocket } from '@/api/socket'
 import PlanDialog from './PlanDialog'
 import Icon from '@/features/icons/Icon'
@@ -9,13 +9,10 @@ const goalStatusKeys: Record<string, string> = {
   active: '进行中', paused: '已暂停', completed: '已完成', failed: '失败', cancelled: '已取消',
 }
 
-export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode: string }) {
+export default function GoalPanel({ sessionId }: { sessionId: string }) {
   const t = useI18n()
   const [goals, setGoals] = useState<Goal[]>([])
   const [plan, setPlan] = useState<Plan | null>(null)
-  const [outcome, setOutcome] = useState('')
-  const [verification, setVerification] = useState('')
-  const [budget, setBudget] = useState('')
   const [busy, setBusy] = useState(false)
   const [showPlan, setShowPlan] = useState(false)
 
@@ -35,44 +32,28 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
   useEffect(() => {
     const socket = getSocket()
     if (!socket) return
-    const onPlanChange = (event: { session_id?: string }) => {
+    const onChange = (event: { session_id?: string }) => {
       if (event.session_id === sessionId) void reload()
     }
     const onReconnect = () => { void reload() }
-    socket.on('plan.created', onPlanChange)
-    socket.on('plan.step.updated', onPlanChange)
+    socket.on('plan.created', onChange)
+    socket.on('plan.step.updated', onChange)
+    socket.on('goal.created', onChange)
+    socket.on('goal.status.changed', onChange)
+    socket.on('goal.paused', onChange)
     socket.on('connect', onReconnect)
     return () => {
-      socket.off('plan.created', onPlanChange)
-      socket.off('plan.step.updated', onPlanChange)
+      socket.off('plan.created', onChange)
+      socket.off('plan.step.updated', onChange)
+      socket.off('goal.created', onChange)
+      socket.off('goal.status.changed', onChange)
+      socket.off('goal.paused', onChange)
       socket.off('connect', onReconnect)
     }
   }, [sessionId])
 
-  const activeGoal = mode === 'goal'
-    ? goals.find(g => g.status === 'active' || g.status === 'paused')
-    : undefined
-
-  const handleCreate = async () => {
-    if (!outcome.trim()) return
-    setBusy(true)
-    try {
-      await createGoal({
-        session_id: sessionId,
-        outcome: outcome.trim(),
-        verification: verification.trim() || undefined,
-        budget_tokens: budget ? Number(budget) : undefined,
-      })
-      setOutcome('')
-      setVerification('')
-      setBudget('')
-      await reload()
-    } catch (err) {
-      alert(err instanceof Error ? err.message : t('创建目标失败'))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const activeGoal = goals.find(g => g.status === 'active' || g.status === 'paused')
+  const completedGoals = goals.filter(g => g.status === 'completed')
 
   const handlePause = async () => {
     if (!activeGoal) return
@@ -97,9 +78,6 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
     <div className="rp-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="rp-section-title">
         {t('目标与计划')}
-        {mode === 'goal' && <span style={{ fontWeight: 400, fontSize: 'calc(10px * var(--ui-font-scale))' }}>（Goal · {t('持续执行')}）</span>}
-        {mode === 'plan_first' && <span style={{ fontWeight: 400, fontSize: 'calc(10px * var(--ui-font-scale))' }}>（Plan-first · {t('强制计划')}）</span>}
-        {mode === 'direct' && <span style={{ fontWeight: 400, fontSize: 'calc(10px * var(--ui-font-scale))' }}>（Direct · {t('计划可选')}）</span>}
       </div>
 
       {activeGoal ? (
@@ -124,35 +102,12 @@ export default function GoalPanel({ sessionId, mode }: { sessionId: string; mode
             )}
           </div>
         </div>
-      ) : mode === 'goal' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <input
-            type="text"
-            value={outcome}
-            onChange={e => setOutcome(e.target.value)}
-            placeholder={t('目标（例如：调研并整理 TianShu 的发布清单）')}
-            style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
-          />
-          <input
-            type="text"
-            value={verification}
-            onChange={e => setVerification(e.target.value)}
-            placeholder={t('验证标准（可选）')}
-            style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
-          />
-          <input
-            type="number"
-            value={budget}
-            onChange={e => setBudget(e.target.value)}
-            placeholder={t('Token 预算（可选）')}
-            style={{ fontSize: 'calc(12px * var(--ui-font-scale))', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
-          />
-          <button className="btn sm primary" disabled={busy || !outcome.trim()} onClick={() => void handleCreate()}>{t('创建目标')}</button>
+      ) : completedGoals.length > 0 ? (
+        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>
+          {t('已完成目标')}：{completedGoals.map(g => g.outcome).join('；')}
         </div>
-      ) : mode === 'plan_first' ? (
-        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('Agent 必须先创建计划，再按步骤执行。')}</div>
       ) : (
-        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('Agent 可以直接执行，也可以按需要创建计划。')}</div>
+        <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('暂无目标，Agent 可在执行中创建 goal 与 plan')}</div>
       )}
 
       {plan && plan.steps.length > 0 ? (

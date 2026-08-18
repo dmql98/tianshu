@@ -152,8 +152,8 @@ export default function RightPanel() {
           ))}
         </div>
 
-        {/* Goal / Plan (goal mode disabled; existing 'goal' sessions show as plan_first) */}
-        <GoalPanel sessionId={session.id} mode={((session as any).execution_mode === 'goal' ? 'plan_first' : (session as any).execution_mode) || 'direct'} />
+        {/* Goal / Plan: goal 与 plan 由 Agent 自主创建，实时展示（无需选择执行模式） */}
+        <GoalPanel sessionId={session.id} />
 
         {/* Session stats */}
         <div className="rp-section">

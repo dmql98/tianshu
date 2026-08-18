@@ -35,7 +35,7 @@ import { getControlToolDefinitions } from './loop/control-registry.js'
 import { goalStore } from './plan/plan-store.js'
 import { sessionSkillStore } from './session-skill-store.js'
 import { resolveRunPolicy } from './loop/run-policy-resolver.js'
-import { getSystemRunPolicy } from '../config.js'
+import { getSystemRunPolicy, getDataDir } from '../config.js'
 import { evaluateAutoContinuation, createResumedRun } from './runtime/run-resume-service.js'
 import { publishRunEvent, createDurableSocket, unwrapDurableSocket } from './runtime/run-event-store.js'
 import { enqueueRun } from './session-runner.js'
@@ -95,7 +95,10 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
 
   const workspaces = resolveWorkspaces(session)
   const workspace = resolveWorkspace(session.workspace)
-  const dataspace = resolveDataspace(session.dataspace)
+  // Data Space shown to the model must reflect the authoritative configured
+  // data dir; fall back to getDataDir() when the session carries no explicit
+  // dataspace (client-side hardcoded legacy defaults are no longer trusted).
+  const dataspace = resolveDataspace(session.dataspace) ?? getDataDir()
 
   // Run policy is frozen at Run creation (RUN_LIMIT_POLICY_PLAN §5.2). The
   // persisted snapshot is the source of truth; fall back to a fresh resolution
@@ -194,6 +197,8 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
     charContent.soul,
     charContent.user,
     toolsListingVariant,
+    resolveWorkspace(session.workspace),
+    resolveDataspace(session.dataspace),
   )
   let systemPrompt = getCached(key)
   if (!systemPrompt) {
@@ -261,13 +266,12 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
 
   const composeCtx: ComposeContext = { systemAlerts: [] }
 
-  const rawMode = (session.execution_mode || 'direct') as 'direct' | 'plan_first' | 'goal'
-  // Goal mode temporarily disabled (code preserved for later re-enable):
-  // existing 'goal' sessions degrade to plan_first so no [Goal] injection or
-  // goal budget logic runs.
-  const executionMode = (rawMode === 'goal' ? 'plan_first' : rawMode) as 'direct' | 'plan_first' | 'goal'
+  const rawMode = (session.execution_mode || 'goal') as 'direct' | 'plan_first' | 'goal'
+  // Goal mode is the default for new sessions: goal + plan dual mechanism
+  // (the model freely creates both; users no longer pick a mode manually).
+  const executionMode = rawMode === 'plan_first' ? 'plan_first' : rawMode === 'goal' ? 'goal' : 'direct'
   const activeGoal = executionMode === 'goal'
-    ? goalStore.listForSession(sessionId).find(g => g.status === 'active') || null
+    ? goalStore.listForSession(sessionId).find(g => g.status === 'active' || g.status === 'paused') || null
     : null
 
   const loopResult = await runLoopEngine({

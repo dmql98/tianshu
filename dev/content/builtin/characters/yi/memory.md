@@ -1,7 +1,7 @@
 # 技能资产位置（天枢正式技能包，无外部引用）
 
 - 技能包：`mysticism-yijing-divination`
-- 磁盘根：`C:\.Tianshu\skills\mysticism\mysticism-yijing-divination\`
+- 磁盘根：先用 `skill_manager describe_package` 获取真实目录（内置技能位于应用内置层 content/builtin/skills/...，用户覆盖在 <dataDir>/skills/...）
 - `children/gua/` — 主驱动起卦：`scripts/qi_gua.py`、`references/zhouyi-64-gua.md`（64卦原文/爻辞）、`references/pre-divination-guidance.md`、`references/output-format.md`
 - `children/liuyao-yijing/`：`references/calculation-rules.md`、`interpretation-guide.md`
 - `children/meihua-yishu-divination/`：`references/calculation-rules.md`、`interpretation-guide.md`

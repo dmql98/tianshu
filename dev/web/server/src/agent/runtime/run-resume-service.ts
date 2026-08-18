@@ -48,9 +48,8 @@ export function evaluateAutoContinuation(previousRun: RunRow): ContinuationEligi
     return { eligible: false, reason: 'previous_run_not_max_turns' }
   }
   const rawMode = previousRun.execution_mode
-  // Goal mode temporarily disabled (code preserved): degrade to plan_first so
-  // the goal budget / active-goal gates never block or run.
-  const mode = rawMode === 'goal' ? 'plan_first' : rawMode
+  // Goal mode is the default execution semantics; no degradation.
+  const mode = rawMode === 'plan_first' ? 'plan_first' : rawMode === 'goal' ? 'goal' : rawMode
   if (mode !== 'plan_first' && mode !== 'goal') {
     return { eligible: false, reason: 'mode_not_continuable' }
   }

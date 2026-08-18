@@ -194,17 +194,6 @@ export default function ChatInput() {
     }
   }
 
-  function handleExecutionModeChange(mode: 'direct' | 'plan_first' | 'goal') {
-    if (activeSessionId) {
-      updateSession(activeSessionId, { execution_mode: mode }).catch(() => {})
-      useChatStore.setState(state => ({
-        sessions: state.sessions.map(s =>
-          s.id === activeSessionId ? { ...s, execution_mode: mode } : s
-        ),
-      }))
-    }
-  }
-
   function handleReasoningEffortChange(effort: string) {
     if (activeSessionId) {
       updateSession(activeSessionId, { reasoning_effort: effort }).catch(() => {})
@@ -380,15 +369,6 @@ export default function ChatInput() {
           <option value="medium">{t('中')}</option>
           <option value="high">{t('高')}</option>
           <option value="max">{t('最高')}</option>
-        </select>
-        <select
-          value={(((session as any)?.execution_mode === 'goal' ? 'plan_first' : (session as any)?.execution_mode) || 'direct')}
-          onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
-          title={t('执行模式')}
-          className="io-select"
-        >
-          <option value="direct">{t('Direct（直接执行）')}</option>
-          <option value="plan_first">{t('Plan-first（先计划后执行）')}</option>
         </select>
         <select
           value={session?.current_strategy || 'Ask Risky'}

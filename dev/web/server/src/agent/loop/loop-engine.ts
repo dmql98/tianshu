@@ -11,7 +11,7 @@ import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-c
 import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults, MAX_OVERFLOW_COMPACTS, type CompactPolicy } from './loop-policy.js'
 import { compactWithRetries, selectAndSummarize } from './context-compactor.js'
 import { isContextOverflowError } from '../../llm/client.js'
-import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep } from './control-router.js'
+import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleCreateGoal, handleGetGoal, handleCompleteGoal } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
 import type { RunPolicySnapshot } from './run-policy.js'
@@ -153,7 +153,16 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   // longer "active", but submit_result must still validate that same plan.
   let currentPlanId = planStore.getActive(sessionId)?.id || null
   const currentPlan = () => currentPlanId ? planStore.get(currentPlanId) : null
-  const currentGoal = () => goal ? goalStore.get(goal.id) : null
+  // Live goal lookup: the Run pins the goal present at start, but the model may
+  // create_goal mid-run — fall back to the session's active/paused goal so the
+  // [Goal] injection, final-answer guard and submit_result completion all see it.
+  const currentGoal = () => {
+    if (goal) {
+      const g = goalStore.get(goal.id)
+      if (g) return g
+    }
+    return goalStore.listForSession(sessionId).find(g => g.status === 'active' || g.status === 'paused') || null
+  }
   if (goal) goalStore.update(goal.id, { current_run_id: runId })
 
   socket?.emit('run.started', { session_id: sessionId, run_id: runId, context_window: contextWindow, execution_mode: executionMode })
@@ -404,7 +413,8 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         mode: executionMode,
         planCompleted,
         unmetSteps,
-        goalVerification: executionMode === 'goal' ? goal?.verification || null : null,
+        goalVerification: executionMode === 'goal' ? currentGoal()?.verification || null : null,
+        goal: executionMode === 'goal' ? (() => { const g = currentGoal(); return g ? { id: g.id, status: g.status } : null })() : null,
       })
       messages.push(...outcome.messages)
       if (outcome.kind === 'done') {
@@ -466,6 +476,36 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         prevFingerprint = undefined
       }
       planSnapshot = snapshotPlanSteps(sessionId)
+      continue
+    }
+
+    if (result.type === 'create_goal') {
+      const outcome = await handleCreateGoal({ result, sessionId, runId, socket })
+      messages.push(...outcome.messages)
+      if (dynamic) {
+        runtime.consecutiveNoProgress = 0
+        runtime.consecutiveWeakOnly = 0
+        runtime.lastStrongProgressTurn = turn
+        prevFingerprint = undefined
+      }
+      continue
+    }
+
+    if (result.type === 'get_goal') {
+      const outcome = await handleGetGoal({ result, sessionId, runId, socket })
+      messages.push(...outcome.messages)
+      continue
+    }
+
+    if (result.type === 'complete_goal') {
+      const outcome = await handleCompleteGoal({ result, sessionId, runId, socket })
+      messages.push(...outcome.messages)
+      if (dynamic) {
+        runtime.consecutiveNoProgress = 0
+        runtime.consecutiveWeakOnly = 0
+        runtime.lastStrongProgressTurn = turn
+        prevFingerprint = undefined
+      }
       continue
     }
 
@@ -572,6 +612,13 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         const planDone = plan ? planStore.allCompleted(plan.id) : false
         if (!planDone) {
           composeCtx.systemAlerts!.push(`[Policy ${policyLabel}] 计划尚未完成，最终回答不能结束任务。检查未完成步骤；需要交付时调用 submit_result 提交结果。`)
+          continue
+        }
+        // Goal mode: an active (unfinished) goal must be delivered via
+        // submit_result (which marks it completed) or complete_goal.
+        const g = currentGoal()
+        if (executionMode === 'goal' && g && g.status === 'active') {
+          composeCtx.systemAlerts!.push(`[Goal] 目标「${g.outcome}」尚未标记完成。调用 submit_result 提交结果（自动完成目标）或 complete_goal 显式完成，不能以最终回答直接结束。`)
           continue
         }
       }

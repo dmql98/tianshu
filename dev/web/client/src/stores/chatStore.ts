@@ -9,7 +9,6 @@ import { motionForRunEvent } from '@/features/character-presence/motion'
 
 
 const PERSIST_KEY = 'tianshu-chat-defaults'
-const DEFAULT_WORKSPACE = 'C:\\.Tianshu'
 
 const TERMINAL_RUN_STATUS = new Set([
   'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
@@ -94,12 +93,11 @@ function toMessage(message: any): Message {
 function loadPersistedDefaults(): Record<string, string | undefined> {
   try {
     const raw = localStorage.getItem(PERSIST_KEY)
-    if (!raw) return { defaultWorkspace: DEFAULT_WORKSPACE }
+    if (!raw) return {}
     const parsed = JSON.parse(raw)
-    if (!parsed.defaultWorkspace) parsed.defaultWorkspace = DEFAULT_WORKSPACE
     return parsed
   } catch {
-    return { defaultWorkspace: DEFAULT_WORKSPACE }
+    return {}
   }
 }
 
@@ -1093,9 +1091,9 @@ export const useChatStore = create<ChatState>((set, get) => {
         title: opts.title || '',
         model: opts.model || defs.model || null,
         provider_id: opts.provider_id || defs.provider_id || (providersStore.providers[0]?.id) || null,
-        workspace: opts.workspace || defs.defaultWorkspace || DEFAULT_WORKSPACE,
+        workspace: opts.workspace || defs.defaultWorkspace || null,
         workspaces: opts.workspaces ? JSON.stringify(opts.workspaces) : (opts.workspace || defs.defaultWorkspace) ? JSON.stringify([opts.workspace || defs.defaultWorkspace]) : null,
-        dataspace: defs.defaultWorkspace || DEFAULT_WORKSPACE,
+        dataspace: null,
         parent_id: opts.parent_id || null,
         active_group: opts.active_group || null,
         session_type: opts.session_type,

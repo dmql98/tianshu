@@ -29,9 +29,9 @@ const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch'
 
 /** Outcome category of a tool call for progress assessment (§8.5). */
 function outcomeKindFor(name: string): ToolCallRecord['outcomeKind'] {
-  if (READ_ONLY_TOOLS.has(name)) return 'read'
+  if (READ_ONLY_TOOLS.has(name) || name === 'get_goal') return 'read'
   if (name === 'write' || name === 'edit' || name === 'bash') return 'write'
-  if (name === 'update_plan_step' || name === 'create_plan' || name === 'submit_result') return 'state_change'
+  if (name === 'update_plan_step' || name === 'create_plan' || name === 'submit_result' || name === 'create_goal' || name === 'complete_goal') return 'state_change'
   if (name === 'submit_result' || name === 'update_plan_step') return 'verification'
   if (name.startsWith('mcp__')) return 'other'
   return 'other'
@@ -48,7 +48,7 @@ function determineToolChanged(name: string, result: ToolResult): boolean {
   if (status === 'updated' || status === 'created') return true
   if (result.metadata?.changed === true) return true
   if (result.metadata?.changed === false) return false
-  return (name === 'update_plan_step' || name === 'create_plan') && !result.error
+  return (name === 'update_plan_step' || name === 'create_plan' || name === 'create_goal' || name === 'complete_goal') && !result.error
 }
 
 // P1-1: token 计量统一走 loop-policy.estimateTextTokens，删除本文件的重复估算器。
@@ -115,7 +115,7 @@ export interface SubAgentRequestData {
 }
 
 export interface InnerResult {
-  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'submit_result' | 'ask_user' | 'create_plan' | 'update_plan_step'
+  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'submit_result' | 'ask_user' | 'create_plan' | 'update_plan_step' | 'create_goal' | 'get_goal' | 'complete_goal'
   messages: LLMMessage[]
   fullText: string
   reasoningText: string
@@ -134,6 +134,8 @@ export interface InnerResult {
   question?: string
   planRequest?: { goal?: string; steps: Array<{ title: string; depends_on?: string; verification?: string }>; verification?: string }
   planStepUpdate?: { ordinal: number; status: 'pending' | 'in_progress' | 'blocked' | 'completed' | 'skipped' | 'failed'; evidence?: string }
+  goalRequest?: { outcome: string; constraints?: string; verification?: string; budget_tokens?: number }
+  goalCompleteSummary?: string
 }
 
 export async function streamWithRetry(
@@ -563,6 +565,47 @@ export async function innerLoop(
         status: status as NonNullable<InnerResult['planStepUpdate']>['status'],
         evidence: typeof args.evidence === 'string' ? args.evidence.trim() : undefined,
       },
+    }
+  }
+
+  const createGoalCall = toolCallsAcc.find(tc => tc.function.name === 'create_goal')
+  if (createGoalCall) {
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(createGoalCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + createGoalCall.function.name + '): ' + (err?.message || err)) }
+    return {
+      type: 'create_goal',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
+      toolCallRecords: [],
+      goalRequest: {
+        outcome: typeof args.outcome === 'string' ? args.outcome.trim() : '',
+        constraints: typeof args.constraints === 'string' ? args.constraints.trim() : undefined,
+        verification: typeof args.verification === 'string' ? args.verification.trim() : undefined,
+        budget_tokens: typeof args.budget_tokens === 'number' ? Math.trunc(args.budget_tokens) : undefined,
+      },
+    }
+  }
+
+  const getGoalCall = toolCallsAcc.find(tc => tc.function.name === 'get_goal')
+  if (getGoalCall) {
+    return {
+      type: 'get_goal',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
+      toolCallRecords: [],
+    }
+  }
+
+  const completeGoalCall = toolCallsAcc.find(tc => tc.function.name === 'complete_goal')
+  if (completeGoalCall) {
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(completeGoalCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + completeGoalCall.function.name + '): ' + (err?.message || err)) }
+    return {
+      type: 'complete_goal',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
+      toolCallRecords: [],
+      goalCompleteSummary: typeof args.summary === 'string' ? args.summary.trim() : undefined,
     }
   }
 

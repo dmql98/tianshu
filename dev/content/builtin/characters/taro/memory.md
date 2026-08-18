@@ -1,7 +1,7 @@
 # 技能资产位置（天枢正式技能包，无外部引用）
 
 - 技能包：`mysticism-tarot-divination`（天枢标准包，含 6 子技能）
-- 磁盘根：`C:\.Tianshu\skills\mysticism\mysticism-tarot-divination\`
+- 磁盘根：先用 `skill_manager describe_package` 获取真实目录（内置技能位于应用内置层 content/builtin/skills/...，用户覆盖在 <dataDir>/skills/...）；抽牌脚本需 cd 到该目录下的 `children/tarot-reading-new/` 运行
 - 抽牌引擎：`children/tarot-reading-new/`（`scripts/draw_tarot.py`、`references/cards.py`、`references/spreads.py`、`spreads_en.py`）
 - 韦特深读：`children/tarot-reading/`（`references/major-arcana.md`、`minor-arcana.md`、`spreads.md`、`interpretation-rules.md`）
 - 治愈派：`children/tarot/`（SKILL.md 内置 22 张大阿卡纳）

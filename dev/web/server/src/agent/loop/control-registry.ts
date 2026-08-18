@@ -14,7 +14,7 @@ export interface ControlToolDefinition {
   }
 }
 
-export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step'] as const
+export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step', 'create_goal', 'get_goal', 'complete_goal'] as const
 
 export const CONTROL_TOOL_SET: ReadonlySet<string> = new Set<string>(CONTROL_TOOL_NAMES)
 
@@ -65,6 +65,45 @@ export function getControlToolDefinitions(): ControlToolDefinition[] {
             verification: { type: 'string', description: '整体完成验证标准（可选）' },
           },
           required: ['steps'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_goal',
+        description: '为当前会话创建目标（Goal）。长期或需要多步推进的任务应先用它创建目标（含验证标准），再 create_plan 拆步骤。已有进行中的目标时会被拒绝（先 complete_goal 完成）。',
+        parameters: {
+          type: 'object',
+          properties: {
+            outcome: { type: 'string', description: '要达成的目标结果（必填）' },
+            constraints: { type: 'string', description: '约束条件（可选）' },
+            verification: { type: 'string', description: '验证标准：如何判断目标已达成（可选但推荐）' },
+            budget_tokens: { type: 'number', description: '跨 Run 的 token 预算上限（可选）' },
+          },
+          required: ['outcome'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_goal',
+        description: '查询当前会话的目标（Goal）状态：目标内容、验证标准、状态与已用 token。无目标时返回提示。',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'complete_goal',
+        description: '将当前进行中的目标标记为已完成。仅在目标确实达成后调用；通常配合 submit_result 一起交付。',
+        parameters: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string', description: '达成摘要（可选）' },
+          },
+          required: [],
         },
       },
     },

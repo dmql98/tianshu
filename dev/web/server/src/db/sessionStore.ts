@@ -115,7 +115,7 @@ export const sessionStore = {
       forked_from_message_id: data.forked_from_message_id ?? null,
       event_occurrence_id: data.event_occurrence_id || null,
       approval_mode: data.approval_mode || data.current_strategy || 'Ask Risky',
-      execution_mode: data.execution_mode || 'direct',
+      execution_mode: data.execution_mode || 'goal',
       current_strategy: data.current_strategy ? normalizeStrategy(data.current_strategy) : null,
       reasoning_effort: data.reasoning_effort ?? null,
       context_window: data.context_window ?? null,

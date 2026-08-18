@@ -51,6 +51,10 @@ router.post('/', async (c) => {
     budget_tokens: typeof body.budget_tokens === 'number' ? body.budget_tokens : null,
     wake_condition: typeof body.wake_condition === 'string' ? body.wake_condition : null,
   })
+  ioRef?.emit('goal.created', {
+    session_id: sessionId, goal_id: goal.id, status: goal.status,
+    outcome: goal.outcome, verification: goal.verification,
+  })
   return c.json(goal, 201)
 })
 
@@ -70,6 +74,9 @@ router.patch('/:id', async (c) => {
 router.post('/:id/pause', (c) => {
   const updated = goalStore.update(c.req.param('id'), { status: 'paused' })
   if (!updated) return c.json({ error: 'Not found' }, 404)
+  ioRef?.emit('goal.status.changed', {
+    session_id: updated.session_id, goal_id: updated.id, status: 'paused',
+  })
   return c.json(updated)
 })
 

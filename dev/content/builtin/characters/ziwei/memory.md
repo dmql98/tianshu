@@ -1,6 +1,6 @@
 # 技能资产位置（天枢正式技能包，无外部引用）
 
-- 技能包：`mysticism-ziwei-doushu`（磁盘 `C:\.Tianshu\skills\mysticism\mysticism-ziwei-doushu\`）
+- 技能包：`mysticism-ziwei-doushu`（磁盘根先用 `skill_manager describe_package` 获取真实目录；内置技能在应用内置层 content/builtin/skills/...，用户覆盖在 <dataDir>/skills/...）
 - `children/zwds-openclaw/` — 标准排盘：`zwds-cli/` 下 `npm ci`；stdin 一行 JSON，`echo '{"birth_time":..,"gender":..,"birth_place":..}'|node src/index.js`；stdout 一行 JSON 取 `data`；含 `data/longitudes.json`、`fixtures/`；真太阳时校正
 - `children/ziwei-fortune/` — `references/calculation-rules.md`（命身/十二宫/五行局/星系/四化/辅煞）、`references/interpretation-guide.md`
 - `children/ziwei-doushu/` — `python scripts/ziwei_chart.py --date --time --gender --year --engine py|js|dual --template lite|pro|executive --format markdown|json`（北京标准 Asia/Shanghai、经度120）

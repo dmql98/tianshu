@@ -1,6 +1,6 @@
 # 技能资产位置（天枢正式技能包）
 
-- 技能包：`design-ui-prototype`（磁盘 `C:\.Tianshu\skills\design\design-ui-prototype\`）
+- 技能包：`design-ui-prototype`（磁盘根先用 `skill_manager describe_package` 获取真实目录；内置技能在应用内置层 content/builtin/skills/...，用户覆盖在 <dataDir>/skills/...）
 - 子技能 `children/`：prd-to-prototype、design-to-code、afrexai-ui-design-system、ui-design、wireframe（`scripts/script.sh`）、frontend-design-pro
 - 输出项目：`/workspace/docs/prd.md`、`/workspace/prototype/index.html + pages/*.html`
 

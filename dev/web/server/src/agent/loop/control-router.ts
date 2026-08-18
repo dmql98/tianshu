@@ -7,7 +7,7 @@ import type { MCPClient } from '../../tools/mcp-client.js'
 import type { LLMMessage, ProviderConfig } from '../../llm/client.js'
 import type { InnerResult, SubAgentRequestData } from '../inner.js'
 import { checkpointStore } from '../runtime/checkpoint-store.js'
-import { planStore } from '../plan/plan-store.js'
+import { planStore, goalStore } from '../plan/plan-store.js'
 import { evaluateSubmission, type SubmissionCheckResult } from './completion-evaluator.js'
 
 /**
@@ -275,6 +275,113 @@ export async function handleCreatePlan(input: {
   return { kind: 'continue', messages: [toolMessage], planCreated: true, planId: plan.id }
 }
 
+export interface GoalOutcome {
+  kind: 'continue'
+  messages: LLMMessage[]
+}
+
+function goalToolMessage(sessionId: string, runId: string, socket: Socket | undefined, name: string, toolCallId: string, output: string, error?: string): LLMMessage {
+  const message: LLMMessage = { role: 'tool', content: JSON.stringify(error ? { output: '', error } : { output }), tool_call_id: toolCallId }
+  messageStore.addMessage(sessionId, {
+    role: 'tool', content: JSON.stringify(error ? { output: '', error } : { output }),
+    tool_name: name, tool_input: JSON.stringify({ call_id: toolCallId }),
+    tool_output: output, tool_status: error ? 'error' : 'success',
+  })
+  socket?.emit('tool.completed', {
+    session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
+    tool_name: name, tool_output: output, tool_status: error ? 'error' : 'success', duration_ms: 0,
+  })
+  return message
+}
+
+/**
+ * create_goal: create the session's goal (rejects when an active goal exists).
+ * Emits goal.created so clients can render the goal card live.
+ */
+export function handleCreateGoal(input: {
+  result: InnerResult
+  sessionId: string
+  runId: string
+  socket?: Socket
+}): GoalOutcome {
+  const { result, sessionId, runId, socket } = input
+  const goalCall = result.toolCalls?.find(tc => tc.function.name === 'create_goal')
+  const toolCallId = goalCall?.id || `goal_${Date.now()}`
+  const req = result.goalRequest
+  if (!req || !req.outcome) {
+    const errMsg = 'create_goal rejected: outcome is required'
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'create_goal', toolCallId, errMsg, errMsg)] }
+  }
+  const active = goalStore.listForSession(sessionId).find(g => g.status === 'active' || g.status === 'paused')
+  if (active) {
+    const errMsg = `create_goal rejected: 已有进行中的目标「${active.outcome}」（${active.status}）。先 complete_goal 完成它，或暂停后再创建。`
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'create_goal', toolCallId, errMsg, errMsg)] }
+  }
+  const goal = goalStore.create({
+    session_id: sessionId,
+    outcome: req.outcome,
+    constraints: req.constraints || null,
+    verification: req.verification || null,
+    budget_tokens: req.budget_tokens ?? null,
+  })
+  const summary = `已创建目标：${goal.outcome}${goal.verification ? `\n验证标准：${goal.verification}` : ''}`
+  socket?.emit('goal.created', {
+    session_id: sessionId, run_id: runId, goal_id: goal.id, status: goal.status,
+    outcome: goal.outcome, verification: goal.verification,
+  })
+  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'create_goal', toolCallId, summary)] }
+}
+
+/** get_goal: report the session's active (or latest) goal state to the model. */
+export function handleGetGoal(input: {
+  result: InnerResult
+  sessionId: string
+  runId: string
+  socket?: Socket
+}): GoalOutcome {
+  const { result, sessionId, runId, socket } = input
+  const goalCall = result.toolCalls?.find(tc => tc.function.name === 'get_goal')
+  const toolCallId = goalCall?.id || `goal_get_${Date.now()}`
+  const goals = goalStore.listForSession(sessionId)
+  const active = goals.find(g => g.status === 'active' || g.status === 'paused')
+  if (!active) {
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'get_goal', toolCallId, '当前会话没有进行中的目标。需要长期目标时用 create_goal 创建。')] }
+  }
+  const output = `目标：${active.outcome}` +
+    (active.constraints ? `\n约束：${active.constraints}` : '') +
+    (active.verification ? `\n验证标准：${active.verification}` : '') +
+    `\n状态：${active.status}` +
+    (active.budget_tokens ? `\n预算：${goalStore.usedTokens(active)} / ${active.budget_tokens} tokens` : '')
+  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'get_goal', toolCallId, output)] }
+}
+
+/** complete_goal: mark the active goal completed (idempotent). Emits goal.status.changed. */
+export function handleCompleteGoal(input: {
+  result: InnerResult
+  sessionId: string
+  runId: string
+  socket?: Socket
+}): GoalOutcome {
+  const { result, sessionId, runId, socket } = input
+  const goalCall = result.toolCalls?.find(tc => tc.function.name === 'complete_goal')
+  const toolCallId = goalCall?.id || `goal_done_${Date.now()}`
+  // Latest goal (list is created_at DESC). Idempotent when already completed.
+  const latest = goalStore.listForSession(sessionId)[0] || null
+  if (!latest) {
+    const errMsg = 'complete_goal rejected: 当前会话没有进行中的目标'
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'complete_goal', toolCallId, errMsg, errMsg)] }
+  }
+  if (latest.status === 'completed') {
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'complete_goal', toolCallId, '目标已完成（幂等）')] }
+  }
+  goalStore.update(latest.id, { status: 'completed' })
+  socket?.emit('goal.status.changed', {
+    session_id: sessionId, run_id: runId, goal_id: latest.id, status: 'completed',
+  })
+  const summary = result.goalCompleteSummary ? `\n摘要：${result.goalCompleteSummary}` : ''
+  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'complete_goal', toolCallId, `目标已完成：${latest.outcome}${summary}`)] }
+}
+
 export interface SubmitResultOutcome {
   kind: 'continue' | 'done'
   messages: LLMMessage[]
@@ -297,8 +404,9 @@ export async function handleTaskComplete(input: {
   planCompleted: boolean
   unmetSteps: Array<{ ordinal: number; title: string }>
   goalVerification?: string | null
+  goal?: { id: string; status: string } | null
 }): Promise<SubmitResultOutcome> {
-  const { result, sessionId, runId, socket, messages, mode } = input
+  const { result, sessionId, runId, socket, messages, mode, goal } = input
   const summaryOutput = result.taskCompleteSummary || ''
   const evidence = result.evidence || []
 
@@ -332,6 +440,16 @@ export async function handleTaskComplete(input: {
   // Emit summary as assistant delta so the client's streaming renders it
   if (socket && sessionId && summaryOutput) {
     socket.emit('message.delta', { session_id: sessionId, run_id: runId, delta: '\n\n' + summaryOutput })
+  }
+
+  // Goal mode: an accepted submission completes the active goal (idempotent).
+  if (mode === 'goal' && goal && goal.status !== 'completed') {
+    const updated = goalStore.update(goal.id, { status: 'completed' })
+    if (updated) {
+      socket?.emit('goal.status.changed', {
+        session_id: sessionId, run_id: runId, goal_id: goal.id, status: 'completed',
+      })
+    }
   }
   // Update the last assistant message content with the summary for DB persistence
   if (summaryOutput && sessionId) {

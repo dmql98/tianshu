@@ -11,7 +11,7 @@ description: "理解 TianShu 会话机制：session 生命周期、workspace 解
 
 ## 数据存储
 
-Session 存储在 TianShu 数据目录（默认 `C:\.Tianshu`）下的 `sessions.db` 的 `sessions` 表中：
+Session 存储在 TianShu 数据目录（即系统提示词中 Data Space 的 data root，由服务端配置决定）下的 `sessions.db` 的 `sessions` 表中：
 
 ```
 id          TEXT PRIMARY KEY

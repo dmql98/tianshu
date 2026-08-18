@@ -156,7 +156,7 @@ export function getDb(): TianshuDatabase {
     'ALTER TABLE sessions ADD COLUMN forked_from_message_id INTEGER',
     'ALTER TABLE sessions ADD COLUMN event_occurrence_id TEXT',
     "ALTER TABLE sessions ADD COLUMN approval_mode TEXT NOT NULL DEFAULT 'Ask Risky'",
-    "ALTER TABLE sessions ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'direct'",
+    "ALTER TABLE sessions ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'goal'",
   ]
   for (const statement of sessionColumns) {
     try { db.exec(statement) } catch { /* column already exists */ }

@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { writeFileSync, rmSync } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import type { ToolModule } from '../types.js'
 import { characterMetaStore } from '../../db/characterStore.js'
 import { sessionStore } from '../../db/sessionStore.js'
@@ -58,7 +58,7 @@ export const tool: ToolModule = {
       if (ctx.sessionId && !packageAllowed(ctx.sessionId, args.package_id)) return { output: '', error: `Package "${args.package_id}" is not bound to this character` }
       const pkg = findSkillPackage(args.package_id)
       if (!pkg) return { output: '', error: `Skill package "${args.package_id}" not found` }
-      return { output: JSON.stringify({ id: pkg.id, name: pkg.name, description: pkg.description, version: pkg.version, root: pkg.rootBody, children: pkg.children }, null, 2) }
+      return { output: JSON.stringify({ id: pkg.id, name: pkg.name, description: pkg.description, version: pkg.version, dir: pkg.dir, root: pkg.rootBody, children: pkg.children }, null, 2) }
     }
 
     if (action === 'list_active') {
@@ -79,7 +79,8 @@ export const tool: ToolModule = {
       }
       const hash = createHash('sha256').update(found.body).digest('hex')
       sessionSkillStore.activate(ctx.sessionId, args.package_id, args.skill_id, hash)
-      return { output: `Activated ${ref} for this session. Follow these instructions now:\n\n${found.body}` }
+      const childDir = resolve(found.pkg.dir, found.child.path)
+      return { output: `Activated ${ref} for this session.\n\n磁盘目录（可用 bash cd 到此处运行脚本）:\n${childDir}\n\nFollow these instructions now:\n\n${found.body}` }
     }
 
     if (action === 'deactivate') {
