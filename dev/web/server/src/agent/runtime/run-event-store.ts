@@ -7,6 +7,35 @@ import { checkpointStore } from './checkpoint-store.js'
 
 export const RAW_SOCKET = Symbol('tianshu.rawSocket')
 
+// ── Live-socket registry ──
+// A run closure captures the socket that was connected when it started. When
+// the renderer disconnects and reconnects (socket.io creates a NEW socket), the
+// run keeps emitting to the dead socket object and the client never receives
+// live events again. Rebinding here routes run events to the client's CURRENT
+// socket for the session, so streaming resumes after a reconnect without
+// waiting for the client's REST replay.
+const liveSockets = new Map<string, Socket>()
+
+export function bindLiveSocket(sessionId: string, socket: Socket): void {
+  liveSockets.set(sessionId, socket)
+}
+
+export function unbindLiveSocket(sessionId: string, socket: Socket): void {
+  if (liveSockets.get(sessionId) === socket) liveSockets.delete(sessionId)
+}
+
+/** Current live socket for a session, if any. */
+export function liveSocketFor(sessionId: string): Socket | undefined {
+  return liveSockets.get(sessionId)
+}
+
+/** Remove every binding owned by a (now disconnected) socket. */
+export function unbindSocketOwner(socket: Socket): void {
+  for (const [sid, s] of liveSockets) {
+    if (s === socket) liveSockets.delete(sid)
+  }
+}
+
 export interface RunEventRow {
   event_id: string
   run_id: string
@@ -134,7 +163,11 @@ export function publishRunEvent(
     }
   }
   // The transaction above has committed before anything reaches Socket.IO.
-  target.emit(type, {
+  // Prefer the session's current live socket (rebound after a renderer
+  // reconnect) over the socket captured at run start.
+  const live = liveSocketFor(row.session_id)
+  const emitTarget = live && live.connected ? live : target
+  emitTarget.emit(type, {
     ...payload,
     event_id: row.event_id,
     session_id: row.session_id,

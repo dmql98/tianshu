@@ -65,6 +65,18 @@ const READY_ACK_TIMEOUT_MS = 5_000
  * resolves false on timeout or a disconnected socket so callers never block
  * the reconnect replay forever (e.g. an older server without the handler).
  */
+/** Active session id for the hello handshake (persisted, avoids circular store import). */
+function persistedSessionId(): string | undefined {
+  try {
+    const raw = localStorage.getItem('tianshu-chat-defaults')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (typeof parsed?.activeSessionId === 'string') return parsed.activeSessionId
+    }
+  } catch { /* ignore */ }
+  return undefined
+}
+
 export function waitForSocketReady(
   socket: Socket,
   timeoutMs: number = READY_ACK_TIMEOUT_MS,
@@ -82,7 +94,9 @@ export function waitForSocketReady(
       resolve(ok)
     }
     const timer = setTimeout(() => done(false), timeoutMs)
-    socket.emit('app:hello', {}, (resp: unknown) => {
+    // Include the active session so the server can re-bind run-event emission
+    // to this (possibly new) socket after a disconnect/reconnect cycle.
+    socket.emit('app:hello', { session_id: persistedSessionId() }, (resp: unknown) => {
       done(typeof resp === 'object' && resp !== null && (resp as { status?: string }).status === 'ok')
     })
   })

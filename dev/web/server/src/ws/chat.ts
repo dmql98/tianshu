@@ -7,7 +7,7 @@ import { setSessionStrategy, removeSessionState, getSessionState } from '../agen
 import { enqueueRun, abortSession, getRunState, getQueueLength } from '../agent/session-runner.js'
 import { turnStore } from '../db/turnStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
-import { createDurableSocket, publishRunEvent, forceCancelSessionRuns } from '../agent/runtime/run-event-store.js'
+import { createDurableSocket, publishRunEvent, forceCancelSessionRuns, bindLiveSocket, unbindSocketOwner } from '../agent/runtime/run-event-store.js'
 import { approvalRegistry, type ApprovalChoice } from '../agent/runtime/approval-registry.js'
 import { checkpointStore } from '../agent/runtime/checkpoint-store.js'
 import { saveAttachment, type AttachmentMeta } from '../agent/media-store.js'
@@ -19,8 +19,19 @@ export function registerChatSocket(io: Server, socket: Socket) {
   // before replaying session/run state, so the replay never races the
   // connection-handler setup on a freshly restarted server. The ack proves
   // the socket is fully registered AND the event loop is responsive.
-  socket.on('app:hello', (_data: unknown, ack?: (resp: unknown) => void) => {
+  socket.on('app:hello', (data: { session_id?: string } | null, ack?: (resp: unknown) => void) => {
+    // Rebind run-event emission to this (possibly new) socket: a run that
+    // started before the renderer disconnected keeps emitting to the old dead
+    // socket otherwise, and live streaming never resumes after a reconnect.
+    if (data?.session_id) {
+      bindLiveSocket(data.session_id, socket)
+    }
     ack?.({ status: 'ok', ts: Date.now() })
+  })
+  socket.on('disconnect', () => {
+    // Drop live-socket bindings owned by this socket so a later reconnect with
+    // a new socket re-binds cleanly (and we never emit to a dead socket).
+    unbindSocketOwner(socket)
   })
   socket.on('strategy.set', (data: { session_id: string; strategy: StrategyInput }, ack?: (resp: unknown) => void) => {
     const { session_id } = data
@@ -38,6 +49,7 @@ export function registerChatSocket(io: Server, socket: Socket) {
     if (!sessionId) { ack?.({ error: 'No session_id' }); return }
     const requestedRunId = typeof data.run_id === 'string' ? data.run_id.trim() : ''
     const runId = requestedRunId || `run_${crypto.randomUUID()}`
+    bindLiveSocket(sessionId, socket)
 
     let session = sessionStore.getById(sessionId)
     if (!session) {
