@@ -1333,3 +1333,56 @@ textarea:focus{border-color:var(--gold)}
 .tjs-toggle:hover{text-decoration:underline}
 .tjs-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:calc(10px * var(--ui-font-scale));color:var(--ink-light);font-family:monospace}
 .tjs-meta .tjs-status{font-size:calc(10px * var(--ui-font-scale))}
+
+/* ── 轨迹视图：时间线 / 轮次分组 ── */
+.tjs-toolbar-btn{padding:2px 8px;border:1px solid var(--border);border-radius:6px}
+.tjs-toolbar-btn:hover{border-color:var(--gold)}
+.tjs-mark{background:rgba(200,160,40,0.35);color:inherit;border-radius:2px;padding:0 1px}
+.tjs-row.dimmed{opacity:0.35}
+.tjs-turn-block.dimmed{opacity:0.35}
+.tjs-timeline-wrap{flex-shrink:0;padding:6px 20px 8px;border-bottom:1px solid var(--border-light);background:var(--bg-card)}
+.tjs-timeline-mode{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:calc(11px * var(--ui-font-scale))}
+.tjs-timeline-mode-btn{padding:1px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--ink-light);font-size:calc(10px * var(--ui-font-scale));font-family:inherit;cursor:pointer}
+.tjs-timeline-mode-btn:hover{border-color:var(--gold)}
+.tjs-timeline-mode-btn.active{background:rgba(200,160,40,0.14);color:var(--gold);border-color:var(--gold)}
+.tjs-timeline-total{color:var(--ink-faint);font-family:monospace;font-size:calc(10px * var(--ui-font-scale))}
+.tjs-timeline{position:relative;width:100%;border-radius:8px;background:var(--bg-input);cursor:crosshair;touch-action:none;user-select:none;overflow:hidden}
+.tjs-timeline-lane{position:absolute;left:0;right:0;border-radius:3px;background:rgba(127,127,127,0.08)}
+.tjs-timeline-span{position:absolute;top:2px;bottom:2px;min-width:2px;border-radius:2px;opacity:0.55}
+.tjs-timeline-span-user{background:#5b8fd6}
+.tjs-timeline-span-assistant{background:var(--jade)}
+.tjs-timeline-span-tool{background:#c08a4a}
+.tjs-timeline-span.is-error{background:var(--cinnabar)}
+.tjs-timeline-span.focused{opacity:1;box-shadow:0 0 0 1px var(--bg-card)}
+.tjs-timeline-boundary{position:absolute;top:0;bottom:0;width:1px;background:rgba(200,160,40,0.55);pointer-events:none}
+.tjs-timeline-drag{position:absolute;top:0;bottom:0;background:rgba(200,160,40,0.18);border:1px solid rgba(200,160,40,0.6);pointer-events:none}
+.tjs-turn-block{margin-bottom:8px}
+.tjs-turn-head{display:flex;align-items:center;gap:8px;width:100%;padding:6px 12px;border:1px solid var(--border-light);border-radius:10px;background:linear-gradient(180deg,rgba(200,160,40,0.08),rgba(200,160,40,0.02));color:inherit;font-family:inherit;text-align:left;font-size:calc(12px * var(--ui-font-scale))}
+.tjs-turn-head:hover{background:var(--bg-hover)}
+.tjs-kind-turn{background:rgba(200,160,40,0.16);color:var(--gold)}
+.tjs-group{margin:4px 0 0 14px;border-left:2px solid var(--border-light)}
+.tjs-group-step{border-left-color:rgba(42,157,92,0.35)}
+.tjs-group-message{border-left-color:rgba(70,130,200,0.35)}
+.tjs-group-head{display:flex;align-items:center;gap:8px;width:100%;padding:4px 12px;border:none;background:none;color:inherit;font-family:inherit;text-align:left;font-size:calc(11px * var(--ui-font-scale))}
+.tjs-group-head:hover{background:var(--bg-hover)}
+.tjs-kind-step{background:rgba(42,157,92,0.14);color:var(--jade)}
+.tjs-kind-message{background:rgba(70,130,200,0.14);color:#5b8fd6}
+.tjs-group-usage{flex-shrink:0;font-family:monospace;font-size:calc(10px * var(--ui-font-scale));color:var(--ink-light)}
+
+/* ── 轨迹视图：调试详情（debug）── */
+.tjs-view-toggle{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--bg-input)}
+.tjs-view-toggle-btn{padding:3px 10px;border:none;border-radius:6px;background:none;color:var(--ink-light);font-size:calc(11px * var(--ui-font-scale));font-family:inherit;cursor:pointer}
+.tjs-view-toggle-btn:hover{color:var(--ink-mid)}
+.tjs-view-toggle-btn.active{background:rgba(200,160,40,0.16);color:var(--gold);font-weight:600}
+.tjs-kind-system{background:rgba(200,160,40,0.18);color:var(--gold)}
+.tjs-row-system{border-color:rgba(200,160,40,0.45);border-left:3px solid rgba(200,160,40,0.8)}
+.tjs-fp{flex-shrink:0;padding:1px 6px;border-radius:8px;background:rgba(127,127,127,0.12);color:var(--ink-light);font-family:monospace;font-size:calc(10px * var(--ui-font-scale))}
+.tjs-system-prompt{max-height:280px;overflow-y:auto;color:var(--ink-light)}
+.tjs-tools-json{max-height:280px;overflow-y:auto;font-size:calc(11px * var(--ui-font-scale))}
+.tjs-toolcall{border:1px solid var(--border-light);border-radius:8px;background:rgba(180,120,60,0.05);overflow:hidden}
+.tjs-toolcall-head{display:flex;align-items:center;gap:8px;width:100%;padding:5px 10px;border:none;background:none;color:inherit;font-family:inherit;text-align:left;font-size:calc(11px * var(--ui-font-scale))}
+.tjs-toolcall-head:hover{background:var(--bg-hover)}
+.tjs-toolcall-body{display:flex;flex-direction:column;gap:8px;padding:0 10px 10px 28px}
+.tjs-history{display:flex;flex-direction:column;gap:8px;border-left:2px solid var(--border-light);padding-left:10px}
+.tjs-history-msg{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.tjs-history-msg .tjs-pre{width:100%;max-height:200px;overflow-y:auto}

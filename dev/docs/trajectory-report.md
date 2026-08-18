@@ -7,6 +7,35 @@
 
 ---
 
+## 0.5 实现状态（2026-08-18 更新）
+
+**M0（运行轨迹增强）、M1（debug 后端 API）、M2（调试详情视图）已全部实现并通过验证**
+（前端 162 个单测、服务端 224 个单测、`npm run build` 均通过；M1 接口已对本机真实
+`devdata/debug` 数据 curl 验证）。
+
+新增/改动文件：
+
+| 层 | 文件 | 说明 |
+|---|---|---|
+| 折叠层 | `web/client/src/features/trajectory/trajectory-layout.ts` | Turn→Group（消息/Step N）→行 三层模型 + 请求编号 + 累计用量 |
+| 时间线 | `web/client/src/features/trajectory/timeline.ts` | sequence/duration 投影、三车道、拖选交集（仿 timeline.ts） |
+| 组件 | `web/client/src/features/trajectory/TimelineBar.tsx` | 顶部 Overview 时间线（模式切换/拖选联动/轮次边界） |
+| 视图 | `web/client/src/features/trajectory/TrajectoryView.tsx` | 集成：分组折叠、`#N` 编号、累计用量 chips、搜索 `<mark>` 高亮、焦点 dimming、「运行轨迹/调试详情」子页切换 |
+| 组件 | `web/client/src/features/trajectory/DebugTimelineBar.tsx` | 调试视图 turn 粒度时间线 |
+| 视图 | `web/client/src/features/trajectory/DebugTrajectoryView.tsx` | 调试详情：SYSTEM（完整 system prompt + 工具目录）/助手/工具记录、toolCall 结果跨轮关联、消息历史、懒加载 |
+| 纯函数 | `web/client/src/features/trajectory/debugTrajectory.ts` | debug turn → 视图记录、汇总、时间线 |
+| API | `web/client/src/api/debug.ts` | 四个 debug 接口的客户端封装 |
+| 后端 | `web/server/src/routes/debug.ts` | `GET /api/debug/sessions[/:id][/turns][/turn/:n]`（只读、白名单防穿越、64KB 截断、工具按名去重），注册于 `app.ts` |
+| 样式 | `web/client/src/index.css` | `tjs-*` 新增时间线/轮次/分组/debug 系列 |
+| 测试 | `trajectory-layout.test.ts`、`timeline.test.ts`、`debugTrajectory.test.ts` | 纯函数层单测 |
+
+使用方法：聊天页「轨迹」分页顶部新增「运行轨迹 / 调试详情」切换；调试详情默认读取
+`devdata/debug` 全部会话（含每轮完整请求/响应），支持会话/会话段选择、时间线拖选、
+搜索高亮与按需展开。M3（虚拟化/导出/并排对照）未做，如需可续。
+
+---
+
+
 ## 0. 结论摘要
 
 - **deepseek-harness 轨迹的本质**：一个"轮次感知的事件账本"。数据管道为四层：
