@@ -352,4 +352,21 @@ export interface TrajectoryData {
   }
   messages: TrajectoryMessage[]
   events: TrajectoryEvent[]
+  /** Per-LLM-call trace (llm_calls): complete request snapshot + response. */
+  llmCalls?: LLMCallTrace[]
+}
+
+export interface LLMCallTrace {
+  sessionId: string
+  runId: string | null
+  turn: number
+  fp: string | null
+  request: { model: string; messages: Array<{ role: string; content: unknown }>; tools?: unknown[] }
+  response: {
+    text: string
+    reasoning: string
+    toolCalls: unknown[]
+    usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number }
+  }
+  error?: string
 }

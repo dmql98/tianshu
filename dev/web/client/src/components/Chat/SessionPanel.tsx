@@ -1,7 +1,8 @@
-﻿import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
 import { openInFileManager } from '@/api/workspace'
+import { fetchSessionExport } from '@/api/sessions'
 import FolderPicker from './FolderPicker'
 import type { Session } from '@/types'
 import type { I18nState } from '@/i18n'
@@ -38,6 +39,7 @@ export default function SessionPanel() {
   const t = useI18n()
   const [search, setSearch] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
+  const [exportTarget, setExportTarget] = useState<Session | null>(null)
   const [projectMenu, setProjectMenu] = useState<ProjectContextMenu | null>(null)
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const navigate = useNavigate()
@@ -172,15 +174,24 @@ export default function SessionPanel() {
   }
 
   function handleExport(session: Session) {
-    const data = JSON.stringify(session, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `session-${session.id}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    setExportTarget(session)
     setContextMenu(null)
+  }
+
+  async function doExport(session: Session, scope: 'basic' | 'full') {
+    setExportTarget(null)
+    try {
+      const data = await fetchSessionExport(session.id, scope)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `session-${session.id}${scope === 'full' ? '.trace' : ''}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('导出失败'))
+    }
   }
 
   function handleDelete(session: Session) {
@@ -380,6 +391,52 @@ export default function SessionPanel() {
           onSelect={handleFolderSelect}
           onClose={() => setShowFolderPicker(false)}
         />
+      )}
+
+      {/* Export dialog: choose export content */}
+      {exportTarget && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setExportTarget(null)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: 16, width: 320,
+              display: 'flex', flexDirection: 'column', gap: 10,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 600, fontSize: 'calc(13px * var(--ui-font-scale))' }}>
+              {t('导出会话')}
+            </div>
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-mid)', wordBreak: 'break-all' }}>
+              {exportTarget.title || exportTarget.id}
+            </div>
+            <button
+              className="btn sm"
+              style={{ justifyContent: 'flex-start' }}
+              onClick={() => void doExport(exportTarget, 'basic')}
+            >
+              {t('仅会话与消息')}
+            </button>
+            <button
+              className="btn sm primary"
+              style={{ justifyContent: 'flex-start' }}
+              onClick={() => void doExport(exportTarget, 'full')}
+            >
+              {t('完整轨迹（含每次 LLM 调用的请求/响应/工具/用量）')}
+            </button>
+            <button className="btn sm" onClick={() => setExportTarget(null)}>
+              {t('取消')}
+            </button>
+          </div>
+        </div>
       )}
     </aside>
   )

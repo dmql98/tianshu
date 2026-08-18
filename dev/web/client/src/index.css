@@ -1333,3 +1333,11 @@ textarea:focus{border-color:var(--gold)}
 .tjs-toggle:hover{text-decoration:underline}
 .tjs-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:calc(10px * var(--ui-font-scale));color:var(--ink-light);font-family:monospace}
 .tjs-meta .tjs-status{font-size:calc(10px * var(--ui-font-scale))}
+
+/* LLM 调用详情（llm_calls 轨迹） */
+.tjs-llm-section{flex:1;overflow-y:auto;padding:0 20px 24px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border-light);margin-top:8px;padding-top:12px}
+.tjs-section-title{font-size:calc(11px * var(--ui-font-scale));font-weight:700;color:var(--ink-light);text-transform:uppercase;letter-spacing:0.04em}
+.tjs-kind-llm{background:rgba(130,90,200,0.16);color:#a78bfa}
+.tjs-llm-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-mid);font-size:calc(11px * var(--ui-font-scale));font-family:monospace}
+.tjs-llm-label{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint);font-weight:600;margin-top:8px}
+.tjs-llm-section .tjs-pre{max-height:480px;overflow-y:auto}

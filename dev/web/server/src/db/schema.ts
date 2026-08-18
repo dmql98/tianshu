@@ -340,6 +340,30 @@ export function getDb(): TianshuDatabase {
       pending_request TEXT,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS llm_calls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      run_id TEXT,
+      turn_no INTEGER,
+      fp TEXT,
+      request_model TEXT,
+      request_messages TEXT NOT NULL,
+      request_tools TEXT,
+      response_text TEXT,
+      response_reasoning TEXT,
+      response_tool_calls TEXT,
+      usage_input INTEGER DEFAULT 0,
+      usage_output INTEGER DEFAULT 0,
+      usage_cache_hit INTEGER DEFAULT 0,
+      usage_cache_miss INTEGER DEFAULT 0,
+      error TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_llm_calls_session_turn
+      ON llm_calls(session_id, turn_no);
+    CREATE INDEX IF NOT EXISTS idx_llm_calls_run
+      ON llm_calls(run_id);
     CREATE TABLE IF NOT EXISTS agent_tasks (
       id TEXT PRIMARY KEY,
       parent_run_id TEXT NOT NULL REFERENCES runs(id),

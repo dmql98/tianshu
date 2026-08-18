@@ -45,6 +45,27 @@ export const deleteSession = (id: string) =>
 export const fetchSessionMessages = (id: string) =>
   apiGet<{ session: SessionSummary; messages: any[]; total: number }>(`/api/sessions/${id}/messages`)
 
+/** 丰富会话导出：basic = 会话+消息；full = 追加每次 LLM 调用完整轨迹（llm_calls）。 */
+export interface SessionExportData {
+  exportedAt: number
+  schemaVersion: number
+  scope: 'basic' | 'full'
+  session: SessionSummary
+  messages: any[]
+  llmCalls?: Array<{
+    sessionId: string
+    runId: string | null
+    turn: number
+    fp: string | null
+    request: { model: string; messages: any[]; tools?: any[] }
+    response: { text: string; reasoning: string; toolCalls: any[]; usage: any }
+    error?: string
+  }>
+}
+
+export const fetchSessionExport = (id: string, scope: 'basic' | 'full' = 'full') =>
+  apiGet<SessionExportData>(`/api/sessions/${encodeURIComponent(id)}/export?scope=${scope}`)
+
 /** 手动压缩会话上下文：返回压缩前后的 token 估算，didCompact=false 表示无需压缩。 */
 export interface CompactSessionResult {
   ok: boolean

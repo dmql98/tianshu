@@ -5,7 +5,7 @@ import { getDangerousTools, validateConstraints } from '../tools/definitions.js'
 import { executeTool } from '../tools/executor.js'
 import type { ToolResult } from '../tools/types.js'
 import { getSessionState, isToolApprovedForSession, approveToolForSession } from './session.js'
-import { logLLMCall } from '../debug/llm-logger.js'
+import { logLLMCall } from './llm-call-store.js'
 import type { Strategy } from './session.js'
 import { decideToolApproval } from './strategy.js'
 import type { Server, Socket } from 'socket.io'
@@ -325,12 +325,12 @@ export async function innerLoop(
       return { type: 'aborted', messages: [], fullText: '', reasoningText: '', toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens }
     }
     const errorText = err.message || 'LLM error'
-    logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: '', reasoning: '', toolCalls: [], usage: null }, errorText)
+    logLLMCall({ sessionId, runId: opts.run_id, turn, request: { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, response: { text: '', reasoning: '', toolCalls: [], usage: null }, error: errorText })
     return { type: 'error', messages: [], fullText: '', reasoningText: '', toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, error: errorText }
   }
 
   if (signal?.aborted) {
-    logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage }, 'aborted')
+    logLLMCall({ sessionId, runId: opts.run_id, turn, request: { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, response: { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage }, error: 'aborted' })
     const newMessages: LLMMessage[] = []
     if (result.text) {
       if (sessionId) {
@@ -353,7 +353,7 @@ export async function innerLoop(
     if (result.usage.cacheMiss !== undefined) totalCacheMissTokens += result.usage.cacheMiss
   }
 
-  logLLMCall(sessionId, turn, { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage })
+  logLLMCall({ sessionId, runId: opts.run_id, turn, request: { model, messages: messages.map(m => ({ role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id })), tools }, response: { text: result.text, reasoning: result.reasoning, toolCalls: result.toolCalls, usage: result.usage } })
 
   const { text: fullText, reasoning: reasoningText, toolCalls: rawToolCalls } = result
   const streamSeconds = firstOutputAt == null ? 0 : Math.max((Date.now() - firstOutputAt) / 1000, 0.05)

@@ -9,6 +9,7 @@ import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { createDurableSocket, publishRunEvent, forceCancelRun } from '../agent/runtime/run-event-store.js'
 import { createResumedRun } from '../agent/runtime/run-resume-service.js'
+import { llmCallsForRun, rowToLLMCall } from '../agent/llm-call-store.js'
 import { sessionLoop } from '../agent/loop.js'
 import type { Server } from 'socket.io'
 
@@ -101,7 +102,9 @@ router.get('/:id/trajectory', (c) => {
     occurred_at: event.created_at,
     ...JSON.parse(event.payload),
   }))
-  return c.json({ run, messages, events })
+  // Per-LLM-call trace for this run (complete request snapshot + response).
+  const llmCalls = llmCallsForRun(run.id).map(row => rowToLLMCall(row))
+  return c.json({ run, messages, events, llmCalls })
 })
 
 router.get('/:id/checkpoints', (c) => {

@@ -1,14 +1,14 @@
-import { readdirSync, readFileSync } from 'fs'
-import { resolve } from 'path'
 import type { ToolModule } from '../types.js'
-import { mergeOldDebugTurns } from '../../debug/merge-turns.js'
-import { getDataDir } from '../../config.js'
+import { llmCallsForSession, sessionsWithLLMCalls, rowToLLMCall } from '../../agent/llm-call-store.js'
 
-const DEBUG_DIR = () => resolve(getDataDir(), 'debug')
-
+/**
+ * Read the per-LLM-call trace store (llm_calls table). Replaces the old
+ * file-based debug/merged_N.json logger: every LLM call's complete request
+ * snapshot and response are now in the DB.
+ */
 export const tool: ToolModule = {
   name: 'debug_sessions',
-  description: '读取 debug 会话记录：先合并旧 turn 文件，再返回 data/debug/ 下所有会话的对话内容',
+  description: '读取会话的完整 LLM 调用轨迹（llm_calls 表）：每次调用的请求快照与响应。可用 session_id 过滤。',
   parameters: {
     type: 'object',
     properties: {
@@ -17,15 +17,9 @@ export const tool: ToolModule = {
     required: [],
   },
   execute: async (args) => {
-    mergeOldDebugTurns(true)
-
-    let sessions: string[]
-    try {
-      sessions = readdirSync(DEBUG_DIR(), { withFileTypes: true })
-        .filter(d => d.isDirectory())
-        .map(d => d.name)
-    } catch {
-      return { output: '暂无 debug 会话记录' }
+    let sessions = sessionsWithLLMCalls()
+    if (sessions.length === 0) {
+      return { output: '暂无 LLM 调用记录' }
     }
 
     const filterId = args.session_id
@@ -34,29 +28,27 @@ export const tool: ToolModule = {
     }
 
     if (sessions.length === 0) {
-      return { output: filterId ? `未找到匹配 "${filterId}" 的会话` : '暂无 debug 会话记录' }
+      return { output: filterId ? `未找到匹配 "${filterId}" 的会话` : '暂无 LLM 调用记录' }
     }
 
-    function renderTurn(turn: any): string[] {
+    function renderCall(row: ReturnType<typeof llmCallsForSession>[number]): string[] {
+      const call = rowToLLMCall(row)
       const lines: string[] = []
-      const req = turn.request
-      const res = turn.response
-      lines.push(`[Turn ${turn.turn || turn.timestamp || '?'}] Model: ${req?.model || 'unknown'}`)
-      if (req?.messages) {
-        for (const msg of req.messages) {
+      const req = call.request
+      const res = call.response
+      lines.push(`[Turn ${row.turn_no}] Model: ${req.model}${row.fp ? ` (fp: ${row.fp})` : ''}${row.error ? ` ERROR: ${row.error}` : ''}`)
+      if (req.messages) {
+        for (const msg of req.messages as Array<{ role?: string; content?: unknown }>) {
           const role = msg.role || '?'
           const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
           lines.push(`  ${role}: ${content}`)
         }
       }
-      if (res?.text) {
-        lines.push(`  response: ${res.text}`)
-      }
-      if (res?.reasoning) {
-        lines.push(`  reasoning: ${res.reasoning}`)
-      }
-      if (res?.toolCalls?.length) {
-        lines.push(`  tool_calls: ${JSON.stringify(res.toolCalls)}`)
+      if (res.text) lines.push(`  response: ${res.text}`)
+      if (res.reasoning) lines.push(`  reasoning: ${res.reasoning}`)
+      if (res.toolCalls && res.toolCalls.length) lines.push(`  tool_calls: ${JSON.stringify(res.toolCalls)}`)
+      if (res.usage && (res.usage.input || res.usage.output)) {
+        lines.push(`  usage: in=${res.usage.input} out=${res.usage.output} cacheHit=${res.usage.cacheHit ?? 0} cacheMiss=${res.usage.cacheMiss ?? 0}`)
       }
       lines.push('')
       return lines
@@ -64,41 +56,11 @@ export const tool: ToolModule = {
 
     const result: string[] = []
     for (const sessionId of sessions) {
-      const dir = resolve(DEBUG_DIR(), sessionId)
-
-      const mergedFiles = readdirSync(dir)
-        .filter(f => f.startsWith('merged_') && f.endsWith('.json'))
-        .sort()
-
-      if (mergedFiles.length > 0) {
-        result.push(`=== Session: ${sessionId} ===`)
-        for (const f of mergedFiles) {
-          const raw = readFileSync(resolve(dir, f), 'utf-8')
-          const data = JSON.parse(raw)
-          result.push(`--- ${f} (${data.turns?.length || 0} turns) ---`)
-          if (data.turns) {
-            for (const turn of data.turns) {
-              result.push(...renderTurn(turn))
-            }
-          }
-        }
-        continue
-      }
-
-      // No merged file — merge inline then render once
-      const turnFiles = readdirSync(dir)
-        .filter(f => f.includes('_turn') && f.endsWith('.json'))
-        .sort()
-
-      if (turnFiles.length > 0) {
-        const turns = turnFiles.map(f => {
-          const raw = readFileSync(resolve(dir, f), 'utf-8')
-          return JSON.parse(raw)
-        })
-        result.push(`=== Session: ${sessionId} (${turns.length} turns, inline merged) ===`)
-        for (const turn of turns) {
-          result.push(...renderTurn(turn))
-        }
+      const calls = llmCallsForSession(sessionId)
+      if (calls.length === 0) continue
+      result.push(`=== Session: ${sessionId} (${calls.length} LLM calls) ===`)
+      for (const call of calls) {
+        result.push(...renderCall(call))
       }
     }
 

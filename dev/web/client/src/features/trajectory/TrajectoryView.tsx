@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchRecentRuns, fetchRunTrajectory, type RunRow } from '@/api/runs'
-import type { TrajectoryData } from '@/types'
+import type { TrajectoryData, LLMCallTrace } from '@/types'
 import {
   buildTrajectory,
   filterTrajectory,
@@ -240,6 +240,49 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
           {filtered.rows.map(row => <TrajectoryRowView key={row.messageId} row={row} />)}
         </div>
       )}
+
+      {data && data.llmCalls && data.llmCalls.length > 0 && (
+        <LLMCallSection calls={data.llmCalls} />
+      )}
+    </div>
+  )
+}
+
+function LLMCallSection({ calls }: { calls: LLMCallTrace[] }) {
+  const t = useI18n()
+  const [open, setOpen] = useState<number | null>(null)
+  return (
+    <div className="tjs-llm-section">
+      <div className="tjs-section-title">{t('LLM 调用详情（完整输入输出）')}（{calls.length}）</div>
+      {calls.map(call => {
+        const key = call.turn
+        const expanded = open === key
+        const usage = call.response.usage
+        return (
+          <div key={key} className={`tjs-row tjs-row-llm ${expanded ? 'expanded' : ''}`}>
+            <button className="tjs-row-head" onClick={() => setOpen(expanded ? null : key)}>
+              <span className="tjs-chevron">{expanded ? '▾' : '▸'}</span>
+              <span className="tjs-kind tjs-kind-llm">LLM #{call.turn}</span>
+              <span className="tjs-llm-meta">
+                {call.request.model}
+                {call.fp ? ` · fp:${call.fp}` : ''}
+                {usage && (usage.input > 0 || usage.output > 0)
+                  ? ` · in ${formatTokens(usage.input)} / out ${formatTokens(usage.output)}`
+                  : ''}
+              </span>
+              {call.error && <span className="tjs-error">{call.error}</span>}
+            </button>
+            {expanded && (
+              <div className="tjs-body">
+                <div className="tjs-llm-label">{t('请求快照（当时发送的完整消息与工具定义）')}</div>
+                <pre className="tjs-pre">{JSON.stringify(call.request, null, 2)}</pre>
+                <div className="tjs-llm-label">{t('响应')}</div>
+                <pre className="tjs-pre">{JSON.stringify(call.response, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

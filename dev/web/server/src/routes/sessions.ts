@@ -9,6 +9,7 @@ import { characterContentStore } from '../character/store.js'
 import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-title.js'
 import { characterPresenceProjector } from '../character/presence-projector.js'
 import { runCoordinator } from '../agent/runtime/run-coordinator.js'
+import { llmCallsForSession, rowToLLMCall } from '../agent/llm-call-store.js'
 import {
   resolveWorkspace, resolveDataspace,
   assembleStaticPrompt, buildInitialMessages,
@@ -311,6 +312,33 @@ router.get('/:id/stats', (c) => {
     inputTokens,
     outputTokens,
   })
+})
+
+/**
+ * GET /:id/export?scope=basic|full — rich session export.
+ * - basic: session metadata + full message history (what the old client-side
+ *   session dump produced).
+ * - full (default): additionally includes every LLM call trace (llm_calls):
+ *   the complete request snapshot (model / messages / tools), response,
+ *   reasoning, tool calls, usage, fp and error — the DSH-style full trace.
+ */
+router.get('/:id/export', (c) => {
+  const id = c.req.param('id')
+  const session = sessionStore.getById(id)
+  if (!session) return c.json({ error: 'Not found' }, 404)
+  const scope = c.req.query('scope') === 'basic' ? 'basic' : 'full'
+  const messages = messageStore.getMessages(id, 100000)
+  const payload: Record<string, unknown> = {
+    exportedAt: Date.now(),
+    schemaVersion: 1,
+    scope,
+    session,
+    messages,
+  }
+  if (scope === 'full') {
+    payload.llmCalls = llmCallsForSession(id).map(row => rowToLLMCall(row))
+  }
+  return c.json(payload)
 })
 
 export default router
