@@ -27,6 +27,47 @@ export interface TrajectoryRow {
   cacheMissTokens: number | null
   // tool 富化（来自 tool.completed）
   durationMs: number | null
+  /** 请求编号 #N：assistant = LLM 调用序号，其后的 tool 继承当前步。 */
+  requestNumber: number | null
+  /** 截至本行（含）的累计输入 token。 */
+  cumulativeInput: number | null
+  /** 截至本行（含）的累计输出 token。 */
+  cumulativeOutput: number | null
+}
+
+/** 每次 LLM 请求的编号行（deepseek-harness requestNumbers 的 tianshu 版）。 */
+export interface TrajectoryRequestNumber {
+  /** 顺序编号 #N（按请求开始时刻排序）。 */
+  number: number
+  step: number
+  /** 对应 TrajectoryRow 下标（用于联动高亮）。 */
+  rowIndex: number
+  llmMs: number | null
+  ttftMs: number | null
+  decodeMs: number | null
+  tokenSpeed: number | null
+  tokenSpeedEstimated: boolean
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheHitTokens: number | null
+  cacheMissTokens: number | null
+  isError: boolean
+  /** 编号递进时的累计用量（含本次）。 */
+  cumulativeInput: number
+  cumulativeOutput: number
+}
+
+/** 轮次分组：一组内是同一步（assistant + 其工具）或用户消息。 */
+export interface TrajectoryGroup {
+  kind: 'user' | 'step'
+  step: number | null
+  rows: TrajectoryRow[]
+}
+
+export interface TrajectoryTurn {
+  /** 用户轮次号（1-based，由 user 消息驱动）。 */
+  turn: number | null
+  groups: TrajectoryGroup[]
 }
 
 /** 生命周期/审批/询问事件条（run.* / approval.* / ask_user），按 seq 顺序。 */
@@ -40,6 +81,10 @@ export interface TrajectoryModel {
   rows: TrajectoryRow[]
   lifecycle: TrajectoryLifecycleItem[]
   retries: number
+  /** 每次 LLM 请求的编号行（按开始时刻排序，含累计用量）。 */
+  requests: TrajectoryRequestNumber[]
+  /** 轮次 → 分组 → 行的折叠模型（用于时间线/分组折叠）。 */
+  turns: TrajectoryTurn[]
 }
 
 const LIFECYCLE_TYPES = new Set([
@@ -95,6 +140,9 @@ function toRow(message: TrajectoryMessage): TrajectoryRow {
     cacheHitTokens: null,
     cacheMissTokens: null,
     durationMs: null,
+    requestNumber: null,
+    cumulativeInput: null,
+    cumulativeOutput: null,
   }
 }
 
@@ -179,7 +227,85 @@ export function buildTrajectory(data: TrajectoryData): TrajectoryModel {
     }
   }
 
-  return { rows, lifecycle, retries }
+  // ── 请求编号 + 累计用量 + 轮次分组（公共派生，供过滤后重建）──
+  return { rows, lifecycle, retries, ...deriveRequestsAndTurns(rows) }
+}
+
+/**
+ * 从内容行派生请求编号（#N）、累计用量与轮次分组。
+ * buildTrajectory 与 filterTrajectory 共用，保证过滤后编号/分组一致。
+ */
+export function deriveRequestsAndTurns(rows: TrajectoryRow[]): {
+  requests: TrajectoryRequestNumber[]
+  turns: TrajectoryTurn[]
+} {
+  // 请求编号 + 累计用量
+  const requests: TrajectoryRequestNumber[] = []
+  let cumulativeInput = 0
+  let cumulativeOutput = 0
+  for (const [rowIndex, row] of rows.entries()) {
+    if (row.kind === 'assistant') {
+      const number = requests.length + 1
+      row.requestNumber = number
+      cumulativeInput += row.inputTokens ?? 0
+      cumulativeOutput += row.outputTokens ?? 0
+      row.cumulativeInput = cumulativeInput
+      row.cumulativeOutput = cumulativeOutput
+      requests.push({
+        number,
+        step: row.step ?? number,
+        rowIndex,
+        llmMs: row.llmMs,
+        ttftMs: row.ttftMs,
+        decodeMs: row.decodeMs,
+        tokenSpeed: row.tokenSpeed,
+        tokenSpeedEstimated: row.tokenSpeedEstimated,
+        inputTokens: row.inputTokens,
+        outputTokens: row.outputTokens,
+        cacheHitTokens: row.cacheHitTokens,
+        cacheMissTokens: row.cacheMissTokens,
+        isError: row.isError,
+        cumulativeInput,
+        cumulativeOutput,
+      })
+    } else if (row.kind === 'tool' && row.step !== null) {
+      // tool 行展示所属请求编号，不重复累计
+      row.requestNumber = requests.length > 0 ? requests[requests.length - 1].number : null
+    }
+  }
+
+  // 轮次分组：每条 user 消息开启新轮；轮内每个 assistant（及其工具）是一个 step 组。
+  const turns: TrajectoryTurn[] = []
+  let currentTurn: TrajectoryTurn | null = null
+  let currentGroup: TrajectoryGroup | null = null
+  let turnNo = 0
+  for (const row of rows) {
+    if (row.kind === 'user') {
+      turnNo += 1
+      currentTurn = { turn: turnNo, groups: [] }
+      turns.push(currentTurn)
+      currentGroup = { kind: 'user', step: null, rows: [] }
+      currentTurn.groups.push(currentGroup)
+    } else if (row.kind === 'assistant') {
+      if (!currentTurn) {
+        currentTurn = { turn: null, groups: [] }
+        turns.push(currentTurn)
+      }
+      currentGroup = { kind: 'step', step: row.step, rows: [] }
+      currentTurn.groups.push(currentGroup)
+    } else if (row.kind === 'tool' && !currentGroup) {
+      // 过滤后可能残留孤立 tool 行：并入新 turn 的 step 组，保持分组完整。
+      if (!currentTurn) {
+        currentTurn = { turn: null, groups: [] }
+        turns.push(currentTurn)
+      }
+      currentGroup = { kind: 'step', step: row.step, rows: [] }
+      currentTurn.groups.push(currentGroup)
+    }
+    currentGroup?.rows.push(row)
+  }
+
+  return { requests, turns }
 }
 
 /** 头部汇总：与侧边栏会话统计同口径（本 run 范围）。 */
@@ -237,9 +363,164 @@ export function filterTrajectory(model: TrajectoryModel, query: string): Traject
       .some(value => typeof value === 'string' && value.toLowerCase().includes(q))
   const lifecycleMatch = (item: TrajectoryLifecycleItem): boolean =>
     item.type.toLowerCase().includes(q) || item.detail.toLowerCase().includes(q)
+  const filteredRows = model.rows.filter(rowMatch)
   return {
-    rows: model.rows.filter(rowMatch),
+    rows: filteredRows,
     lifecycle: model.lifecycle.filter(lifecycleMatch),
     retries: model.retries,
+    ...deriveRequestsAndTurns(filteredRows),
   }
+}
+
+// ── 时间线投影（对齐 deepseek-harness timeline.ts，适配 tianshu 行模型）──
+
+/** 时间线投影模式：sequence 等宽序列 / duration 真实耗时（压缩空闲）。 */
+export type TrajectoryTimelineMode = 'sequence' | 'duration'
+
+/** 一条记录在时间线中的投影（车道 = user/assistant/tool）。 */
+export interface TrajectoryTimelineSpan {
+  /** 行下标（对应 TrajectoryRow 数组下标，用于联动高亮）。 */
+  index: number
+  kind: TrajectoryRowKind
+  start: number
+  end: number
+  lane: 0 | 1 | 2
+  isError: boolean
+  label: string
+  /** assistant 行内 TTFT 占比（0~1），无数据为 null。 */
+  ttftFraction: number | null
+}
+
+export interface TrajectoryTimelineModel {
+  start: number
+  end: number
+  spans: TrajectoryTimelineSpan[]
+  /** user 行位置 = 轮次边界。 */
+  turnBoundaries: Array<{ turn: number | null; time: number }>
+}
+
+function laneFor(kind: TrajectoryRowKind): 0 | 1 | 2 {
+  if (kind === 'tool') return 2
+  if (kind === 'assistant') return 1
+  return 0
+}
+
+function rowDurationMs(row: TrajectoryRow): number | null {
+  if (row.kind === 'assistant') return row.llmMs
+  if (row.kind === 'tool') return row.durationMs
+  return null
+}
+
+/**
+ * 把轨迹行投影到横向时间线（sequence：每记录等宽；duration：按真实耗时）。
+ * @param rows - 已富化的轨迹行（通常为 model.rows）。
+ * @param mode - 投影模式。
+ * @returns 时间线模型，无记录时返回 null。
+ */
+export function deriveTrajectoryTimeline(
+  rows: TrajectoryRow[],
+  mode: TrajectoryTimelineMode = 'sequence',
+): TrajectoryTimelineModel | null {
+  if (rows.length === 0) return null
+
+  if (mode === 'sequence') {
+    const spans: TrajectoryTimelineSpan[] = rows.map((row, index): TrajectoryTimelineSpan => {
+      const ttftFraction = row.kind === 'assistant'
+        && row.ttftMs !== null && row.llmMs !== null && row.llmMs > 0
+        ? Math.min(1, Math.max(0, row.ttftMs / row.llmMs))
+        : null
+      return {
+        index,
+        kind: row.kind,
+        start: index,
+        end: index + 1,
+        lane: laneFor(row.kind),
+        isError: row.isError,
+        label: row.kind === 'tool'
+          ? (row.toolName ?? 'tool')
+          : (row.text.length > 48 ? `${row.text.slice(0, 48)}…` : row.text || row.kind),
+        ttftFraction,
+      }
+    })
+    return {
+      start: 0,
+      end: rows.length,
+      spans,
+      turnBoundaries: rows
+        .map((row, index) => ({ row, index }))
+        .filter(entry => entry.row.kind === 'user')
+        .map(entry => ({ turn: null, time: entry.index })),
+    }
+  }
+
+  // duration：真实耗时压缩空闲（参考 deriveTimedTimeline 的 removedIdle 逻辑）
+  const rawSpans = rows.map((row, index): TrajectoryTimelineSpan => {
+    const durationMs = rowDurationMs(row)
+    const ttftFraction = row.kind === 'assistant'
+      && row.ttftMs !== null && row.llmMs !== null && row.llmMs > 0
+      ? Math.min(1, Math.max(0, row.ttftMs / row.llmMs))
+      : null
+    return {
+      index,
+      kind: row.kind,
+      start: index,
+      end: index + (durationMs !== null && durationMs > 0 ? durationMs / 1000 : 0.25),
+      lane: laneFor(row.kind),
+      isError: row.isError,
+      label: row.kind === 'tool'
+        ? (row.toolName ?? 'tool')
+        : (row.text.length > 48 ? `${row.text.slice(0, 48)}…` : row.text || row.kind),
+      ttftFraction,
+    }
+  })
+  const spans = rawSpans.map((span, i) => {
+    if (i === 0) return span
+    const gap = Math.max(0, span.start - rawSpans[i - 1].end)
+    return { ...span, start: span.start - gap, end: span.end - gap }
+  })
+  return {
+    start: spans[0].start,
+    end: spans[spans.length - 1].end,
+    spans,
+    turnBoundaries: [],
+  }
+}
+
+/**
+ * 找出与选中区间重叠的记录下标（用于时间线拖选 → 表格高亮联动）。
+ * @param rows - 轨迹行。
+ * @param range - 选中区间（投影域内）。
+ * @param mode - 与 deriveTrajectoryTimeline 相同的投影模式。
+ */
+export function trajectoryTimelineFocusIndexes(
+  rows: TrajectoryRow[],
+  range: { start: number; end: number },
+  mode: TrajectoryTimelineMode = 'sequence',
+): ReadonlySet<number> {
+  const model = deriveTrajectoryTimeline(rows, mode)
+  return new Set(
+    model?.spans
+      .filter(span => span.start <= range.end && span.end >= range.start)
+      .map(span => span.index),
+  )
+}
+
+/** 高亮一段文本中命中的子串（搜索高亮用，大小写不敏感）。 */
+export function highlightParts(text: string, query: string): Array<{ text: string; hit: boolean }> {
+  const q = query.trim().toLowerCase()
+  if (!q || !text) return [{ text, hit: false }]
+  const lower = text.toLowerCase()
+  const parts: Array<{ text: string; hit: boolean }> = []
+  let cursor = 0
+  while (cursor < text.length) {
+    const at = lower.indexOf(q, cursor)
+    if (at === -1) {
+      parts.push({ text: text.slice(cursor), hit: false })
+      break
+    }
+    if (at > cursor) parts.push({ text: text.slice(cursor, at), hit: false })
+    parts.push({ text: text.slice(at, at + q.length), hit: true })
+    cursor = at + q.length
+  }
+  return parts
 }

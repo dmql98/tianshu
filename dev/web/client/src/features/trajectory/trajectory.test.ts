@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { TrajectoryData } from '@/types'
-import { buildTrajectory, filterTrajectory, summarizeTrajectory } from './trajectory'
+import {
+  buildTrajectory, deriveRequestsAndTurns, deriveTrajectoryTimeline,
+  filterTrajectory, highlightParts, summarizeTrajectory,
+  trajectoryTimelineFocusIndexes,
+} from './trajectory'
 
 const data: TrajectoryData = {
   run: {
@@ -101,5 +105,109 @@ describe('filterTrajectory', () => {
   it('returns the model unchanged for an empty query', () => {
     const model = buildTrajectory(data)
     expect(filterTrajectory(model, '  ')).toBe(model)
+  })
+
+  it('rebuilds requests and turns after filtering', () => {
+    const model = buildTrajectory(data)
+    const filtered = filterTrajectory(model, 'ls')
+    expect(filtered.requests.length).toBe(0) // assistant 行被过滤
+    expect(filtered.turns.length).toBe(1)    // 只有 tool 组（无 user 前导则并入首个 turn）
+    expect(filtered.turns[0].groups[0].rows.map(r => r.kind)).toEqual(['tool'])
+  })
+})
+
+describe('deriveRequestsAndTurns', () => {
+  it('numbers assistant calls and accumulates usage', () => {
+    const model = buildTrajectory(data)
+    expect(model.requests.map(r => r.number)).toEqual([1, 2])
+    expect(model.requests[0].step).toBe(1)
+    expect(model.requests[0].cumulativeInput).toBe(3200)
+    expect(model.requests[0].cumulativeOutput).toBe(100)
+    expect(model.requests[1].cumulativeInput).toBe(6700)
+    expect(model.requests[1].cumulativeOutput).toBe(150)
+    expect(model.requests[1].isError).toBe(false)
+  })
+
+  it('attaches request numbers to rows', () => {
+    const model = buildTrajectory(data)
+    const tool = model.rows.find(r => r.kind === 'tool')
+    expect(tool?.requestNumber).toBe(1)
+    const assistant2 = model.rows.find(r => r.kind === 'assistant' && r.step === 2)
+    expect(assistant2?.requestNumber).toBe(2)
+    expect(assistant2?.cumulativeInput).toBe(6700)
+  })
+
+  it('groups rows into user turn + step groups', () => {
+    const model = buildTrajectory(data)
+    expect(model.turns.map(t => t.turn)).toEqual([1])
+    expect(model.turns[0].groups.map(g => g.kind)).toEqual(['user', 'step', 'step'])
+    expect(model.turns[0].groups[1].rows.map(r => r.kind)).toEqual(['assistant', 'tool'])
+    expect(model.turns[0].groups[2].rows.map(r => r.kind)).toEqual(['assistant'])
+  })
+
+  it('derives groups for multiple user turns', () => {
+    const twoTurns = buildTrajectory({
+      ...data,
+      messages: [
+        ...data.messages,
+        { id: 5, session_id: 's1', run_id: 'r1', role: 'user', content: '继续', created_at: 6000 },
+        { id: 6, session_id: 's1', run_id: 'r1', role: 'assistant', content: '好的', created_at: 7000 },
+      ],
+    })
+    expect(twoTurns.turns.map(t => t.turn)).toEqual([1, 2])
+    expect(twoTurns.turns[1].groups.map(g => g.kind)).toEqual(['user', 'step'])
+  })
+})
+
+describe('deriveTrajectoryTimeline', () => {
+  it('projects equal-width spans in sequence mode with TTFT fraction', () => {
+    const model = buildTrajectory(data)
+    const timeline = deriveTrajectoryTimeline(model.rows, 'sequence')
+    expect(timeline?.spans.length).toBe(4)
+    expect(timeline?.end).toBe(4)
+    const assistant = timeline?.spans.find(s => s.kind === 'assistant')
+    expect(assistant?.ttftFraction).toBeCloseTo(0.25) // ttft 500 / llm 2000
+    expect(timeline?.turnBoundaries.length).toBe(1)
+  })
+
+  it('projects duration spans with real llm/tool durations', () => {
+    const model = buildTrajectory(data)
+    const timeline = deriveTrajectoryTimeline(model.rows, 'duration')
+    expect(timeline).not.toBeNull()
+    const assistant = timeline?.spans.find(s => s.kind === 'assistant' && s.label === '好的')
+    expect(assistant && assistant.end - assistant.start).toBeCloseTo(2) // 2000ms
+    const tool = timeline?.spans.find(s => s.kind === 'tool')
+    expect(tool && tool.end - tool.start).toBeCloseTo(0.3)
+  })
+
+  it('returns null for empty rows', () => {
+    expect(deriveTrajectoryTimeline([], 'sequence')).toBeNull()
+  })
+
+  it('focus indexes overlap the selected range', () => {
+    const model = buildTrajectory(data)
+    const focused = trajectoryTimelineFocusIndexes(model.rows, { start: 0, end: 1.5 }, 'sequence')
+    expect([...focused]).toEqual([0, 1])
+  })
+})
+
+describe('highlightParts', () => {
+  it('splits text into hit and non-hit parts', () => {
+    expect(highlightParts('分析这个项目', '项目')).toEqual([
+      { text: '分析这个', hit: false },
+      { text: '项目', hit: true },
+    ])
+  })
+
+  it('returns a single non-hit part for empty query', () => {
+    expect(highlightParts('abc', '')).toEqual([{ text: 'abc', hit: false }])
+  })
+
+  it('handles multiple hits', () => {
+    expect(highlightParts('a-b-a', 'a')).toEqual([
+      { text: 'a', hit: true },
+      { text: '-b-', hit: false },
+      { text: 'a', hit: true },
+    ])
   })
 })

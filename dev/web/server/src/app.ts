@@ -19,6 +19,7 @@ import messagesRouter from './routes/messages.js'
 import eventDefinitionsRouter from './routes/event-definitions.js'
 import goalsRouter, { setGoalRuntime } from './routes/goals.js'
 import runsRouter, { setRunsRuntime } from './routes/runs.js'
+import debugRouter from './routes/debug.js'
 import themesRouter, { initThemeStore } from './routes/themes.js'
 import iconPacksRouter from './routes/iconpacks.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
@@ -210,6 +211,7 @@ export async function startTianshuServer(
   app.route('/api/prompts', promptsRouter)
   app.route('/api/config', configRouter)
   app.route('/api/runs', runsRouter)
+  app.route('/api/debug', debugRouter)
   app.route('/api/messages', messagesRouter)
   app.route('/api/event-definitions', eventDefinitionsRouter)
   app.route('/api/goals', goalsRouter)

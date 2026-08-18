@@ -175,6 +175,14 @@ export const dict: Record<string, DictEntry> = {
   '时长': { zh: '时长', en: 'Duration' },
   '助手调用': { zh: '助手调用', en: 'Model calls' },
   '工具时间': { zh: '工具时间', en: 'Tool time' },
+  '轮次': { zh: '轮次', en: 'Turn' },
+  '步骤': { zh: '步骤', en: 'Step' },
+  '未归属轮次': { zh: '未归属轮次', en: 'Unassigned turn' },
+  '条记录': { zh: '条记录', en: ' records' },
+  '展开本轮': { zh: '展开本轮', en: 'Expand turn' },
+  '折叠本轮': { zh: '折叠本轮', en: 'Collapse turn' },
+  '按顺序显示': { zh: '按顺序显示', en: 'Sequence view' },
+  '按耗时显示': { zh: '按耗时显示', en: 'Duration view' },
 
   // ── 目标与计划 ──
   '进行中': { zh: '进行中', en: 'In Progress' },
