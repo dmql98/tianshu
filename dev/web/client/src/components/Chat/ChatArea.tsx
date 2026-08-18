@@ -4,8 +4,10 @@ import MessageList from './MessageList'
 import ChatInput from './ChatInput'
 import ApprovalDialog from './ApprovalDialog'
 import AskUserDialog from './AskUserDialog'
+import TrajectoryView from '@/features/trajectory/TrajectoryView'
 import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 export default function ChatArea() {
   const {
@@ -14,7 +16,22 @@ export default function ChatArea() {
   } = useChatStore()
   const { toggleSidebar, toggleRightPanel, toggleFilePanel } = useUIStore()
   const t = useI18n()
+  const location = useLocation()
+  const navigate = useNavigate()
   const session = sessions.find(s => s.id === activeSessionId)
+  // 视图由 URL 决定：/chat/:id = 对话，/chat/:id/trajectory = 轨迹。
+  const isTrajectory = location.pathname.endsWith('/trajectory')
+
+  const goChat = () => {
+    if (activeSessionId && isTrajectory) {
+      navigate(`/chat/${encodeURIComponent(activeSessionId)}`)
+    }
+  }
+  const goTrajectory = () => {
+    if (activeSessionId && !isTrajectory) {
+      navigate(`/chat/${encodeURIComponent(activeSessionId)}/trajectory`)
+    }
+  }
 
   return (
     <div className="main">
@@ -39,8 +56,35 @@ export default function ChatArea() {
           <button className="top-btn" onClick={toggleRightPanel} title={t('星官详情')}><Icon name="nav-characters" size={15} ariaHidden /></button>
           <button className="top-btn" onClick={toggleFilePanel} title={t('文件')}><Icon name="folder" size={15} ariaHidden /></button>
         </div>
-        <MessageList />
-        <ChatInput />
+        {/* 会话视图分页：对话 / 轨迹（视图由 URL 决定，tab 高亮跟随路径） */}
+        <div className="chat-tabs" role="tablist" aria-label={t('会话视图')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!isTrajectory}
+            className={`chat-tab ${!isTrajectory ? 'active' : ''}`}
+            onClick={goChat}
+          >
+            {t('对话')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isTrajectory}
+            className={`chat-tab ${isTrajectory ? 'active' : ''}`}
+            onClick={goTrajectory}
+          >
+            {t('轨迹')}
+          </button>
+        </div>
+        {/* 两个视图都保持挂载：切走再切回不丢聊天滚动位置 / 轨迹选择 */}
+        <div className="chat-view-pane" style={{ display: !isTrajectory ? 'flex' : 'none' }}>
+          <MessageList />
+          <ChatInput />
+        </div>
+        <div className="chat-view-pane" style={{ display: isTrajectory ? 'flex' : 'none' }}>
+          <TrajectoryView sessionId={activeSessionId ?? ''} />
+        </div>
       </div>
       {pendingApproval && <ApprovalDialog />}
       {pendingAskUser && <AskUserDialog />}

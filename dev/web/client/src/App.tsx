@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { fetchEventDefinitions } from './api/eventDefinitions'
 import { fetchDataspace } from './api/config'
@@ -141,6 +141,7 @@ export default function App() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:sessionId" element={<ChatPage />} />
+        <Route path="/chat/:sessionId/trajectory" element={<ChatPage />} />
         <Route path="/characters" element={<CharactersPage />} />
         <Route path="/characters/new" element={<CharacterDetailPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />

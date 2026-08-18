@@ -157,6 +157,23 @@ export const dict: Record<string, DictEntry> = {
   '输入数': { zh: '输入数', en: 'Input' },
   '输出数': { zh: '输出数', en: 'Output' },
 
+  // ── 轨迹页 ──
+  '轨迹': { zh: '轨迹', en: 'Trajectory' },
+  '对话': { zh: '对话', en: 'Chat' },
+  '会话视图': { zh: '会话视图', en: 'Session views' },
+  '选择运行': { zh: '选择运行', en: 'Select run' },
+  '返回会话': { zh: '返回会话', en: 'Back to Chat' },
+  '无运行记录': { zh: '无运行记录', en: 'No runs' },
+  '搜索轨迹': { zh: '搜索轨迹', en: 'Search trajectory' },
+  '加载运行列表失败': { zh: '加载运行列表失败', en: 'Failed to load runs' },
+  '加载轨迹失败': { zh: '加载轨迹失败', en: 'Failed to load trajectory' },
+  '无轨迹数据': { zh: '无轨迹数据', en: 'No trajectory data' },
+  '结果': { zh: '结果', en: 'Result' },
+  '展开全部': { zh: '展开全部', en: 'Expand all' },
+  '时长': { zh: '时长', en: 'Duration' },
+  '助手调用': { zh: '助手调用', en: 'Model calls' },
+  '工具时间': { zh: '工具时间', en: 'Tool time' },
+
   // ── 目标与计划 ──
   '进行中': { zh: '进行中', en: 'In Progress' },
   '已暂停': { zh: '已暂停', en: 'Paused' },

@@ -301,3 +301,52 @@ export interface WorkspaceGroup {
   sessions: Session[]
   collapsed: boolean
 }
+
+// ── 轨迹页（trajectory）──
+
+/** 一条 run 的持久化事件（非流式：不含 message.delta / tool.output）。 */
+export interface TrajectoryEvent {
+  event_id: string
+  session_id: string
+  run_id: string
+  seq: number
+  type: string
+  occurred_at: number
+  [key: string]: unknown
+}
+
+/** 轨迹页使用的消息行（messages 表，含最终内容）。 */
+export interface TrajectoryMessage {
+  id: number
+  session_id: string
+  run_id: string | null
+  role: 'user' | 'assistant' | 'tool'
+  content: string
+  reasoning_content?: string | null
+  tool_name?: string | null
+  tool_input?: string | null
+  tool_output?: string | null
+  tool_status?: string | null
+  is_error?: number | null
+  token_speed?: number | null
+  created_at: number
+}
+
+/** GET /api/runs/:id/trajectory 的响应。 */
+export interface TrajectoryData {
+  run: {
+    id: string
+    session_id: string
+    status: string
+    execution_mode: string
+    error: string | null
+    result: string | null
+    queued_at: number
+    started_at: number | null
+    finished_at: number | null
+    continuation_index: number
+    resume_trigger: string | null
+  }
+  messages: TrajectoryMessage[]
+  events: TrajectoryEvent[]
+}

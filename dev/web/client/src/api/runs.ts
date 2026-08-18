@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from './client'
-import type { RunEvent, RunLimitSummary } from '@/types'
+import type { RunEvent, RunLimitSummary, TrajectoryData } from '@/types'
 
 export interface RunRow {
   id: string
@@ -40,6 +40,10 @@ export const fetchRecentRuns = (sessionId: string, limit = 10) =>
 
 export const fetchRunEvents = (runId: string, afterSeq: number) =>
   apiGet<RunEvent[]>(`/api/runs/${runId}/events?after_seq=${afterSeq}`)
+
+/** 轨迹页数据：run + 最终消息 + 非流式事件。 */
+export const fetchRunTrajectory = (runId: string) =>
+  apiGet<TrajectoryData>(`/api/runs/${runId}/trajectory`)
 
 export const submitRunInput = (runId: string, answer: string) =>
   apiPost<{ run_id: string; status: string }>(`/api/runs/${runId}/inputs`, { answer })

@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { getDb } from '../db/schema.js'
 import { runStore } from '../agent/runtime/run-store.js'
 import { runEventStore } from '../agent/runtime/run-event-store.js'
 import { checkpointStore } from '../agent/runtime/checkpoint-store.js'
@@ -62,6 +63,45 @@ router.get('/:id/events', (c) => {
     ...JSON.parse(event.payload),
   }))
   return c.json(events)
+})
+
+/**
+ * GET /:id/trajectory — everything the trajectory page needs in one call:
+ * the run row, the run's final content messages (user / assistant / tool), and
+ * the non-streaming event log (timing metrics, usage, lifecycle, approvals).
+ * The high-volume stream types (`message.delta`, `tool.output`) are excluded —
+ * the final text lives in `messages`, so no delta reconstruction is needed.
+ */
+router.get('/:id/trajectory', (c) => {
+  const run = runStore.get(c.req.param('id'))
+  if (!run) return c.json({ error: 'Not found' }, 404)
+  const messages = getDb().prepare(
+    'SELECT * FROM messages WHERE run_id = ? ORDER BY id ASC',
+  ).all(run.id)
+  const eventRows = getDb().prepare(`
+    SELECT event_id, session_id, run_id, seq, type, payload, created_at
+    FROM run_events
+    WHERE run_id = ? AND type NOT IN ('message.delta', 'tool.output')
+    ORDER BY seq ASC
+  `).all(run.id) as Array<{
+    event_id: string
+    session_id: string
+    run_id: string
+    seq: number
+    type: string
+    payload: string
+    created_at: number
+  }>
+  const events = eventRows.map(event => ({
+    event_id: event.event_id,
+    session_id: event.session_id,
+    run_id: event.run_id,
+    seq: event.seq,
+    type: event.type,
+    occurred_at: event.created_at,
+    ...JSON.parse(event.payload),
+  }))
+  return c.json({ run, messages, events })
 })
 
 router.get('/:id/checkpoints', (c) => {
