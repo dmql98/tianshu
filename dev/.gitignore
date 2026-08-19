@@ -58,6 +58,7 @@ venv/
 .env.*
 !.env.example
 !.env.*.example
+web/server/config.json
 
 # ── 测试产物 ──
 coverage/
