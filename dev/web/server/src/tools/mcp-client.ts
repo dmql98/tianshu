@@ -122,6 +122,11 @@ export async function connectMCPServer(config: MCPServerConfig, workspace?: stri
           .filter(c => c.type === 'text')
           .map(c => c.text || '')
           .join('\n')
+        // R3: MCP 输出无大小保护 → 超大输出全量进上下文/DB/前端；加单次上限。
+        const MAX_MCP_OUTPUT = 1024 * 1024
+        if (Buffer.byteLength(output, 'utf-8') > MAX_MCP_OUTPUT) {
+          return { output: `${output.slice(0, MAX_MCP_OUTPUT)}\n\n...(MCP output truncated: ${output.length} chars total)` }
+        }
         return { output }
       } catch (err: any) {
         return { output: '', error: `MCP call failed: ${err.message || String(err)}` }

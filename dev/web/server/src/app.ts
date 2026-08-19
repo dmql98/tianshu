@@ -28,6 +28,7 @@ import { startEventScheduler, stopEventScheduler } from './event/event-scheduler
 import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
 import { runStore } from './agent/runtime/run-store.js'
 import { forceCancelSessionRuns, recoverContinuationState } from './agent/runtime/run-event-store.js'
+import { materializeAllBuiltinContent, materializeSummary } from './content/materialize-builtin.js'
 import { startRunStallWatchdog } from './agent/runtime/run-stall-watchdog.js'
 
 export interface StartServerOptions {
@@ -160,6 +161,12 @@ export async function startTianshuServer(
     await initTools()
   } catch (err) {
     console.error('[registry] Tool init failed:', err)
+  }
+  // 启动时把 builtin/content 全量物化到 dataDir：用户层副本始终存在，
+  // 技能/角色指南的路径可统一指向 <dataDir>。幂等、不覆盖用户修改。
+  {
+    const result = materializeAllBuiltinContent()
+    console.log(materializeSummary(result))
   }
   // Reclaim orphaned runs left behind by a previous process. Approval/ask
   // waits live only in-memory, so after a restart any run still parked in

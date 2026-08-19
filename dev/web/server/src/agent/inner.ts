@@ -28,6 +28,14 @@ import { decideWorkspaceApproval } from './workspace-approval.js'
 
 const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch', 'get_time', 'debug_sessions'])
 
+// R5: 工具行 tool_input 里的 args 只保留截断副本（完整参数由 assistant 行的
+// tool_calls 承载），避免 write 大 content 在 tool 行与 assistant 行重复全量落库。
+const STORED_ARGS_MAX = 4000
+function storedToolInput(callId: string, argsStr: string): string {
+  const args = argsStr.length > STORED_ARGS_MAX ? `${argsStr.slice(0, STORED_ARGS_MAX)}...(args truncated)` : argsStr
+  return JSON.stringify({ call_id: callId, args })
+}
+
 /** Outcome category of a tool call for progress assessment (§8.5). */
 function outcomeKindFor(name: string): ToolCallRecord['outcomeKind'] {
   if (READ_ONLY_TOOLS.has(name) || name === 'get_goal') return 'read'
@@ -700,7 +708,7 @@ export async function innerLoop(
     }
     toolCallRecords.push(rec)
     if (sessionId) {
-      messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: p.skipReason!, tool_status: 'error', is_error: 1 })
+      messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: p.skipReason!, tool_status: 'error', is_error: 1 })
     }
     newMessages.push({ role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_call_id: p.tc.id })
     socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
@@ -812,6 +820,11 @@ export async function innerLoop(
 
     const toolStatus = result.error ? 'error' : result.escaped ? 'denied' : 'success'
 
+    // R1+R2 (P2): 落库/事件里的 tool_output 用截断后展示文本，避免全量输出进前端与
+    // run_events。完整输出仍在 content 列（全量）承载，重放 rowToLLMMessage 对其做
+    // 确定性 truncateToolOutput（sha256 内容寻址），因此 content 不可改为截断版。
+    const displayOutput = result.error || truncate(result.output || '')
+
     // Persist any media the tool produced (e.g. webfetch images) through the
     // media pipe, and emit it as multimodal content for vision-capable models.
     let storedAttachments: AttachmentRecord[] | undefined
@@ -828,13 +841,13 @@ export async function innerLoop(
 
     const toolMsg: LLMMessage = { role: 'tool', content: toolContent, tool_call_id: p.tc.id }
     if (sessionId) {
-      const stored = messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ output: result.output, error: result.error }), tool_name: p.name, tool_input: JSON.stringify({ call_id: p.tc.id, args: p.argsStr }), tool_output: result.error || result.output, tool_status: toolStatus, attachments: storedAttachments ? JSON.stringify(storedAttachments) : null, is_error: result.error ? 1 : 0 })
+      const stored = messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ output: truncate(result.output || ''), error: truncateError(result.error || '') }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: displayOutput, tool_status: toolStatus, attachments: storedAttachments ? JSON.stringify(storedAttachments) : null, is_error: result.error && !result.escaped ? 1 : 0 })
       // P0-4: 给运行中的 tool 消息附带 DB id，供 trimToolResults 记录
       // trimmed_until_id 水印，重载时按同一剪枝实现恢复一致的内存态。
       ;(toolMsg as any).__dbId = stored.id
     }
     newMessages.push(toolMsg)
-    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: result.error || result.output, tool_status: toolStatus, duration_ms: duration })
+    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: displayOutput, tool_status: toolStatus, duration_ms: duration })
   }
 
   // Run all read-only tools in parallel, then writes sequentially

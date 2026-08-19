@@ -35,9 +35,6 @@
     { "name": "websearch" },
     { "name": "skill_manager" },
     { "name": "task_complete" },
-    { "name": "character_manager" },
-    { "name": "provider_manager" },
-    { "name": "mcp_manager" },
     { "name": "get_time" },
     { "name": "read" }
   ]

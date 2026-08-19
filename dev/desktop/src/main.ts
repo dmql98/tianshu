@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { appendFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { ServerManager } from './server-manager.js'
 import { bundledNodePath, verifyBundledNode } from './runtime-paths.js'
 import { UpdateManager } from './updater.js'
@@ -14,6 +14,22 @@ import type { ServerMessage } from '../../shared/server-ipc.js'
 
 const isDev = !app.isPackaged
 const DEV_URL = process.env.TIANSHU_DEV_URL || 'http://127.0.0.1:3457'
+
+// 首次启动的初始化 splash：server 创建 dataDir + 物化 builtin content 期间展示。
+const SPLASH_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  html,body{height:100%;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#201b14;color:#f2ead9;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
+  .logo{font-size:28px;font-weight:600;letter-spacing:2px;margin-bottom:16px}
+  .spin{width:28px;height:28px;border:3px solid rgba(242,234,217,.2);border-top-color:#f2ead9;border-radius:50%;
+  animation:r 1s linear infinite;margin-bottom:18px}
+  .msg{font-size:14px;opacity:.75}
+  @keyframes r{to{transform:rotate(360deg)}}
+</style></head><body>
+  <div class="logo">天枢</div>
+  <div class="spin"></div>
+  <div class="msg">正在初始化…</div>
+</body></html>`)}`
 
 let mainWindow: BrowserWindow | null = null
 let serverManager: ServerManager | null = null
@@ -296,7 +312,9 @@ function createWindow(): void {
   win.on('restore', () => sendToMainWindow('desktop:resume-sync'))
   win.on('focus', () => sendToMainWindow('desktop:resume-sync'))
 
-  void win.loadURL(serverUrl)
+  // 先显示"正在初始化"（首次启动 server 创建 dataDir + 物化期间），
+  // server ready 后由调用方 loadURL(serverUrl) 切换主界面。
+  void win.loadURL(SPLASH_HTML)
 }
 
 // ── single instance ──
@@ -314,6 +332,13 @@ if (!app.requestSingleInstanceLock()) {
     const userData = app.getPath('userData')
     mkdirSync(join(userData, 'logs'), { recursive: true })
 
+    // 默认数据目录 = 客户端安装路径下（跨平台：exe 所在目录）。首次启动 server
+    // 自动在此创建 dataDir 并物化 builtin content，无需用户手动选择。
+    // dev 模式由 dev-desktop.mjs 提供 TIANSHU_DEFAULT_DATA_DIR，不走此默认。
+    const defaultDataDir = app.isPackaged
+      ? join(dirname(app.getPath('exe')), 'data')
+      : undefined
+
     const manager = new ServerManager({
       packaged: app.isPackaged,
       // 跨平台解析内置 Node 可执行文件（win32 -> node.exe，POSIX -> bin/node）。
@@ -321,6 +346,7 @@ if (!app.requestSingleInstanceLock()) {
       serverEntry: join(process.resourcesPath, 'server', 'dist', 'index.js'),
       clientDist: join(process.resourcesPath, 'client'),
       userDataDir: userData,
+      defaultDataDir,
       devUrl: DEV_URL,
       // 启动前校验：Node 文件存在 + runtime-manifest 与当前平台/架构一致（§8.5）。
       preflight: () => {
@@ -364,12 +390,16 @@ if (!app.requestSingleInstanceLock()) {
       }
     })
 
+    // 先建窗展示"正在初始化"（首次启动 server 创建 dataDir + 物化期间），
+    // 再启动 server；ready 后切换到主界面（失败也切走 splash，由 did-fail-load 显示）。
+    createWindow()
     const status = await manager.start()
     if (status.phase === 'ready' && status.url) {
       serverUrl = status.url
     }
-
-    createWindow()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      void mainWindow.loadURL(serverUrl)
+    }
 
     // Silent background check ~7s after the window is up (packaged only).
     if (app.isPackaged) {

@@ -8,6 +8,16 @@ export function getDangerousTools(): string[] {
   return getAll().filter(t => t.dangerous).map(t => t.name)
 }
 
+/**
+ * 默认工具白名单：当角色没有显式配置 tools 时，只暴露这些工具。
+ * provider/character/mcp 管理已改为「技能 + dataDir 文件 / webfetch+REST」，
+ * 不再作为默认工具下发（三个 manager 工具已下线）。
+ */
+export const DEFAULT_TOOL_NAMES = new Set([
+  'read', 'edit', 'write', 'grep', 'glob', 'bash', 'pwsh', 'webfetch', 'websearch', 'get_time',
+  'skill_manager', 'debug_sessions',
+])
+
 function matchPath(pattern: string, target: string): boolean {
   if (pattern.endsWith('/**')) return target.startsWith(pattern.slice(0, -3)) || target === pattern.slice(0, -3)
   if (pattern.endsWith('*')) return target.startsWith(pattern.slice(0, -1))
@@ -117,7 +127,11 @@ export function validateConstraints(toolName: string, args: Record<string, any>,
 
 export function resolveCharacterTools(characterTools?: ToolBinding[]): ToolBinding[] {
   if (!characterTools || characterTools.length === 0) {
-    return getAll().filter(t => !t.signal).map(t => ({ name: t.name }))
+    // 默认只暴露白名单工具；管理类不再默认下发。
+    return Array.from(DEFAULT_TOOL_NAMES)
+      .map(name => getAll().find(t => t.name === name))
+      .filter((t): t is NonNullable<typeof t> => !!t && !t.signal)
+      .map(t => ({ name: t.name }))
   }
   const result: ToolBinding[] = []
   for (const ct of characterTools) {
@@ -134,8 +148,10 @@ export function resolveCharacterTools(characterTools?: ToolBinding[]): ToolBindi
 
 export function getCharacterToolDefinitions(characterTools?: ToolBinding[]) {
   if (!characterTools || characterTools.length === 0) {
-    return getAll()
-      .filter(t => !t.signal)
+    // 默认只暴露白名单工具。
+    return Array.from(DEFAULT_TOOL_NAMES)
+      .map(name => getAll().find(t => t.name === name))
+      .filter((t): t is NonNullable<typeof t> => !!t && !t.signal)
       .map(t => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }))
   }
   const result: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, any> } }> = []

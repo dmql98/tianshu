@@ -1,6 +1,7 @@
-import { readdirSync, existsSync, readFileSync } from 'fs'
+import { readdirSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import type { ToolModule, ToolResult, ToolContext } from './types.js'
+import { readToolMeta, validateToolMetas } from './tool-meta.js'
 
 const TOOLS_DIR = import.meta.dirname
 
@@ -9,17 +10,13 @@ const byName = new Map<string, ToolModule>()
 
 const IGNORE_DIRS = new Set(['_template'])
 
-function readToolJson(name: string): Record<string, any> | null {
-  const p = resolve(TOOLS_DIR, name, 'tool.json')
-  if (!existsSync(p)) return null
-  let text = readFileSync(p, 'utf-8')
-  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
-  try { return JSON.parse(text) } catch { return null }
-}
-
 export async function init(): Promise<void> {
   if (initialized) return
   initialized = true
+
+  // Surface any broken (non-UTF-8 / invalid) tool.json instead of silently
+  // disabling constraint enforcement (B1).
+  validateToolMetas()
 
   const entries = readdirSync(TOOLS_DIR, { withFileTypes: true })
   const dirs = entries
@@ -30,9 +27,12 @@ export async function init(): Promise<void> {
     try {
       const mod = await import(`./${dir.name}/index.js`)
       if (mod.tool?.name) {
-        const meta = readToolJson(dir.name)
-        if (meta?.constraintFields) {
+        const meta = readToolMeta(dir.name)
+        if (meta?.constraintFields?.length) {
           mod.tool.constraintFields = meta.constraintFields
+        }
+        if (meta && typeof meta.dangerous === 'boolean') {
+          mod.tool.dangerous = meta.dangerous
         }
         byName.set(mod.tool.name, mod.tool)
       }

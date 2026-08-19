@@ -1,13 +1,12 @@
 import { createHash } from 'crypto'
-import { writeFileSync, rmSync } from 'fs'
-import { join, resolve } from 'path'
+import { resolve } from 'path'
 import type { ToolModule } from '../types.js'
 import { characterMetaStore } from '../../db/characterStore.js'
 import { sessionStore } from '../../db/sessionStore.js'
-import { characterSkillBindings, findSkillByName } from '../../agent/skill-loader.js'
+import { characterSkillBindings } from '../../agent/skill-loader.js'
 import { findSkillPackage, listSkillPackages, resolveSkillReference } from '../../agent/skill-catalog.js'
 import { sessionSkillStore } from '../../agent/session-skill-store.js'
-import { createSkillPackage } from '../../agent/skill-package-writer.js'
+import { getDataDir } from '../../config.js'
 
 function packageAllowed(sessionId: string | undefined, packageId: string): boolean {
   if (!sessionId) return false
@@ -24,8 +23,8 @@ export const tool: ToolModule = {
     properties: {
       action: {
         type: 'string',
-        enum: ['list_packages', 'describe_package', 'list_children', 'activate', 'deactivate', 'list_active', 'read', 'create_package', 'update', 'delete'],
-        description: 'Use list_packages/describe_package first. Use create_package to create a standard package and activate for a package child.',
+        enum: ['list_packages', 'describe_package', 'list_children', 'activate', 'deactivate', 'list_active', 'read'],
+        description: 'Use list_packages/describe_package first, then activate for a package child. (create_package/update/delete 已下沉到 REST 技能工作台，不再由模型直接调用。)',
       },
       package_id: { type: 'string', description: 'Skill package id.' },
       package_name: { type: 'string', description: 'Display name for a new skill package.' },
@@ -80,7 +79,10 @@ export const tool: ToolModule = {
       const hash = createHash('sha256').update(found.body).digest('hex')
       sessionSkillStore.activate(ctx.sessionId, args.package_id, args.skill_id, hash)
       const childDir = resolve(found.pkg.dir, found.child.path)
-      return { output: `Activated ${ref} for this session.\n\n磁盘目录（可用 bash cd 到此处运行脚本）:\n${childDir}\n\nFollow these instructions now:\n\n${found.body}` }
+      // 把运行时 dataDir 真实路径带给模型：技能正文里的 `<dataDir>` 占位符
+      // 无法被模型解析（bash 工作区 ≠ dataDir），激活时直接注入绝对路径。
+      const dataDir = getDataDir()
+      return { output: `Activated ${ref} for this session.\n\n磁盘目录（可用 bash cd 到此处运行脚本）:\n${childDir}\n\n数据目录 dataDir（角色/Provider/MCP 配置文件的根目录）:\n${dataDir}\n\nFollow these instructions now:\n\n${found.body.replace(/<dataDir>/g, dataDir)}` }
     }
 
     if (action === 'deactivate') {
@@ -99,38 +101,9 @@ export const tool: ToolModule = {
       return { output: found.body }
     }
 
-    if (action === 'create_package') {
-      const id = args.package_id || args.skill_name
-      if (!id || !args.category || !args.content) return { output: '', error: 'package_id (or skill_name), category and content are required' }
-      try {
-        const created = createSkillPackage({
-          id,
-          category: args.category,
-          content: args.content,
-          name: args.package_name,
-          description: args.description,
-          version: args.version,
-        })
-        return { output: `Skill package "${created.manifest.id}" created in standard format\n  Manifest: skills/${created.manifest.category}/${created.manifest.id}/skill-package.json\n  Root: skills/${created.manifest.category}/${created.manifest.id}/SKILL.md` }
-      } catch (error: any) {
-        return { output: '', error: error.message }
-      }
-    }
-
-    if (action === 'update') {
-      if (!args.skill_name || !args.content) return { output: '', error: 'skill_name and content are required' }
-      const found = findSkillByName(args.skill_name)
-      if (!found) return { output: '', error: `Skill "${args.skill_name}" not found` }
-      writeFileSync(join(found.dir, 'SKILL.md'), args.content, 'utf-8')
-      return { output: `Skill "${args.skill_name}" updated` }
-    }
-
-    if (action === 'delete') {
-      if (!args.skill_name) return { output: '', error: 'skill_name is required' }
-      const found = findSkillByName(args.skill_name)
-      if (!found) return { output: '', error: `Skill "${args.skill_name}" not found` }
-      rmSync(found.dir, { recursive: true, force: true })
-      return { output: `Skill "${args.skill_name}" deleted` }
+    if (action === 'create_package' || action === 'update' || action === 'delete') {
+      // §6.4 技能瘦身：技能包的写操作下沉到 REST 技能工作台，模型不再直接改盘。
+      return { output: '', error: `action="${action}" 已从 skill_manager 移除。请改用 REST 技能工作台（/api/skills）完成创建/编辑/删除，或激活 tianshu-system 的 skill-authoring 子技能获取操作指引。` }
     }
 
     return { output: '', error: `Invalid action: ${action}` }

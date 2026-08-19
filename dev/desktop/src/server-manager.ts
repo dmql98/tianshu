@@ -56,6 +56,8 @@ export interface ServerManagerOptions {
   clientDist: string
   /** Electron app.getPath('userData'). */
   userDataDir: string
+  /** 默认数据目录（首次启动自动采用，安装路径下）。缺省回退 <userData>/data。 */
+  defaultDataDir?: string
   /** Dev-mode URL to load when packaged === false. */
   devUrl?: string
   /** Time to wait for { type: 'ready' } before declaring failure. */
@@ -221,8 +223,10 @@ export class ServerManager {
         PORT: '0',
         NODE_ENV: 'production',
         TIANSHU_CLIENT_DIST: this.opts.clientDist,
+        // 数据目录默认在客户端安装路径下（由主进程传入），首次启动自动创建并
+        // 物化 builtin content；server 从 config.json 读取（TIANSHU_CONFIG_DIR）。
         TIANSHU_CONFIG_DIR: this.opts.userDataDir,
-        TIANSHU_DEFAULT_DATA_DIR: join(this.opts.userDataDir, 'data'),
+        TIANSHU_DEFAULT_DATA_DIR: this.opts.defaultDataDir || join(this.opts.userDataDir, 'data'),
         // 只读内置内容根（content/builtin → resources/content/builtin）。
         // resourcesPath 只在 Electron 运行时存在；测试环境回退到用户数据目录
         // 下的 content/builtin（不存在时 server 使用仓库根定位）。

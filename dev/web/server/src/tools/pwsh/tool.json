@@ -1,0 +1,21 @@
+{
+  "name": "pwsh",
+  "description": "Execute a PowerShell command in the workspace directory",
+  "source": "builtin",
+  "dangerous": true,
+  "version": "1.0.0",
+  "tags": ["system"],
+  "author": "TianShu",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "command": { "type": "string", "description": "PowerShell command to execute" },
+      "timeout_seconds": { "type": "number", "description": "Optional timeout in seconds (default 60)" }
+    },
+    "required": ["command"]
+  },
+  "constraintFields": [
+    { "key": "allowed_commands", "label": "允许的命令", "type": "string-list", "placeholder": "例: Get-Content, Set-Content, Get-ChildItem, Select-String", "validateArg": "command", "validateRule": "exact-allow" },
+    { "key": "denied_patterns", "label": "禁止的模式", "type": "string-list", "placeholder": "例: Remove-Item, Stop-Process, Invoke-WebRequest", "validateArg": "command", "validateRule": "substring-deny" }
+  ]
+}

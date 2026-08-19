@@ -152,7 +152,11 @@ export function publishRunEvent(
   return row
 }
 
-const DURABLE_EVENT = /^(run\.|message\.|tool\.|approval\.|control\.|plan\.|goal\.|agent_task\.|character\.|sub_agent\.|usage$|ask_user$)/
+// R7: `tool.output` (bash 流式 chunk, 每 chunk 一次 emit) 不再参与 durable 落库——
+// 它是 high-volume 流式事件，逐 chunk INSERT run_events 会是最大的写入放大点。
+// tool.started / tool.completed / approval.requested 等状态类事件仍落库（run 状态机
+// 与 checkpoint 依赖），最终结果由 tool.completed + messages 表承载，无信息丢失。
+const DURABLE_EVENT = /^(run\.|message\.|tool\.(?!output$)|approval\.|control\.|plan\.|goal\.|agent_task\.|character\.|sub_agent\.|usage$|ask_user$)/
 
 export function createDurableSocket(socket: TransportBroadcaster, runId: string): TransportBroadcaster {
   return new Proxy(socket, {

@@ -121,19 +121,28 @@ function loadConfig(): Config {
     }
   }
 
-  // 3. Default supplied by the desktop shell (<userData>/data).
+  // 3. Default supplied by the desktop shell (<installDir>/data 或 <userData>/data)。
   const defaultDir = process.env.TIANSHU_DEFAULT_DATA_DIR
   if (defaultDir) {
     // First-launch compatibility: if the legacy C:\.Tianshu already has data,
     // keep using it (no bulk migration) and persist that decision to the new
-    // config location. Otherwise default to the fresh userData/data dir.
+    // config location. Otherwise default to the shell-provided dir.
     if (legacyHasData()) {
       cached = { dataDir: LEGACY_DATA_DIR }
       explicitlySet = true
       writeConfig(cached)
       return cached
     }
+    // 默认 dataDir 视为已配置：首次启动自动采用外壳传入的默认目录（安装路径下），
+    // 持久化到 config.json 并标记 explicitlySet，前端不再要求用户手动选择。
     cached = { dataDir: defaultDir }
+    explicitlySet = true
+    try {
+      writeConfig(cached)
+    } catch (err) {
+      // 安装目录可能只读：保持内存态可用，不因持久化失败而拒绝启动。
+      console.error(`[config] failed to persist default dataDir (continuing in-memory): ${err instanceof Error ? err.message : err}`)
+    }
     return cached
   }
 

@@ -1,10 +1,11 @@
 import { Hono } from 'hono'
-import { readdirSync, existsSync, readFileSync } from 'fs'
+import { readdirSync } from 'fs'
 import { resolve } from 'path'
 import { mcpServerStore } from '../db/toolStore.js'
 import { connectMCPServer, disconnectMCPServer } from '../tools/mcp-client.js'
 import { getAllMCPStatuses } from '../tools/mcp-status.js'
 import { discoverMCPServers } from '../tools/mcp_discovery.js'
+import { readToolMeta } from '../tools/tool-meta.js'
 
 const TOOLS_DIR = resolve(import.meta.dirname, '../tools')
 
@@ -13,19 +14,14 @@ function readToolMetas(): Array<{ name: string; description: string; source: str
   const entries = readdirSync(TOOLS_DIR, { withFileTypes: true })
   for (const e of entries) {
     if (!e.isDirectory() || e.name === '_template') continue
-    const jsonPath = resolve(TOOLS_DIR, e.name, 'tool.json')
-    if (!existsSync(jsonPath)) continue
-    try {
-      let text = readFileSync(jsonPath, 'utf-8')
-      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
-      const meta = JSON.parse(text)
-      results.push({
-        name: meta.name || e.name,
-        description: meta.description || '',
-        source: meta.source || 'builtin',
-        constraintFields: meta.constraintFields || [],
-      })
-    } catch { /* skip invalid tool.json */ }
+    const meta = readToolMeta(e.name)
+    if (!meta) continue
+    results.push({
+      name: meta.name || e.name,
+      description: meta.description || '',
+      source: meta.source || 'builtin',
+      constraintFields: meta.constraintFields || [],
+    })
   }
   return results
 }

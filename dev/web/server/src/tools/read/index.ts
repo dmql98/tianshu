@@ -71,12 +71,38 @@ export const tool: ToolModule = {
 
     const end = Math.min(offset + limit - 1, totalLines)
     const sliced = lines.slice(offset - 1, end)
-    const numbered = sliced.map((line, i) => `${offset + i}: ${line}`).join('\n')
 
-    const truncated = end < totalLines
-    const output = `${fullPath} (${totalLines} lines, showing ${offset}-${end})` +
-      (numbered ? `\n${numbered}` : '') +
-      (truncated ? `\n\n... (${totalLines - end} more lines. Use offset=${end + 1} to continue)` : '')
+    // Byte-windowed rendering (MAX_PAGE_BYTES, §7.5.2): a single enormous line
+    // (minified JS, base64, compressed logs) must not flood the context. Cap the
+    // total page at the byte budget and trim any over-long line code-point-safely.
+    let out = ''
+    let byteTruncated = false
+    for (let i = 0; i < sliced.length; i++) {
+      const line = `${offset + i}: ${sliced[i]}`
+      const sep = out.length > 0 ? '\n' : ''
+      if (Buffer.byteLength(out + sep + line, 'utf-8') > MAX_PAGE_BYTES) {
+        byteTruncated = true
+        const budget = MAX_PAGE_BYTES - Buffer.byteLength(out + sep, 'utf-8')
+        if (budget > 0) {
+          let acc = 0
+          for (const ch of Array.from(line)) {
+            const cb = Buffer.byteLength(ch, 'utf-8')
+            if (acc + cb > budget) break
+            out += ch
+            acc += cb
+          }
+        }
+        break
+      }
+      out += sep + line
+    }
+
+    const lineTruncated = end < totalLines
+    const shownEnd = offset + sliced.length - 1
+    const output = `${fullPath} (${totalLines} lines, showing ${offset}-${shownEnd})` +
+      (out ? `\n${out}` : '') +
+      (byteTruncated ? `\n\n... (page capped at ~${Math.round(MAX_PAGE_BYTES / 1024)}KB; lines ${offset}-${shownEnd} shown partially. Narrow the range or use grep.)` : '') +
+      (lineTruncated ? `\n\n... (${totalLines - end} more lines. Use offset=${end + 1} to continue)` : '')
 
     return { output }
   },
