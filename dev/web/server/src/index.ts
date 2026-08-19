@@ -48,6 +48,14 @@ try {
   process.exit(1)
 }
 
+// Electron IPC transport (renderer ↔ main ↔ this child). Registered whenever
+// the process is a child of the desktop shell; a plain `node dist/index.js`
+// run simply has no parent to talk to (process.send is undefined → no-op).
+if (typeof process.send === 'function') {
+  const { registerIpcTransport } = await import('./transport/ipc-server.js')
+  registerIpcTransport()
+}
+
 if (typeof process.send === 'function') {
   process.send({ type: 'ready', port: server.port })
 } else {

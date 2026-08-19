@@ -7,7 +7,7 @@ import {
   statSync,
 } from 'fs'
 import { join } from 'path'
-import type { ServerMessage } from '../../shared/server-ipc.js'
+import type { ServerMessage, DesktopMessage } from '../../shared/server-ipc.js'
 import type { DesktopServerStatus } from '../../shared/desktop-contract.js'
 
 /** 进程树强杀策略：Windows 用 taskkill /T /F；POSIX 用进程组信号（§8.6）。 */
@@ -84,6 +84,9 @@ export class ServerManager {
   private readonly approvalClearListeners = new Set<(
     notice: Extract<ServerMessage, { type: 'approval-cleared' }>,
   ) => void>()
+  private readonly eventListeners = new Set<(
+    msg: Extract<ServerMessage, { type: 'tianshu:event' }>,
+  ) => void>()
   private started = false
   private stopping = false
   private startAttempts = 0
@@ -119,6 +122,23 @@ export class ServerManager {
   ): () => void {
     this.approvalClearListeners.add(listener)
     return () => this.approvalClearListeners.delete(listener)
+  }
+
+  /** Transport-neutral event channel (downlink events + uplink acks). */
+  onEvent(listener: (msg: Extract<ServerMessage, { type: 'tianshu:event' }>) => void): () => void {
+    this.eventListeners.add(listener)
+    return () => this.eventListeners.delete(listener)
+  }
+
+  /** Forward an uplink action from the renderer to the server child. */
+  sendToServer(msg: DesktopMessage): boolean {
+    if (!this.child || !this.child.connected) return false
+    try {
+      this.child.send(msg)
+      return true
+    } catch {
+      return false
+    }
   }
 
   private emit(status: DesktopServerStatus): void {
@@ -262,6 +282,14 @@ export class ServerManager {
           }
         } else if (msg?.type === 'approval-cleared') {
           for (const listener of [...this.approvalClearListeners]) {
+            try {
+              listener(msg)
+            } catch {
+              /* a bad listener must not break child-process supervision */
+            }
+          }
+        } else if (msg?.type === 'tianshu:event') {
+          for (const listener of [...this.eventListeners]) {
             try {
               listener(msg)
             } catch {

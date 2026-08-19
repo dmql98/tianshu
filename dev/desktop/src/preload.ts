@@ -33,7 +33,31 @@ const api = {
   },
   openDirectoryDialog: (defaultPath?: string) =>
     ipcRenderer.invoke('desktop:open-directory', defaultPath),
+
+  // ── Transport-neutral event channel (replaces socket.io in the desktop app) ──
+  eventSend: (type: string, payload: unknown, ack?: (resp: unknown) => void) => {
+    const reqId = ++eventReqSeq
+    if (ack) eventAcks.set(reqId, ack)
+    ipcRenderer.send('tianshu:event', { reqId, eventType: type, payload })
+  },
+  eventOn: (listener: (data: { eventType: string; payload: unknown }) => void) => {
+    const handler = (_event: IpcRendererEvent, data: { eventType: string; payload: unknown }) => listener(data)
+    ipcRenderer.on('tianshu:event', handler)
+    return () => ipcRenderer.removeListener('tianshu:event', handler)
+  },
 }
+
+// Uplink ack routing: the main process echoes { reqId, resp } on
+// 'tianshu:event-ack' after the server child answers.
+let eventReqSeq = 0
+const eventAcks = new Map<number, (resp: unknown) => void>()
+ipcRenderer.on('tianshu:event-ack', (_event, { reqId, resp }: { reqId: number; resp: unknown }) => {
+  const cb = eventAcks.get(reqId)
+  if (cb) {
+    eventAcks.delete(reqId)
+    cb(resp)
+  }
+})
 
 contextBridge.exposeInMainWorld('tianshuDesktop', api)
 

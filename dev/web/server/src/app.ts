@@ -21,7 +21,8 @@ import goalsRouter, { setGoalRuntime } from './routes/goals.js'
 import runsRouter, { setRunsRuntime } from './routes/runs.js'
 import themesRouter, { initThemeStore } from './routes/themes.js'
 import iconPacksRouter from './routes/iconpacks.js'
-import eventsRouter, { setEventsRuntime } from './routes/events.js'
+import eventsRouter from './routes/events.js'
+import { setTransportIo } from './transport/runtime.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb, closeDb } from './db/schema.js'
 import { init as initTools } from './tools/registry.js'
@@ -264,7 +265,7 @@ export async function startTianshuServer(
   setEventDefinitionRuntime(io)
   setGoalRuntime(io)
   setRunsRuntime(io)
-  setEventsRuntime(io)
+  setTransportIo(io)
   io.on('connection', (socket) => registerChatSocket(io, socket))
   startEventScheduler(io)
   startAssetGC()

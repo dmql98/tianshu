@@ -20,6 +20,20 @@ export type ServerMessage =
       approvalKind?: 'workspace' | 'risk'
     }
   | { type: 'approval-cleared'; sessionId: string; toolCallId?: string }
+  | {
+      // Downlink run event or uplink ack echo (transport-neutral event channel).
+      type: 'tianshu:event'
+      reqId?: number
+      eventType: string
+      payload: unknown
+    }
 
 export type DesktopMessage =
   | { type: 'shutdown' }
+  | {
+      // Uplink action forwarded from the renderer (chat-run / abort / ...).
+      type: 'tianshu:event'
+      reqId: number
+      eventType: string
+      payload: unknown
+    }

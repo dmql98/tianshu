@@ -175,6 +175,29 @@ function registerIpc(manager: ServerManager): void {
     return result.filePaths[0]
   })
 
+  // ── Transport-neutral event channel (renderer ↔ server child) ──
+  // Uplink: renderer → main → child server. Downlink/ack: child → main →
+  // renderer (webContents.send). No network stack — in-process only.
+  ipcMain.on('tianshu:event', (_event, msg: { reqId?: number; eventType: string; payload: unknown }) => {
+    if (!manager || !msg || typeof msg.eventType !== 'string') return
+    manager.sendToServer({
+      type: 'tianshu:event',
+      reqId: typeof msg.reqId === 'number' ? msg.reqId : 0,
+      eventType: msg.eventType,
+      payload: msg.payload,
+    })
+  })
+  manager.onEvent((msg) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (msg.reqId != null) {
+      // Ack echo for an uplink action.
+      mainWindow.webContents.send('tianshu:event-ack', { reqId: msg.reqId, resp: msg.payload })
+    } else {
+      // Downlink run event.
+      mainWindow.webContents.send('tianshu:event', { eventType: msg.eventType, payload: msg.payload })
+    }
+  })
+
   ipcMain.handle('updater:get-state', (): UpdateState =>
     updateManager?.getState() ?? { phase: 'disabled', currentVersion: app.getVersion() },
   )

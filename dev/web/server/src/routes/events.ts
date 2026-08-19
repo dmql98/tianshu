@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import type { Server } from 'socket.io'
 import { randomUUID } from 'crypto'
 import { addEventSink } from '../transport/event-sinks.js'
+import { getTransportIo } from '../transport/runtime.js'
 import {
   handleHello, handleStrategySet, handleChatRun, handleAbort, handleApprovalRespond,
-  sinkChannel, type HandlerContext,
+  sinkChannel,
 } from '../ws/handlers.js'
 
 /**
@@ -15,16 +15,6 @@ import {
  * handlers as socket.io and the Electron IPC bridge.
  */
 const router = new Hono()
-
-let ioRef: Server | null = null
-
-export function setEventsRuntime(io: Server): void {
-  ioRef = io
-}
-
-function ctx(): HandlerContext {
-  return { io: ioRef! }
-}
 
 // Downlink: server-sent events stream. The browser's EventSource reconnects
 // automatically; the sink is unregistered when the response aborts.
@@ -62,19 +52,19 @@ router.post('/events', async (c) => {
   try {
     switch (type) {
       case 'hello':
-        handleHello(ctx(), channel, payload as { session_id?: string })
+        handleHello({ io: getTransportIo() }, channel, payload as { session_id?: string })
         break
       case 'strategy.set':
-        handleStrategySet(ctx(), channel, payload as { session_id: string; strategy: unknown })
+        handleStrategySet({ io: getTransportIo() }, channel, payload as { session_id: string; strategy: unknown })
         break
       case 'chat-run':
-        await handleChatRun(ctx(), channel, payload as Record<string, unknown>)
+        await handleChatRun({ io: getTransportIo() }, channel, payload as Record<string, unknown>)
         break
       case 'abort':
-        handleAbort(ctx(), channel, payload as { session_id?: string })
+        handleAbort({ io: getTransportIo() }, channel, payload as { session_id?: string })
         break
       case 'approval.respond':
-        handleApprovalRespond(ctx(), channel, payload as { session_id?: string; tool_call_id?: string; choice?: string })
+        handleApprovalRespond({ io: getTransportIo() }, channel, payload as { session_id?: string; tool_call_id?: string; choice?: string })
         break
       default:
         return c.json({ error: `unknown event type: ${type}` }, 400)
