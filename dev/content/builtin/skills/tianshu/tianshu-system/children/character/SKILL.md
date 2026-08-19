@@ -8,7 +8,7 @@ description: "设计 TianShu 角色人格，并创建/增量更新角色及其�
 角色是**纯文件**：`<dataDir>/characters/<id>/` 目录，主元数据在 `character.json`，可选人格/用户/记忆在 `soul.md`/`user.md`/`memory.md`/`prompt.md`。没有数据库、没有专用工具——直接读改写这些文件即可。
 
 > 路径：`<dataDir>` 是**本技能激活时注入的真实绝对路径**（激活返回里会给出，例如 `C:\...\devdata`）。把下文所有 `<dataDir>` 替换成该路径再操作；若找不到，用 `bash` 执行 `echo $TIANSHU_DATA_DIR` 或 `cd` 到激活返回中的数据目录确认。
-> content 层是只读出厂底稿：系统首次写某个内置角色时会**自动物化一个用户副本**到 `<dataDir>/characters/<id>/`，你之后都改这个副本；想回退到出厂版用 REST（`/api/characters/.../restore-builtin`）或删除该副本目录。永远只读写 `<dataDir>/characters/<id>/`，不要接触 content 层。
+> 出厂底稿：`<dataDir>/builtin/characters/<id>/` 是 content 的**只读镜像**，可作参考（例如想基于某个内置角色创建新角色时先读它）；用户的创建/修改**始终写** `<dataDir>/characters/<id>/`（用户层），不要改镜像。
 
 ## 数据结构
 

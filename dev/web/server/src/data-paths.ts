@@ -26,6 +26,29 @@ export function skillsRoot(): string {
   return resolve(dataRoot(), 'skills')
 }
 
+/**
+ * builtin/content 出厂镜像根：<dataDir>/builtin。
+ *
+ * 启动时把 content/builtin 完整复制到这里，供技能/文件工具在 dataDir 内
+ * 读写角色/技能定义文件（技能指南路径统一指向 <dataDir>）。它是**只读镜像**，
+ * 不参与双层合并（mergeById 只扫描 characters/ 与 skills/），因此不会把
+ * 内置角色标记成 source:'user'。用户真正的修改仍写用户层 characters/ 或
+ * skills/ 目录。
+ */
+export function builtinMirrorRoot(): string {
+  return resolve(dataRoot(), 'builtin')
+}
+
+/** 出厂镜像角色目录：<dataDir>/builtin/characters */
+export function builtinMirrorCharactersRoot(): string {
+  return resolve(builtinMirrorRoot(), 'characters')
+}
+
+/** 出厂镜像技能目录：<dataDir>/builtin/skills */
+export function builtinMirrorSkillsRoot(): string {
+  return resolve(builtinMirrorRoot(), 'skills')
+}
+
 /** 用户自定义主题目录：<dataDir>/themes（由主题阶段使用，本阶段只提供路径）。 */
 export function themesRoot(): string {
   return resolve(dataRoot(), 'themes')

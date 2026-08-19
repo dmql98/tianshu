@@ -8,7 +8,7 @@ description: "配置和检查 TianShu 的 OpenAI 兼容模型服务及模型列�
 Provider 配置是**纯文件**：`<dataDir>/providers.json`（一个 JSON 数组）。没有数据库、没有专用工具——直接读改写这个文件即可。
 
 > 路径：`<dataDir>` 是**本技能激活时注入的真实绝对路径**（激活返回里会给出，例如 `C:\...\devdata`）。把下文所有 `<dataDir>` 替换成该路径再操作；若找不到，用 `bash` 执行 `echo $TIANSHU_DATA_DIR` 或 `cd` 到激活返回中的数据目录确认。
-> content 层是只读出厂底稿：系统首次写某内置 Provider 时会自动物化到 `<dataDir>` 副本。你只读写 `<dataDir>/providers.json`，不要（也无需）接触 content 层。
+> 出厂底稿：`<dataDir>/builtin/` 下有 content 的只读镜像（含 `providers` 预设），可作参考；但 Provider 的实际读写**始终用** `<dataDir>/providers.json`（用户层），不要改镜像。
 
 ## 数据结构
 
