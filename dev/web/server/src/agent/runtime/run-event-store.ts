@@ -4,6 +4,7 @@ import { getDb } from '../../db/schema.js'
 import { withTransaction } from '../../db/sqlite-db.js'
 import { runStore, isParked, type RunPhase } from './run-store.js'
 import { checkpointStore } from './checkpoint-store.js'
+import { fanOutToSinks } from '../../transport/event-sinks.js'
 
 export const RAW_SOCKET = Symbol('tianshu.rawSocket')
 
@@ -167,7 +168,7 @@ export function publishRunEvent(
   // reconnect) over the socket captured at run start.
   const live = liveSocketFor(row.session_id)
   const emitTarget = live && live.connected ? live : target
-  emitTarget.emit(type, {
+  const envelope = {
     ...payload,
     event_id: row.event_id,
     session_id: row.session_id,
@@ -175,7 +176,11 @@ export function publishRunEvent(
     seq: row.seq,
     type: row.type,
     occurred_at: row.created_at,
-  })
+  }
+  emitTarget.emit(type, envelope)
+  // Transport-neutral fan-out (Electron IPC / SSE sinks). Sinks receive the
+  // same envelope; errors are contained inside fanOutToSinks.
+  fanOutToSinks(type, envelope)
   return row
 }
 
