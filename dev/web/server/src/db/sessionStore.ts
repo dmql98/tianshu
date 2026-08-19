@@ -170,6 +170,7 @@ export const sessionStore = {
       db.prepare('DELETE FROM plans WHERE session_id = ?').run(id)
       db.prepare('DELETE FROM trajectories WHERE session_id = ?').run(id)
       db.prepare('DELETE FROM messages WHERE session_id = ?').run(id)
+      db.prepare('DELETE FROM llm_calls WHERE session_id = ?').run(id)
       return db.prepare('DELETE FROM sessions WHERE id = ?').run(id).changes > 0
     })
   },
