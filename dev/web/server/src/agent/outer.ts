@@ -16,7 +16,7 @@ import { evolutionConfig } from '../evolution/evolutionConfig.js'
 import * as path from 'path'
 import type { LLMMessage } from '../llm/client.js'
 import { resolveCapability, type ProviderCapability } from './attachments.js'
-import type { Server, Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 import type { MCPClient } from '../tools/mcp-client.js'
 import { runStore } from './runtime/run-store.js'
 import { characterRevisionStore, type CharacterRevisionSnapshot } from '../character/revision-store.js'
@@ -50,7 +50,7 @@ export interface RunResult {
   totalCacheMissTokens: number
 }
 
-export async function sessionLoop(io: Server, socket: Socket, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {}): Promise<RunResult> {
+export async function sessionLoop(io: TransportBroadcaster, socket: TransportBroadcaster, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {}): Promise<RunResult> {
   const runId = opts.run_id || `run_${sessionId}_${Date.now()}`
   opts.run_id = runId
   const session = sessionStore.getById(sessionId)

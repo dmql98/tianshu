@@ -1,4 +1,4 @@
-import type { Server } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 import { eventDefinitionStore, type EventDefinitionRow } from './definition-store.js'
 import { eventOccurrenceStore, type EventOccurrenceRow } from './occurrence-store.js'
 import { scheduleOccurrence } from './event-run-adapter.js'
@@ -14,7 +14,7 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 let isPolling = false
 let pendingImmediate = false
 
-export function startEventScheduler(io: Server, intervalSec = 10) {
+export function startEventScheduler(io: TransportBroadcaster, intervalSec = 10) {
   if (pollTimer) return
   const intervalMs = Math.max(1000, intervalSec * 1000)
   console.log('[event-scheduler] Starting (poll every %dms)', intervalMs)
@@ -30,7 +30,7 @@ export function stopEventScheduler() {
   isPolling = false
 }
 
-export function scheduleImmediate(io: Server) {
+export function scheduleImmediate(io: TransportBroadcaster) {
   if (isPolling) { pendingImmediate = true; return }
   void poll(io)
 }
@@ -72,7 +72,7 @@ export function fireDefinition(definition: EventDefinitionRow): EventOccurrenceR
   return occurrence
 }
 
-async function poll(io: Server) {
+async function poll(io: TransportBroadcaster) {
   if (isPolling) return
   isPolling = true
   try {

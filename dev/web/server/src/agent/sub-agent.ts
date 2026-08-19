@@ -5,7 +5,7 @@ import { innerLoop, type InnerResult } from './inner.js'
 import { getCharacterToolDefinitions } from '../tools/definitions.js'
 import { buildSkillIndex } from './skill-loader.js'
 import type { LLMMessage, ProviderConfig } from '../llm/client.js'
-import type { Server, Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 import { normalizeStrategy, type Strategy, type StrategyInput } from './strategy.js'
 import { randomUUID } from 'crypto'
 import { getDb } from '../db/schema.js'
@@ -78,8 +78,8 @@ export async function spawnAndRunSubAgent(
   strategyOverride?: StrategyInput,
   signal?: AbortSignal,
   depth = 0,
-  io?: Server,
-  socket?: Socket,
+  io?: TransportBroadcaster,
+  socket?: TransportBroadcaster,
   runId?: string,
 ): Promise<SubResult> {
   if (depth >= MAX_DEPTH) {

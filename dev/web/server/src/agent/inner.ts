@@ -9,7 +9,7 @@ import { getSessionState, isToolApprovedForSession, approveToolForSession } from
 import { logLLMCall } from './llm-call-store.js'
 import type { Strategy } from './session.js'
 import { decideToolApproval } from './strategy.js'
-import type { Server, Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 import type { MCPClient } from '../tools/mcp-client.js'
 import { resolve as pathResolve } from 'path'
 import { isPathWithin, workspaceApprovalRoot } from '../tools/utils.js'
@@ -239,8 +239,8 @@ export async function innerLoop(
   model: string,
   characterId: string,
   workspace: string | undefined,
-  io?: Server,
-  socket?: Socket,
+  io?: TransportBroadcaster,
+  socket?: TransportBroadcaster,
   sessionId?: string,
   signal?: AbortSignal,
   opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {},

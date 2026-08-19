@@ -1,4 +1,4 @@
-import type { Server, Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../../transport/runtime.js'
 import { messageStore } from '../../db/messageStore.js'
 import { sessionStore } from '../../db/sessionStore.js'
 import { spawnAndRunSubAgent, summarizeAndMerge } from '../sub-agent.js'
@@ -27,8 +27,8 @@ export async function handleSubAgentRequest(input: {
   provider: ProviderConfig
   model: string
   signal?: AbortSignal
-  io?: Server
-  socket?: Socket
+  io: TransportBroadcaster
+  socket: TransportBroadcaster
   runId: string
   workspace: string | undefined
 }): Promise<SubAgentOutcome> {
@@ -121,7 +121,7 @@ export async function handleAskUser(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket?: Socket
+  socket: TransportBroadcaster
   messages: LLMMessage[]
 }): Promise<AskUserOutcome> {
   const { question, result, sessionId, runId, socket, messages } = input
@@ -166,7 +166,7 @@ export async function handleUpdatePlanStep(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket?: Socket
+  socket: TransportBroadcaster
 }): Promise<UpdatePlanStepOutcome> {
   const { result, sessionId, runId, socket } = input
   const updateCall = result.toolCalls?.find(tc => tc.function.name === 'update_plan_step')
@@ -229,7 +229,7 @@ export async function handleCreatePlan(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket?: Socket
+  socket: TransportBroadcaster
   goalId?: string | null
 }): Promise<CreatePlanOutcome> {
   const { result, sessionId, runId, socket, goalId } = input
@@ -280,7 +280,7 @@ export interface GoalOutcome {
   messages: LLMMessage[]
 }
 
-function goalToolMessage(sessionId: string, runId: string, socket: Socket | undefined, name: string, toolCallId: string, output: string, error?: string): LLMMessage {
+function goalToolMessage(sessionId: string, runId: string, socket: TransportBroadcaster | undefined, name: string, toolCallId: string, output: string, error?: string): LLMMessage {
   const message: LLMMessage = { role: 'tool', content: JSON.stringify(error ? { output: '', error } : { output }), tool_call_id: toolCallId }
   messageStore.addMessage(sessionId, {
     role: 'tool', content: JSON.stringify(error ? { output: '', error } : { output }),
@@ -302,7 +302,7 @@ export function handleCreateGoal(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket?: Socket
+  socket: TransportBroadcaster
 }): GoalOutcome {
   const { result, sessionId, runId, socket } = input
   const goalCall = result.toolCalls?.find(tc => tc.function.name === 'create_goal')
@@ -337,7 +337,7 @@ export function handleGetGoal(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket?: Socket
+  socket: TransportBroadcaster
 }): GoalOutcome {
   const { result, sessionId, runId, socket } = input
   const goalCall = result.toolCalls?.find(tc => tc.function.name === 'get_goal')
@@ -360,7 +360,7 @@ export function handleCompleteGoal(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket?: Socket
+  socket: TransportBroadcaster
 }): GoalOutcome {
   const { result, sessionId, runId, socket } = input
   const goalCall = result.toolCalls?.find(tc => tc.function.name === 'complete_goal')
@@ -393,7 +393,7 @@ export async function handleTaskComplete(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket?: Socket
+  socket: TransportBroadcaster
   messages: LLMMessage[]
   mcpClients: Map<string, MCPClient>
   totalInputTokens: number

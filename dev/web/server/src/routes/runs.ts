@@ -12,11 +12,11 @@ import { fanOutToSinks } from '../transport/event-sinks.js'
 import { createResumedRun } from '../agent/runtime/run-resume-service.js'
 import { llmCallsForRun, rowToLLMCall } from '../agent/llm-call-store.js'
 import { sessionLoop } from '../agent/loop.js'
-import type { Server } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 
 const router = new Hono()
 
-let ioRef: Server | null = null
+let ioRef: TransportBroadcaster | null = null
 
 const TERMINAL_RUN_STATUS = new Set([
   'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
@@ -26,11 +26,11 @@ function isNonTerminal(run: { status: string }): boolean {
   return !TERMINAL_RUN_STATUS.has(run.status)
 }
 
-export function setRunsRuntime(io: Server) {
+export function setRunsRuntime(io: TransportBroadcaster) {
   ioRef = io
 }
 
-function broadcastSocket(io: Server) {
+function broadcastSocket(io: TransportBroadcaster) {
   return {
     emit: (type: string, ...args: any[]) => {
       io.emit(type, ...args)

@@ -2,10 +2,8 @@ import { Hono, type Context } from 'hono'
 import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { Server } from 'socket.io'
 import { readFile, stat } from 'fs/promises'
 import { extname, join, normalize, relative, resolve, isAbsolute as pathIsAbsolute } from 'path'
-import { registerChatSocket } from './ws/chat.js'
 import providersRouter from './routes/providers.js'
 import sessionsRouter from './routes/sessions.js'
 import charactersRouter from './routes/characters.js'
@@ -22,7 +20,7 @@ import runsRouter, { setRunsRuntime } from './routes/runs.js'
 import themesRouter, { initThemeStore } from './routes/themes.js'
 import iconPacksRouter from './routes/iconpacks.js'
 import eventsRouter from './routes/events.js'
-import { setTransportIo } from './transport/runtime.js'
+import { setTransportIo, createBroadcaster } from './transport/runtime.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb, closeDb } from './db/schema.js'
 import { init as initTools } from './tools/registry.js'
@@ -245,33 +243,19 @@ export async function startTianshuServer(
   const actualPort = typeof address === 'object' && address ? address.port : port
   const url = `http://${host}:${actualPort}`
 
-  const io = new Server(httpServer, {
-    cors: {
-      origin: (origin, callback) => callback(null, isLoopbackOrigin(origin)),
-      methods: ['GET', 'POST'],
-    },
-    maxHttpBufferSize: 50 * 1024 * 1024,
-    // Keep-alive tuning for the localhost desktop/dev carrier:
-    // - pingInterval 25s (default) keeps the socket alive;
-    // - pingTimeout 60s tolerates event-loop stalls (DB, asset GC, LLM
-    //   streaming) without dropping clients — the 20s default kicks sockets
-    //   whenever the process is busy that long, which reads as random
-    //   disconnects;
-    // - connectTimeout guards the initial handshake on a busy restart.
-    pingInterval: 25_000,
-    pingTimeout: 60_000,
-    connectTimeout: 15_000,
-  })
-  setEventDefinitionRuntime(io)
-  setGoalRuntime(io)
-  setRunsRuntime(io)
-  setTransportIo(io)
-  io.on('connection', (socket) => registerChatSocket(io, socket))
-  startEventScheduler(io)
+  // Transport runtime: the run path only needs an emit-capable broadcaster
+  // whose events fan out to the registered sinks (SSE connections + Electron
+  // IPC). socket.io is gone — no heartbeat, no reconnect, no socket lifecycle.
+  const broadcaster = createBroadcaster()
+  setEventDefinitionRuntime(broadcaster)
+  setGoalRuntime(broadcaster)
+  setRunsRuntime(broadcaster)
+  setTransportIo(broadcaster)
+  startEventScheduler(broadcaster)
   startAssetGC()
   // Interrupt runs that stopped making progress (hung tool / MCP / LLM path),
   // so a stalled run can never pin the UI in thinking/speaking forever.
-  const stopStallWatchdog = startRunStallWatchdog(io)
+  const stopStallWatchdog = startRunStallWatchdog(broadcaster)
   initThemeStore()
 
   let closed = false
@@ -292,23 +276,19 @@ export async function startTianshuServer(
     close: async () => {
       if (closed) return
       closed = true
-      // Order: timers → Socket.IO → HTTP server → DB.
+      // Order: timers → HTTP server → DB.
       stopEventScheduler()
       stopAssetGC()
       stopStallWatchdog()
       await withTimeout((done) => {
         try {
-          io.close(() => done())
-        } catch {
-          done()
-        }
-      }, 5000)
-      await withTimeout((done) => {
-        try {
-          const closeAll = (httpServer as unknown as { closeAllConnections?: () => void }).closeAllConnections
-          closeAll?.()
           httpServer.close(() => done())
         } catch {
+          // Some Node/ESM combos make http.Server.close() throw reading an unset
+          // internal symbol (kConnections). Force-close connections and the
+          // underlying handle so the port is released regardless.
+          try { (httpServer as unknown as { closeAllConnections?: () => void }).closeAllConnections?.() } catch { /* ignore */ }
+          try { (httpServer as unknown as { _handle?: { close(): void } })._handle?.close() } catch { /* ignore */ }
           done()
         }
       }, 5000)

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import type { Server, Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../../transport/runtime.js'
 import { getDb } from '../../db/schema.js'
 import { withTransaction } from '../../db/sqlite-db.js'
 import { runStore, isParked, type RunPhase } from './run-store.js'
@@ -7,35 +7,6 @@ import { checkpointStore } from './checkpoint-store.js'
 import { fanOutToSinks } from '../../transport/event-sinks.js'
 
 export const RAW_SOCKET = Symbol('tianshu.rawSocket')
-
-// ── Live-socket registry ──
-// A run closure captures the socket that was connected when it started. When
-// the renderer disconnects and reconnects (socket.io creates a NEW socket), the
-// run keeps emitting to the dead socket object and the client never receives
-// live events again. Rebinding here routes run events to the client's CURRENT
-// socket for the session, so streaming resumes after a reconnect without
-// waiting for the client's REST replay.
-const liveSockets = new Map<string, Socket>()
-
-export function bindLiveSocket(sessionId: string, socket: Socket): void {
-  liveSockets.set(sessionId, socket)
-}
-
-export function unbindLiveSocket(sessionId: string, socket: Socket): void {
-  if (liveSockets.get(sessionId) === socket) liveSockets.delete(sessionId)
-}
-
-/** Current live socket for a session, if any. */
-export function liveSocketFor(sessionId: string): Socket | undefined {
-  return liveSockets.get(sessionId)
-}
-
-/** Remove every binding owned by a (now disconnected) socket. */
-export function unbindSocketOwner(socket: Socket): void {
-  for (const [sid, s] of liveSockets) {
-    if (s === socket) liveSockets.delete(sid)
-  }
-}
 
 export interface RunEventRow {
   event_id: string
@@ -135,7 +106,7 @@ export const runEventStore = {
 }
 
 export function publishRunEvent(
-  target: Pick<Socket | Server, 'emit'>,
+  target: TransportBroadcaster,
   runId: string,
   type: string,
   payload: Record<string, unknown>,
@@ -143,7 +114,7 @@ export function publishRunEvent(
   const row = runEventStore.append(runId, type, payload)
   if (!row) return null
   // The packaged desktop server is a forked Node child. Send approval prompts
-  // directly to Electron's main process as well as Socket.IO so a suspended or
+  // directly to Electron's main process as well as the sinks so a suspended or
   // disconnected renderer cannot hide a request that is blocking the run.
   if (type === 'approval.requested' && typeof process.send === 'function') {
     const session = getDb().prepare('SELECT title FROM sessions WHERE id = ?').get(row.session_id) as
@@ -160,14 +131,12 @@ export function publishRunEvent(
         approvalKind: payload.approval_kind === 'workspace' ? 'workspace' : 'risk',
       })
     } catch {
-      /* desktop IPC may already be closing; Socket.IO delivery still proceeds */
+      /* desktop IPC may already be closing; sink delivery still proceeds */
     }
   }
-  // The transaction above has committed before anything reaches Socket.IO.
-  // Prefer the session's current live socket (rebound after a renderer
-  // reconnect) over the socket captured at run start.
-  const live = liveSocketFor(row.session_id)
-  const emitTarget = live && live.connected ? live : target
+  // The transaction above has committed before anything reaches a transport.
+  // Delivery is transport-neutral: emit to the run's target AND fan out to
+  // every registered sink (SSE connections + Electron IPC).
   const envelope = {
     ...payload,
     event_id: row.event_id,
@@ -177,16 +146,15 @@ export function publishRunEvent(
     type: row.type,
     occurred_at: row.created_at,
   }
-  emitTarget.emit(type, envelope)
-  // Transport-neutral fan-out (Electron IPC / SSE sinks). Sinks receive the
-  // same envelope; errors are contained inside fanOutToSinks.
+  target.emit(type, envelope)
+  // Sinks receive the same envelope; errors are contained inside fanOutToSinks.
   fanOutToSinks(type, envelope)
   return row
 }
 
 const DURABLE_EVENT = /^(run\.|message\.|tool\.|approval\.|control\.|plan\.|goal\.|agent_task\.|character\.|sub_agent\.|usage$|ask_user$)/
 
-export function createDurableSocket(socket: Socket, runId: string): Socket {
+export function createDurableSocket(socket: TransportBroadcaster, runId: string): TransportBroadcaster {
   return new Proxy(socket, {
     get(target, prop, receiver) {
       if (prop === RAW_SOCKET) return target
@@ -201,8 +169,8 @@ export function createDurableSocket(socket: Socket, runId: string): Socket {
   })
 }
 
-export function unwrapDurableSocket(socket: Socket): Socket {
-  return (socket as Socket & { [RAW_SOCKET]?: Socket })[RAW_SOCKET] || socket
+export function unwrapDurableSocket(socket: TransportBroadcaster): TransportBroadcaster {
+  return (socket as TransportBroadcaster & { [RAW_SOCKET]?: TransportBroadcaster })[RAW_SOCKET] || socket
 }
 
 /** Force a run to the terminal `cancelled` state at the DB level, bypassing

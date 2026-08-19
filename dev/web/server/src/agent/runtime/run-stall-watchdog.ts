@@ -17,7 +17,7 @@
  * to interrupted) event and broadcasts it, so live clients and the presence
  * projector recover immediately.
  */
-import type { Server } from 'socket.io'
+import type { TransportBroadcaster } from '../../transport/runtime.js'
 import { getDb } from '../../db/schema.js'
 import { runStore } from './run-store.js'
 import { runEventStore } from './run-event-store.js'
@@ -41,7 +41,7 @@ const NON_TERMINAL_NON_PARKED = `status NOT IN (
  * Interrupt every stale run. Returns the ids interrupted (exported for tests).
  * @param io - Socket.IO server used to broadcast the terminal events.
  */
-export function sweepStalledRuns(io: Server): string[] {
+export function sweepStalledRuns(io: TransportBroadcaster): string[] {
   const interrupted: string[] = []
   const now = Date.now()
   const rows = getDb().prepare(`SELECT id FROM runs WHERE ${NON_TERMINAL_NON_PARKED}`).all() as Array<{ id: string }>
@@ -81,7 +81,7 @@ export function sweepStalledRuns(io: Server): string[] {
 }
 
 /** Start the periodic sweep; returns a disposer. */
-export function startRunStallWatchdog(io: Server): () => void {
+export function startRunStallWatchdog(io: TransportBroadcaster): () => void {
   const timer = setInterval(() => {
     try {
       sweepStalledRuns(io)

@@ -8,17 +8,17 @@ import { createDurableSocket, publishRunEvent } from '../agent/runtime/run-event
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { enqueueRun } from '../agent/session-runner.js'
 import { sessionLoop } from '../agent/loop.js'
-import type { Server } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 
 const router = new Hono()
 
-let ioRef: Server | null = null
+let ioRef: TransportBroadcaster | null = null
 
-export function setGoalRuntime(io: Server) {
+export function setGoalRuntime(io: TransportBroadcaster) {
   ioRef = io
 }
 
-function broadcastSocket(io: Server) {
+function broadcastSocket(io: TransportBroadcaster) {
   return {
     emit: (type: string, ...args: any[]) => {
       io.emit(type, ...args)

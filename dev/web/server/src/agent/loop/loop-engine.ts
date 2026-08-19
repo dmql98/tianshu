@@ -1,4 +1,4 @@
-import type { Server, Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../../transport/runtime.js'
 import { sessionStore } from '../../db/sessionStore.js'
 import { disconnectMCPServer } from '../../tools/mcp-client.js'
 import type { MCPClient } from '../../tools/mcp-client.js'
@@ -34,8 +34,8 @@ function isReasoningModel(model: string): boolean {
 export interface LoopEngineContext {
   sessionId: string
   runId: string
-  socket?: Socket
-  io?: Server
+  socket: TransportBroadcaster
+  io: TransportBroadcaster
   signal?: AbortSignal
   provider: ProviderConfig
   model: string

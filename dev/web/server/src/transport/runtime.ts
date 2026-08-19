@@ -1,18 +1,38 @@
 /**
- * Shared transport runtime: the socket.io Server instance needed by the
- * transport-neutral handlers (SSE route + Electron IPC server). Socket.io
- * itself stays optional — the Server object is only used for sub-agent /
- * sessionLoop internals that require io.
+ * Shared transport runtime: the minimal broadcaster the run path needs.
+ *
+ * socket.io 已彻底移除：run 路径不再依赖任何 socket.io 对象，只需要一个
+ * "能 emit 事件的通道"。这个 broadcaster 把 emit 直接转成全局 sink fan-out
+ * （SSE 连接与 Electron IPC 是两个已注册的 sink）。
  */
-import type { Server } from 'socket.io'
+import { fanOutToSinks } from './event-sinks.js'
 
-let ioRef: Server | null = null
+/** Minimal emit-capable target — the only socket surface the run path uses. */
+export interface TransportBroadcaster {
+  emit(type: string, payload?: any, ...rest: any[]): unknown
+}
 
-export function setTransportIo(io: Server): void {
+let ioRef: TransportBroadcaster | null = null
+
+/** The default broadcaster: every emit fans out to registered sinks. */
+export function createBroadcaster(): TransportBroadcaster {
+  return {
+    emit: (type, payload, ...rest) => {
+      if (payload && typeof payload === 'object') {
+        fanOutToSinks(type, payload as Record<string, unknown>)
+      } else {
+        fanOutToSinks(type, { args: [payload, ...rest] })
+      }
+      return true
+    },
+  }
+}
+
+export function setTransportIo(io: TransportBroadcaster): void {
   ioRef = io
 }
 
-export function getTransportIo(): Server {
+export function getTransportIo(): TransportBroadcaster {
   if (!ioRef) throw new Error('Transport runtime not ready: setTransportIo() not called')
   return ioRef
 }

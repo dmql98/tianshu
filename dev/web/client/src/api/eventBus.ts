@@ -1,14 +1,13 @@
 /**
- * Transport-neutral event bus — replaces direct socket.io usage in the client.
+ * Transport-neutral event bus — the only real-time channel in the client.
  *
- * Three transports, same interface:
- *  - 'ipc'      : Electron IPC bridge (window.tianshuDesktop.eventSend/eventOn).
- *                 In-process channel — no heartbeat, no reconnect, no drop.
- *  - 'sse'      : EventSource downlink (GET /api/events/stream) + fetch POST
- *                 uplink (POST /api/events). Browser-native auto-reconnect.
- *  - 'socketio' : legacy socket.io transport (kept as fallback / debug).
+ * Two transports, same interface (socket.io has been fully removed):
+ *  - 'ipc' : Electron IPC bridge (window.tianshuDesktop.eventSend/eventOn).
+ *            In-process channel — no heartbeat, no reconnect, no drop.
+ *  - 'sse' : EventSource downlink (GET /api/events/stream) + fetch POST
+ *            uplink (POST /api/events). Browser-native auto-reconnect.
  *
- * The bus mirrors the socket.io surface the store relies on:
+ * The bus mirrors the surface the store relies on:
  *   on(type, cb)          — subscribe
  *   off(type)             — remove ALL listeners of a type (persistent reset)
  *   off(type, cb)         — remove one listener (temporary cleanup)
@@ -16,7 +15,7 @@
  *   connected / onConnect / onDisconnect — transport lifecycle
  */
 
-export type EventBusTransport = 'ipc' | 'sse' | 'socketio'
+export type EventBusTransport = 'ipc' | 'sse'
 
 export interface EventBus {
   readonly transport: EventBusTransport
@@ -65,41 +64,10 @@ function persistedSessionId(): string | undefined {
   return undefined
 }
 
-/** Pick the best transport for this environment. */
+/** Pick the transport for this environment: desktop bridge wins, else SSE. */
 export function detectTransport(): EventBusTransport {
   if (typeof window !== 'undefined' && window.tianshuDesktop?.eventSend) return 'ipc'
-  if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') return 'sse'
-  return 'socketio'
-}
-
-// ── socket.io bus (legacy / fallback) ──
-
-import { getSocket, connectSocket } from './socket'
-
-export function createSocketIOBus(): EventBus {
-  const connectCbs = new Set<() => void>()
-  const disconnectCbs = new Set<(reason?: string) => void>()
-  const socket = connectSocket()
-  let connected = socket.connected
-
-  socket.on('connect', () => {
-    connected = true
-    for (const cb of [...connectCbs]) { try { cb() } catch { /* ignore */ } }
-  })
-  socket.on('disconnect', (reason: string) => {
-    connected = false
-    for (const cb of [...disconnectCbs]) { try { cb(reason) } catch { /* ignore */ } }
-  })
-
-  return {
-    transport: 'socketio',
-    get connected() { return connected },
-    on: (type, cb) => { socket.on(type, cb) },
-    off: (type, cb) => { if (cb) socket.off(type, cb); else socket.removeAllListeners(type) },
-    emit: (type, payload, ack) => { if (ack) socket.emit(type, payload, ack); else socket.emit(type, payload) },
-    onConnect: (cb) => { connectCbs.add(cb); if (connected) cb(); return () => connectCbs.delete(cb) },
-    onDisconnect: (cb) => { disconnectCbs.add(cb); return () => disconnectCbs.delete(cb) },
-  }
+  return 'sse'
 }
 
 // ── SSE bus (web) ──
@@ -127,8 +95,7 @@ export function createSSEBus(baseUrl = ''): EventBus {
         for (const cb of [...disconnectCbs]) { try { cb('sse-error') } catch { /* ignore */ } }
       }
       // EventSource reconnects automatically; listeners attached below persist
-      // across reconnects (they are attached to the EventSource instance, which
-      // the browser keeps and reuses for reconnection).
+      // across reconnects (the browser reuses the EventSource instance).
     }
     for (const type of ALL_KNOWN_EVENTS) {
       source.addEventListener(type, (ev: MessageEvent) => {
@@ -230,7 +197,7 @@ let busTransport: EventBusTransport | null = null
 export function getEventBus(force?: EventBusTransport): EventBus {
   const transport = force || detectTransport()
   if (bus && busTransport === transport) return bus
-  bus = transport === 'ipc' ? createIpcBus() : transport === 'sse' ? createSSEBus() : createSocketIOBus()
+  bus = transport === 'ipc' ? createIpcBus() : createSSEBus()
   busTransport = transport
   return bus
 }

@@ -14,7 +14,7 @@ const tmpData = mkdtempSync(join(tmpdir(), 'tianshu-inner-'))
 process.env.TIANSHU_DATA_DIR = tmpData
 
 const { innerLoop } = await import('./inner.js')
-import type { Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 
 function assert(cond: unknown, message: string): asserts cond {
   if (!cond) throw new Error(`FAIL: ${message}`)
@@ -39,7 +39,7 @@ function makeSocket() {
 
 const originalFetch = globalThis.fetch
 
-function makeArgs(socket: Socket | undefined): Parameters<typeof innerLoop> {
+function makeArgs(socket: TransportBroadcaster | undefined): Parameters<typeof innerLoop> {
   return [
     [{ role: 'user', content: 'hi' }],
     [{ type: 'function', function: { name: 'read_file', description: 'x', parameters: {} } }],

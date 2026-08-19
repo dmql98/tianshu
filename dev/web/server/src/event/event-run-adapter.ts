@@ -1,4 +1,4 @@
-import type { Server, Socket } from 'socket.io'
+import type { TransportBroadcaster } from '../transport/runtime.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { eventDefinitionStore, type EventDefinitionRow } from './definition-store.js'
 import { eventOccurrenceStore, type EventOccurrenceRow } from './occurrence-store.js'
@@ -12,9 +12,9 @@ import { enqueueRun } from '../agent/session-runner.js'
 import { sessionLoop } from '../agent/loop.js'
 import { getDb } from '../db/schema.js'
 
-let ioRef: Server | null = null
+let ioRef: TransportBroadcaster | null = null
 
-export function setEventDefinitionRuntime(io: Server) {
+export function setEventDefinitionRuntime(io: TransportBroadcaster) {
   ioRef = io
 }
 
@@ -60,7 +60,7 @@ export function drainQueue(definitionId: string): void {
   if (next) scheduleOccurrence(next.id)
 }
 
-function broadcastSocket(io: Server): Socket {
+function broadcastSocket(io: TransportBroadcaster): TransportBroadcaster {
   return {
     emit: (type: string, ...args: any[]) => {
       io.emit(type, ...args)
@@ -71,7 +71,7 @@ function broadcastSocket(io: Server): Socket {
     on: () => undefined,
     off: () => undefined,
     id: 'event-occurrence',
-  } as any as Socket
+  } as any
 }
 
 export async function executeOccurrence(occurrenceId: string): Promise<void> {
