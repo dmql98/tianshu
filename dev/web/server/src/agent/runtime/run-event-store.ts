@@ -184,7 +184,7 @@ export function publishRunEvent(
   return row
 }
 
-const DURABLE_EVENT = /^(run\.|message\.|tool\.|approval\.|control\.|plan\.|goal\.|agent_task\.|character\.|sub_agent\.|usage$)/
+const DURABLE_EVENT = /^(run\.|message\.|tool\.|approval\.|control\.|plan\.|goal\.|agent_task\.|character\.|sub_agent\.|usage$|ask_user$)/
 
 export function createDurableSocket(socket: Socket, runId: string): Socket {
   return new Proxy(socket, {
