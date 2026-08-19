@@ -42,7 +42,8 @@ router.get('/stream', (c) => {
 })
 
 // Uplink: one POST per client action; the ack is returned in the response body.
-router.post('/events', async (c) => {
+// Mounted at /api/events, so the bare path is the uplink root.
+router.post('/', async (c) => {
   const body = await c.req.json().catch(() => null) as { type?: string; payload?: unknown } | null
   const type = body?.type
   const payload = (body?.payload ?? {}) as Record<string, unknown>
