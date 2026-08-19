@@ -168,6 +168,10 @@ body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink
 @media (hover:none){.msg-actions{opacity:1}}
 
 .md-content{font-size:inherit;line-height:1.65}
+/* 流式增量渲染：冻结块/尾部块容器以 display:contents 透传子元素布局，
+   保证 .md-content 的直接子元素选择器（:first-child 等）行为不变 */
+.md-content .md-frozen,
+.md-content .md-tail{display:contents}
 .md-content>:first-child{margin-top:0}
 .md-content>:last-child{margin-bottom:0}
 .md-content p{margin:0 0 8px}
@@ -1308,6 +1312,10 @@ textarea:focus{border-color:var(--gold)}
 .tjs-status.denied{background:rgba(200,140,40,0.12);color:var(--gold)}
 .tjs-error{color:var(--cinnabar);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tjs-empty{padding:40px 20px;text-align:center;color:var(--ink-faint);font-size:calc(12px * var(--ui-font-scale))}
+.tjs-lifecycle{display:flex;align-items:center;gap:8px;padding:4px 12px;border-left:2px solid var(--border);color:var(--ink-light);font-size:calc(11px * var(--ui-font-scale))}
+.tjs-lifecycle .tjs-status{flex-shrink:0}
+.tjs-lifecycle-run{font-family:monospace;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tjs-lifecycle-detail{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-mid)}
 .tjs-ledger{flex:1;overflow-y:auto;padding:12px 20px 24px;display:flex;flex-direction:column;gap:8px}
 .tjs-row{border:1px solid var(--border-light);border-radius:10px;background:var(--bg-card);overflow:hidden}
 .tjs-row.is-error{border-color:rgba(200,60,40,0.4)}
@@ -1333,11 +1341,23 @@ textarea:focus{border-color:var(--gold)}
 .tjs-toggle:hover{text-decoration:underline}
 .tjs-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:calc(10px * var(--ui-font-scale));color:var(--ink-light);font-family:monospace}
 .tjs-meta .tjs-status{font-size:calc(10px * var(--ui-font-scale))}
+.tjs-status.warn{background:rgba(200,160,40,0.14);color:var(--gold)}
 
-/* LLM 调用详情（llm_calls 轨迹） */
-.tjs-llm-section{flex:1;overflow-y:auto;padding:0 20px 24px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border-light);margin-top:8px;padding-top:12px}
-.tjs-section-title{font-size:calc(11px * var(--ui-font-scale));font-weight:700;color:var(--ink-light);text-transform:uppercase;letter-spacing:0.04em}
-.tjs-kind-llm{background:rgba(130,90,200,0.16);color:#a78bfa}
-.tjs-llm-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-mid);font-size:calc(11px * var(--ui-font-scale));font-family:monospace}
-.tjs-llm-label{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint);font-weight:600;margin-top:8px}
-.tjs-llm-section .tjs-pre{max-height:480px;overflow-y:auto}
+/* ── 轨迹视图：右侧详情窗口（DSH 风格 inspector）── */
+.tjs-body-row{flex:1;display:flex;min-height:0;overflow:hidden}
+.tjs-ledger{flex:1;overflow-y:auto;padding:12px 20px 24px;display:flex;flex-direction:column;gap:8px}
+.tjs-row.selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.tjs-row-system{border-left:3px solid rgba(130,90,200,0.7)}
+.tjs-kind-system{background:rgba(130,90,200,0.16);color:#a78bfa}
+.tjs-details{width:min(430px,38%);flex-shrink:0;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--border-light);background:var(--bg-card)}
+.tjs-details-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border-light);font-size:calc(12px * var(--ui-font-scale));font-weight:700;color:var(--ink-deep)}
+.tjs-details-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tjs-details-close{background:none;border:none;color:var(--ink-faint);font-size:16px;cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px}
+.tjs-details-close:hover{background:var(--bg-hover);color:var(--ink-deep)}
+.tjs-tabs{display:flex;gap:2px;padding:6px 10px 0;border-bottom:1px solid var(--border-light);flex-shrink:0}
+.tjs-tab{background:none;border:none;padding:6px 12px;border-radius:8px 8px 0 0;color:var(--ink-light);font-size:calc(11px * var(--ui-font-scale));cursor:pointer;font-family:inherit;border-bottom:2px solid transparent}
+.tjs-tab:hover{background:var(--bg-hover)}
+.tjs-tab.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:600}
+.tjs-details-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.tjs-details-empty{color:var(--ink-faint);font-size:calc(11px * var(--ui-font-scale));padding:8px 0}
+.tjs-details .tjs-pre{max-height:none}

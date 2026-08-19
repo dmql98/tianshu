@@ -26,7 +26,7 @@ export default function ChatPage() {
 
   // Reconcile ephemeral session-tree updates after the desktop window returns
   // to the foreground or the browser reports network recovery. This covers a
-  // suspended renderer where Socket.IO's reconnect event happened before React
+  // suspended renderer where the transport's reconnect event happened before React
   // resumed processing UI updates.
   useEffect(() => {
     const refreshSessions = () => void loadSessions()

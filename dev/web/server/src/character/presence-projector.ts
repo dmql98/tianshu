@@ -1,5 +1,6 @@
 import { getDb } from '../db/schema.js'
 import type { CharacterMotion } from './visual-store.js'
+import { flushAllPending } from '../agent/runtime/run-event-store.js'
 
 export interface CharacterPresence {
   characterId: string
@@ -18,7 +19,9 @@ const MOTIONS: Array<[RegExp, CharacterMotion, number]> = [
   [/^run\.failed$|^run\.interrupted$|^run\.max_turns$|^run\.budget_exhausted$/, 'error', 100],
   [/^run\.completed$/, 'success', 90],
   [/^tool\./, 'working', 80],
-  [/^message\.delta$/, 'speaking', 70],
+  // R8 之后 message.delta / tool.output 不再 durable（高频流式事件不落库），
+  // speaking 状态改由每轮 LLM 调用结束的 durable message.metrics 触发。
+  [/^message\.metrics$/, 'speaking', 70],
   [/^run\.started$|^run\.retrying$|^run\.queued$|^run\.continuation_queued$/, 'thinking', 60],
   [/^approval\.requested$|^ask_user$/, 'listening', 40],
 ]
@@ -66,6 +69,8 @@ export const characterPresenceProjector = {
   mapEvent,
 
   listBySession(): SessionPresence[] {
+    // R9 write-behind：读取前先落 pending 行，保证最近事件可见。
+    flushAllPending()
     const rows = getDb().prepare(`
       WITH ranked AS (
         SELECT re.type, re.created_at, re.run_id, re.session_id,
@@ -79,8 +84,8 @@ export const characterPresenceProjector = {
         WHERE re.session_id IS NOT NULL
           AND re.type IN (
             'run.cancelled', 'run.failed', 'run.interrupted', 'run.max_turns',
-            'run.budget_exhausted', 'run.completed', 'tool.started', 'tool.output',
-            'tool.completed', 'message.delta', 'run.started', 'run.retrying',
+            'run.budget_exhausted', 'run.completed', 'tool.started',
+            'tool.completed', 'message.metrics', 'run.started', 'run.retrying',
             'run.queued', 'run.continuation_queued', 'approval.requested', 'ask_user'
           )
       )
@@ -111,6 +116,8 @@ export const characterPresenceProjector = {
   },
 
   get(characterId: string): CharacterPresence {
+    // R9 write-behind：读取前先落 pending 行，保证最近事件可见。
+    flushAllPending()
     const row = getDb().prepare(`
       SELECT re.type, re.created_at, re.run_id, re.session_id,
              r.character_revision_id

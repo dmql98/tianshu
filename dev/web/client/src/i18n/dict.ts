@@ -161,6 +161,8 @@ export const dict: Record<string, DictEntry> = {
 
   // ── 轨迹页 ──
   '轨迹': { zh: '轨迹', en: 'Trajectory' },
+  '会话轨迹': { zh: '会话轨迹', en: 'Session trajectory' },
+  '运行': { zh: '运行', en: 'Run' },
   '对话': { zh: '对话', en: 'Chat' },
   '会话视图': { zh: '会话视图', en: 'Session views' },
   '选择运行': { zh: '选择运行', en: 'Select run' },
@@ -175,6 +177,21 @@ export const dict: Record<string, DictEntry> = {
   '时长': { zh: '时长', en: 'Duration' },
   '助手调用': { zh: '助手调用', en: 'Model calls' },
   '工具时间': { zh: '工具时间', en: 'Tool time' },
+  '系统提示': { zh: '系统提示', en: 'System Prompt' },
+  '系统提示更新': { zh: '系统提示更新', en: 'System Update' },
+  '系统提示注入': { zh: '系统提示注入', en: 'System injection' },
+  '系统提示已变化': { zh: '系统提示已变化', en: 'System prompt changed' },
+  '新增工具': { zh: '新增工具', en: 'Added tools' },
+  '移除工具': { zh: '移除工具', en: 'Removed tools' },
+  '无变化': { zh: '无变化', en: 'No changes' },
+  '（无工具）': { zh: '（无工具）', en: '(no tools)' },
+  '（无系统提示）': { zh: '（无系统提示）', en: '(no system prompt)' },
+  '用户消息': { zh: '用户消息', en: 'User message' },
+  '助手回复': { zh: '助手回复', en: 'Assistant reply' },
+  '内容': { zh: '内容', en: 'Content' },
+  '指标': { zh: '指标', en: 'Metrics' },
+  '原始': { zh: '原始', en: 'Raw' },
+  '差异': { zh: '差异', en: 'Diff' },
 
   // ── 目标与计划 ──
   '进行中': { zh: '进行中', en: 'In Progress' },

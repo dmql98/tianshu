@@ -234,6 +234,117 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => {
   let pendingSupersedesMessageId: number | null = null
 
+  // ── 流式高频事件合并（对齐 DSH animation-frame 合并策略）──
+  // message.delta / tool.output 每 token 一次 emit；若逐条 setState，React
+  // 每 token 全量重渲（sessions.map + messages.map + Markdown 全文重解析），
+  // 100+ tok/s 时主线程持续满载 → 客户端变"卡"。按 ~50ms 窗口缓冲合并，
+  // N 个事件折叠成 1 次 store 更新（≈20 次/s），渲染成本直降一个数量级。
+  const STREAM_COALESCE_MS = 50
+  const pendingStreamDeltas = new Map<string, {
+    sessionId: string
+    runId?: string
+    text: string
+    reasoning: string
+    tokenSpeed?: number
+    tokenSpeedEstimated?: boolean
+  }>()
+  const pendingToolOutputs = new Map<string, {
+    sessionId: string
+    toolCallId: string
+    output: string
+  }>()
+  let streamFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+  function scheduleStreamFlush() {
+    if (streamFlushTimer !== null) return
+    streamFlushTimer = setTimeout(() => {
+      streamFlushTimer = null
+      flushStreamBuffers()
+    }, STREAM_COALESCE_MS)
+  }
+
+  /** 合并一条 message.delta（正文/思考增量）到对应 session 的缓冲。 */
+  function enqueueStreamDelta(data: RunEvent) {
+    const key = `${data.session_id}|${data.run_id || ''}`
+    const prev = pendingStreamDeltas.get(key)
+    pendingStreamDeltas.set(key, {
+      sessionId: data.session_id,
+      runId: data.run_id,
+      text: (prev?.text || '') + (data.delta || ''),
+      reasoning: (prev?.reasoning || '') + (data.reasoning || ''),
+      tokenSpeed: data.token_speed ?? prev?.tokenSpeed,
+      tokenSpeedEstimated: data.token_speed_estimated ?? prev?.tokenSpeedEstimated,
+    })
+    scheduleStreamFlush()
+  }
+
+  /** 合并一条 tool.output（bash 流式 chunk）到对应 tool 调用的缓冲。 */
+  function enqueueToolOutput(data: RunEvent) {
+    if (!data.tool_call_id) return
+    const key = `${data.session_id}|${data.tool_call_id}`
+    const prev = pendingToolOutputs.get(key)
+    pendingToolOutputs.set(key, {
+      sessionId: data.session_id,
+      toolCallId: data.tool_call_id,
+      output: (prev?.output || '') + (data.output || ''),
+    })
+    scheduleStreamFlush()
+  }
+
+  /** 立即落空缓冲（终端/里程碑事件前调用，保证最后一段流式文本先落地）。 */
+  function flushStreamBuffers() {
+    if (streamFlushTimer !== null) {
+      clearTimeout(streamFlushTimer)
+      streamFlushTimer = null
+    }
+    if (pendingStreamDeltas.size === 0 && pendingToolOutputs.size === 0) return
+    const deltas = [...pendingStreamDeltas.values()]
+    pendingStreamDeltas.clear()
+    const outputs = [...pendingToolOutputs.values()]
+    pendingToolOutputs.clear()
+    for (const d of deltas) {
+      updateSessionMessage(d.sessionId, sess => {
+        const last = sess.messages[sess.messages.length - 1]
+        if (last?.role === 'assistant' && last.is_streaming) {
+          return {
+            ...sess,
+            messages: sess.messages.map((m, i) => i === sess.messages.length - 1
+              ? {
+                  ...m,
+                  content: m.content + d.text,
+                  reasoning: (m.reasoning || '') + d.reasoning,
+                  token_speed: d.tokenSpeed ?? m.token_speed,
+                  token_speed_estimated: d.tokenSpeedEstimated ?? m.token_speed_estimated,
+                }
+              : m
+            ),
+          }
+        }
+        if (!d.text && !d.reasoning) return sess
+        return {
+          ...sess,
+          messages: [...sess.messages, {
+            id: uid(), role: 'assistant' as const, content: d.text,
+            reasoning: d.reasoning, is_streaming: true,
+            token_speed: d.tokenSpeed,
+            token_speed_estimated: d.tokenSpeedEstimated,
+            timestamp: Date.now(),
+          }],
+        }
+      })
+    }
+    for (const t of outputs) {
+      updateSessionMessage(t.sessionId, sess => ({
+        ...sess,
+        messages: sess.messages.map(m =>
+          m.role === 'tool' && m.tool_call_id === t.toolCallId
+            ? { ...m, tool_output: (m.tool_output || '') + t.output }
+            : m
+        ),
+      }))
+    }
+  }
+
   function clearPendingApproval(sessionId: string) {
     pendingApprovalBySession.delete(sessionId)
     if (get().activeSessionId === sessionId) set({ pendingApproval: null })
@@ -473,38 +584,15 @@ export const useChatStore = create<ChatState>((set, get) => {
       const state = get()
       const s = state.sessions.find(x => x.id === data.session_id)
       if (!s) return
-      const last = s.messages[s.messages.length - 1]
-      if (last?.role === 'assistant' && last.is_streaming) {
-        updateSessionMessage(data.session_id, sess => ({
-          ...sess,
-          messages: sess.messages.map((m, i) => i === sess.messages.length - 1
-            ? {
-              ...m,
-              content: m.content + (data.delta || ''),
-              reasoning: (m.reasoning || '') + (data.reasoning || ''),
-              token_speed: data.token_speed ?? m.token_speed,
-              token_speed_estimated: data.token_speed_estimated ?? m.token_speed_estimated,
-            }
-            : m
-          ),
-        }))
-      } else {
-        updateSessionMessage(data.session_id, sess => ({
-          ...sess,
-          messages: [...sess.messages, {
-            id: uid(), role: 'assistant' as const, content: data.delta || '',
-            reasoning: data.reasoning || '', is_streaming: true,
-            token_speed: data.token_speed,
-            token_speed_estimated: data.token_speed_estimated,
-            timestamp: Date.now(),
-          }],
-        }))
-      }
+      enqueueStreamDelta(data)
     })
 
     bus.off('message.metrics')
     bus.on('message.metrics', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      // 终态事件：先把缓冲的最后一段流式文本落地，避免 is_streaming=false 后
+      // 残留 delta 被当成"新消息"追加。
+      flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => {
         let updated = false
         const messages = [...sess.messages]
@@ -528,6 +616,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('tool.started')
     bus.on('tool.started', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: [...sess.messages, {
@@ -542,6 +631,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('tool.completed')
     bus.on('tool.completed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: sess.messages.map(m =>
@@ -555,19 +645,13 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('tool.output')
     bus.on('tool.output', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
-      updateSessionMessage(data.session_id, sess => ({
-        ...sess,
-        messages: sess.messages.map(m =>
-          m.role === 'tool' && m.tool_call_id === data.tool_call_id
-            ? { ...m, tool_output: (m.tool_output || '') + (data.output || '') }
-            : m
-        ),
-      }))
+      enqueueToolOutput(data)
     })
 
     bus.off('run.completed')
     bus.on('run.completed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -581,6 +665,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('run.max_turns')
     bus.on('run.max_turns', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -594,6 +679,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('run.cancelled')
     bus.on('run.cancelled', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -636,6 +722,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('run.failed')
     bus.on('run.failed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: [...sess.messages, {
@@ -1504,39 +1591,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
-        const last = s.messages[s.messages.length - 1]
-        if (last?.role === 'assistant' && last.is_streaming) {
-          updateMsg(data.session_id, sess => ({
-            ...sess,
-            messages: sess.messages.map((m, i) => i === sess.messages.length - 1
-              ? {
-                ...m,
-                content: m.content + (data.delta || ''),
-                reasoning: (m.reasoning || '') + (data.reasoning || ''),
-                token_speed: data.token_speed ?? m.token_speed,
-                token_speed_estimated: data.token_speed_estimated ?? m.token_speed_estimated,
-              }
-              : m
-            ),
-          }))
-        } else {
-          updateMsg(data.session_id, sess => ({
-            ...sess,
-            messages: [...sess.messages, {
-              id: uid(), role: 'assistant' as const, content: data.delta || '',
-              reasoning: data.reasoning || '', is_streaming: true,
-              token_speed: data.token_speed,
-              token_speed_estimated: data.token_speed_estimated,
-              timestamp: Date.now(),
-            }],
-          }))
-        }
+        enqueueStreamDelta(data)
       }
 
       const onMessageMetrics = (data: RunEvent) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
+        // 终态事件：先把缓冲的最后一段流式文本落地，避免 is_streaming=false 后
+        // 残留 delta 被当成"新消息"追加。
+        flushStreamBuffers()
         updateMsg(data.session_id, sess => {
           const messages = [...sess.messages]
           for (let i = messages.length - 1; i >= 0; i--) {
@@ -1558,6 +1622,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
+        flushStreamBuffers()
         updateMsg(data.session_id, sess => ({
           ...sess,
           messages: [...sess.messages, {
@@ -1573,6 +1638,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
+        flushStreamBuffers()
         updateMsg(data.session_id, sess => ({
           ...sess,
           messages: sess.messages.map(m =>
@@ -1587,14 +1653,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
-        updateMsg(data.session_id, sess => ({
-          ...sess,
-          messages: sess.messages.map(m =>
-            m.role === 'tool' && m.tool_call_id === data.tool_call_id
-              ? { ...m, tool_output: (m.tool_output || '') + (data.output || '') }
-              : m
-          ),
-        }))
+        enqueueToolOutput(data)
       }
 
       const onStrategyUpdated = (data: RunEvent) => {
@@ -1627,6 +1686,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
+        // 终端事件：先落地缓冲，避免残留 delta 在 is_streaming=false 后被追加。
+        flushStreamBuffers()
         updateMsg(data.session_id, sess => {
           const messages = [...sess.messages]
           const last = messages[messages.length - 1]
@@ -1687,6 +1748,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
+        flushStreamBuffers()
         updateMsg(data.session_id, sess => ({
           ...sess,
           messages: [...sess.messages, {
@@ -1710,6 +1772,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (!belongsToRun(data)) return
         const s = findSession(data.session_id)
         if (!s) return
+        flushStreamBuffers()
         const reasonText = data.reason === 'stalled' || data.reason === 'stalled_active'
           ? '运行停滞超时，已被服务端自动中断'
           : data.reason === 'orphaned_after_restart'

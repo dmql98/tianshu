@@ -6,7 +6,7 @@ describe('character presence event mapping', () => {
     ['run.started', 'thinking'],
     ['run.continuation_queued', 'thinking'],
     ['tool.completed', 'working'],
-    ['message.delta', 'speaking'],
+    ['message.metrics', 'speaking'],
     ['ask_user', 'listening'],
     ['run.completed', 'success'],
     ['run.max_turns', 'error'],

@@ -39,7 +39,7 @@ const NON_TERMINAL_NON_PARKED = `status NOT IN (
 
 /**
  * Interrupt every stale run. Returns the ids interrupted (exported for tests).
- * @param io - Socket.IO server used to broadcast the terminal events.
+ * @param io - broadcaster used to emit the terminal events.
  */
 export function sweepStalledRuns(io: TransportBroadcaster): string[] {
   const interrupted: string[] = []

@@ -335,9 +335,20 @@ export interface TrajectoryMessage {
   created_at: number
 }
 
-/** GET /api/runs/:id/trajectory 的响应。 */
+/** 会话轨迹中的 run 元信息（runs 数组元素，会话级轨迹接口返回）。 */
+export interface TrajectoryRunInfo {
+  id: string
+  session_id: string
+  status: string
+  queued_at: number
+  started_at: number | null
+  finished_at: number | null
+}
+
+/** 会话级轨迹接口（GET /api/sessions/:id/trajectory）的响应。 */
 export interface TrajectoryData {
-  run: {
+  /** run 级轨迹接口：当前 run（会话级接口无此字段）。 */
+  run?: {
     id: string
     session_id: string
     status: string
@@ -349,7 +360,9 @@ export interface TrajectoryData {
     finished_at: number | null
     continuation_index: number
     resume_trigger: string | null
-  }
+  } | null
+  /** 会话级轨迹接口：该会话全部 run（按时间升序）。 */
+  runs?: TrajectoryRunInfo[]
   messages: TrajectoryMessage[]
   events: TrajectoryEvent[]
   /** Per-LLM-call trace (llm_calls): complete request snapshot + response. */
@@ -361,6 +374,8 @@ export interface LLMCallTrace {
   runId: string | null
   turn: number
   fp: string | null
+  /** 该 LLM 调用发生时间（epoch ms），轨迹时间轴用它给系统提示注入记录定位。 */
+  createdAt?: number
   request: { model: string; messages: Array<{ role: string; content: unknown }>; tools?: unknown[] }
   response: {
     text: string

@@ -87,8 +87,8 @@ function serveClientHandler(clientDist: string) {
       return c.json({ error: 'Not found' }, 404)
     }
     const reqPath = c.req.path
-    // API and Socket.IO traffic is never served as static files.
-    if (reqPath.startsWith('/api') || reqPath.startsWith('/socket.io')) {
+    // API traffic is never served as static files.
+    if (reqPath.startsWith('/api')) {
       return c.json({ error: 'Not found' }, 404)
     }
     let urlPath: string
@@ -252,7 +252,7 @@ export async function startTianshuServer(
 
   // Transport runtime: the run path only needs an emit-capable broadcaster
   // whose events fan out to the registered sinks (SSE connections + Electron
-  // IPC). socket.io is gone — no heartbeat, no reconnect, no socket lifecycle.
+  // IPC). No heartbeat, no reconnect, no socket lifecycle to manage.
   const broadcaster = createBroadcaster()
   setEventDefinitionRuntime(broadcaster)
   setGoalRuntime(broadcaster)

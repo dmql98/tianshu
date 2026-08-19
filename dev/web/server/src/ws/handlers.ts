@@ -246,6 +246,3 @@ export function handleApprovalRespond(
   channel.ack({ status: accepted ? 'ok' : 'no_pending' })
 }
 
-// socket.io-only extras (live-socket rebinding for reconnects) are kept in
-// registerChatSocket.
-

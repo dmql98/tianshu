@@ -60,7 +60,7 @@ describe('presence projector terminal-status hardening', () => {
     const run = runStore.create(session, { id: `run_${randomUUID()}` })
     makeRunning(run.id)
     // The last durable event is a stream event (speaking)…
-    runEventStore.append(run.id, 'message.delta', { session_id: session.id, run_id: run.id, delta: 'hi' })
+    runEventStore.append(run.id, 'message.metrics', { session_id: session.id, run_id: run.id, llm_ms: 10 })
     // …but the run is terminal at the DB level (e.g. force-finished without a
     // terminal event append — the defensive case).
     runStore.finish(run.id, 'completed', { result: {} })
@@ -76,7 +76,7 @@ describe('presence projector terminal-status hardening', () => {
     const session = makeSession()
     const run = runStore.create(session, { id: `run_${randomUUID()}` })
     makeRunning(run.id)
-    runEventStore.append(run.id, 'message.delta', { session_id: session.id, run_id: run.id, delta: 'hi' })
+    runEventStore.append(run.id, 'message.metrics', { session_id: session.id, run_id: run.id, llm_ms: 10 })
     runStore.finish(run.id, 'cancelled', {})
 
     const bySession = characterPresenceProjector.listBySession().find(p => p.sessionId === session.id)
@@ -87,7 +87,7 @@ describe('presence projector terminal-status hardening', () => {
     const session = makeSession()
     const run = runStore.create(session, { id: `run_${randomUUID()}` })
     makeRunning(run.id)
-    runEventStore.append(run.id, 'message.delta', { session_id: session.id, run_id: run.id, delta: 'hi' })
+    runEventStore.append(run.id, 'message.metrics', { session_id: session.id, run_id: run.id, llm_ms: 10 })
 
     const bySession = characterPresenceProjector.listBySession().find(p => p.sessionId === session.id)
     expect(bySession?.motion).toBe('speaking')

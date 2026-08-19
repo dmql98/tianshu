@@ -23,7 +23,7 @@ function systemPromptFingerprint(messages: unknown[]): string {
 // Per-session FIFO queue: logLLMCall is fire-and-forget from the run loop. The
 // DB insert is async and serialized per session so turn order is preserved and
 // the event loop is never blocked (the old synchronous file rewrites stalled
-// socket.io heartbeats and caused ping-timeout disconnects).
+// the transport and caused ping-timeout disconnects).
 const queues = new Map<string, Promise<void>>()
 
 function enqueue(sessionId: string, task: () => Promise<void>): void {
@@ -37,6 +37,8 @@ export interface LLMCallRecord {
   runId: string | null
   turn: number
   fp: string | null
+  /** 该 LLM 调用发生时间（epoch ms），用于轨迹时间轴排序。 */
+  createdAt: number
   request: { model: string; messages: unknown[]; tools?: unknown[] }
   response: {
     text: string
@@ -136,6 +138,7 @@ export function rowToLLMCall(row: LLMCallRow): LLMCallRecord {
     runId: row.run_id,
     turn: row.turn_no,
     fp: row.fp,
+    createdAt: row.created_at,
     request: {
       model: row.request_model || '',
       messages: JSON.parse(row.request_messages || '[]'),

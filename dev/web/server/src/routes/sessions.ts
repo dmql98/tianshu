@@ -10,6 +10,8 @@ import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-tit
 import { characterPresenceProjector } from '../character/presence-projector.js'
 import { runCoordinator } from '../agent/runtime/run-coordinator.js'
 import { llmCallsForSession, rowToLLMCall } from '../agent/llm-call-store.js'
+import { runStore } from '../agent/runtime/run-store.js'
+import { runEventStore, flushAllPending } from '../agent/runtime/run-event-store.js'
 import {
   resolveWorkspace, resolveDataspace,
   assembleStaticPrompt, buildInitialMessages,
@@ -252,6 +254,9 @@ router.get('/:id/stats', (c) => {
   const id = c.req.param('id')
   const session = sessionStore.getById(id)
   if (!session) return c.json({ error: 'Not found' }, 404)
+  // R9 write-behind：统计直接查 run_events，读取前必须先把 pending 行落库，
+  // 否则刚发生的 message.metrics / tool.completed 等还没进表，统计会少计。
+  flushAllPending()
 
   const counts = getDb().prepare(`
     SELECT
@@ -339,6 +344,69 @@ router.get('/:id/export', (c) => {
     payload.llmCalls = llmCallsForSession(id).map(row => rowToLLMCall(row))
   }
   return c.json(payload)
+})
+
+/**
+ * GET /:id/trajectory — the session-level trajectory, in the spirit of the
+ * deepseek-harness trajectory view: one complete, run-aware timeline for THIS
+ * session (no run picker on the client).
+ *
+ * - runs: every run of the session, oldest first (chronological session flow).
+ * - messages: every content message of the session, ordered by id — the
+ *   conversation backbone of the timeline (user / assistant / tool rows).
+ * - events: every non-streaming durable run event of the session (timing
+ *   metrics, usage, lifecycle, approvals…), ordered by seq across runs. A
+ *   session can contain a continuation chain (resumed_from_run_id) or several
+ *   independent user turns; this endpoint merges them into one stream so the
+ *   trajectory page can render the whole session, with run boundaries
+ *   preserved in each event's run_id.
+ * - llmCalls: every LLM call of the session (llm_calls), the complete request
+ *   snapshot + response, so per-call inspection survives restarts.
+ */
+router.get('/:id/trajectory', (c) => {
+  const id = c.req.param('id')
+  const session = sessionStore.getById(id)
+  if (!session) return c.json({ error: 'Not found' }, 404)
+
+  const runs = runStore.listForSession(id, 1000).reverse()
+  const messages = messageStore.getMessages(id, 100000)
+
+  const eventRows = getDb().prepare(`
+    SELECT event_id, session_id, run_id, seq, type, payload, created_at
+    FROM run_events
+    WHERE session_id = ? AND type NOT IN ('message.delta', 'tool.output')
+    ORDER BY created_at ASC, seq ASC
+  `).all(id) as Array<{
+    event_id: string
+    session_id: string
+    run_id: string
+    seq: number
+    type: string
+    payload: string
+    created_at: number
+  }>
+  const events = eventRows.map(event => ({
+    event_id: event.event_id,
+    session_id: event.session_id,
+    run_id: event.run_id,
+    seq: event.seq,
+    type: event.type,
+    occurred_at: event.created_at,
+    ...JSON.parse(event.payload),
+  }))
+
+  const llmCalls = llmCallsForSession(id).map(row => rowToLLMCall(row))
+  return c.json({
+    session: {
+      id: session.id,
+      title: session.title,
+      character_id: session.character_id,
+    },
+    runs,
+    messages,
+    events,
+    llmCalls,
+  })
 })
 
 export default router

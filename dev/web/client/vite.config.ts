@@ -20,4 +20,10 @@ export default defineConfig({
       '/api': `http://127.0.0.1:${serverPort}`,
     },
   },
+  test: {
+    // 组件测试（jsdom + React act）要求 React 开发构建：若宿主 shell 带
+    // NODE_ENV=production，vitest 会继承并加载 React 生产包导致
+    // "act(...) is not supported in production builds"。显式钉死为 test。
+    env: { NODE_ENV: 'test' },
+  },
 })

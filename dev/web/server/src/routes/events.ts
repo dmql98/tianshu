@@ -9,10 +9,10 @@ import {
 } from '../ws/handlers.js'
 
 /**
- * Web transport (SSE downlink + fetch POST uplink) — the socket.io-free path
- * for browser clients. Downlink reuses the same durable run events via the
- * global event-sink fan-out; uplink dispatches to the same transport-neutral
- * handlers as socket.io and the Electron IPC bridge.
+ * Web transport (SSE downlink + fetch POST uplink) for browser clients.
+ * Downlink reuses the same durable run events via the global event-sink
+ * fan-out; uplink dispatches to the same transport-neutral handlers as the
+ * Electron IPC bridge.
  */
 const router = new Hono()
 
@@ -76,7 +76,7 @@ router.post('/', async (c) => {
   return c.json({ ack: ackResp })
 })
 
-// Readiness ping (mirrors socket.io app:hello; keeps the uplink contract simple).
+// Readiness ping: keeps the uplink contract simple.
 router.post('/hello', (c) => {
   return c.json({ status: 'ok', ts: Date.now() })
 })

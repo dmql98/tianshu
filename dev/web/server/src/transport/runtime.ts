@@ -1,9 +1,8 @@
 /**
  * Shared transport runtime: the minimal broadcaster the run path needs.
  *
- * socket.io 已彻底移除：run 路径不再依赖任何 socket.io 对象，只需要一个
- * "能 emit 事件的通道"。这个 broadcaster 把 emit 直接转成全局 sink fan-out
- * （SSE 连接与 Electron IPC 是两个已注册的 sink）。
+ * run 路径只需要一个"能 emit 事件的通道"，不绑定具体传输。这个 broadcaster
+ * 把 emit 直接转成全局 sink fan-out（SSE 连接与 Electron IPC 是两个已注册的 sink）。
  */
 import { fanOutToSinks } from './event-sinks.js'
 

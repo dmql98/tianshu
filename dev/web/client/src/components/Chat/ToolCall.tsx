@@ -1,4 +1,4 @@
-﻿﻿import { useState } from 'react'
+﻿import { memo, useState } from 'react'
 import type { Message } from '@/types'
 import { useI18n } from '@/i18n'
 import Icon from '@/features/icons/Icon'
@@ -16,7 +16,7 @@ const iconByTool: Record<string, string> = {
   glob: 'tool-glob',
 }
 
-export default function ToolCall({ message }: Props) {
+export default memo(function ToolCall({ message }: Props) {
   const [expanded, setExpanded] = useState(false)
   const t = useI18n()
   const status = message.tool_status || 'running'
@@ -40,4 +40,4 @@ export default function ToolCall({ message }: Props) {
       )}
     </div>
   )
-}
+})

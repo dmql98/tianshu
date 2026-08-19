@@ -34,7 +34,7 @@ const api = {
   openDirectoryDialog: (defaultPath?: string) =>
     ipcRenderer.invoke('desktop:open-directory', defaultPath),
 
-  // ── Transport-neutral event channel (replaces socket.io in the desktop app) ──
+  // ── Transport-neutral event channel (IPC bridge for the desktop app) ──
   eventSend: (type: string, payload: unknown, ack?: (resp: unknown) => void) => {
     const reqId = ++eventReqSeq
     if (ack) eventAcks.set(reqId, ack)

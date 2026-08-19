@@ -263,7 +263,7 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      // Runs and Socket.IO live outside the renderer, but Chromium otherwise
+      // The server runs outside the renderer, but Chromium otherwise
       // throttles its timers while minimized and can make streaming look dead.
       backgroundThrottling: false,
     },

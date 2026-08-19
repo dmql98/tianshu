@@ -1,6 +1,8 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client'
 import type { SessionStats, SessionSummary } from '@/types'
 import type { CharacterMotion } from './characters'
+import type { RunRow } from './runs'
+import type { TrajectoryMessage, TrajectoryEvent, LLMCallTrace } from '@/types'
 
 export const fetchSessions = () => apiGet<SessionSummary[]>('/api/sessions')
 
@@ -65,6 +67,26 @@ export interface SessionExportData {
 
 export const fetchSessionExport = (id: string, scope: 'basic' | 'full' = 'full') =>
   apiGet<SessionExportData>(`/api/sessions/${encodeURIComponent(id)}/export?scope=${scope}`)
+
+/**
+ * 会话级轨迹（对标 deepseek-harness trajectory）：一个会话的完整执行过程——
+ * 全部 run、消息时间线、非流式事件日志、每次 LLM 调用的完整请求/响应。
+ * 轨迹页直接按会话渲染，不再需要选择 run。
+ */
+export interface SessionTrajectoryData {
+  session: {
+    id: string
+    title: string
+    character_id: string
+  }
+  runs: RunRow[]
+  messages: TrajectoryMessage[]
+  events: TrajectoryEvent[]
+  llmCalls?: LLMCallTrace[]
+}
+
+export const fetchSessionTrajectory = (id: string) =>
+  apiGet<SessionTrajectoryData>(`/api/sessions/${encodeURIComponent(id)}/trajectory`)
 
 /** 手动压缩会话上下文：返回压缩前后的 token 估算，didCompact=false 表示无需压缩。 */
 export interface CompactSessionResult {

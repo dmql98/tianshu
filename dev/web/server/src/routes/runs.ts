@@ -7,7 +7,7 @@ import { abortSession, enqueueRun } from '../agent/session-runner.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
-import { createDurableSocket, publishRunEvent, forceCancelRun } from '../agent/runtime/run-event-store.js'
+import { createDurableSocket, publishRunEvent, forceCancelRun, flushAllPending } from '../agent/runtime/run-event-store.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { createResumedRun } from '../agent/runtime/run-resume-service.js'
 import { llmCallsForRun, rowToLLMCall } from '../agent/llm-call-store.js'
@@ -82,6 +82,8 @@ router.get('/:id/events', (c) => {
 router.get('/:id/trajectory', (c) => {
   const run = runStore.get(c.req.param('id'))
   if (!run) return c.json({ error: 'Not found' }, 404)
+  // R9 write-behind：轨迹直查 run_events，读取前先落 pending 行。
+  flushAllPending()
   const messages = getDb().prepare(
     'SELECT * FROM messages WHERE run_id = ? ORDER BY id ASC',
   ).all(run.id)

@@ -2,8 +2,8 @@
  * dev-desktop.mjs
  *
  * Development orchestrator: keeps the dual-port hot-reload flow (Vite at 3457,
- * Hono/Socket.IO via tsx at 3456) and drives an Electron window pointed at the
- * Vite dev server. Electron dev mode does NOT manage the server itself and the
+ * server via tsx at 3456) and drives an Electron window pointed at the Vite
+ * dev server. Electron dev mode does NOT manage the server itself and the
  * updater is disabled.
  *
  *   server  → node <tsx cli> watch src/index.ts   (PORT 3456)

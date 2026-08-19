@@ -6,8 +6,10 @@ export type TrajectoryRowKind = 'user' | 'assistant' | 'tool'
 export interface TrajectoryRow {
   kind: TrajectoryRowKind
   messageId: number
+  /** 该消息所属 run（会话级轨迹合并多个 run 时用于显示 run 边界）。 */
+  runId: string | null
   createdAt: number
-  /** 第几步（assistant = LLM 调用序号；其后的 tool 继承当前步）。 */
+  /** 第几步（assistant = LLM 调用序号；其后的 tool 继承当前步）。跨 run 全局递增。 */
   step: number | null
   text: string
   reasoning: string
@@ -29,16 +31,44 @@ export interface TrajectoryRow {
   durationMs: number | null
 }
 
+/** 会话轨迹中的一个 run 元信息（用于 run 边界分隔条）。 */
+export interface TrajectoryRunMeta {
+  id: string
+  status: string
+  queuedAt: number
+  startedAt: number | null
+  finishedAt: number | null
+}
+
 /** 生命周期/审批/询问事件条（run.* / approval.* / ask_user），按 seq 顺序。 */
 export interface TrajectoryLifecycleItem {
   type: string
+  runId: string | null
   createdAt: number
   detail: string
+}
+
+/** 系统提示注入记录（来自 llm_calls 快照推导）：会话开头注入 / 之后 system 或 tools 变化时再注入。 */
+export interface TrajectorySystemRow {
+  kind: 'initial' | 'update'
+  createdAt: number
+  runId: string | null
+  /** 关联的 LLM 调用序号。 */
+  callTurn: number
+  /** 完整系统提示文本（该次调用实际发送的 system 消息拼接）。 */
+  system: string
+  /** 该次调用实际发送的工具定义。 */
+  tools: unknown[]
+  /** update 时上一次的状态，用于 Diff 分页。 */
+  previous?: { system: string; toolNames: string[] }
 }
 
 export interface TrajectoryModel {
   rows: TrajectoryRow[]
   lifecycle: TrajectoryLifecycleItem[]
+  /** 系统提示注入记录（initial + update），按时间顺序。 */
+  systemRows: TrajectorySystemRow[]
+  runs: TrajectoryRunMeta[]
   retries: number
 }
 
@@ -77,6 +107,7 @@ function toRow(message: TrajectoryMessage): TrajectoryRow {
   return {
     kind: message.role,
     messageId: message.id,
+    runId: message.run_id ?? null,
     createdAt: message.created_at,
     step: null,
     text: message.role === 'tool' ? (message.tool_output ?? '') : (message.content ?? ''),
@@ -98,25 +129,101 @@ function toRow(message: TrajectoryMessage): TrajectoryRow {
   }
 }
 
+/** 从一次 LLM 调用快照提取系统提示文本（拼接所有 system 消息的 content）。 */
+function extractSystemText(messages: unknown[]): string {
+  return (messages || [])
+    .filter(m => (m as any)?.role === 'system')
+    .map(m => {
+      const content = (m as any)?.content
+      if (typeof content === 'string') return content
+      if (Array.isArray(content)) {
+        return content
+          .map(block => (block as any)?.type === 'text' ? String((block as any).text ?? '') : '')
+          .join('\n')
+      }
+      return ''
+    })
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+/** 工具名列表（稳定指纹：只看 name，忽略参数体变化）。 */
+function toolNames(tools: unknown[] | undefined): string[] {
+  if (!Array.isArray(tools)) return []
+  return tools.map(tool => String((tool as { name?: unknown })?.name ?? '')).filter(Boolean)
+}
+
 /**
- * 从 trajectory 数据构建时间线模型：
- * - 内容行按 messages.id 顺序（user → assistant → 其工具消息 → 下一个 assistant …）；
+ * 从 llm_calls 快照推导系统提示注入记录（DSH 的 system / system-update 行）：
+ * - 第一次调用 → initial 记录；
+ * - 之后每当 system 文本或工具集合发生变化 → 新增 update 记录（含 previous 供 Diff）。
+ * 调用按 created_at / turn 排序，保证时间顺序。
+ */
+function buildSystemRows(llmCalls: TrajectoryData['llmCalls']): TrajectorySystemRow[] {
+  if (!llmCalls || llmCalls.length === 0) return []
+  const calls = [...llmCalls].sort((a, b) =>
+    (a.createdAt ?? 0) - (b.createdAt ?? 0) || a.turn - b.turn)
+  const rows: TrajectorySystemRow[] = []
+  let lastSystem = ''
+  let lastToolNames: string[] = []
+  for (const call of calls) {
+    const system = extractSystemText(call.request.messages)
+    const tools = call.request.tools ?? []
+    const names = toolNames(tools)
+    if (rows.length === 0) {
+      rows.push({
+        kind: 'initial',
+        createdAt: call.createdAt ?? 0,
+        runId: call.runId ?? null,
+        callTurn: call.turn,
+        system,
+        tools,
+      })
+    } else if (system !== lastSystem || names.join(',') !== lastToolNames.join(',')) {
+      rows.push({
+        kind: 'update',
+        createdAt: call.createdAt ?? 0,
+        runId: call.runId ?? null,
+        callTurn: call.turn,
+        system,
+        tools,
+        previous: { system: lastSystem, toolNames: lastToolNames },
+      })
+    }
+    lastSystem = system
+    lastToolNames = names
+  }
+  return rows
+}
+
+/**
+ * 从会话轨迹数据构建时间线模型（对标 deepseek-harness trajectory）：
+ * - 内容行按 messages.id 顺序（user → assistant → 其工具消息 → 下一个 assistant …），
+ *   会话级数据会跨多个 run（用户多轮提问、自动续跑、ask_user 恢复等）自然合并为一条时间线；
+ * - run 边界：runs 列表（含续跑链）全部并入 model.runs，供前端渲染 run 分隔条；
  * - 用事件富化：message.metrics 附 timing/缓存，usage 附 token 用量，
  *   tool.completed 附工具耗时；`usage` 在流中先于同一次调用的 `message.metrics`
  *   落库，所以用"待定用量"配对，避免不同步导致错位；
- * - 生命周期事件单独成条（chip），重试计数单独统计。
+ * - 生命周期事件（run.* / approval.* / ask_user）独立成条并按时间顺序排列，真实渲染。
  */
 export function buildTrajectory(data: TrajectoryData): TrajectoryModel {
   const rows = data.messages.map(toRow)
+  const runs: TrajectoryRunMeta[] = (data.runs ?? []).map(run => ({
+    id: run.id,
+    status: run.status,
+    queuedAt: run.queued_at,
+    startedAt: run.started_at ?? null,
+    finishedAt: run.finished_at ?? null,
+  }))
 
-  // 步号：assistant 行递增，其后的 tool 行继承当前步。
+  // 步号：assistant 行递增（跨 run 全局连续），其后的 tool 行继承当前步。
   let step = 0
   for (const row of rows) {
     if (row.kind === 'assistant') step += 1
     if (row.kind !== 'user') row.step = step
   }
 
-  // 事件富化（events 按 seq 有序）。
+  // 事件富化（events 按时间/seq 有序，跨 run 全局排列）。
   let lastAssistant: TrajectoryRow | null = null
   let pendingUsage: { input: number; output: number } | null = null
   const toolRows = rows.filter(row => row.kind === 'tool')
@@ -173,13 +280,20 @@ export function buildTrajectory(data: TrajectoryData): TrajectoryModel {
       if (ev.type === 'run.retrying') retries += 1
       lifecycle.push({
         type: ev.type,
+        runId: ev.run_id ?? null,
         createdAt: ev.occurred_at,
         detail: lifecycleDetail(ev),
       })
     }
   }
 
-  return { rows, lifecycle, retries }
+  // 生命周期按发生时间排序（事件本身已按时间序，此处兜底，保证真实时间线）。
+  lifecycle.sort((a, b) => a.createdAt - b.createdAt)
+
+  // 系统提示注入记录：由每次 LLM 调用的请求快照推导（会话开头注入 + 变化时再注入）。
+  const systemRows = buildSystemRows(data.llmCalls)
+
+  return { rows, lifecycle, systemRows, runs, retries }
 }
 
 /** 头部汇总：与侧边栏会话统计同口径（本 run 范围）。 */
@@ -240,6 +354,10 @@ export function filterTrajectory(model: TrajectoryModel, query: string): Traject
   return {
     rows: model.rows.filter(rowMatch),
     lifecycle: model.lifecycle.filter(lifecycleMatch),
+    systemRows: model.systemRows.filter(system =>
+      system.system.toLowerCase().includes(q)
+      || toolNames(system.tools).some(name => name.toLowerCase().includes(q))),
+    runs: model.runs,
     retries: model.retries,
   }
 }

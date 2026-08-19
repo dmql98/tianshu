@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { fetchRecentRuns, fetchRunTrajectory, type RunRow } from '@/api/runs'
-import type { TrajectoryData, LLMCallTrace } from '@/types'
+import { fetchSessionTrajectory, type SessionTrajectoryData } from '@/api/sessions'
 import {
   buildTrajectory,
   filterTrajectory,
   summarizeTrajectory,
+  type TrajectoryLifecycleItem,
   type TrajectoryModel,
   type TrajectoryRow,
+  type TrajectoryRunMeta,
+  type TrajectorySystemRow,
 } from '@/features/trajectory/trajectory'
 import { formatDuration, formatTokens } from '@/features/chat/runStats'
 import { useI18n } from '@/i18n'
@@ -18,6 +19,32 @@ const STATUS_LABEL: Record<string, string> = {
   completed: '已完成', failed: '失败', cancelled: '已取消',
   max_turns: '轮数上限', budget_exhausted: '预算耗尽', interrupted: '已中断',
 }
+
+/** 生命周期事件的中文标签（渲染在事件条上）。 */
+const LIFECYCLE_LABEL: Record<string, string> = {
+  'run.queued': '入队', 'run.started': '开始', 'run.retrying': '重试',
+  'run.completed': '完成', 'run.failed': '失败', 'run.cancelled': '取消',
+  'run.interrupted': '中断', 'run.max_turns': '轮数上限',
+  'run.budget_exhausted': '预算耗尽', 'run.limit_warning': '软上限提醒',
+  'run.grace_started': '宽限开始', 'run.continuation_queued': '自动续跑入队',
+  'approval.requested': '等待审批', 'ask_user': '询问用户',
+}
+
+const LIFECYCLE_CLASS: Record<string, string> = {
+  'run.completed': 'ok',
+  'run.failed': 'error',
+  'run.cancelled': 'error',
+  'run.interrupted': 'error',
+  'run.max_turns': 'error',
+  'run.budget_exhausted': 'error',
+  'approval.requested': 'warn',
+  'ask_user': 'warn',
+}
+
+/** 右侧详情窗口的选中对象：内容行 或 系统提示注入记录。 */
+export type TrajectorySelection =
+  | { kind: 'row'; key: string; row: TrajectoryRow }
+  | { kind: 'system'; key: string; row: TrajectorySystemRow }
 
 function hhmmss(ts: number): string {
   const d = new Date(ts)
@@ -52,125 +79,34 @@ function RowHeader({ row }: { row: TrajectoryRow }) {
   return <span className="tjs-row-title">{bits.join(' · ')}</span>
 }
 
-function AssistantBody({ row }: { row: TrajectoryRow }) {
-  const t = useI18n()
-  const [showReasoning, setShowReasoning] = useState(false)
-  const meta: string[] = []
-  if (row.llmMs !== null) meta.push(`${t('时长')} ${formatDuration(row.llmMs)}`)
-  if (row.ttftMs !== null) meta.push(`${t('首 token')} ${formatDuration(row.ttftMs)}`)
-  if (row.tokenSpeed !== null && row.tokenSpeed > 0) meta.push(`${row.tokenSpeed.toFixed(1)} tok/s`)
-  if (row.inputTokens !== null || row.outputTokens !== null) {
-    meta.push(`${t('输入')} ${formatTokens(row.inputTokens ?? 0)} · ${t('输出')} ${formatTokens(row.outputTokens ?? 0)}`)
-  }
-  if (row.cacheHitTokens !== null) {
-    const total = (row.cacheHitTokens ?? 0) + (row.cacheMissTokens ?? 0)
-    const pct = total > 0 ? Math.round((row.cacheHitTokens ?? 0) / total * 100) : null
-    if (pct !== null) meta.push(`${t('缓存命中')} ${pct}%`)
-  }
-  return (
-    <div className="tjs-assistant">
-      {row.reasoning && (
-        <div className="tjs-reasoning">
-          <button className="tjs-toggle" onClick={() => setShowReasoning(v => !v)}>
-            {showReasoning ? '▾' : '▸'} {t('思考')}
-          </button>
-          {showReasoning && <pre className="tjs-pre tjs-reasoning-body">{row.reasoning}</pre>}
-        </div>
-      )}
-      {row.text && <pre className="tjs-pre tjs-assistant-text">{row.text}</pre>}
-      {meta.length > 0 && <div className="tjs-meta">{meta.join(' · ')}</div>}
-    </div>
-  )
-}
-
-function ToolBody({ row }: { row: TrajectoryRow }) {
-  const t = useI18n()
-  const [showOutput, setShowOutput] = useState(false)
-  const truncated = (row.text?.length ?? 0) > 4000
-  return (
-    <div className="tjs-tool">
-      <div className="tjs-meta">
-        <span className={`tjs-status ${row.isError ? 'error' : row.toolStatus === 'denied' ? 'denied' : 'ok'}`}>
-          {row.isError ? t('失败') : row.toolStatus === 'denied' ? t('拒绝') : row.toolStatus || t('成功')}
-        </span>
-        {row.durationMs !== null && row.durationMs > 0 && <span>{formatDuration(row.durationMs)}</span>}
-      </div>
-      {row.toolArgs && (
-        <div className="tjs-block">
-          <div className="tjs-block-label">{t('参数')}</div>
-          <pre className="tjs-pre">{row.toolArgs}</pre>
-        </div>
-      )}
-      {row.text && (
-        <div className="tjs-block">
-          <div className="tjs-block-label">{t('结果')}</div>
-          <pre className="tjs-pre">{(showOutput || !truncated) ? row.text : `${row.text.slice(0, 4000)}\n…`}</pre>
-          {truncated && (
-            <button className="tjs-toggle" onClick={() => setShowOutput(v => !v)}>
-              {showOutput ? t('收起') : t('展开全部')}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /**
  * 会话的轨迹视图（聊天页 "对话 / 轨迹" 分页中的轨迹页）：
- * 运行选择 + 状态/汇总工具条 + 生命周期事件条 + 可展开的事件流水账 + 搜索。
+ * 哪个会话就是哪个会话的轨迹 —— 无 run 选择器，直接按会话加载并渲染完整时间线：
+ * run 边界分隔条 + 生命周期事件条 + 系统提示注入记录 + 内容行；
+ * 选中记录后在右侧打开详情窗口（分页 tabs，DSH 风格）。
  */
 export default function TrajectoryView({ sessionId }: { sessionId: string }) {
   const t = useI18n()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [runs, setRuns] = useState<RunRow[]>([])
-  const [runId, setRunId] = useState<string | null>(null)
-  const [data, setData] = useState<TrajectoryData | null>(null)
+  const [data, setData] = useState<SessionTrajectoryData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [selection, setSelection] = useState<TrajectorySelection | null>(null)
 
-  // 会话切换时重置，再加载运行列表（最多 20 条）；优先恢复 URL 里的 ?run=。
+  // 会话切换时重置，再按会话加载整条轨迹。
   useEffect(() => {
     let cancelled = false
-    setRuns([])
-    setRunId(null)
     setData(null)
     setError(null)
+    setSelection(null)
     if (!sessionId) return
-    fetchRecentRuns(sessionId, 20)
-      .then(list => {
-        if (cancelled) return
-        setRuns(list)
-        const requested = searchParams.get('run')
-        setRunId(list.find(r => r.id === requested)?.id ?? list[0]?.id ?? null)
-      })
-      .catch(() => { if (!cancelled) setError(t('加载运行列表失败')) })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, t])
-
-  // 选中运行：写入 URL，刷新/深链可恢复。
-  const selectRun = (id: string) => {
-    setRunId(id)
-    setSearchParams({ run: id }, { replace: true })
-  }
-
-  // 选中运行的轨迹数据
-  useEffect(() => {
-    if (!runId) {
-      setData(null)
-      return
-    }
-    let cancelled = false
     setLoading(true)
-    setError(null)
-    fetchRunTrajectory(runId)
+    fetchSessionTrajectory(sessionId)
       .then(result => { if (!cancelled) setData(result) })
       .catch(() => { if (!cancelled) setError(t('加载轨迹失败')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [runId, t])
+  }, [sessionId, t])
 
   const model = useMemo<TrajectoryModel | null>(
     () => (data ? buildTrajectory(data) : null),
@@ -196,31 +132,16 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
   return (
     <div className="tjs-view">
       <div className="tjs-toolbar">
-        <select
-          className="tjs-run-select"
-          value={runId ?? ''}
-          onChange={e => selectRun(e.target.value)}
-          disabled={runs.length === 0}
-          title={t('选择运行')}
-        >
-          {runs.length === 0 && <option value="">{t('无运行记录')}</option>}
-          {runs.map(run => (
-            <option key={run.id} value={run.id}>
-              {run.id}
-            </option>
-          ))}
-        </select>
         {data && (
-          <span className={`tjs-status ${runStatusClass(data.run.status)}`}>
-            {STATUS_LABEL[data.run.status] ?? data.run.status}
+          <span className="tjs-session-title" title={data.session.id}>
+            {data.session.title || t('会话轨迹')}
           </span>
         )}
-        {data && data.run.started_at && data.run.finished_at && (
-          <span>{formatDuration(Math.max(0, data.run.finished_at - data.run.started_at))}</span>
+        {model && model.runs.length > 0 && (
+          <span className="tjs-runs-count">{t('运行')} ×{model.runs.length}</span>
         )}
         {model && model.retries > 0 && <span>{t('重试')} ×{model.retries}</span>}
         {headerChips.map(chip => <span key={chip}>{chip}</span>)}
-        {data?.run.error && <span className="tjs-error">{data.run.error}</span>}
         <input
           className="tjs-search"
           placeholder={t('搜索轨迹')}
@@ -231,86 +152,365 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
 
       {loading && <div className="tjs-empty">{t('加载中…')}</div>}
       {error && <div className="tjs-empty tjs-error">{error}</div>}
-      {!loading && !error && filtered && filtered.rows.length === 0 && (
-        <div className="tjs-empty">{t('无轨迹数据')}</div>
-      )}
+      {!loading && !error && filtered
+        && filtered.rows.length === 0 && filtered.systemRows.length === 0 && (
+          <div className="tjs-empty">{t('无轨迹数据')}</div>
+        )}
 
-      {filtered && (
-        <div className="tjs-ledger">
-          {filtered.rows.map(row => <TrajectoryRowView key={row.messageId} row={row} />)}
+      {!loading && !error && filtered && (filtered.rows.length > 0 || filtered.systemRows.length > 0) && (
+        <div className="tjs-body-row">
+          <div className="tjs-ledger">
+            <MergedTimeline
+              model={filtered}
+              selection={selection}
+              onSelect={setSelection}
+            />
+          </div>
+          {selection && (
+            <DetailsPanel
+              selection={selection}
+              onClose={() => setSelection(null)}
+            />
+          )}
         </div>
-      )}
-
-      {data && data.llmCalls && data.llmCalls.length > 0 && (
-        <LLMCallSection calls={data.llmCalls} />
       )}
     </div>
   )
 }
 
-function LLMCallSection({ calls }: { calls: LLMCallTrace[] }) {
-  const t = useI18n()
-  const [open, setOpen] = useState<number | null>(null)
+/**
+ * 合并时间线：run 边界分隔条 + 生命周期事件条 + 系统提示注入记录 + 内容行，
+ * 全部按真实时间顺序交错（时间戳相同则行优先，保证 run.started 显示在第一条内容之前）。
+ */
+function MergedTimeline({
+  model,
+  selection,
+  onSelect,
+}: {
+  model: TrajectoryModel
+  selection: TrajectorySelection | null
+  onSelect: (s: TrajectorySelection) => void
+}) {
+  const rowItems = model.rows.map(row => ({
+    key: `row-${row.messageId}`,
+    kind: 'row' as const,
+    ref: row,
+    time: row.createdAt,
+  }))
+  const systemItems = model.systemRows.map((row, i) => ({
+    key: `sys-${row.callTurn}-${i}`,
+    kind: 'system' as const,
+    ref: row,
+    time: row.createdAt,
+  }))
+  const lifecycleItems = model.lifecycle.map((item, i) => ({
+    key: `lc-${i}-${item.type}-${item.createdAt}`,
+    kind: 'lifecycle' as const,
+    ref: item,
+    time: item.createdAt,
+  }))
+
+  // 三路归并：row / system / lifecycle 按 createdAt 交错。
+  const merged: Array<{
+    key: string
+    kind: 'lifecycle' | 'row' | 'system'
+    ref: TrajectoryLifecycleItem | TrajectoryRow | TrajectorySystemRow
+  }> = []
+  let r = 0
+  let s = 0
+  let l = 0
+  while (r < rowItems.length || s < systemItems.length || l < lifecycleItems.length) {
+    const row = rowItems[r]
+    const sys = systemItems[s]
+    const lc = lifecycleItems[l]
+    const pick = (a: { time: number } | undefined, b: { time: number } | undefined): boolean =>
+      a !== undefined && (b === undefined || a.time <= b.time)
+    if (row && pick(row, sys) && pick(row, lc)) {
+      merged.push({ key: row.key, kind: 'row', ref: row.ref })
+      r++
+    } else if (sys && pick(sys, lc)) {
+      merged.push({ key: sys.key, kind: 'system', ref: sys.ref })
+      s++
+    } else if (lc) {
+      merged.push({ key: lc.key, kind: 'lifecycle', ref: lc.ref })
+      l++
+    } else break
+  }
+
+  // run 边界：内容行跨 run 时插入分隔条（首个 run 不插，会话级轨迹无需开头分隔）。
+  const seenRuns = new Set<string>()
+  const items: Array<{
+    key: string
+    kind: 'lifecycle' | 'row' | 'system' | 'run'
+    ref: TrajectoryLifecycleItem | TrajectoryRow | TrajectorySystemRow | TrajectoryRunMeta
+  }> = []
+  for (const it of merged) {
+    if (it.kind === 'row') {
+      const runId = (it.ref as TrajectoryRow).runId
+      if (runId && !seenRuns.has(runId)) {
+        seenRuns.add(runId)
+        const runIndex = model.runs.findIndex(run => run.id === runId)
+        if (runIndex > 0) {
+          items.push({ key: `run-${runId}`, kind: 'run', ref: model.runs[runIndex] })
+        }
+      }
+    }
+    items.push(it)
+  }
+
   return (
-    <div className="tjs-llm-section">
-      <div className="tjs-section-title">{t('LLM 调用详情（完整输入输出）')}（{calls.length}）</div>
-      {calls.map(call => {
-        const key = call.turn
-        const expanded = open === key
-        const usage = call.response.usage
+    <div className="tjs-timeline">
+      {items.map(it => {
+        if (it.kind === 'run') {
+          return <RunBoundaryBar key={it.key} run={it.ref as TrajectoryRunMeta} />
+        }
+        if (it.kind === 'lifecycle') {
+          return <LifecycleBar key={it.key} item={it.ref as TrajectoryLifecycleItem} />
+        }
+        if (it.kind === 'system') {
+          const row = it.ref as TrajectorySystemRow
+          const key = it.key
+          const selected = selection?.kind === 'system' && selection.key === key
+          return (
+            <SystemRowView
+              key={key}
+              row={row}
+              selected={selected}
+              onSelect={() => onSelect({ kind: 'system', key, row })}
+            />
+          )
+        }
+        const row = it.ref as TrajectoryRow
+        const key = it.key
+        const selected = selection?.kind === 'row' && selection.key === key
         return (
-          <div key={key} className={`tjs-row tjs-row-llm ${expanded ? 'expanded' : ''}`}>
-            <button className="tjs-row-head" onClick={() => setOpen(expanded ? null : key)}>
-              <span className="tjs-chevron">{expanded ? '▾' : '▸'}</span>
-              <span className="tjs-kind tjs-kind-llm">LLM #{call.turn}</span>
-              <span className="tjs-llm-meta">
-                {call.request.model}
-                {call.fp ? ` · fp:${call.fp}` : ''}
-                {usage && (usage.input > 0 || usage.output > 0)
-                  ? ` · in ${formatTokens(usage.input)} / out ${formatTokens(usage.output)}`
-                  : ''}
-              </span>
-              {call.error && <span className="tjs-error">{call.error}</span>}
-            </button>
-            {expanded && (
-              <div className="tjs-body">
-                <div className="tjs-llm-label">{t('请求快照（当时发送的完整消息与工具定义）')}</div>
-                <pre className="tjs-pre">{JSON.stringify(call.request, null, 2)}</pre>
-                <div className="tjs-llm-label">{t('响应')}</div>
-                <pre className="tjs-pre">{JSON.stringify(call.response, null, 2)}</pre>
-              </div>
-            )}
-          </div>
+          <TrajectoryRowView
+            key={key}
+            row={row}
+            selected={selected}
+            onSelect={() => onSelect({ kind: 'row', key, row })}
+          />
         )
       })}
     </div>
   )
 }
 
-function TrajectoryRowView({ row }: { row: TrajectoryRow }) {
-  const t = useI18n()
-  const [expanded, setExpanded] = useState(false)
-  const expandable = row.kind === 'assistant' || row.kind === 'tool'
+function RunBoundaryBar({ run }: { run: TrajectoryRunMeta }) {
   return (
-    <div className={`tjs-row tjs-row-${row.kind} ${row.isError ? 'is-error' : ''}`}>
-      <button
-        className="tjs-row-head"
-        onClick={() => { if (expandable) setExpanded(v => !v) }}
-        style={{ cursor: expandable ? 'pointer' : 'default' }}
-      >
-        <span className="tjs-chevron">{expandable ? (expanded ? '▾' : '▸') : '·'}</span>
+    <div className="tjs-run-boundary">
+      <span className={`tjs-status ${runStatusClass(run.status)}`}>
+        {STATUS_LABEL[run.status] ?? run.status}
+      </span>
+      <span className="tjs-run-boundary-id">{run.id}</span>
+      {run.startedAt && run.finishedAt && (
+        <span>{formatDuration(Math.max(0, run.finishedAt - run.startedAt))}</span>
+      )}
+    </div>
+  )
+}
+
+function LifecycleBar({ item }: { item: TrajectoryLifecycleItem }) {
+  const label = LIFECYCLE_LABEL[item.type] ?? item.type
+  const cls = LIFECYCLE_CLASS[item.type] ?? ''
+  return (
+    <div className="tjs-lifecycle">
+      <span className={`tjs-status ${cls}`}>{label}</span>
+      {item.runId && <span className="tjs-lifecycle-run">{item.runId}</span>}
+      {item.detail && <span className="tjs-lifecycle-detail">{item.detail}</span>}
+      <span className="tjs-time">{hhmmss(item.createdAt)}</span>
+    </div>
+  )
+}
+
+/** 系统提示注入记录行（DSH 的 system / system-update）。 */
+function SystemRowView({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: TrajectorySystemRow
+  selected: boolean
+  onSelect: () => void
+}) {
+  const t = useI18n()
+  return (
+    <div className={`tjs-row tjs-row-system ${selected ? 'selected' : ''}`}>
+      <button className="tjs-row-head" onClick={onSelect}>
+        <span className="tjs-chevron">·</span>
+        <span className="tjs-kind tjs-kind-system">
+          {row.kind === 'initial' ? t('系统提示') : t('系统提示更新')}
+        </span>
+        <span className="tjs-row-title">
+          {row.system.slice(0, 80) || (t('（无系统提示）'))}
+        </span>
+        <span className="tjs-time">{hhmmss(row.createdAt)}</span>
+      </button>
+    </div>
+  )
+}
+
+function TrajectoryRowView({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: TrajectoryRow
+  selected: boolean
+  onSelect: () => void
+}) {
+  const t = useI18n()
+  return (
+    <div className={`tjs-row tjs-row-${row.kind} ${row.isError ? 'is-error' : ''} ${selected ? 'selected' : ''}`}>
+      <button className="tjs-row-head" onClick={onSelect}>
+        <span className="tjs-chevron">·</span>
         <span className={`tjs-kind tjs-kind-${row.kind}`}>
           {row.kind === 'user' ? t('用户') : row.kind === 'assistant' ? t('助手') : t('工具')}
         </span>
         <RowHeader row={row} />
         <span className="tjs-time">{hhmmss(row.createdAt)}</span>
       </button>
-      {row.kind === 'user' && <div className="tjs-body"><pre className="tjs-pre tjs-user-text">{row.text}</pre></div>}
-      {(row.kind === 'assistant' || row.kind === 'tool') && expanded && (
-        <div className="tjs-body">
-          {row.kind === 'assistant' ? <AssistantBody row={row} /> : <ToolBody row={row} />}
-        </div>
-      )}
     </div>
   )
+}
+
+// ── 右侧详情窗口（DSH 风格 inspector，分页 tabs）──
+
+function DetailTabs({ tabs, active, onChange }: {
+  tabs: string[]
+  active: string
+  onChange: (tab: string) => void
+}) {
+  return (
+    <div className="tjs-tabs" role="tablist">
+      {tabs.map(tab => (
+        <button
+          key={tab}
+          role="tab"
+          aria-selected={tab === active}
+          className={`tjs-tab ${tab === active ? 'active' : ''}`}
+          onClick={() => onChange(tab)}
+        >
+          {tab}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function DetailsPanel({
+  selection,
+  onClose,
+}: {
+  selection: TrajectorySelection
+  onClose: () => void
+}) {
+  const t = useI18n()
+  const isSystem = selection.kind === 'system'
+  const tabs = isSystem
+    ? (selection.row.kind === 'update'
+      ? [t('系统提示'), t('工具'), t('差异')]
+      : [t('系统提示'), t('工具')])
+    : selection.row.kind === 'assistant'
+      ? [t('内容'), t('思考'), t('指标'), t('原始')]
+      : selection.row.kind === 'tool'
+        ? [t('内容'), t('参数'), t('结果'), t('指标'), t('原始')]
+        : [t('内容'), t('原始')]
+
+  const [active, setActive] = useState(tabs[0])
+  // 选中对象切换时回到第一个 tab。
+  useEffect(() => { setActive(tabs[0]) }, [selection.key]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="tjs-details">
+      <div className="tjs-details-head">
+        <span className="tjs-details-title">
+          {isSystem
+            ? (selection.row.kind === 'initial' ? t('系统提示注入') : t('系统提示更新'))
+            : selection.row.kind === 'user'
+              ? t('用户消息')
+              : selection.row.kind === 'assistant' ? t('助手回复') : t('工具调用')}
+        </span>
+        <button className="tjs-details-close" onClick={onClose} aria-label={t('关闭')}>×</button>
+      </div>
+      <DetailTabs tabs={tabs} active={active} onChange={setActive} />
+      <div className="tjs-details-body">
+        {isSystem
+          ? <SystemDetails row={selection.row} tab={active} />
+          : <RowDetails row={selection.row} tab={active} />}
+      </div>
+    </div>
+  )
+}
+
+function PreBlock({ value }: { value: string }) {
+  return value ? <pre className="tjs-pre">{value}</pre> : <div className="tjs-details-empty">—</div>
+}
+
+function RowDetails({ row, tab }: { row: TrajectoryRow; tab: string }) {
+  const t = useI18n()
+  if (row.kind === 'user') {
+    return tab === t('原始')
+      ? <PreBlock value={JSON.stringify({ role: 'user', content: row.text, created_at: row.createdAt }, null, 2)} />
+      : <PreBlock value={row.text} />
+  }
+  if (row.kind === 'assistant') {
+    if (tab === t('思考')) return <PreBlock value={row.reasoning} />
+    if (tab === t('指标')) {
+      const meta: string[] = []
+      if (row.llmMs !== null) meta.push(`${t('时长')}: ${formatDuration(row.llmMs)}`)
+      if (row.ttftMs !== null) meta.push(`${t('首 token')}: ${formatDuration(row.ttftMs)}`)
+      if (row.decodeMs !== null) meta.push(`decode: ${formatDuration(row.decodeMs)}`)
+      if (row.tokenSpeed !== null && row.tokenSpeed > 0) meta.push(`speed: ${row.tokenSpeed.toFixed(1)} tok/s`)
+      meta.push(`${t('输入')}: ${formatTokens(row.inputTokens ?? 0)}`)
+      meta.push(`${t('输出')}: ${formatTokens(row.outputTokens ?? 0)}`)
+      meta.push(`cache hit: ${formatTokens(row.cacheHitTokens ?? 0)} / miss: ${formatTokens(row.cacheMissTokens ?? 0)}`)
+      return <PreBlock value={meta.join('\n')} />
+    }
+    if (tab === t('原始')) {
+      return <PreBlock value={JSON.stringify(row, null, 2)} />
+    }
+    return <PreBlock value={row.text} />
+  }
+  // tool
+  if (tab === t('参数')) return <PreBlock value={row.toolArgs ?? ''} />
+  if (tab === t('结果')) return <PreBlock value={row.text} />
+  if (tab === t('指标')) {
+    const meta: string[] = []
+    meta.push(`${t('状态')}: ${row.isError ? t('失败') : row.toolStatus === 'denied' ? t('拒绝') : row.toolStatus || t('成功')}`)
+    if (row.durationMs !== null) meta.push(`${t('时长')}: ${formatDuration(row.durationMs)}`)
+    return <PreBlock value={meta.join('\n')} />
+  }
+  if (tab === t('原始')) {
+    return <PreBlock value={JSON.stringify(row, null, 2)} />
+  }
+  return <PreBlock value={row.text} />
+}
+
+function SystemDetails({ row, tab }: { row: TrajectorySystemRow; tab: string }) {
+  const t = useI18n()
+  if (tab === t('系统提示')) {
+    return <PreBlock value={row.system} />
+  }
+  if (tab === t('工具')) {
+    const names = (row.tools || []).map(tool => {
+      const name = (tool as { name?: unknown })?.name
+      const desc = (tool as { description?: unknown })?.description
+      return typeof name === 'string' ? `${name}${typeof desc === 'string' && desc ? ` — ${desc}` : ''}` : ''
+    }).filter(Boolean)
+    return <PreBlock value={names.join('\n') || (t('（无工具）'))} />
+  }
+  if (tab === t('差异') && row.previous) {
+    const prev = row.previous
+    const prevNames = new Set(prev.toolNames)
+    const curNames = (row.tools || []).map(tool => String((tool as { name?: unknown })?.name ?? '')).filter(Boolean)
+    const added = curNames.filter(name => !prevNames.has(name))
+    const removed = prev.toolNames.filter(name => !curNames.includes(name))
+    const lines: string[] = []
+    if (row.system !== prev.system) lines.push(`[${t('系统提示已变化')}]`)
+    if (added.length > 0) lines.push(`[+ ${t('新增工具')}: ${added.join(', ')}]`)
+    if (removed.length > 0) lines.push(`[- ${t('移除工具')}: ${removed.join(', ')}]`)
+    return <PreBlock value={lines.join('\n') || t('无变化')} />
+  }
+  return <PreBlock value={row.system} />
 }

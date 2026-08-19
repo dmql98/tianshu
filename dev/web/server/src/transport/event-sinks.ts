@@ -1,14 +1,13 @@
 /**
  * Transport-neutral event sinks for run-event fan-out.
  *
- * socket.io 时代：publishRunEvent 只把事件发到发起 run 时捕获的那个 socket。
- * 双通道时代：除 socket.io（可选保留）外，还可能有多个接收者——
+ * 多接收者 fan-out：
  *   - 桌面端：Electron 主进程 IPC（子进程 process.send → 主进程 → 渲染进程）
  *   - Web 端：SSE 长连接（每个 EventSource 响应一个 sink，收到全部事件，
  *     由客户端按 session_id 过滤——chatStore 的处理器本来就按 session_id 分派）
  *
- * sink 注册是全局的（payload 自带 session_id），与既有 `target` socket 发射
- * 并行；sink 抛错绝不影响 run 循环。
+ * sink 注册是全局的（payload 自带 session_id），与 run 路径的 emit 并行；
+ * sink 抛错绝不影响 run 循环。
  */
 
 export interface EventSink {

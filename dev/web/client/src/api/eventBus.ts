@@ -1,7 +1,7 @@
 /**
  * Transport-neutral event bus — the only real-time channel in the client.
  *
- * Two transports, same interface (socket.io has been fully removed):
+ * Two transports, same interface:
  *  - 'ipc' : Electron IPC bridge (window.tianshuDesktop.eventSend/eventOn).
  *            In-process channel — no heartbeat, no reconnect, no drop.
  *  - 'sse' : EventSource downlink (GET /api/events/stream) + fetch POST

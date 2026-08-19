@@ -1,6 +1,6 @@
 /**
  * Node IPC contract between the Electron main process and the bundled
- * Hono/Socket.IO server child process.
+ * server child process.
  *
  * The server sends these messages to its parent; the parent sends
  * DesktopMessage back. The server MUST NOT rely on a public shutdown HTTP API.

@@ -3,7 +3,7 @@ import type { RunEvent } from '@/types'
 
 const mocks = vi.hoisted(() => {
   const fakeBus = {
-    transport: 'socketio' as const,
+    transport: 'sse' as const,
     connected: true,
     on: vi.fn(),
     off: vi.fn(),
@@ -184,8 +184,94 @@ describe('abortRun (stop button)', () => {
     const handlers = socketHandlers()
     handlers.get('run.interrupted')?.({ session_id: SID, run_id: RID, type: 'run.interrupted', reason: 'stalled' } as RunEvent)
 
-    // The temporary listener owns run.interrupted in production (it resets +
-    // cleans up); the persistent handler must not have reset state here.
+// The temporary listener owns run.interrupted in production (it resets +
+// cleans up); the persistent handler must not have reset state here.
     expect(useChatStore.getState().sessionRuns[SID].activeRun.phase).toBe('running')
+  })
+})
+
+describe('stream delta coalescing (50ms window)', () => {
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mocks.fakeBus.connected = true
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function sessionState() {
+    return {
+      ...runningState(),
+      sessions: [{
+        id: SID,
+        character_id: 'c1',
+        session_type: 'chat',
+        messages: [] as never[],
+      }] as never[],
+    } as never
+  }
+
+  it('accumulates multiple deltas and applies them in one update after the window', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    useChatStore.setState(sessionState())
+
+    const handlers = socketHandlers()
+    handlers.get('message.delta')?.({ session_id: SID, run_id: RID, delta: 'Hello', type: 'message.delta' } as RunEvent)
+    handlers.get('message.delta')?.({ session_id: SID, run_id: RID, delta: ' world', type: 'message.delta' } as RunEvent)
+
+    // Within the window: nothing applied yet.
+    expect(useChatStore.getState().sessions[0].messages).toHaveLength(0)
+
+    vi.advanceTimersByTime(60)
+
+    const msgs = useChatStore.getState().sessions[0].messages
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].content).toBe('Hello world')
+    expect(msgs[0].is_streaming).toBe(true)
+  })
+
+  it('flushes pending deltas before message.metrics so no text is lost', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    useChatStore.setState(sessionState())
+
+    const handlers = socketHandlers()
+    handlers.get('message.delta')?.({ session_id: SID, run_id: RID, delta: 'partial', type: 'message.delta' } as RunEvent)
+    // Terminal-ish event arrives before the 50ms window elapses.
+    handlers.get('message.metrics')?.({ session_id: SID, run_id: RID, type: 'message.metrics', token_speed: 42 } as RunEvent)
+
+    const msgs = useChatStore.getState().sessions[0].messages
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].content).toBe('partial')
+    expect(msgs[0].is_streaming).toBe(false)
+    expect(msgs[0].token_speed).toBe(42)
+  })
+
+  it('buffers tool.output chunks and applies them once per window', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    const base = sessionState() as { sessions: { id: string; character_id: string; session_type: string; messages: never[] }[] }
+    useChatStore.setState({
+      ...base,
+      sessions: [{
+        id: SID,
+        character_id: 'c1',
+        session_type: 'chat',
+        messages: [{
+          id: 't1', role: 'tool', content: '', tool_name: 'bash',
+          tool_call_id: 'call1', tool_status: 'running', timestamp: Date.now(),
+        }] as never[],
+      }] as never[],
+    } as never)
+
+    const handlers = socketHandlers()
+    handlers.get('tool.output')?.({ session_id: SID, run_id: RID, tool_call_id: 'call1', output: 'a', type: 'tool.output' } as RunEvent)
+    handlers.get('tool.output')?.({ session_id: SID, run_id: RID, tool_call_id: 'call1', output: 'b', type: 'tool.output' } as RunEvent)
+    expect(useChatStore.getState().sessions[0].messages[0].tool_output).toBeUndefined()
+
+    vi.advanceTimersByTime(60)
+
+    expect(useChatStore.getState().sessions[0].messages[0].tool_output).toBe('ab')
   })
 })

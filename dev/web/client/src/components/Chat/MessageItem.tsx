@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import type { Message } from '@/types'
 import { useChatStore } from '@/stores/chatStore'
 import { useI18n, useI18nStore } from '@/i18n'
@@ -14,8 +14,10 @@ interface Props {
   sessionId?: string
 }
 
-export default function MessageItem({ message, characterId, sessionId }: Props) {
-  const { editMessage, forkFromMessage, isStreaming } = useChatStore()
+export default memo(function MessageItem({ message, characterId, sessionId }: Props) {
+  const editMessage = useChatStore(s => s.editMessage)
+  const forkFromMessage = useChatStore(s => s.forkFromMessage)
+  const isStreaming = useChatStore(s => s.isStreaming)
   const t = useI18n()
   const locale = useI18nStore(s => s.locale)
   const [isEditing, setIsEditing] = useState(false)
@@ -95,6 +97,7 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
           content={message.reasoning}
           duration={message.reasoning_duration}
           defaultExpanded={showReasoning()}
+          streaming={!!message.is_streaming}
         />
       )}
       {isEditing ? (
@@ -123,7 +126,7 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
         </div>
       ) : hasVisibleContent ? (
         <div className="msg-bubble">
-          <MarkdownContent content={message.content} />
+          <MarkdownContent content={message.content} streaming={!!message.is_streaming} />
         </div>
       ) : null}
       {(hasVisibleContent || isEditing) && (
@@ -160,4 +163,4 @@ export default function MessageItem({ message, characterId, sessionId }: Props) 
       )}
     </div>
   )
-}
+})

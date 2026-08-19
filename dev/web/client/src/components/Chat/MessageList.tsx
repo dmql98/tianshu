@@ -8,7 +8,8 @@ const BOTTOM_THRESHOLD = 120
 
 export default function MessageList() {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const { sessions, activeSessionId } = useChatStore()
+  const sessions = useChatStore(s => s.sessions)
+  const activeSessionId = useChatStore(s => s.activeSessionId)
   const t = useI18n()
   const session = sessions.find(s => s.id === activeSessionId)
   const messages = session?.messages || []
