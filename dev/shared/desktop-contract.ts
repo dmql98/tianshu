@@ -107,4 +107,10 @@ export interface TianShuDesktopAPI {
   saveBackgroundImage(input: SaveBackgroundImageInput): Promise<BackgroundImageInfo>
   /** 删除 userData/backgrounds 中的背景图文件 */
   deleteBackgroundImage(url: string): Promise<boolean>
+
+  // ── Transport-neutral event channel (replaces socket.io in the desktop app) ──
+  /** Uplink: send an action to the server child; ack delivered via the bridge. */
+  eventSend(type: string, payload: unknown, ack?: (resp: unknown) => void): void
+  /** Downlink: subscribe to run events from the server child. */
+  eventOn(listener: (data: { eventType: string; payload: unknown }) => void): () => void
 }

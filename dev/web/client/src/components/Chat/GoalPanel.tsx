@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchGoals, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
-import { getSocket } from '@/api/socket'
+import { getEventBus } from '@/api/eventBus'
 import PlanDialog from './PlanDialog'
 import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
@@ -30,25 +30,23 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
   }, [sessionId])
 
   useEffect(() => {
-    const socket = getSocket()
-    if (!socket) return
+    const bus = getEventBus()
     const onChange = (event: { session_id?: string }) => {
       if (event.session_id === sessionId) void reload()
     }
-    const onReconnect = () => { void reload() }
-    socket.on('plan.created', onChange)
-    socket.on('plan.step.updated', onChange)
-    socket.on('goal.created', onChange)
-    socket.on('goal.status.changed', onChange)
-    socket.on('goal.paused', onChange)
-    socket.on('connect', onReconnect)
+    const offConnect = bus.onConnect(() => { void reload() })
+    bus.on('plan.created', onChange)
+    bus.on('plan.step.updated', onChange)
+    bus.on('goal.created', onChange)
+    bus.on('goal.status.changed', onChange)
+    bus.on('goal.paused', onChange)
     return () => {
-      socket.off('plan.created', onChange)
-      socket.off('plan.step.updated', onChange)
-      socket.off('goal.created', onChange)
-      socket.off('goal.status.changed', onChange)
-      socket.off('goal.paused', onChange)
-      socket.off('connect', onReconnect)
+      bus.off('plan.created', onChange)
+      bus.off('plan.step.updated', onChange)
+      bus.off('goal.created', onChange)
+      bus.off('goal.status.changed', onChange)
+      bus.off('goal.paused', onChange)
+      offConnect()
     }
   }, [sessionId])
 

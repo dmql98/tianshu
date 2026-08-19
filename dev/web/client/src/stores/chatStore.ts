@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy, type WorkspaceGroup } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
-import { connectSocket, getSocket, bumpConnectionGeneration, isCurrentGeneration, waitForSocketReady } from '@/api/socket'
+import { getEventBus } from '@/api/eventBus'
 import { useProvidersStore } from './providersStore'
 import type { CharacterMotion } from '@/api/characters'
 import { motionForRunEvent } from '@/features/character-presence/motion'
@@ -33,6 +33,12 @@ const TEMP_STREAM_TYPES = new Set([
 ])
 // Highest persisted event seq seen per run (survives reconnects to resume replay)
 const runSeqByRunId = new Map<string, number>()
+
+// Transport connection generation: any replay started by an earlier
+// connect/disconnect cycle is stale and must not land its results.
+let connectionGeneration = 0
+function bumpConnectionGeneration(): number { return ++connectionGeneration }
+function isCurrentGeneration(gen: number): boolean { return gen === connectionGeneration }
 const pendingApprovalBySession = new Map<string, PendingApproval>()
 const sessionMotionSince = new Map<string, number>()
 const sessionMotionTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -271,7 +277,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
   // ── Persistent socket listeners (registered once) ──
   function initPersistentListeners() {
-    const socket = connectSocket()
+    const bus = getEventBus()
 
     // Track the highest seq seen per run so reconnects can resume replay.
     const TRACKED_EVENTS = [
@@ -283,7 +289,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       'ask_user',
     ]
     for (const type of TRACKED_EVENTS) {
-      socket.on(type, (data: RunEvent) => {
+      bus.on(type, (data: RunEvent) => {
         if (data.run_id && typeof data.seq === 'number') {
           const prev = runSeqByRunId.get(data.run_id) || 0
           if (data.seq > prev) runSeqByRunId.set(data.run_id, data.seq)
@@ -301,17 +307,13 @@ export const useChatStore = create<ChatState>((set, get) => {
     // After reconnect, replay persisted events for every tracked run. Background
     // sessions can stream too; replaying only the visible session leaves the
     // others permanently stale after a transport interruption.
-    socket.on('connect', async () => {
+    const offConnect = bus.onConnect(async () => {
       // Fresh connection generation: any replay started by an earlier
       // connect/disconnect cycle is now stale and must not land its results.
       const generation = bumpConnectionGeneration()
       set({ socketConnected: true })
       try {
-        // Readiness handshake: the transport may be up while the (restarted)
-        // server is still settling its connection handler; replaying before it
-        // answers races its setup. On timeout (older server) we proceed anyway.
-        const ready = await waitForSocketReady(socket)
-        if (!ready) console.warn('[socket] readiness ack not received; replaying anyway')
+        // REST replay does not depend on a transport handshake.
         if (!isCurrentGeneration(generation) || !get().socketConnected) return
         const state = get()
         // Session creation notifications (especially sub-agent sessions) are
@@ -350,7 +352,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         console.error('[socket] reconnect replay failed:', error)
       }
     })
-    socket.on('disconnect', () => {
+    const offDisconnect = bus.onDisconnect(() => {
       // Invalidate any replay still in flight from the connection that just died.
       bumpConnectionGeneration()
       set({ socketConnected: false })
@@ -361,8 +363,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     // Only accept positive counts: a 0/absent value mid-stream (or for a
     // provider that doesn't report usage) must NOT overwrite the last real one,
     // otherwise the bar collapses then jumps back up.
-    socket.off('usage')
-    socket.on('usage', (data: { session_id: string; input_tokens: number }) => {
+    bus.off('usage')
+    bus.on('usage', (data: { session_id: string; input_tokens: number }) => {
       if (!data.session_id || typeof data.input_tokens !== 'number' || data.input_tokens <= 0) return
       set(state => ({
         sessions: state.sessions.map(s =>
@@ -371,8 +373,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }))
     })
 
-    socket.off('strategy.updated')
-    socket.on('strategy.updated', (data: RunEvent) => {
+    bus.off('strategy.updated')
+    bus.on('strategy.updated', (data: RunEvent) => {
       set(state => ({
         sessions: state.sessions.map(s =>
           s.id === data.session_id && data.strategy
@@ -382,8 +384,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }))
     })
 
-    socket.off('sub_agent.started')
-    socket.on('sub_agent.started', (data: { session_id: string; sub_session_id: string; target_character_id: string; task: string }) => {
+    bus.off('sub_agent.started')
+    bus.on('sub_agent.started', (data: { session_id: string; sub_session_id: string; target_character_id: string; task: string }) => {
       const state = get()
       if (state.sessions.find(s => s.id === data.sub_session_id)) return
       const parent = state.sessions.find(s => s.id === data.session_id)
@@ -405,8 +407,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       set(state => ({ sessions: [...state.sessions, child] }))
     })
 
-    socket.off('session:new')
-    socket.on('session:new', (data: { sessionId: string; title: string; isEvent: boolean }) => {
+    bus.off('session:new')
+    bus.on('session:new', (data: { sessionId: string; title: string; isEvent: boolean }) => {
       const state = get()
       if (state.sessions.find(s => s.id === data.sessionId)) return
       const session: Session = {
@@ -428,13 +430,13 @@ export const useChatStore = create<ChatState>((set, get) => {
       set(state => ({ sessions: [...state.sessions, session] }))
     })
 
-    socket.off('event:status_changed')
-    socket.on('event:status_changed', (data: { eventId: string; status: string }) => {
+    bus.off('event:status_changed')
+    bus.on('event:status_changed', (data: { eventId: string; status: string }) => {
       console.log('[event] status changed:', data.eventId, data.status)
     })
 
-    socket.off('evolution:insight_created')
-    socket.on('evolution:insight_created', (data: { session_id: string; insight_type: string; description: string; notify_enabled: boolean; notify_timeout: number }) => {
+    bus.off('evolution:insight_created')
+    bus.on('evolution:insight_created', (data: { session_id: string; insight_type: string; description: string; notify_enabled: boolean; notify_timeout: number }) => {
       if (data.notify_enabled === false) return
       set({ evolutionNotification: { session_id: data.session_id, insight_type: data.insight_type, description: data.description } })
       const state = get()
@@ -443,8 +445,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ _notificationTimer: timer })
     })
 
-    socket.off('workspace.updated')
-    socket.on('workspace.updated', (data: { session_id: string; workspaces: string[] }) => {
+    bus.off('workspace.updated')
+    bus.on('workspace.updated', (data: { session_id: string; workspaces: string[] }) => {
       set(state => ({
         sessions: state.sessions.map(s =>
           s.id === data.session_id ? { ...s, workspaces: JSON.stringify(data.workspaces) } : s
@@ -465,8 +467,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     }
 
     
-    socket.off('message.delta')
-    socket.on('message.delta', (data: RunEvent) => {
+    bus.off('message.delta')
+    bus.on('message.delta', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       const state = get()
       const s = state.sessions.find(x => x.id === data.session_id)
@@ -500,8 +502,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     })
 
-    socket.off('message.metrics')
-    socket.on('message.metrics', (data: RunEvent) => {
+    bus.off('message.metrics')
+    bus.on('message.metrics', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => {
         let updated = false
@@ -523,8 +525,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
     })
 
-    socket.off('tool.started')
-    socket.on('tool.started', (data: RunEvent) => {
+    bus.off('tool.started')
+    bus.on('tool.started', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
@@ -537,8 +539,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }))
     })
 
-    socket.off('tool.completed')
-    socket.on('tool.completed', (data: RunEvent) => {
+    bus.off('tool.completed')
+    bus.on('tool.completed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
@@ -550,8 +552,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }))
     })
 
-    socket.off('tool.output')
-    socket.on('tool.output', (data: RunEvent) => {
+    bus.off('tool.output')
+    bus.on('tool.output', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
@@ -563,8 +565,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }))
     })
 
-    socket.off('run.completed')
-    socket.on('run.completed', (data: RunEvent) => {
+    bus.off('run.completed')
+    bus.on('run.completed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
@@ -576,8 +578,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       settleAbort(data.session_id)
     })
 
-    socket.off('run.max_turns')
-    socket.on('run.max_turns', (data: RunEvent) => {
+    bus.off('run.max_turns')
+    bus.on('run.max_turns', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
@@ -589,8 +591,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       settleAbort(data.session_id)
     })
 
-    socket.off('run.cancelled')
-    socket.on('run.cancelled', (data: RunEvent) => {
+    bus.off('run.cancelled')
+    bus.on('run.cancelled', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
@@ -602,8 +604,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       settleAbort(data.session_id)
     })
 
-    socket.off('run.limit_warning')
-    socket.on('run.limit_warning', (data: RunEvent) => {
+    bus.off('run.limit_warning')
+    bus.on('run.limit_warning', (data: RunEvent) => {
       if (data.session_id !== get().activeSessionId) return
       const prev = get().sessionRuns[data.session_id]?.activeRun
       updateSessionRun(data.session_id, {
@@ -616,14 +618,14 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ limitNotice: { text: '已接近本轮上限，正在优先收敛当前步骤', tone: 'warn' } })
     })
 
-    socket.off('run.continuation_queued')
-    socket.on('run.continuation_queued', (data: RunEvent) => {
+    bus.off('run.continuation_queued')
+    bus.on('run.continuation_queued', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       handleContinuationQueued(data)
     })
 
-    socket.off('run.compacted')
-    socket.on('run.compacted', (data: RunEvent) => {
+    bus.off('run.compacted')
+    bus.on('run.compacted', (data: RunEvent) => {
       set(state => ({
         sessions: state.sessions.map(s =>
           s.id === data.session_id ? { ...s, compacted: true } : s
@@ -631,8 +633,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       }))
     })
 
-    socket.off('run.failed')
-    socket.on('run.failed', (data: RunEvent) => {
+    bus.off('run.failed')
+    bus.on('run.failed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
@@ -654,8 +656,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     // run will never produce more events, so reset the streaming state here —
     // without this a stalled run pinned the session in thinking/speaking
     // forever, even across client restarts.
-    socket.off('run.interrupted')
-    socket.on('run.interrupted', (data: RunEvent) => {
+    bus.off('run.interrupted')
+    bus.on('run.interrupted', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       const reasonText = data.reason === 'stalled' || data.reason === 'stalled_active'
         ? '运行停滞超时，已被服务端自动中断'
@@ -678,8 +680,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       settleAbort(data.session_id)
     })
 
-    socket.off('run.started')
-    socket.on('run.started', (data: RunEvent & { context_window?: number }) => {
+    bus.off('run.started')
+    bus.on('run.started', (data: RunEvent & { context_window?: number }) => {
       if (isAbortingSession(data.session_id)) return
       const prev = get().sessionRuns[resolveSessionRoot(data.session_id)]?.activeRun
       updateSessionRun(data.session_id, {
@@ -702,21 +704,21 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     })
 
-    socket.off('run.queued')
-    socket.on('run.queued', (data: RunEvent) => {
+    bus.off('run.queued')
+    bus.on('run.queued', (data: RunEvent) => {
       handleAutoSuccessorQueued(data)
     })
 
-    socket.off('run.retrying')
-    socket.on('run.retrying', (data: RunEvent) => {
+    bus.off('run.retrying')
+    bus.on('run.retrying', (data: RunEvent) => {
       if (isAbortingSession(data.session_id)) return
       updateSessionRun(data.session_id, { isStreaming: true })
     })
 
     // Approval prompts for sessions without a temporary listener (e.g. after
     // the page refreshed and resumeActiveRun is tracking the run).
-    socket.off('approval.requested')
-    socket.on('approval.requested', (data: RunEvent) => {
+    bus.off('approval.requested')
+    bus.on('approval.requested', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       if (!data.session_id || !data.tool_call_id) return
       const pending = pendingApprovalFromEvent(data)
@@ -727,8 +729,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     })
 
     // ask_user prompts (persisted checkpoint; answered via /runs/:id/inputs).
-    socket.off('ask_user')
-    socket.on('ask_user', (data: { session_id?: string; run_id?: string; question?: string }) => {
+    bus.off('ask_user')
+    bus.on('ask_user', (data: { session_id?: string; run_id?: string; question?: string }) => {
       if (!data.run_id || !data.question) return
       if (data.session_id && data.session_id !== get().activeSessionId) return
       set({
@@ -1003,7 +1005,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     sessions: [],
     activeSessionId: null,
     isStreaming: false,
-    socketConnected: connectSocket().connected,
+    socketConnected: getEventBus().connected,
     isRefreshing: false,
     pendingApproval: null,
     pendingAskUser: null,
@@ -1188,7 +1190,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         // partial output that was actually stored as run events.
         const cleanup = get()._currentCleanup
         if (cleanup) cleanup()
-        connectSocket()
+        getEventBus()
 
         // Refreshing a chat also refreshes the tree: a running parent may have
         // created child sessions while the renderer was disconnected.
@@ -1413,13 +1415,13 @@ export const useChatStore = create<ChatState>((set, get) => {
         }
       }
 
-      const socket = connectSocket()
+      const bus = getEventBus()
       const runId = `run_${session.id}_${uid()}`
       const workspaces = session.workspaces
         ? (typeof session.workspaces === 'string' ? JSON.parse(session.workspaces) : session.workspaces)
         : undefined
 
-      socket.emit('chat-run', {
+      bus.emit('chat-run', {
         session_id: session.id,
         run_id: runId,
         character_id: session.character_id,
@@ -1436,7 +1438,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         thinking: session.thinking || undefined,
         reasoning_effort: session.reasoning_effort || undefined,
         supersedes_message_id: pendingSupersedesMessageId,
-      }, (response: { user_message_id?: number }) => {
+      }, (resp: unknown) => {
+        const response = resp as { user_message_id?: number } | null
         if (response?.user_message_id == null) return
         set(current => ({
           sessions: current.sessions.map(item =>
@@ -1732,21 +1735,21 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       function cleanup() {
-        socket.off('strategy.updated', onStrategyUpdated)
-        socket.off('message.delta', onDelta)
-        socket.off('message.metrics', onMessageMetrics)
-        socket.off('tool.started', onToolStarted)
-        socket.off('tool.completed', onToolCompleted)
-        socket.off('tool.output', onToolOutput)
-        socket.off('approval.requested', onApprovalRequested)
-        socket.off('run.started', onRunStarted)
-        socket.off('run.completed', onCompleted)
-        socket.off('run.cancelled', onCompleted)
-        socket.off('usage', onUsage)
-        socket.off('run.compacted', onCompacted)
-        socket.off('run.retrying', onRetrying)
-        socket.off('run.failed', onFailed)
-        socket.off('run.interrupted', onInterrupted)
+        bus.off('strategy.updated', onStrategyUpdated)
+        bus.off('message.delta', onDelta)
+        bus.off('message.metrics', onMessageMetrics)
+        bus.off('tool.started', onToolStarted)
+        bus.off('tool.completed', onToolCompleted)
+        bus.off('tool.output', onToolOutput)
+        bus.off('approval.requested', onApprovalRequested)
+        bus.off('run.started', onRunStarted)
+        bus.off('run.completed', onCompleted)
+        bus.off('run.cancelled', onCompleted)
+        bus.off('usage', onUsage)
+        bus.off('run.compacted', onCompacted)
+        bus.off('run.retrying', onRetrying)
+        bus.off('run.failed', onFailed)
+        bus.off('run.interrupted', onInterrupted)
         // Only drop the listener ref. The session's run record is kept so a
         // still-running background session keeps being tracked after switching
         // away (it is cleared by updateSessionRun when the run actually ends).
@@ -1759,21 +1762,21 @@ export const useChatStore = create<ChatState>((set, get) => {
         updateSessionRun(data.session_id, { isStreaming: true })
       }
 
-      socket.on('strategy.updated', onStrategyUpdated)
-      socket.on('message.delta', onDelta)
-      socket.on('message.metrics', onMessageMetrics)
-      socket.on('tool.started', onToolStarted)
-      socket.on('tool.completed', onToolCompleted)
-      socket.on('tool.output', onToolOutput)
-      socket.on('approval.requested', onApprovalRequested)
-      socket.on('run.started', onRunStarted)
-      socket.on('run.completed', onCompleted)
-      socket.on('run.cancelled', onCompleted)
-      socket.on('usage', onUsage)
-      socket.on('run.compacted', onCompacted)
-      socket.on('run.retrying', onRetrying)
-      socket.on('run.failed', onFailed)
-      socket.on('run.interrupted', onInterrupted)
+      bus.on('strategy.updated', onStrategyUpdated)
+      bus.on('message.delta', onDelta)
+      bus.on('message.metrics', onMessageMetrics)
+      bus.on('tool.started', onToolStarted)
+      bus.on('tool.completed', onToolCompleted)
+      bus.on('tool.output', onToolOutput)
+      bus.on('approval.requested', onApprovalRequested)
+      bus.on('run.started', onRunStarted)
+      bus.on('run.completed', onCompleted)
+      bus.on('run.cancelled', onCompleted)
+      bus.on('usage', onUsage)
+      bus.on('run.compacted', onCompacted)
+      bus.on('run.retrying', onRetrying)
+      bus.on('run.failed', onFailed)
+      bus.on('run.interrupted', onInterrupted)
 
       set({ _currentCleanup: cleanup })
       updateSessionRun(session!.id, { activeRunId: runId })
@@ -1876,7 +1879,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     abortRun: () => {
-      const socket = getSocket()
+      const bus = getEventBus()
       const state = get()
       const sessionId = state.activeSessionId
       const record = sessionId ? state.sessionRuns[resolveSessionRoot(sessionId)] : null
@@ -1908,10 +1911,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       const cancelViaHttp = () => {
         if (runId) void cancelRun(runId, true).catch(() => {})
       }
-      if (socket?.connected && sessionId) {
+      if (bus.connected && sessionId) {
         // Primary path: socket abort, acked by the server. If the ack is
         // missing/bad (socket raced a reconnect), fall back to HTTP cancel.
-        socket.emit('abort', { session_id: sessionId }, (resp: unknown) => {
+        bus.emit('abort', { session_id: sessionId }, (resp: unknown) => {
           const ok = typeof resp === 'object' && resp !== null
             && (resp as { status?: string }).status === 'ok'
           if (!ok) cancelViaHttp()
@@ -1957,10 +1960,10 @@ export const useChatStore = create<ChatState>((set, get) => {
     clearLimitNotice: () => set({ limitNotice: null }),
 
     setStrategy: (strategy: Strategy) => {
-      const socket = getSocket()
+      const bus = getEventBus()
       const state = get()
-      if (socket?.connected && state.activeSessionId) {
-        socket.emit('strategy.set', { session_id: state.activeSessionId, strategy })
+      if (bus.connected && state.activeSessionId) {
+        bus.emit('strategy.set', { session_id: state.activeSessionId, strategy })
       }
       // Update local state
       set(state => ({
@@ -1971,10 +1974,10 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     respondApproval: (choice) => {
-      const socket = getSocket()
+      const bus = getEventBus()
       const state = get()
-      if (socket?.connected && state.pendingApproval) {
-        socket.emit('approval.respond', {
+      if (bus.connected && state.pendingApproval) {
+        bus.emit('approval.respond', {
           session_id: state.pendingApproval.session_id,
           tool_call_id: state.pendingApproval.tool_call_id,
           choice,

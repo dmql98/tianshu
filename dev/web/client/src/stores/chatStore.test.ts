@@ -2,31 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RunEvent } from '@/types'
 
 const mocks = vi.hoisted(() => {
-  const fakeSocket = {
+  const fakeBus = {
+    transport: 'socketio' as const,
     connected: true,
-    active: true,
-    connect: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
     emit: vi.fn(),
+    onConnect: vi.fn(() => () => {}),
+    onDisconnect: vi.fn(() => () => {}),
   }
   return {
-    fakeSocket,
-    connectSocket: vi.fn(() => fakeSocket),
-    getSocket: vi.fn(() => fakeSocket),
-    bumpConnectionGeneration: vi.fn(() => 1),
-    isCurrentGeneration: vi.fn(() => true),
-    waitForSocketReady: vi.fn(async () => true),
+    fakeBus,
+    getEventBus: vi.fn(() => fakeBus),
     cancelRun: vi.fn(async () => ({ cancelled: true })),
   }
 })
 
-vi.mock('@/api/socket', () => ({
-  connectSocket: mocks.connectSocket,
-  getSocket: mocks.getSocket,
-  bumpConnectionGeneration: mocks.bumpConnectionGeneration,
-  isCurrentGeneration: mocks.isCurrentGeneration,
-  waitForSocketReady: mocks.waitForSocketReady,
+vi.mock('@/api/eventBus', () => ({
+  getEventBus: mocks.getEventBus,
 }))
 
 vi.mock('@/api/runs', () => ({
@@ -56,7 +49,7 @@ const RID = 'r1'
 
 function socketHandlers(): Map<string, (data: unknown) => void> {
   const map = new Map<string, (data: unknown) => void>()
-  for (const [event, handler] of mocks.fakeSocket.on.mock.calls as [string, (data: unknown) => void][]) {
+  for (const [event, handler] of mocks.fakeBus.on.mock.calls as [string, (data: unknown) => void][]) {
     map.set(event, handler)
   }
   return map
@@ -83,7 +76,7 @@ describe('abortRun (stop button)', () => {
   beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
-    mocks.fakeSocket.connected = true
+    mocks.fakeBus.connected = true
     vi.useFakeTimers()
   })
 
@@ -101,11 +94,11 @@ describe('abortRun (stop button)', () => {
     const after = useChatStore.getState()
     expect(after.sessionRuns[SID].activeRun.phase).toBe('cancelling')
     expect(after.isStreaming).toBe(true)
-    expect(mocks.fakeSocket.emit).toHaveBeenCalledWith('abort', { session_id: SID }, expect.any(Function))
+    expect(mocks.fakeBus.emit).toHaveBeenCalledWith('abort', { session_id: SID }, expect.any(Function))
     expect(mocks.cancelRun).not.toHaveBeenCalled()
 
     // Server acks the abort and then emits the terminal event: state clears.
-    const abortAck = mocks.fakeSocket.emit.mock.calls.find(c => c[0] === 'abort')?.[2] as (r: unknown) => void
+    const abortAck = mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'abort')?.[2] as (r: unknown) => void
     abortAck?.({ status: 'ok' })
     const handlers = socketHandlers()
     handlers.get('run.cancelled')?.({ session_id: SID, run_id: RID, status: 'cancelled', type: 'run.cancelled' } as RunEvent)
@@ -121,20 +114,20 @@ describe('abortRun (stop button)', () => {
     useChatStore.setState(runningState() as never)
 
     useChatStore.getState().abortRun()
-    const abortAck = mocks.fakeSocket.emit.mock.calls.find(c => c[0] === 'abort')?.[2] as (r: unknown) => void
+    const abortAck = mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'abort')?.[2] as (r: unknown) => void
     abortAck?.({ status: 'no_active_run' })
 
     expect(mocks.cancelRun).toHaveBeenCalledWith(RID, true)
   })
 
   it('falls back to HTTP cancel when the socket is not connected', async () => {
-    mocks.fakeSocket.connected = false
+    mocks.fakeBus.connected = false
     const { useChatStore } = await import('@/stores/chatStore')
     useChatStore.setState(runningState() as never)
 
     useChatStore.getState().abortRun()
 
-    expect(mocks.fakeSocket.emit).not.toHaveBeenCalled()
+    expect(mocks.fakeBus.emit).not.toHaveBeenCalled()
     expect(mocks.cancelRun).toHaveBeenCalledWith(RID, true)
     expect(useChatStore.getState().sessionRuns[SID].activeRun.phase).toBe('cancelling')
   })

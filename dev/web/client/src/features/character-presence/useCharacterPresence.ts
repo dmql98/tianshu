@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { connectSocket } from '@/api/socket'
+import { getEventBus } from '@/api/eventBus'
 import { fetchCharacterPresence, type CharacterMotion } from '@/api/characters'
 import { motionForRunEvent } from './motion'
 
@@ -46,7 +46,7 @@ export function useCharacterPresence(characterId: string, sessionId?: string, en
       })
       .catch(() => { /* visual presence must never block chat */ })
 
-    const socket = connectSocket()
+    const bus = getEventBus()
     const listeners = EVENT_TYPES.map(type => {
       const listener = (event: SemanticEvent) => {
         if (sessionId && event.session_id !== sessionId) return
@@ -57,14 +57,14 @@ export function useCharacterPresence(characterId: string, sessionId?: string, en
         if (next === 'success' || next === 'error') scheduleIdle(8000)
         else if (resetTimer) clearTimeout(resetTimer)
       }
-      socket.on(type, listener)
+      bus.on(type, listener)
       return [type, listener] as const
     })
     return () => {
       disposed = true
       if (resetTimer) clearTimeout(resetTimer)
       window.removeEventListener(MOTION_END_EVENT, onMotionEnd)
-      for (const [type, listener] of listeners) socket.off(type, listener)
+      for (const [type, listener] of listeners) bus.off(type, listener)
     }
   }, [characterId, sessionId, enabled])
 
