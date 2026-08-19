@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
-import { fetchDataspace, saveDataspace, reloadDataspace } from '@/api/config'
+import { fetchDataspace, saveDataspace, reloadDataspace, reimportBuiltin } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
 import type { Provider, Character } from '@/types'
@@ -103,6 +103,7 @@ export default function SettingsPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [notifyEnabled, setNotifyEnabled] = useState(true)
   const [reloading, setReloading] = useState(false)
+  const [reimporting, setReimporting] = useState(false)
 
   // ── 桌面客户端信息 ──
   const [serverStatus, setServerStatus] = useState<DesktopServerStatus | null>(null)
@@ -176,6 +177,24 @@ export default function SettingsPage() {
       showToast(`${t('加载失败')}: ${err.message || t('网络错误')}`, 'err')
     } finally {
       setReloading(false)
+    }
+  }
+
+  const handleReimportBuiltin = async () => {
+    if (!window.confirm(t('重新导入初始配置将恢复所有内置角色和技能到出厂版本，用户自建内容会保留。确定继续？'))) return
+    setReimporting(true)
+    try {
+      const res = await reimportBuiltin()
+      await Promise.allSettled([
+        load(),
+        fetchCharacters().then(setCharacters),
+      ])
+      const restored = (res.restoredCharacters?.length || 0) + (res.restoredSkills?.length || 0)
+      showToast(t('已恢复 {n} 项内置内容', { n: restored }))
+    } catch (err: any) {
+      showToast(`${t('恢复失败')}: ${err.message || t('网络错误')}`, 'err')
+    } finally {
+      setReimporting(false)
     }
   }
 
@@ -502,6 +521,15 @@ export default function SettingsPage() {
                 <button className="btn" onClick={handleChooseDir} style={{marginLeft:8}}>{t('选择目录')}</button>
                 <button className="btn" onClick={handleReloadDataspace} disabled={reloading} style={{marginLeft:8}}>
                   {reloading ? t('加载中…') : t('刷新')}
+                </button>
+              </div>
+            </div>
+
+            <div className="setting-row">
+              <div className="setting-info"><span className="setting-label">{t('重新导入初始配置')}</span><span className="setting-hint">{t('将内置角色和技能恢复到出厂版本（用户自建内容保留）')}</span></div>
+              <div className="setting-control">
+                <button className="btn danger" onClick={handleReimportBuiltin} disabled={reimporting} style={{marginLeft:8}}>
+                  {reimporting ? t('恢复中…') : t('重新导入')}
                 </button>
               </div>
             </div>

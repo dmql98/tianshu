@@ -3,6 +3,7 @@ import { resolve } from 'path'
 import { getSystemRunPolicy } from '../config.js'
 import { charactersRoot } from '../data-paths.js'
 import { builtinCharactersRoot } from '../content/paths.js'
+import { readSourceTag, markSourceAsUser } from '../content/copy-on-write.js'
 import { mergeById, type ContentOriginFields } from '../content/catalog.js'
 import { readContentState } from '../content/state.js'
 import { materializeCharacter, userCharacterDirExists } from '../content/copy-on-write.js'
@@ -37,6 +38,8 @@ export interface SkillBinding {
 export interface CharacterRecord {
   id: string
   name: string
+  /** 来源标签：builtin（内置出厂/未编辑物化副本）/ user（用户创建或编辑过）。 */
+  source?: 'builtin' | 'user'
   description?: string
   avatar?: string
   color?: string
@@ -102,10 +105,15 @@ export function scanCharacters(root: string): CharacterRecord[] {
   return items
 }
 
+/** 扫描用户层角色，排除"未编辑的物化副本"（source 标签为 builtin，仍由 builtin 层提供）。 */
+function scanUserCharacters(): CharacterRecord[] {
+  return scanCharacters(charactersRoot()).filter(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') !== 'builtin')
+}
+
 /** 双层角色合并（builtin + userdata），返回带来源字段的稳定排序列表。 */
 export function listMergedCharacters(includeHidden = false): Array<CharacterRecord & CharacterOriginFields> {
   const builtin = scanCharacters(builtinCharactersRoot())
-  const user = scanCharacters(charactersRoot())
+  const user = scanUserCharacters()
   const state = readContentState()
   const hiddenIds = new Set<string>()
   if (!includeHidden) for (const id of state.hidden.characters) hiddenIds.add(id)
@@ -121,7 +129,9 @@ export function listMergedCharacters(includeHidden = false): Array<CharacterReco
 /** 解析单个角色：用户层完整覆盖内置层；不存在的 ID 返回 null。 */
 export function resolveCharacterRecord(id: string): (CharacterRecord & CharacterOriginFields) | null {
   const builtin = scanCharacters(builtinCharactersRoot()).find(c => c.id === id)
-  const user = scanCharacters(charactersRoot()).find(c => c.id === id)
+  const user = scanCharacters(charactersRoot())
+    .filter(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') !== 'builtin')
+    .find(c => c.id === id)
   if (!builtin && !user) return null
   const [merged] = mergeById<CharacterRecord>({
     builtin: builtin ? [builtin] : [],
@@ -187,7 +197,8 @@ export const characterMetaStore = {
       throw new Error(`Character ID "${id}" already exists`)
     }
     const { id: _, ...rest } = data
-    const record: CharacterRecord = normalizeRecord({ ...rest, id, createdAt: now, updatedAt: now })
+    // 用户新建的角色 → source 标签置 user（默认覆盖任何同名内置项）。
+    const record: CharacterRecord = normalizeRecord({ source: 'user', ...rest, id, createdAt: now, updatedAt: now })
     writeSingle(record)
     return record
   },
@@ -197,7 +208,10 @@ export const characterMetaStore = {
     ensureWritable(id)
     const record = characterMetaStore.getUserRecord(id)
     if (!record) return null
-    const updated: CharacterRecord = normalizeRecord({ ...record, ...data, id, updatedAt: Date.now() })
+    // 用户编辑了内置角色副本 → source 标签置 user（合并时覆盖 builtin）。
+    // 注意 source 要放在 record 展开之后，避免被副本里的 builtin 标签覆盖。
+    markSourceAsUser(resolve(charactersRoot(), id), 'character')
+    const updated: CharacterRecord = normalizeRecord({ ...record, ...data, id, source: 'user', updatedAt: Date.now() })
     writeSingle(updated)
     return updated
   },

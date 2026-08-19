@@ -47,11 +47,10 @@ describe('copy-on-write（BUILTIN_CONTENT_DEVELOPMENT_PLAN §5）', () => {
     // 运行状态不复制
     expect(existsSync(join(userDir, 'memory.md'))).toBe(false)
     expect(existsSync(join(userDir, 'revisions'))).toBe(false)
-    // 来源文件标记
-    expect(existsSync(join(userDir, '.tianshu-source.json'))).toBe(true)
-    const source = JSON.parse(readFileSync(join(userDir, '.tianshu-source.json'), 'utf-8'))
-    expect(source.kind).toBe('builtin-fork')
-    expect(source.builtinId).toBe(builtin.id)
+    // 来源标签直接写在元数据文件本身（无旁路 .tianshu-source.json）
+    const meta = JSON.parse(readFileSync(join(userDir, 'character.json'), 'utf-8'))
+    expect(meta.source).toBe('user')
+    expect(existsSync(join(userDir, '.tianshu-source.json'))).toBe(false)
 
     const merged = characterMetaStore.getById(builtin.id)!
     expect(merged.source).toBe('user')
@@ -156,6 +155,9 @@ describe('copy-on-write（BUILTIN_CONTENT_DEVELOPMENT_PLAN §5）', () => {
     const userDir = join(root, 'data', 'skills', builtin.category, builtin.id)
     expect(existsSync(join(userDir, 'SKILL.md'))).toBe(true)
     expect(existsSync(join(userDir, 'skill-package.json'))).toBe(true)
-    expect(existsSync(join(userDir, '.tianshu-source.json'))).toBe(true)
+    // 来源标签写在元数据文件本身（无旁路 .tianshu-source.json）
+    const meta = JSON.parse(readFileSync(join(userDir, 'skill-package.json'), 'utf-8'))
+    expect(meta.source).toBe('user')
+    expect(existsSync(join(userDir, '.tianshu-source.json'))).toBe(false)
   })
 })

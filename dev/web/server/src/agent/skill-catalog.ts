@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, readdirSync, rmSync } from 'fs'
 import { extname, join, relative, resolve, sep } from 'path'
 import { skillsRoot as userSkillsRoot } from '../data-paths.js'
-import { builtinContentRoot, builtinSkillsRoot } from '../content/paths.js'
+import { builtinContentRoot, builtinSkillsRoot, type ContentSource } from '../content/paths.js'
 import { mergeById, type ContentOriginFields } from '../content/catalog.js'
 import { readContentState } from '../content/state.js'
-import { materializeSkillPackage } from '../content/copy-on-write.js'
+import { materializeSkillPackage, readSourceTag, markSourceAsUser } from '../content/copy-on-write.js'
 
 /** 用户层技能根（保持既有导出名；路径由 data-paths.ts 统一管理）。 */
 export function skillsRoot(): string {
@@ -32,6 +32,8 @@ export interface SkillPackageManifest {
   schemaVersion: 1
   id: string
   name: string
+  /** 来源标签：builtin（内置出厂/未编辑物化副本）/ user（用户创建或编辑过）。 */
+  source?: ContentSource
   version?: string
   category: string
   description: string
@@ -41,7 +43,9 @@ export interface SkillPackageManifest {
   children: SkillPackageChild[]
 }
 
-export interface SkillPackageRecord extends SkillPackageManifest, ContentOriginFields {
+// SkillPackageRecord 的 source 来自 ContentOriginFields（合并时派生），
+// 不继承 Manifest 的 source，避免同名属性类型冲突。
+export interface SkillPackageRecord extends Omit<SkillPackageManifest, 'source'>, ContentOriginFields {
   dir: string
   rootBody: string
   files: SkillFileEntry[]
@@ -239,7 +243,9 @@ function checkDuplicateIds(packages: SkillPackageRecord[]): void {
  */
 export function listSkillPackages(): SkillPackageRecord[] {
   const builtin = scanSkillPackages(builtinSkillsRoot(), 'builtin')
+  // 用户层排除"未编辑的物化副本"（source 标签为 builtin，仍由 builtin 层提供）。
   const user = scanSkillPackages(skillsRoot(), 'user')
+    .filter(pkg => readSourceTag(pkg.dir, 'skill') !== 'builtin')
   checkDuplicateIds(builtin)
   checkDuplicateIds(user)
 
@@ -288,11 +294,16 @@ export function ensureSkillPackageWritable(category: string, id: string): SkillP
   if (!existing) throw new Error(`Skill package "${category}/${id}" not found`)
   if (existing.source === 'user') return existing
   materializeSkillPackage(category, id, builtinContentVersion())
-  const userCopy = findSkillPackage(id, category)
-  if (!userCopy || userCopy.source !== 'user') {
+  // 用户点击"编辑内置技能"（materialize）= 接管该副本：source 标签置 user，
+  // 合并时覆盖 builtin。注意不能用 findSkillPackage（它会把未编辑物化副本
+  // 过滤掉、仍显示 builtin）；直接扫用户层目录拿刚物化的可写副本。
+  const userCopy = scanSkillPackages(skillsRoot(), 'user')
+    .find(pkg => pkg.id === id && pkg.category === category)
+  if (!userCopy) {
     throw new Error(`Failed to materialize user copy of skill "${category}/${id}"`)
   }
-  return userCopy
+  markSourceAsUser(userCopy.dir, 'skill')
+  return { ...userCopy, overridesBuiltin: true }
 }
 
 /** 恢复内置版本：删除用户副本目录（builtin 重新可见，除非仍被隐藏）。 */

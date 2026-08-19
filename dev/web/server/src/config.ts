@@ -20,25 +20,31 @@ export function envInt(name: string, def: number): number {
   return Number.isFinite(n) && n >= 0 ? n : def
 }
 
-/**
- * Legacy data directory used ONLY as a migration source for pre-0.1.6 installs.
- * It is never the default write target for dev / new installs
- * (BUILTIN_CONTENT_DEVELOPMENT_PLAN §3.1 / §16.1).
- */
-const LEGACY_DATA_DIR = 'C:\\.Tianshu'
-
 interface Config {
   dataDir: string
   runPolicy?: SystemRunPolicy
+  /** dataDir 来源标记，见 DataDirSource。 */
+  dataDirSource?: DataDirSource
 }
+
+/**
+ * dataDir 的来源标记，写入 config.json（`dataDirSource` 字段）：
+ * - 'user'：用户在设置页主动选择/修改 → 永远尊重，不回退。
+ * - 'default'：自动采用的默认（外壳传入）→ 若该目录已不存在（如重装/清理后
+ *   残留的 config.json），启动时回退到新的默认目录，避免沿用失效路径。
+ */
+type DataDirSource = 'user' | 'default'
 
 let cached: Config | null = null
 let explicitlySet = false
 
 /**
- * Where the persisted dataDir selection lives:
- * - Electron production: <TIANSHU_CONFIG_DIR>/config.json (userData)
- * - dev / non-Electron: web/server/config.json (back-compat, next to dist)
+ * 配置文件位置：
+ * - 默认：程序自身路径下 <server>/config.json（紧邻 dist）。
+ *   dev = web/server/config.json；打包 = resources/server/config.json。
+ *   随程序目录一同清除，重装/卸载不会残留旧 dataDir。
+ * - TIANSHU_CONFIG_DIR：仅测试 / CI 用它把 config 隔离到临时目录，避免污染
+ *   真实配置；生产（desktop 外壳）不再设置该变量。
  */
 function configFilePath(): string {
   const configDir = process.env.TIANSHU_CONFIG_DIR
@@ -74,20 +80,6 @@ function readCurrentConfigFile(): Record<string, unknown> {
   }
 }
 
-/** Legacy C:\.Tianshu is only adopted when it already holds real data. */
-function legacyHasData(): boolean {
-  try {
-    if (!existsSync(LEGACY_DATA_DIR)) return false
-    return (
-      existsSync(resolve(LEGACY_DATA_DIR, 'sessions.db')) ||
-      existsSync(resolve(LEGACY_DATA_DIR, 'providers.json')) ||
-      existsSync(resolve(LEGACY_DATA_DIR, 'characters'))
-    )
-  } catch {
-    return false
-  }
-}
-
 function loadConfig(): Config {
   if (cached) return cached
 
@@ -99,7 +91,7 @@ function loadConfig(): Config {
     return cached
   }
 
-  // 2. Persisted selection in <TIANSHU_CONFIG_DIR>/config.json.
+  // 2. Persisted selection in config.json（程序路径，测试/CI 经 TIANSHU_CONFIG_DIR 隔离）。
   const file = configFilePath()
   if (existsSync(file)) {
     let raw: Record<string, unknown> | undefined
@@ -111,34 +103,36 @@ function loadConfig(): Config {
       // in a hand-edited dataDir). Fix or delete the file to proceed.
       throw new Error(`Invalid config file ${file}: ${err?.message || String(err)}`)
     }
-    if (raw && typeof raw === 'object' && (raw.dataDir as string | undefined)) {
-      cached = {
-        dataDir: raw.dataDir as string,
-        runPolicy: normalizeSystemRunPolicy(raw.runPolicy),
+    const persisted = raw && typeof raw === 'object'
+      ? (raw.dataDir as string | undefined)
+      : undefined
+    const source = raw && typeof raw === 'object' ? (raw.dataDirSource as DataDirSource | undefined) : undefined
+    if (persisted) {
+      // 旧默认残留（dataDirSource 缺失视为 default）且目录已不存在（被卸载清理）时，
+      // 不沿用失效路径：回退到外壳传入的新默认（安装路径）。用户主动选择的
+      // ('user') 或目录仍存在的一律尊重。
+      const staleDefault = source !== 'user' && !existsSync(persisted)
+      if (!staleDefault) {
+        cached = {
+          dataDir: persisted,
+          runPolicy: normalizeSystemRunPolicy(raw?.runPolicy),
+        }
+        explicitlySet = true
+        return cached
       }
-      explicitlySet = true
-      return cached
+      console.warn(`[config] ignoring stale dataDir "${persisted}" (directory missing); falling back to default`)
     }
   }
 
   // 3. Default supplied by the desktop shell (<installDir>/data 或 <userData>/data)。
   const defaultDir = process.env.TIANSHU_DEFAULT_DATA_DIR
   if (defaultDir) {
-    // First-launch compatibility: if the legacy C:\.Tianshu already has data,
-    // keep using it (no bulk migration) and persist that decision to the new
-    // config location. Otherwise default to the shell-provided dir.
-    if (legacyHasData()) {
-      cached = { dataDir: LEGACY_DATA_DIR }
-      explicitlySet = true
-      writeConfig(cached)
-      return cached
-    }
     // 默认 dataDir 视为已配置：首次启动自动采用外壳传入的默认目录（安装路径下），
-    // 持久化到 config.json 并标记 explicitlySet，前端不再要求用户手动选择。
+    // 持久化到 config.json（source='default'，重装后若旧目录消失可回退新默认）。
     cached = { dataDir: defaultDir }
     explicitlySet = true
     try {
-      writeConfig(cached)
+      writeConfig({ ...cached, dataDirSource: 'default' })
     } catch (err) {
       // 安装目录可能只读：保持内存态可用，不因持久化失败而拒绝启动。
       console.error(`[config] failed to persist default dataDir (continuing in-memory): ${err instanceof Error ? err.message : err}`)
@@ -146,12 +140,11 @@ function loadConfig(): Config {
     return cached
   }
 
-  // 4. 没有任何显式配置：拒绝静默使用 C:\.Tianshu 作为默认写入目录
-  //    （BUILTIN_CONTENT_DEVELOPMENT_PLAN §3.1 / §16.1）。开发模式必须由
+  // 4. 没有任何显式配置：拒绝静默猜测数据目录。开发模式必须由
   //    Electron / dev orchestrator 显式传入 TIANSHU_DEFAULT_DATA_DIR。
   throw new Error(
     'No data directory configured. Set TIANSHU_DATA_DIR / DATA_DIR, or TIANSHU_DEFAULT_DATA_DIR ' +
-    '(dev/desktop shell), or persist dataDir in <TIANSHU_CONFIG_DIR>/config.json.',
+    '(dev/desktop shell), or persist dataDir in <server>/config.json.',
   )
 }
 
@@ -190,7 +183,8 @@ export function isConfigured(): boolean {
 }
 
 export function setDataDir(path: string): void {
-  const config: Config = { dataDir: path, runPolicy: loadConfig().runPolicy }
+  // 用户主动选择 → source='user'，重装/目录消失时也不回退（尊重用户意图）。
+  const config: Config = { dataDir: path, dataDirSource: 'user', runPolicy: loadConfig().runPolicy }
   writeConfig(config)
   cached = config
   explicitlySet = true

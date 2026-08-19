@@ -11,3 +11,17 @@ export async function saveDataspace(dataDir: string): Promise<void> {
 export async function reloadDataspace(): Promise<{ dataDir: string }> {
   return apiPost<{ dataDir: string }>('/api/config/reload')
 }
+
+export interface ReimportBuiltinResult {
+  ok: boolean
+  restoredCharacters: string[]
+  restoredSkills: string[]
+  kept: string[]
+  materialized: number
+  failed: Array<{ id: string; error: string }>
+}
+
+/** 重新导入初始配置：恢复所有内置角色/技能到出厂版（用户自建的保留）。 */
+export async function reimportBuiltin(): Promise<ReimportBuiltinResult> {
+  return apiPost<ReimportBuiltinResult>('/api/config/reimport-builtin')
+}

@@ -131,7 +131,8 @@ const server = start(process.execPath, [tsxCli, 'watch', 'src/index.ts'], {
   env: {
     ...process.env,
     PORT: String(SERVER_PORT),
-    TIANSHU_CONFIG_DIR: userDataDir,
+    // config.json 统一写在 server 程序路径（web/server/config.json），
+    // 不再放在 userData；defaultDataDir 仍由外壳提供（dev 数据目录）。
     TIANSHU_DEFAULT_DATA_DIR: defaultDataDir,
     // Dev 内置内容定位仓库根 content/builtin（content/paths.ts 自带回退，
     // 这里显式注入以保证 dev/packaged 行为一致）。

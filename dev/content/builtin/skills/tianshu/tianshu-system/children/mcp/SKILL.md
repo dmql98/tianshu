@@ -8,7 +8,7 @@ description: "查看、创建、更新、测试或删除 TianShu MCP 服务，�
 MCP 服务配置是**纯文件**：`<dataDir>/mcpservers/<name>/config.json`（每个服务一个目录）。没有数据库、没有专用工具——直接读写该文件即可。
 
 > 路径：`<dataDir>` 是**本技能激活时注入的真实绝对路径**（激活返回里会给出，例如 `C:\...\devdata`）。把下文所有 `<dataDir>` 替换成该路径再操作；若找不到，用 `bash` 执行 `echo $TIANSHU_DATA_DIR` 或 `cd` 到激活返回中的数据目录确认。
-> 出厂底稿：`<dataDir>/builtin/` 下有 content 的只读镜像可参考；MCP 配置的实际读写**始终用** `<dataDir>/mcpservers/*/config.json`（用户层），不要改镜像。
+> 启动时系统会把 content 出厂内容物化到 `<dataDir>`；MCP 配置的实际读写**始终用** `<dataDir>/mcpservers/*/config.json`（用户层）。
 
 ## 数据结构
 

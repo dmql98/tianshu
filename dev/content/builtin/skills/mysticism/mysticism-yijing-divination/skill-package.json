@@ -1,4 +1,5 @@
 {
+  "source": "builtin",
   "schemaVersion": 1,
   "id": "mysticism-yijing-divination",
   "name": "易经起卦",
@@ -8,11 +9,47 @@
   "tags": [],
   "root": "SKILL.md",
   "children": [
-    { "id": "gua", "name": "易经起卦", "path": "children/gua", "description": "qi_gua.py 起本卦/变卦，变爻七规则取辞", "preload": false },
-    { "id": "liuyao-yijing", "name": "六爻纳甲", "path": "children/liuyao-yijing", "description": "京房纳甲装卦断卦、用神旺衰生克制化、应期", "preload": false },
-    { "id": "meihua-yishu-divination", "name": "梅花易数", "path": "children/meihua-yishu-divination", "description": "时间/数字/文字起卦，本卦互卦变卦，体用五行生克", "preload": false },
-    { "id": "xiaoliuren", "name": "道传小六壬", "path": "children/xiaoliuren", "description": "三宫定位、六宫吉凶、五行生克、六亲、死活六神", "preload": false },
-    { "id": "yi", "name": "周易智慧", "path": "children/yi", "description": "铜钱/数字/时间起卦、查卦、变爻分析、哲学反思", "preload": false },
-    { "id": "cyber-iching-master", "name": "赛博易经大师", "path": "children/cyber-iching-master", "description": "大衍/金钱/数字卦，象数理三层解读，八字排盘", "preload": false }
+    {
+      "id": "gua",
+      "name": "易经起卦",
+      "path": "children/gua",
+      "description": "qi_gua.py 起本卦/变卦，变爻七规则取辞",
+      "preload": false
+    },
+    {
+      "id": "liuyao-yijing",
+      "name": "六爻纳甲",
+      "path": "children/liuyao-yijing",
+      "description": "京房纳甲装卦断卦、用神旺衰生克制化、应期",
+      "preload": false
+    },
+    {
+      "id": "meihua-yishu-divination",
+      "name": "梅花易数",
+      "path": "children/meihua-yishu-divination",
+      "description": "时间/数字/文字起卦，本卦互卦变卦，体用五行生克",
+      "preload": false
+    },
+    {
+      "id": "xiaoliuren",
+      "name": "道传小六壬",
+      "path": "children/xiaoliuren",
+      "description": "三宫定位、六宫吉凶、五行生克、六亲、死活六神",
+      "preload": false
+    },
+    {
+      "id": "yi",
+      "name": "周易智慧",
+      "path": "children/yi",
+      "description": "铜钱/数字/时间起卦、查卦、变爻分析、哲学反思",
+      "preload": false
+    },
+    {
+      "id": "cyber-iching-master",
+      "name": "赛博易经大师",
+      "path": "children/cyber-iching-master",
+      "description": "大衍/金钱/数字卦，象数理三层解读，八字排盘",
+      "preload": false
+    }
   ]
 }

@@ -1,4 +1,5 @@
 {
+  "source": "builtin",
   "schemaVersion": 1,
   "id": "graphify",
   "name": "Graphify",

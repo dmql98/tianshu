@@ -1,4 +1,5 @@
 {
+  "source": "builtin",
   "schemaVersion": 1,
   "id": "design-ui-prototype",
   "name": "UI 原型设计",
@@ -8,11 +9,47 @@
   "tags": [],
   "root": "SKILL.md",
   "children": [
-    { "id": "prd-to-prototype", "name": "PRD 到原型", "path": "children/prd-to-prototype", "description": "零提问直出 PRD + 高保真可交互 HTML/Tailwind 原型（移动/PC）", "preload": false },
-    { "id": "design-to-code", "name": "设计稿转代码", "path": "children/design-to-code", "description": "Figma/Sketch/图片 像素级还原为前端代码，响应式 + 设计令牌", "preload": false },
-    { "id": "afrexai-ui-design-system", "name": "UI 设计系统", "path": "children/afrexai-ui-design-system", "description": "完整产品设计方法论引擎（需求/IA/令牌/组件/交互/无障碍/交接）", "preload": false },
-    { "id": "ui-design", "name": "UI 设计基础", "path": "children/ui-design", "description": "布局/排版/色彩/间距/无障碍与反模式，生产级界面设计准则", "preload": false },
-    { "id": "wireframe", "name": "线框图", "path": "children/wireframe", "description": "ASCII/SVG 线框与用户流程（page/component/flow/template）", "preload": false },
-    { "id": "frontend-design-pro", "name": "前端设计质量", "path": "children/frontend-design-pro", "description": "audit/polish/critique 等设计审查命令，避免 AI 反模式", "preload": false }
+    {
+      "id": "prd-to-prototype",
+      "name": "PRD 到原型",
+      "path": "children/prd-to-prototype",
+      "description": "零提问直出 PRD + 高保真可交互 HTML/Tailwind 原型（移动/PC）",
+      "preload": false
+    },
+    {
+      "id": "design-to-code",
+      "name": "设计稿转代码",
+      "path": "children/design-to-code",
+      "description": "Figma/Sketch/图片 像素级还原为前端代码，响应式 + 设计令牌",
+      "preload": false
+    },
+    {
+      "id": "afrexai-ui-design-system",
+      "name": "UI 设计系统",
+      "path": "children/afrexai-ui-design-system",
+      "description": "完整产品设计方法论引擎（需求/IA/令牌/组件/交互/无障碍/交接）",
+      "preload": false
+    },
+    {
+      "id": "ui-design",
+      "name": "UI 设计基础",
+      "path": "children/ui-design",
+      "description": "布局/排版/色彩/间距/无障碍与反模式，生产级界面设计准则",
+      "preload": false
+    },
+    {
+      "id": "wireframe",
+      "name": "线框图",
+      "path": "children/wireframe",
+      "description": "ASCII/SVG 线框与用户流程（page/component/flow/template）",
+      "preload": false
+    },
+    {
+      "id": "frontend-design-pro",
+      "name": "前端设计质量",
+      "path": "children/frontend-design-pro",
+      "description": "audit/polish/critique 等设计审查命令，避免 AI 反模式",
+      "preload": false
+    }
   ]
 }

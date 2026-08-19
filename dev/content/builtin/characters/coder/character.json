@@ -1,4 +1,5 @@
 {
+  "source": "builtin",
   "name": "码仔",
   "description": "通用日常开发助手：更新项目、优化代码、调试排错、代码审查、技术文档",
   "color": "#3B82F6",

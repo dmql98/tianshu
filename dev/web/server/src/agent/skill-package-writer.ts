@@ -48,6 +48,8 @@ export function createSkillPackage(input: CreateSkillPackageInput, skillsRootOve
     schemaVersion: 1,
     id,
     name,
+    // 用户新建的技能 → source 标签置 user（默认覆盖任何同名内置项）。
+    source: 'user',
     version: input.version || (frontmatter.version ? String(frontmatter.version) : undefined),
     category,
     description: input.description ?? String(frontmatter.description || ''),
@@ -66,6 +68,7 @@ export function createSkillPackage(input: CreateSkillPackageInput, skillsRootOve
       schemaVersion: manifest.schemaVersion,
       id: manifest.id,
       name: manifest.name,
+      source: manifest.source,
       ...(manifest.version ? { version: manifest.version } : {}),
       category: manifest.category,
       description: manifest.description,

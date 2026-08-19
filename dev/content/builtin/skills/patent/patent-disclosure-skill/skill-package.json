@@ -1,4 +1,5 @@
 {
+  "source": "builtin",
   "schemaVersion": 1,
   "id": "patent-disclosure-skill",
   "name": "中国专利交底与解读",

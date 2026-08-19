@@ -1,4 +1,5 @@
 {
+  "source": "builtin",
   "name": "UI设计师",
   "description": "design 组 UI 原型设计专家：PRD 直出、设计稿像素还原、设计系统/令牌、UI 质量审查与反模式识别、线框与 HTML/Tailwind 高保真原型",
   "color": "#2563eb",

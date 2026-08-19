@@ -9,7 +9,8 @@
  * - 技能复制完整合法 package（scripts / templates / references / assets
  *   都可能是技能定义的一部分）。
  * - 先复制到用户根下临时目录 → 校验 → 原子 rename 为正式目录。
- * - 用户副本内生成 .tianshu-source.json；builtin 包中不得预置。
+ * - 来源标签直接写在元数据文件本身（character.json / skill-package.json 的
+ *   `source` 字段）：物化副本自带 builtin 标签，用户编辑后写路径置 user。
  * - Provider 和主题不调用本模块。
  */
 import { randomUUID } from 'crypto'
@@ -18,6 +19,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   statSync,
@@ -27,13 +29,8 @@ import { join, resolve } from 'path'
 import { charactersRoot, skillsRoot } from '../data-paths.js'
 import { builtinCharactersRoot, builtinSkillsRoot } from './paths.js'
 
-export interface TianshuSourceFile {
-  schemaVersion: 1
-  kind: 'builtin-fork'
-  builtinId: string
-  builtinVersion?: string
-  forkedAt: number
-}
+/** 内容来源标签（写入元数据文件的 `source` 字段）。未来可扩展 'market'。 */
+export type ContentSourceTag = 'builtin' | 'user'
 
 const CHARACTER_COPY_WHITELIST = new Set([
   'character.json',
@@ -42,17 +39,6 @@ const CHARACTER_COPY_WHITELIST = new Set([
   'prompt.md',
   'visual',
 ])
-
-function writeSourceFile(dir: string, builtinId: string, builtinVersion?: string): void {
-  const source: TianshuSourceFile = {
-    schemaVersion: 1,
-    kind: 'builtin-fork',
-    builtinId,
-    ...(builtinVersion ? { builtinVersion } : {}),
-    forkedAt: Date.now(),
-  }
-  writeFileSync(join(dir, '.tianshu-source.json'), JSON.stringify(source, null, 2), 'utf-8')
-}
 
 function copyTree(src: string, dest: string, filter: (name: string) => boolean): void {
   mkdirSync(dest, { recursive: true })
@@ -66,6 +52,31 @@ function copyTree(src: string, dest: string, filter: (name: string) => boolean):
       cpSync(from, to)
     }
   }
+}
+
+/** 读取用户层副本元数据文件里的来源标签。 */
+export function readSourceTag(dir: string, kind: 'character' | 'skill'): ContentSourceTag {
+  const metaFile = kind === 'character' ? 'character.json' : 'skill-package.json'
+  const metaPath = join(dir, metaFile)
+  if (!existsSync(metaPath)) return 'user'
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+    return meta?.source === 'builtin' ? 'builtin' : 'user'
+  } catch {
+    return 'user'
+  }
+}
+
+/** 把用户层副本元数据文件里的来源标签置为 'user'（用户编辑后调用）。 */
+export function markSourceAsUser(dir: string, kind: 'character' | 'skill'): void {
+  const metaFile = kind === 'character' ? 'character.json' : 'skill-package.json'
+  const metaPath = join(dir, metaFile)
+  if (!existsSync(metaPath)) return
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+    if (meta?.source === 'user') return
+    writeFileSync(metaPath, JSON.stringify({ ...meta, source: 'user' }, null, 2), 'utf-8')
+  } catch { /* keep current tag */ }
 }
 
 /**
@@ -87,7 +98,7 @@ export function materializeCharacter(id: string, builtinVersion?: string): strin
     if (!existsSync(join(staging, 'character.json'))) {
       throw new Error(`Builtin character "${id}" has no character.json`)
     }
-    writeSourceFile(staging, id, builtinVersion)
+    // 纯复制：副本的 character.json 自带 source: 'builtin' 标签（由 builtin 层文件提供）。
     // 原子 rename；Windows 同卷 rename 成功即完成。
     renameSync(staging, userDir)
     return userDir
@@ -116,7 +127,7 @@ export function materializeSkillPackage(category: string, id: string, builtinVer
     if (!existsSync(join(staging, 'skill-package.json'))) {
       throw new Error(`Builtin skill "${category}/${id}" has no skill-package.json`)
     }
-    writeSourceFile(staging, `${category}/${id}`, builtinVersion)
+    // 纯复制：副本的 skill-package.json 自带 source: 'builtin' 标签（由 builtin 层文件提供）。
     renameSync(staging, userDir)
     return userDir
   } catch (error) {
