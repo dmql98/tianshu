@@ -1,4 +1,5 @@
 import type { Server, Socket } from 'socket.io'
+import { fanOutToSinks } from '../transport/event-sinks.js'
 import { eventDefinitionStore, type EventDefinitionRow } from './definition-store.js'
 import { eventOccurrenceStore, type EventOccurrenceRow } from './occurrence-store.js'
 import { characterMetaStore } from '../db/characterStore.js'
@@ -61,7 +62,12 @@ export function drainQueue(definitionId: string): void {
 
 function broadcastSocket(io: Server): Socket {
   return {
-    emit: (type: string, ...args: any[]) => { io.emit(type, ...args); return true },
+    emit: (type: string, ...args: any[]) => {
+      io.emit(type, ...args)
+      const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
+      fanOutToSinks(type, payload)
+      return true
+    },
     on: () => undefined,
     off: () => undefined,
     id: 'event-occurrence',
@@ -100,6 +106,7 @@ export async function executeOccurrence(occurrenceId: string): Promise<void> {
       'UPDATE event_occurrences SET session_id = ?, updated_at = ? WHERE id = ?',
     ).run(session.id, Date.now(), occurrence.id)
     io.emit('session:new', { sessionId: session.id, title: session.title, isEvent: true })
+    fanOutToSinks('session:new', { sessionId: session.id, title: session.title, isEvent: true })
   }
 
   const turn = turnStore.create(session.id, 'event')
@@ -145,6 +152,7 @@ export async function executeOccurrence(occurrenceId: string): Promise<void> {
           occurrence.id,
         )
         io.emit('event_occurrence.updated', eventOccurrenceStore.get(occurrence.id))
+        fanOutToSinks('event_occurrence.updated', { occurrence: eventOccurrenceStore.get(occurrence.id) })
       } catch (error: any) {
         publishRunEvent(rawSocket, run.id, 'run.failed', {
           session_id: session!.id,

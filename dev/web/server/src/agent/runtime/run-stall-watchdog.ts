@@ -22,6 +22,7 @@ import { getDb } from '../../db/schema.js'
 import { runStore } from './run-store.js'
 import { runEventStore } from './run-event-store.js'
 import { runCoordinator } from './run-coordinator.js'
+import { fanOutToSinks } from '../../transport/event-sinks.js'
 
 const STALL_CHECK_INTERVAL_MS = 60_000
 
@@ -60,7 +61,7 @@ export function sweepStalledRuns(io: Server): string[] {
       reason,
     })
     if (!event) continue
-    io.emit(type, {
+    const envelope = {
       ...JSON.parse(event.payload),
       event_id: event.event_id,
       session_id: event.session_id,
@@ -68,7 +69,9 @@ export function sweepStalledRuns(io: Server): string[] {
       seq: event.seq,
       type: event.type,
       occurred_at: event.created_at,
-    })
+    }
+    io.emit(type, envelope)
+    fanOutToSinks(type, envelope)
     interrupted.push(run.id)
     console.warn(
       `[stall-watchdog] interrupted stalled run ${run.id} (status=${run.status}, live=${String(live)}, silent=${Math.round((now - run.updated_at) / 1000)}s)`,

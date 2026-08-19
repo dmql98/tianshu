@@ -1,4 +1,5 @@
 import { messageStore } from '../db/messageStore.js'
+import { fanOutToSinks } from '../transport/event-sinks.js'
 import { characterMetaStore, type ToolBinding } from '../db/characterStore.js'
 import { streamChatCompletion, type LLMMessage, type ToolCall, type ProviderConfig } from '../llm/client.js'
 import { getDangerousTools, validateConstraints } from '../tools/definitions.js'
@@ -771,6 +772,10 @@ export async function innerLoop(
             updatedWorkspaces = ws
           }
           socket?.emit('workspace.updated', {
+            session_id: sessionId,
+            workspaces: updatedWorkspaces,
+          })
+          fanOutToSinks('workspace.updated', {
             session_id: sessionId,
             workspaces: updatedWorkspaces,
           })

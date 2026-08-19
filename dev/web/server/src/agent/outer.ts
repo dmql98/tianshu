@@ -1,5 +1,6 @@
 import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
+import { fanOutToSinks } from '../transport/event-sinks.js'
 import { characterMetaStore, type CharacterRecord } from '../db/characterStore.js'
 import { providerStore, resolveProviderApiStyle } from '../db/providerStore.js'
 import { characterContentStore } from '../character/store.js'
@@ -442,6 +443,13 @@ export async function sessionLoop(io: Server, socket: Socket, sessionId: string,
           approvalMode: 'Auto Approve',
         })
         socket?.emit('evolution:insight_created', {
+          session_id: session.id,
+          insight_type: insight.type,
+          description: insight.description,
+          notify_enabled: cfg.notify_enabled,
+          notify_timeout: cfg.notify_timeout,
+        })
+        fanOutToSinks('evolution:insight_created', {
           session_id: session.id,
           insight_type: insight.type,
           description: insight.description,

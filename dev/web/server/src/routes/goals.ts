@@ -5,6 +5,7 @@ import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
 import { createDurableSocket, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { fanOutToSinks } from '../transport/event-sinks.js'
 import { enqueueRun } from '../agent/session-runner.js'
 import { sessionLoop } from '../agent/loop.js'
 import type { Server } from 'socket.io'
@@ -19,7 +20,12 @@ export function setGoalRuntime(io: Server) {
 
 function broadcastSocket(io: Server) {
   return {
-    emit: (type: string, ...args: any[]) => { io.emit(type, ...args); return true },
+    emit: (type: string, ...args: any[]) => {
+      io.emit(type, ...args)
+      const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
+      fanOutToSinks(type, payload)
+      return true
+    },
     on: () => undefined,
     off: () => undefined,
     id: 'goal-resume',
@@ -55,6 +61,10 @@ router.post('/', async (c) => {
     session_id: sessionId, goal_id: goal.id, status: goal.status,
     outcome: goal.outcome, verification: goal.verification,
   })
+  fanOutToSinks('goal.created', {
+    session_id: sessionId, goal_id: goal.id, status: goal.status,
+    outcome: goal.outcome, verification: goal.verification,
+  })
   return c.json(goal, 201)
 })
 
@@ -75,6 +85,9 @@ router.post('/:id/pause', (c) => {
   const updated = goalStore.update(c.req.param('id'), { status: 'paused' })
   if (!updated) return c.json({ error: 'Not found' }, 404)
   ioRef?.emit('goal.status.changed', {
+    session_id: updated.session_id, goal_id: updated.id, status: 'paused',
+  })
+  fanOutToSinks('goal.status.changed', {
     session_id: updated.session_id, goal_id: updated.id, status: 'paused',
   })
   return c.json(updated)

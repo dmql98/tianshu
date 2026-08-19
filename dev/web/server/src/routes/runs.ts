@@ -8,6 +8,7 @@ import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { createDurableSocket, publishRunEvent, forceCancelRun } from '../agent/runtime/run-event-store.js'
+import { fanOutToSinks } from '../transport/event-sinks.js'
 import { createResumedRun } from '../agent/runtime/run-resume-service.js'
 import { llmCallsForRun, rowToLLMCall } from '../agent/llm-call-store.js'
 import { sessionLoop } from '../agent/loop.js'
@@ -31,7 +32,12 @@ export function setRunsRuntime(io: Server) {
 
 function broadcastSocket(io: Server) {
   return {
-    emit: (type: string, ...args: any[]) => { io.emit(type, ...args); return true },
+    emit: (type: string, ...args: any[]) => {
+      io.emit(type, ...args)
+      const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
+      fanOutToSinks(type, payload)
+      return true
+    },
     on: () => undefined,
     off: () => undefined,
     id: 'run-inputs',
