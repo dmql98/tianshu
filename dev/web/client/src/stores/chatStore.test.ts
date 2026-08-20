@@ -47,7 +47,7 @@ vi.mock('@/api/sessions', () => ({
 const SID = 's1'
 const RID = 'r1'
 
-function socketHandlers(): Map<string, (data: unknown) => void> {
+function streamHandlers(): Map<string, (data: unknown) => void> {
   const map = new Map<string, (data: unknown) => void>()
   for (const [event, handler] of mocks.fakeBus.on.mock.calls as [string, (data: unknown) => void][]) {
     map.set(event, handler)
@@ -100,7 +100,7 @@ describe('abortRun (stop button)', () => {
     // Server acks the abort and then emits the terminal event: state clears.
     const abortAck = mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'abort')?.[2] as (r: unknown) => void
     abortAck?.({ status: 'ok' })
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
     handlers.get('run.cancelled')?.({ session_id: SID, run_id: RID, status: 'cancelled', type: 'run.cancelled' } as RunEvent)
 
     const settled = useChatStore.getState()
@@ -120,7 +120,7 @@ describe('abortRun (stop button)', () => {
     expect(mocks.cancelRun).toHaveBeenCalledWith(RID, true)
   })
 
-  it('falls back to HTTP cancel when the socket is not connected', async () => {
+  it('falls back to HTTP cancel when the stream is not connected', async () => {
     mocks.fakeBus.connected = false
     const { useChatStore } = await import('@/stores/chatStore')
     useChatStore.setState(runningState() as never)
@@ -137,7 +137,7 @@ describe('abortRun (stop button)', () => {
     useChatStore.setState(runningState() as never)
 
     useChatStore.getState().abortRun()
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
 
     // A successor run tries to start while we are aborting: must not re-arm.
     handlers.get('run.started')?.({ session_id: SID, run_id: 'r2', type: 'run.started' } as RunEvent)
@@ -153,7 +153,7 @@ describe('abortRun (stop button)', () => {
     const { useChatStore } = await import('@/stores/chatStore')
     useChatStore.setState(runningState() as never)
 
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
     handlers.get('run.interrupted')?.({ session_id: SID, run_id: RID, type: 'run.interrupted', reason: 'stalled' } as RunEvent)
 
     const settled = useChatStore.getState()
@@ -162,14 +162,13 @@ describe('abortRun (stop button)', () => {
     expect(settled.sessionRuns[SID].activeRunId).toBeNull()
   })
 
-  it('run.max_turns falls through to the persistent handler when the temporary listener does not cover it', async () => {
+  it('run.max_turns is handled by the single global writer and settles the session', async () => {
     const { useChatStore } = await import('@/stores/chatStore')
-    // A temporary listener is active, but it does NOT register run.max_turns —
-    // the persistent handler must still process it, otherwise the session
-    // stays stuck streaming forever.
-    useChatStore.setState({ ...runningState(), _currentCleanup: () => {} } as never)
+    // There is only one writer now. A non-terminal-terminal fallback must
+    // never leave the session stuck streaming forever.
+    useChatStore.setState({ ...runningState() } as never)
 
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
     handlers.get('run.max_turns')?.({ session_id: SID, run_id: RID, type: 'run.max_turns', status: 'max_turns' } as RunEvent)
 
     const settled = useChatStore.getState()
@@ -177,16 +176,16 @@ describe('abortRun (stop button)', () => {
     expect(settled.isStreaming).toBe(false)
   })
 
-  it('run.interrupted is claimed by the temporary listener when one is active', async () => {
+  it('run.interrupted is handled by the single global writer and resets the session', async () => {
     const { useChatStore } = await import('@/stores/chatStore')
-    useChatStore.setState({ ...runningState(), _currentCleanup: () => {} } as never)
+    useChatStore.setState({ ...runningState() } as never)
 
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
     handlers.get('run.interrupted')?.({ session_id: SID, run_id: RID, type: 'run.interrupted', reason: 'stalled' } as RunEvent)
 
-// The temporary listener owns run.interrupted in production (it resets +
-// cleans up); the persistent handler must not have reset state here.
-    expect(useChatStore.getState().sessionRuns[SID].activeRun.phase).toBe('running')
+    // Single global writer owns run.interrupted: it resets and cleans up.
+    expect(useChatStore.getState().sessionRuns[SID].activeRun.phase).toBe('idle')
+    expect(useChatStore.getState().isStreaming).toBe(false)
   })
 })
 
@@ -218,7 +217,7 @@ describe('stream delta coalescing (50ms window)', () => {
     const { useChatStore } = await import('@/stores/chatStore')
     useChatStore.setState(sessionState())
 
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
     handlers.get('message.delta')?.({ session_id: SID, run_id: RID, delta: 'Hello', type: 'message.delta' } as RunEvent)
     handlers.get('message.delta')?.({ session_id: SID, run_id: RID, delta: ' world', type: 'message.delta' } as RunEvent)
 
@@ -237,7 +236,7 @@ describe('stream delta coalescing (50ms window)', () => {
     const { useChatStore } = await import('@/stores/chatStore')
     useChatStore.setState(sessionState())
 
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
     handlers.get('message.delta')?.({ session_id: SID, run_id: RID, delta: 'partial', type: 'message.delta' } as RunEvent)
     // Terminal-ish event arrives before the 50ms window elapses.
     handlers.get('message.metrics')?.({ session_id: SID, run_id: RID, type: 'message.metrics', token_speed: 42 } as RunEvent)
@@ -265,7 +264,7 @@ describe('stream delta coalescing (50ms window)', () => {
       }] as never[],
     } as never)
 
-    const handlers = socketHandlers()
+    const handlers = streamHandlers()
     handlers.get('tool.output')?.({ session_id: SID, run_id: RID, tool_call_id: 'call1', output: 'a', type: 'tool.output' } as RunEvent)
     handlers.get('tool.output')?.({ session_id: SID, run_id: RID, tool_call_id: 'call1', output: 'b', type: 'tool.output' } as RunEvent)
     expect(useChatStore.getState().sessions[0].messages[0].tool_output).toBeUndefined()

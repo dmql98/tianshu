@@ -38,7 +38,7 @@ import { sessionSkillStore } from './session-skill-store.js'
 import { resolveRunPolicy } from './loop/run-policy-resolver.js'
 import { getSystemRunPolicy, getDataDir } from '../config.js'
 import { evaluateAutoContinuation, createResumedRun } from './runtime/run-resume-service.js'
-import { publishRunEvent, createDurableSocket, unwrapDurableSocket } from './runtime/run-event-store.js'
+import { publishRunEvent, createDurableStream, unwrapDurableStream } from './runtime/run-event-store.js'
 import { enqueueRun } from './session-runner.js'
 
 export interface RunResult {
@@ -50,11 +50,11 @@ export interface RunResult {
   totalCacheMissTokens: number
 }
 
-export async function sessionLoop(io: TransportBroadcaster, socket: TransportBroadcaster, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {}): Promise<RunResult> {
+export async function sessionLoop(broadcaster: TransportBroadcaster, stream: TransportBroadcaster, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {}): Promise<RunResult> {
   const runId = opts.run_id || `run_${sessionId}_${Date.now()}`
   opts.run_id = runId
   const session = sessionStore.getById(sessionId)
-  if (!session) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Session not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!session) { stream.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Session not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const persistedRun = runStore.get(runId)
   let pinnedSnapshot: CharacterRevisionSnapshot | null = null
@@ -65,18 +65,18 @@ export async function sessionLoop(io: TransportBroadcaster, socket: TransportBro
     }
   }
   const charMeta = pinnedSnapshot?.meta || characterMetaStore.getById(session.character_id)
-  if (!charMeta) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Character not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!charMeta) { stream.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Character not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const charContent = pinnedSnapshot?.content || characterContentStore.get(session.character_id)
 
   const providerId = session.provider_id
-  if (!providerId) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'No provider configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!providerId) { stream.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'No provider configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const provider = providerStore.getById(providerId)
-  if (!provider) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Provider not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!provider) { stream.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'Provider not found' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   const model = session.model || provider.models[0]?.id
-  if (!model) { socket.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'No model configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
+  if (!model) { stream.emit('run.failed', { session_id: sessionId, run_id: runId, error: 'No model configured' }); return { status: 'stop', sessionId, totalInputTokens: 0, totalOutputTokens: 0, totalCacheHitTokens: 0, totalCacheMissTokens: 0 } }
 
   // Effective protocol for this run's model: model-level override > provider
   // level > auto-detect (resolved in the LLM client at request time).
@@ -278,8 +278,8 @@ export async function sessionLoop(io: TransportBroadcaster, socket: TransportBro
   const loopResult = await runLoopEngine({
     sessionId,
     runId,
-    socket,
-    io,
+    stream,
+    broadcaster,
     signal,
     provider: effProvider,
     model,
@@ -324,8 +324,8 @@ export async function sessionLoop(io: TransportBroadcaster, socket: TransportBro
         nextRunId = resumed.run.id
 
         // Publish the successor's queued event and enqueue it.
-        const rawSocket = unwrapDurableSocket(socket) || socket
-        publishRunEvent(rawSocket, resumed.run.id, 'run.queued', {
+        const rawStream = unwrapDurableStream(stream) || stream
+        publishRunEvent(rawStream, resumed.run.id, 'run.queued', {
           session_id: sessionId,
           run_id: resumed.run.id,
           character_id: resumed.run.character_id,
@@ -333,26 +333,26 @@ export async function sessionLoop(io: TransportBroadcaster, socket: TransportBro
           resumed_from_run_id: persistedRun.id,
           trigger: 'auto_limit',
         })
-        socket.emit('run.continuation_queued', {
+        stream.emit('run.continuation_queued', {
           session_id: sessionId,
           run_id: runId,
           next_run_id: resumed.run.id,
           continuation_index: resumed.run.continuation_index,
         })
         const nextRunIdLocal = resumed.run.id
-        const nextDurableSocket = createDurableSocket(rawSocket, nextRunIdLocal)
+        const nextDurableStream = createDurableStream(rawStream, nextRunIdLocal)
         enqueueRun(sessionId, nextRunIdLocal, async signal => {
           try {
-            await sessionLoop(io, nextDurableSocket, sessionId, signal, { run_id: nextRunIdLocal })
+            await sessionLoop(broadcaster, nextDurableStream, sessionId, signal, { run_id: nextRunIdLocal })
           } catch (error: any) {
-            publishRunEvent(rawSocket, nextRunIdLocal, 'run.failed', {
+            publishRunEvent(rawStream, nextRunIdLocal, 'run.failed', {
               session_id: sessionId,
               run_id: nextRunIdLocal,
               error: error.message || String(error),
             })
           }
         }, () => {
-          publishRunEvent(rawSocket, nextRunIdLocal, 'run.cancelled', {
+          publishRunEvent(rawStream, nextRunIdLocal, 'run.cancelled', {
             session_id: sessionId,
             run_id: nextRunIdLocal,
             status: 'cancelled',
@@ -390,7 +390,7 @@ export async function sessionLoop(io: TransportBroadcaster, socket: TransportBro
   const cumulativeRatio = hitTotal + missTotal > 0
     ? ((hitTotal / (hitTotal + missTotal)) * 100).toFixed(1)
     : 'N/A'
-  socket.emit(terminalEvent, {
+  stream.emit(terminalEvent, {
     session_id: sessionId,
     run_id: runId,
     status: completedStatus,
@@ -442,7 +442,7 @@ export async function sessionLoop(io: TransportBroadcaster, socket: TransportBro
           workspace: cfg.workspace || null,
           approvalMode: 'Auto Approve',
         })
-        socket?.emit('evolution:insight_created', {
+        stream?.emit('evolution:insight_created', {
           session_id: session.id,
           insight_type: insight.type,
           description: insight.description,

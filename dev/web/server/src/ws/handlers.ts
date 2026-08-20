@@ -5,7 +5,7 @@
  *   - SSE        : POST /api/events dispatches to these handlers (sink channel)
  *   - Electron   : IPC bridge dispatches to the same handlers (sink channel)
  *
- * Delivery model (single delivery per transport): the run's durable socket is
+ * Delivery model (single delivery per transport): the run's durable stream is
  * a NOOP shim (publishRunEvent emits to it AND fans out to registered sinks —
  * the shim swallows the direct emit, the sink fan-out is the real delivery);
  * `channel.emit` = fanOutToSinks for non-durable one-off events.
@@ -20,34 +20,34 @@ import { setSessionStrategy } from '../agent/session.js'
 import { enqueueRun, abortSession } from '../agent/session-runner.js'
 import { approvalRegistry, type ApprovalChoice } from '../agent/runtime/approval-registry.js'
 import { checkpointStore } from '../agent/runtime/checkpoint-store.js'
-import { createDurableSocket, publishRunEvent, forceCancelSessionRuns } from '../agent/runtime/run-event-store.js'
+import { createDurableStream, publishRunEvent, forceCancelSessionRuns } from '../agent/runtime/run-event-store.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { saveAttachment, type AttachmentMeta } from '../agent/media-store.js'
 import { isStrategyInput, normalizeStrategy, type StrategyInput } from '../agent/strategy.js'
 import type { Strategy } from '../agent/session.js'
 
 export interface UplinkChannel {
-  /** socket-like object for createDurableSocket / publishRunEvent (NOOP shim:
+  /** stream-like object for createDurableStream / publishRunEvent (NOOP shim:
    *  durable events reach clients via the sink fan-out). */
-  socket: { emit: (type: string, payload?: any, ...rest: any[]) => unknown }
+  stream: { emit: (type: string, payload?: any, ...rest: any[]) => unknown }
   /** Deliver a one-off (non-durable) event to this client. */
   emit(type: string, payload: Record<string, unknown>): void
   ack(resp: unknown): void
 }
 
-const NOOP_SOCKET: { emit: (type: string, payload?: any, ...rest: any[]) => unknown } = { emit: () => undefined }
+const NOOP_STREAM: { emit: (type: string, payload?: any, ...rest: any[]) => unknown } = { emit: () => undefined }
 
-/** Sink-backed channel (NOOP socket; delivery via fanOutToSinks). */
+/** Sink-backed channel (NOOP stream; delivery via fanOutToSinks). */
 export function sinkChannel(ack?: (resp: unknown) => void): UplinkChannel {
   return {
-    socket: NOOP_SOCKET,
+    stream: NOOP_STREAM,
     emit: (type, payload) => fanOutToSinks(type, payload),
     ack: (resp) => ack?.(resp),
   }
 }
 
 export interface HandlerContext {
-  io: TransportBroadcaster
+  broadcaster: TransportBroadcaster
 }
 
 export function handleHello(ctx: HandlerContext, channel: UplinkChannel, data: { session_id?: string } | null): void {
@@ -75,7 +75,7 @@ export async function handleChatRun(
   channel: UplinkChannel,
   data: Record<string, unknown>,
 ): Promise<void> {
-  const { io } = ctx
+  const { broadcaster } = ctx
   const sessionId = data.session_id as string
   if (!sessionId) { channel.ack({ error: 'No session_id' }); return }
   const requestedRunId = typeof data.run_id === 'string' ? data.run_id.trim() : ''
@@ -158,29 +158,29 @@ export async function handleChatRun(
     channel.ack({ error: error.message || String(error), run_id: runId })
     return
   }
-  publishRunEvent(channel.socket , runId, 'run.queued', {
+  publishRunEvent(channel.stream , runId, 'run.queued', {
     session_id: sessionId,
     run_id: runId,
     character_id: run.character_id,
     character_revision_id: run.character_revision_id,
   })
-  const durableSocket = createDurableSocket(channel.socket , runId)
+  const durableStream = createDurableStream(channel.stream , runId)
   const enqueueResult = enqueueRun(sessionId, runId, async (signal) => {
     try {
-      await sessionLoop(io, durableSocket, sessionId, signal, {
+      await sessionLoop(broadcaster, durableStream, sessionId, signal, {
         thinking: !!data.thinking,
         reasoning_effort: data.reasoning_effort as string | undefined,
         run_id: runId,
       })
     } catch (error: any) {
-      publishRunEvent(channel.socket , runId, 'run.failed', {
+      publishRunEvent(channel.stream , runId, 'run.failed', {
         session_id: sessionId,
         run_id: runId,
         error: error.message || String(error),
       })
     }
   }, () => {
-    publishRunEvent(channel.socket , runId, 'run.cancelled', {
+    publishRunEvent(channel.stream , runId, 'run.cancelled', {
       session_id: sessionId,
       run_id: runId,
       status: 'cancelled',

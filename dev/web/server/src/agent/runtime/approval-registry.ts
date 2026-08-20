@@ -1,7 +1,7 @@
 /**
  * Central registry for in-flight approval prompts. Approval waits are keyed by
- * (sessionId, toolCallId) instead of socket closures, so a client that
- * reconnects can still answer a pending approval without the original socket
+ * (sessionId, toolCallId) instead of stream closures, so a client that
+ * reconnects can still answer a pending approval without the original stream
  * callback being alive.
  */
 

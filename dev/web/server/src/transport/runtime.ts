@@ -6,12 +6,12 @@
  */
 import { fanOutToSinks } from './event-sinks.js'
 
-/** Minimal emit-capable target — the only socket surface the run path uses. */
+/** Minimal emit-capable target — the only stream surface the run path uses. */
 export interface TransportBroadcaster {
   emit(type: string, payload?: any, ...rest: any[]): unknown
 }
 
-let ioRef: TransportBroadcaster | null = null
+let broadcasterRef: TransportBroadcaster | null = null
 
 /** The default broadcaster: every emit fans out to registered sinks. */
 export function createBroadcaster(): TransportBroadcaster {
@@ -27,15 +27,15 @@ export function createBroadcaster(): TransportBroadcaster {
   }
 }
 
-export function setTransportIo(io: TransportBroadcaster): void {
-  ioRef = io
+export function setTransportBroadcaster(broadcaster: TransportBroadcaster): void {
+  broadcasterRef = broadcaster
 }
 
-export function getTransportIo(): TransportBroadcaster {
-  if (!ioRef) throw new Error('Transport runtime not ready: setTransportIo() not called')
-  return ioRef
+export function getTransportBroadcaster(): TransportBroadcaster {
+  if (!broadcasterRef) throw new Error('Transport runtime not ready: setTransportBroadcaster() not called')
+  return broadcasterRef
 }
 
-export function hasTransportIo(): boolean {
-  return ioRef !== null
+export function hasTransportBroadcaster(): boolean {
+  return broadcasterRef !== null
 }

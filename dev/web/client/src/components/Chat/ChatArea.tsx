@@ -13,7 +13,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 export default function ChatArea() {
   const {
     sessions, activeSessionId, pendingApproval, pendingAskUser,
-    socketConnected, isRefreshing, refreshSession, renameSession,
+    streamConnected, isRefreshing, refreshSession, renameSession,
   } = useChatStore()
   const { toggleSidebar, toggleRightPanel, toggleFilePanel } = useUIStore()
   const t = useI18n()
@@ -104,7 +104,7 @@ export default function ChatArea() {
             aria-label={t('编辑会话名')}
           ><Icon name="rename" size={15} ariaHidden /></button>
           <div style={{ flex: 1 }}></div>
-          {!socketConnected && <span className="connection-state">{t('连接已断开，正在重连…')}</span>}
+          {!streamConnected && <span className="connection-state">{t('连接已断开，正在重连…')}</span>}
           <button
             className={`top-btn refresh-btn ${isRefreshing ? 'refreshing' : ''}`}
             onClick={() => void refreshSession().catch(() => {})}

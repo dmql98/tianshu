@@ -14,12 +14,12 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 let isPolling = false
 let pendingImmediate = false
 
-export function startEventScheduler(io: TransportBroadcaster, intervalSec = 10) {
+export function startEventScheduler(broadcaster: TransportBroadcaster, intervalSec = 10) {
   if (pollTimer) return
   const intervalMs = Math.max(1000, intervalSec * 1000)
   console.log('[event-scheduler] Starting (poll every %dms)', intervalMs)
-  pollTimer = setInterval(() => void poll(io), intervalMs)
-  void poll(io)
+  pollTimer = setInterval(() => void poll(broadcaster), intervalMs)
+  void poll(broadcaster)
 }
 
 export function stopEventScheduler() {
@@ -30,9 +30,9 @@ export function stopEventScheduler() {
   isPolling = false
 }
 
-export function scheduleImmediate(io: TransportBroadcaster) {
+export function scheduleImmediate(broadcaster: TransportBroadcaster) {
   if (isPolling) { pendingImmediate = true; return }
-  void poll(io)
+  void poll(broadcaster)
 }
 
 export function claimDue(definition: EventDefinitionRow, now: number): boolean {
@@ -72,7 +72,7 @@ export function fireDefinition(definition: EventDefinitionRow): EventOccurrenceR
   return occurrence
 }
 
-async function poll(io: TransportBroadcaster) {
+async function poll(broadcaster: TransportBroadcaster) {
   if (isPolling) return
   isPolling = true
   try {
@@ -90,6 +90,6 @@ async function poll(io: TransportBroadcaster) {
     console.error('[event-scheduler] poll failed:', error.message)
   } finally {
     isPolling = false
-    if (pendingImmediate) { pendingImmediate = false; void poll(io) }
+    if (pendingImmediate) { pendingImmediate = false; void poll(broadcaster) }
   }
 }

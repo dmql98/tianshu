@@ -1,7 +1,7 @@
 /**
  * Run: npx tsx src/agent/runtime/run-store.test.ts
  *
- * Covers: terminal-event uniqueness, append->commit->socket order,
+ * Covers: terminal-event uniqueness, append->commit->stream order,
  * after_seq replay, revision pinning (follow_latest / pinned), and the
  * RunCoordinator serialization + cancellation semantics.
  */
@@ -137,12 +137,12 @@ try {
     console.log('  OK only one terminal event per run')
   }
 
-  // ---- P0 #3: append commits before socket emit ---------------------------
+  // ---- P0 #3: append commits before stream emit ---------------------------
   {
     const session = makeSession(newChar())
     const run = runStore.create(session)
     const seen: string[] = []
-    const fakeSocket = {
+    const fakeStream = {
       emit: (type: string, payload: any) => {
         const row = db.prepare('SELECT * FROM run_events WHERE run_id = ? AND seq = ?').get(run.id, payload.seq) as any
         seen.push(type)
@@ -151,12 +151,12 @@ try {
         return true
       },
     }
-    const r1 = publishRunEvent(fakeSocket as any, run.id, 'tool.started', { name: 'bash' })
+    const r1 = publishRunEvent(fakeStream as any, run.id, 'tool.started', { name: 'bash' })
     assert(!!r1 && r1.seq === 1, 'first event seq=1')
-    const r2 = publishRunEvent(fakeSocket as any, run.id, 'message.delta', { delta: 'hi' })
+    const r2 = publishRunEvent(fakeStream as any, run.id, 'message.delta', { delta: 'hi' })
     assert(!!r2 && r2.seq === 2, 'second event seq=2')
     assert(seen.join(',') === 'tool.started,message.delta', 'emit order matches append order')
-    console.log('  OK append -> commit -> socket emit ordering')
+    console.log('  OK append -> commit -> stream emit ordering')
   }
 
   // ---- P0 #8: after_seq replay without loss or duplicates -----------------

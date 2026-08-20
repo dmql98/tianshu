@@ -6,7 +6,7 @@ import { runStore, isParked, type RunPhase } from './run-store.js'
 import { checkpointStore } from './checkpoint-store.js'
 import { fanOutToSinks } from '../../transport/event-sinks.js'
 
-export const RAW_SOCKET = Symbol('tianshu.rawSocket')
+export const RAW_STREAM = Symbol('tianshu.rawStream')
 
 // ── R9: run_events write-behind（对齐 DSH SessionWriteBehind 思路）──
 // 第一刀（R8）已把高频流式事件（message.delta / tool.output）排除落库，剩余
@@ -248,10 +248,10 @@ export function publishRunEvent(
 // 等低频终态事件仍 durable。
 const DURABLE_EVENT = /^(run\.|message\.(?!delta$)|tool\.(?!output$)|approval\.|control\.|plan\.|goal\.|agent_task\.|character\.|sub_agent\.|usage$|ask_user$)/
 
-export function createDurableSocket(socket: TransportBroadcaster, runId: string): TransportBroadcaster {
-  return new Proxy(socket, {
+export function createDurableStream(stream: TransportBroadcaster, runId: string): TransportBroadcaster {
+  return new Proxy(stream, {
     get(target, prop, receiver) {
-      if (prop === RAW_SOCKET) return target
+      if (prop === RAW_STREAM) return target
       if (prop !== 'emit') return Reflect.get(target, prop, receiver)
       return (type: string, payload?: Record<string, unknown>, ...rest: unknown[]) => {
         if (DURABLE_EVENT.test(type) && payload && typeof payload === 'object') {
@@ -282,14 +282,14 @@ export function createDurableSocket(socket: TransportBroadcaster, runId: string)
   })
 }
 
-export function unwrapDurableSocket(socket: TransportBroadcaster): TransportBroadcaster {
-  return (socket as TransportBroadcaster & { [RAW_SOCKET]?: TransportBroadcaster })[RAW_SOCKET] || socket
+export function unwrapDurableStream(stream: TransportBroadcaster): TransportBroadcaster {
+  return (stream as TransportBroadcaster & { [RAW_STREAM]?: TransportBroadcaster })[RAW_STREAM] || stream
 }
 
 /** Force a run to the terminal `cancelled` state at the DB level, bypassing
  *  any in-memory coordinator entry. Returns the persisted terminal event (or
  *  null if the run was already terminal / unknown). Callers must still publish
- *  it through the durable socket to notify clients. */
+ *  it through the durable stream to notify clients. */
 export function forceCancelRun(runId: string, reason = 'user_requested'): RunEventRow | null {
   const run = runStore.get(runId)
   if (!run) return null

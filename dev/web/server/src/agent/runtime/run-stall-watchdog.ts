@@ -39,9 +39,9 @@ const NON_TERMINAL_NON_PARKED = `status NOT IN (
 
 /**
  * Interrupt every stale run. Returns the ids interrupted (exported for tests).
- * @param io - broadcaster used to emit the terminal events.
+ * @param broadcaster - broadcaster used to emit the terminal events.
  */
-export function sweepStalledRuns(io: TransportBroadcaster): string[] {
+export function sweepStalledRuns(broadcaster: TransportBroadcaster): string[] {
   const interrupted: string[] = []
   const now = Date.now()
   const rows = getDb().prepare(`SELECT id FROM runs WHERE ${NON_TERMINAL_NON_PARKED}`).all() as Array<{ id: string }>
@@ -70,7 +70,7 @@ export function sweepStalledRuns(io: TransportBroadcaster): string[] {
       type: event.type,
       occurred_at: event.created_at,
     }
-    io.emit(type, envelope)
+    broadcaster.emit(type, envelope)
     fanOutToSinks(type, envelope)
     interrupted.push(run.id)
     console.warn(
@@ -81,10 +81,10 @@ export function sweepStalledRuns(io: TransportBroadcaster): string[] {
 }
 
 /** Start the periodic sweep; returns a disposer. */
-export function startRunStallWatchdog(io: TransportBroadcaster): () => void {
+export function startRunStallWatchdog(broadcaster: TransportBroadcaster): () => void {
   const timer = setInterval(() => {
     try {
-      sweepStalledRuns(io)
+      sweepStalledRuns(broadcaster)
     } catch (error) {
       console.error('[stall-watchdog] sweep failed:', error)
     }

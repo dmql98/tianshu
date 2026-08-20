@@ -247,8 +247,8 @@ export async function innerLoop(
   model: string,
   characterId: string,
   workspace: string | undefined,
-  io?: TransportBroadcaster,
-  socket?: TransportBroadcaster,
+  broadcaster?: TransportBroadcaster,
+  stream?: TransportBroadcaster,
   sessionId?: string,
   signal?: AbortSignal,
   opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {},
@@ -282,8 +282,8 @@ export async function innerLoop(
       messages, tools, provider, model, signal, opts,
       (chunk) => {
         if (firstChunkAt === null && (chunk.text || chunk.reasoning)) firstChunkAt = Date.now()
-        if (chunk.reasoning && socket) {
-          socket.emit('message.delta', {
+        if (chunk.reasoning && stream) {
+          stream.emit('message.delta', {
             session_id: sessionId,
             run_id: opts.run_id,
             reasoning: chunk.reasoning,
@@ -291,8 +291,8 @@ export async function innerLoop(
             token_speed_estimated: true,
           })
         }
-        if (chunk.text && socket) {
-          socket.emit('message.delta', {
+        if (chunk.text && stream) {
+          stream.emit('message.delta', {
             session_id: sessionId,
             run_id: opts.run_id,
             delta: chunk.text,
@@ -300,9 +300,9 @@ export async function innerLoop(
             token_speed_estimated: true,
           })
         }
-        if (chunk.type === 'usage' && socket && sessionId) {
+        if (chunk.type === 'usage' && stream && sessionId) {
           const inputTokens = chunk.usage?.input_tokens || 0
-          socket.emit('usage', {
+          stream.emit('usage', {
             session_id: sessionId,
             run_id: opts.run_id,
             input_tokens: inputTokens,
@@ -319,7 +319,7 @@ export async function innerLoop(
           }
         }
       },
-      (retry) => socket?.emit('run.retrying', {
+      (retry) => stream?.emit('run.retrying', {
         session_id: sessionId,
         run_id: opts.run_id,
         scope: 'request',
@@ -409,7 +409,7 @@ export async function innerLoop(
       const sess = sessionStore.getById(sessionId)
       const hitTotal = (sess?.cache_hit_tokens || 0) + totalCacheHitTokens
       const missTotal = (sess?.cache_miss_tokens || 0) + totalCacheMissTokens
-      socket?.emit('message.metrics', {
+      stream?.emit('message.metrics', {
         session_id: sessionId,
         run_id: opts.run_id,
         message_id: storedMessage.id,
@@ -459,7 +459,7 @@ export async function innerLoop(
           is_error: 1,
         })
       }
-      socket?.emit('control.rejected', {
+      stream?.emit('control.rejected', {
         session_id: sessionId,
         run_id: opts.run_id,
         tool_call_id: tc.id,
@@ -641,7 +641,7 @@ export async function innerLoop(
       })
     }
     newMessages.push({ role: 'tool', content: JSON.stringify({ error: errorText }), tool_call_id: tc.id })
-    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: 'invalid_tool_call', tool_output: errorText, tool_status: 'error', duration_ms: 0 })
+    stream?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: 'invalid_tool_call', tool_output: errorText, tool_status: 'error', duration_ms: 0 })
   }
 
   // Phase 1: pre-check all tools, separate deny/ask from allow
@@ -675,8 +675,8 @@ export async function innerLoop(
       if (!sessionId || !isToolApprovedForSession(sessionId, name)) {
         // Ask sequentially — user approval is interactive, can't batch
         const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
-          if (!socket || !sessionId) { resolve('reject'); return }
-          socket.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[${strategyState.current_strategy}] ${name}`, tool_input: JSON.stringify(args) })
+          if (!stream || !sessionId) { resolve('reject'); return }
+          stream.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[${strategyState.current_strategy}] ${name}`, tool_input: JSON.stringify(args) })
           approvalRegistry.register(sessionId, tc.id, opts.run_id, resolve)
         })
         if (choice === 'reject') {
@@ -695,7 +695,7 @@ export async function innerLoop(
   // Phase 2: emit started events for allowed tools
   const allowed = prechecked.filter(p => !p.skip)
   for (const p of allowed) {
-    socket?.emit('tool.started', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_input: p.argsStr })
+    stream?.emit('tool.started', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_input: p.argsStr })
   }
 
   // Phase 3: emit skip results immediately
@@ -711,7 +711,7 @@ export async function innerLoop(
       messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: p.skipReason!, tool_status: 'error', is_error: 1 })
     }
     newMessages.push({ role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_call_id: p.tc.id })
-    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
+    stream?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
   }
 
   // Phase 4: execute allowed tools — parallel for read-only, serial for writes
@@ -731,7 +731,7 @@ export async function innerLoop(
 
     // ── tool.output 服务端合并（R10）──
     // bash 等工具以 chunk 频率回调 onOutput（Node child stdout 'data' 事件，
-    // 每秒可达数百次）。若每 chunk 一次 socket.emit('tool.output')，SSE 会以
+    // 每秒可达数百次）。若每 chunk 一次 stream.emit('tool.output')，SSE 会以
     // 同等频率写帧：writeSSE 无背压地入队，几十万字节输出时写端积压、
     // EventSource 连接假死——表现正是"连续几个 bash 后前端不动了，刷新后
     // 工具事件批量补出"。这里把 chunk 合并到 ~50ms 窗口（与前端 chatStore 的
@@ -744,7 +744,7 @@ export async function innerLoop(
       if (!pendingOutput) return
       const output = pendingOutput
       pendingOutput = ''
-      socket?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output })
+      stream?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output })
     }
     const onOutput = (chunk: string) => {
       pendingOutput += chunk
@@ -775,8 +775,8 @@ export async function innerLoop(
       const strategy = getSessionState(sessionId).current_strategy
       const choice = await decideWorkspaceApproval(strategy, () =>
         new Promise<'once' | 'always' | 'reject'>((resolve) => {
-          if (!socket) { resolve('reject'); return }
-          socket.emit('approval.requested', {
+          if (!stream) { resolve('reject'); return }
+          stream.emit('approval.requested', {
             session_id: sessionId,
             run_id: opts.run_id,
             tool_call_id: p.tc.id,
@@ -804,7 +804,7 @@ export async function innerLoop(
             }
             updatedWorkspaces = ws
           }
-          socket?.emit('workspace.updated', {
+          stream?.emit('workspace.updated', {
             session_id: sessionId,
             workspaces: updatedWorkspaces,
           })
@@ -875,7 +875,7 @@ export async function innerLoop(
       ;(toolMsg as any).__dbId = stored.id
     }
     newMessages.push(toolMsg)
-    socket?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: displayOutput, tool_status: toolStatus, duration_ms: duration })
+    stream?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: displayOutput, tool_status: toolStatus, duration_ms: duration })
   }
 
   // Run all read-only tools in parallel, then writes sequentially

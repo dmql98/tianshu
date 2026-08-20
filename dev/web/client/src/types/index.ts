@@ -196,7 +196,7 @@ export interface Provider {
   runtime_plugin?: string
 }
 
-// Socket 事件
+// 事件（SSE/IPC 流）
 export interface RunEvent {
   event_id?: string
   session_id: string

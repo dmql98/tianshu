@@ -219,4 +219,140 @@ describe('stop-then-resend race: stale terminal must not double-append the new r
     const last = assistants[assistants.length - 1] as any
     expect(last.content).toBe('只有一份')
   })
+
+  it('new run retrying inside the aborting window must still reset its stream (no doubling)', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    const send = useChatStore.getState().sendMessage
+
+    // 第一条：正常流式
+    await send('第一句')
+    const runId1 = (mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as { run_id?: string })?.run_id || ''
+    emitAll('run.started', { session_id: SID, run_id: runId1, type: 'run.started' } as RunEvent)
+    emitAll('message.delta', { session_id: SID, run_id: runId1, delta: '第一段', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+
+    // 用户点停止，run1 的终态尚未回来；立刻发新消息 run2
+    useChatStore.getState().abortRun()
+    await send('第二句')
+    const runId2 = (mocks.fakeBus.emit.mock.calls
+      .filter(c => c[0] === 'chat-run')
+      .map(c => (c[1] as { run_id?: string }).run_id).pop() || '')
+    expect(runId2).not.toBe(runId1)
+    emitAll('run.started', { session_id: SID, run_id: runId2, type: 'run.started' } as RunEvent)
+
+    // run2 处于 aborting 窗口（abortingSessionId 仍是本会话）：attempt 1 先输出一段再失败
+    emitAll('message.delta', { session_id: SID, run_id: runId2, delta: 'The user just said hello. ', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+
+    // 即使仍处于 aborting 状态，run2 的 retry 也必须重置流式累积
+    emitAll('run.retrying', { session_id: SID, run_id: runId2, type: 'run.retrying' } as RunEvent)
+
+    // attempt 2 从零完整输出：不允许叠在 attempt 1 前缀上
+    emitAll('message.delta', { session_id: SID, run_id: runId2, delta: 'The user just said hello. I should respond politely.', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+    emitAll('message.metrics', { session_id: SID, run_id: runId2, message_id: 43, type: 'message.metrics' } as RunEvent)
+    emitAll('run.completed', { session_id: SID, run_id: runId2, type: 'run.completed' } as RunEvent)
+
+    const msgs = useChatStore.getState().sessions[0].messages
+    const asst = msgs.filter(m => (m as any).role === 'assistant')
+    const last = asst[asst.length - 1] as any
+    // 关键断言：attempt1 前缀 + attempt2 完整输出不得拼接成重复文本
+    expect(last.content).toBe('The user just said hello. I should respond politely.')
+  })
+
+  it('send after abort must clear the abort window so the new run.started is applied', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    const send = useChatStore.getState().sendMessage
+
+    await send('第一句')
+    const runId1 = (mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as { run_id?: string })?.run_id || ''
+    emitAll('run.started', { session_id: SID, run_id: runId1, type: 'run.started' } as RunEvent)
+    emitAll('message.delta', { session_id: SID, run_id: runId1, delta: '第一段', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+
+    // 停止后立刻发送新消息：发送应立刻离开 aborting 窗口
+    useChatStore.getState().abortRun()
+    await send('第二句')
+    const runId2 = (mocks.fakeBus.emit.mock.calls
+      .filter(c => c[0] === 'chat-run')
+      .map(c => (c[1] as { run_id?: string }).run_id).pop() || '')
+    expect(runId2).not.toBe(runId1)
+
+    // run.started 必须被正常处理（不再被 aborting 状态压制），run 进入 running
+    emitAll('run.started', { session_id: SID, run_id: runId2, type: 'run.started' } as RunEvent)
+    const phase = useChatStore.getState().sessionRuns[SID]?.activeRun?.phase
+    expect(phase).toBe('running')
+
+    // 10s 安全定时器已被发送动作清除，不会中途干扰新 run 的流式状态
+    emitAll('message.delta', { session_id: SID, run_id: runId2, delta: '只有一份', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(10_100)
+    emitAll('message.delta', { session_id: SID, run_id: runId2, delta: '的内容', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+    const msgs = useChatStore.getState().sessions[0].messages
+    const asst = msgs.filter(m => (m as any).role === 'assistant')
+    const last = asst[asst.length - 1] as any
+    expect(last.content).toBe('只有一份的内容')
+  })
+
+  it('stale buffered deltas of the aborted run must not leak into the new send', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    const send = useChatStore.getState().sendMessage
+
+    await send('第一句')
+    const runId1 = (mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as { run_id?: string })?.run_id || ''
+    emitAll('run.started', { session_id: SID, run_id: runId1, type: 'run.started' } as RunEvent)
+    emitAll('message.delta', { session_id: SID, run_id: runId1, delta: '第一段', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+
+    useChatStore.getState().abortRun()
+    // run1 停止后迟到的 chunk 进入合并缓冲（尚未 flush）
+    emitAll('message.delta', { session_id: SID, run_id: runId1, delta: '残留片段', type: 'message.delta' } as RunEvent)
+
+    // 立刻发送新消息：残留缓冲必须被清掉，不能在下一次 flush 时污染新 run
+    await send('第二句')
+    vi.advanceTimersByTime(60)
+
+    const msgs = useChatStore.getState().sessions[0].messages
+    expect(msgs.some(m => (m as any).content?.includes?.('残留片段'))).toBe(false)
+  })
+
+  it('an in-flight refreshSession snapshot must not clobber the live stream', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    const api = await import('@/api/sessions')
+    const fetchSessions = api.fetchSessions as ReturnType<typeof vi.fn>
+    const fetchSessionMessages = api.fetchSessionMessages as ReturnType<typeof vi.fn>
+    const send = useChatStore.getState().sendMessage
+
+    await send('你好')
+    const runId = (mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as { run_id?: string })?.run_id || ''
+    expect(runId).toBeTruthy()
+    emitAll('run.started', { session_id: SID, run_id: runId, type: 'run.started' } as RunEvent)
+    // 流式进行中：第一段已经落地
+    emitAll('message.delta', { session_id: SID, run_id: runId, delta: '第一段', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+    expect((useChatStore.getState().sessions[0].messages.filter(m => (m as any).role === 'assistant').pop()! as any).content).toBe('第一段')
+
+    // refreshSession 内部会先 loadSessions：保持会话存在，模拟服务端正常返回列表
+    fetchSessions.mockResolvedValueOnce([{
+      id: SID, character_id: 'c1', session_type: 'chat', title: '', model: null,
+      provider_id: null, workspace: null, workspaces: null, dataspace: null,
+      parent_id: null, active_group: null, event_id: null,
+      current_strategy: 'Ask Risky', messages: [], created_at: Date.now(), updated_at: Date.now(),
+    }])
+    // 刷新请求在流式期间返回旧快照（服务端滞后一拍）：不得覆盖进行中的文本
+    fetchSessionMessages.mockResolvedValueOnce({
+      session: { title: '刷新标题' } as any,
+      messages: [{ id: 'm0', role: 'user', content: '第一句', timestamp: Date.now() }] as any[],
+    })
+    await useChatStore.getState().refreshSession(SID)
+
+    const asst = useChatStore.getState().sessions[0].messages.filter(m => (m as any).role === 'assistant')
+    expect((asst[asst.length - 1] as any).content).toBe('第一段')
+
+    // 流式仍在继续：后续 delta 正常追加，不新建空消息/不丢尾巴
+    emitAll('message.delta', { session_id: SID, run_id: runId, delta: '第二段', type: 'message.delta' } as RunEvent)
+    vi.advanceTimersByTime(60)
+    const last = useChatStore.getState().sessions[0].messages.filter(m => (m as any).role === 'assistant').pop() as any
+    expect(last.content).toBe('第一段第二段')
+  })
 })

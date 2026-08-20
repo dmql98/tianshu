@@ -34,8 +34,8 @@ function isReasoningModel(model: string): boolean {
 export interface LoopEngineContext {
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
-  io: TransportBroadcaster
+  stream: TransportBroadcaster
+  broadcaster: TransportBroadcaster
   signal?: AbortSignal
   provider: ProviderConfig
   model: string
@@ -126,7 +126,7 @@ function buildLimitSummary(
 
 export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineResult> {
   const {
-    sessionId, runId, socket, io, signal, provider, model, characterId,
+    sessionId, runId, stream, broadcaster, signal, provider, model, characterId,
     workspace, workspaces, dataspace, cap, tools, mcpClients,
     contextWindow, compactPolicy, maxTurns, policy, messages, composeCtx, opts, session,
     executionMode, goal,
@@ -165,7 +165,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   }
   if (goal) goalStore.update(goal.id, { current_run_id: runId })
 
-  socket?.emit('run.started', { session_id: sessionId, run_id: runId, context_window: contextWindow, execution_mode: executionMode })
+  stream?.emit('run.started', { session_id: sessionId, run_id: runId, context_window: contextWindow, execution_mode: executionMode })
 
   let prevFingerprint: string | undefined
   let planSnapshot = snapshotPlanSteps(sessionId)
@@ -186,7 +186,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     if (dynamic && !runtime.warningEmitted && turn >= softTurns) {
       runtime.warningEmitted = true
       runtime.graceStarted = true
-      socket?.emit('run.limit_warning', {
+      stream?.emit('run.limit_warning', {
         session_id: sessionId,
         run_id: runId,
         soft_turns: softTurns,
@@ -281,7 +281,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
           compaction_summary: compact.summary!,
           compaction_until_id: compact.compactedUntilId || null,
         })
-        socket?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted before request to avoid overflow' })
+        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted before request to avoid overflow' })
         // 前缀已变：用与首帧一致的动态上下文重算本轮要发送的消息，并让下一次
         // 前缀形状对比按冷启动处理（形状确实变了，避免误报缓存差异）。
         composedMsgs = composeMessages(messages, {
@@ -307,7 +307,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
 
     const result = await innerLoop(composedMsgs,
       tools, provider, model, characterId,
-      workspace, io, socket, sessionId, signal, opts, turn,
+      workspace, broadcaster, stream, sessionId, signal, opts, turn,
       mcpClients, workspaces, cap, dataspace,
     )
 
@@ -342,12 +342,12 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
               compaction_summary: compact.summary!,
               compaction_until_id: compact.compactedUntilId || null,
             })
-            socket?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context overflow recovered via compaction' })
+            stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context overflow recovered via compaction' })
             continue
           }
         }
         console.log(`[session] ${sessionId} failed: context overflow (${turn} turns)`)
-        socket?.emit('run.failed', { session_id: sessionId, run_id: runId, error: `Context overflow: ${result.error}` })
+        stream?.emit('run.failed', { session_id: sessionId, run_id: runId, error: `Context overflow: ${result.error}` })
         for (const [, client] of mcpClients) {
           await disconnectMCPServer(client).catch(() => {})
         }
@@ -357,13 +357,13 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       consecutiveErrors++
       if (consecutiveErrors >= 2) {
         console.log(`[session] ${sessionId} failed: 2 consecutive errors (${turn} turns)`)
-        socket?.emit('run.failed', { session_id: sessionId, run_id: runId, error: result.error })
+        stream?.emit('run.failed', { session_id: sessionId, run_id: runId, error: result.error })
         for (const [, client] of mcpClients) {
           await disconnectMCPServer(client).catch(() => {})
         }
         return { status: 'stop', sessionId, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn }
       }
-      socket?.emit('run.retrying', {
+      stream?.emit('run.retrying', {
         session_id: sessionId,
         run_id: runId,
         scope: 'run',
@@ -393,8 +393,8 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         provider,
         model,
         signal,
-        io,
-        socket,
+        broadcaster,
+        stream,
         runId,
         workspace,
       })
@@ -412,7 +412,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         result,
         sessionId,
         runId,
-        socket,
+        stream,
         messages,
         mcpClients,
         totalInputTokens,
@@ -442,7 +442,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         result,
         sessionId,
         runId,
-        socket,
+        stream,
         messages,
       })
       messages.push(...outcome.messages)
@@ -458,7 +458,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         result,
         sessionId,
         runId,
-        socket,
+        stream,
         goalId: executionMode === 'goal' ? goal?.id || null : null,
       })
       if (outcome.planId) currentPlanId = outcome.planId
@@ -475,7 +475,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     }
 
     if (result.type === 'update_plan_step') {
-      const outcome = await handleUpdatePlanStep({ result, sessionId, runId, socket })
+      const outcome = await handleUpdatePlanStep({ result, sessionId, runId, stream })
       messages.push(...outcome.messages)
       // A real step status change is strong progress; reset the streak.
       if (dynamic && outcome.updated) {
@@ -489,7 +489,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     }
 
     if (result.type === 'create_goal') {
-      const outcome = await handleCreateGoal({ result, sessionId, runId, socket })
+      const outcome = await handleCreateGoal({ result, sessionId, runId, stream })
       messages.push(...outcome.messages)
       if (dynamic) {
         runtime.consecutiveNoProgress = 0
@@ -501,13 +501,13 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     }
 
     if (result.type === 'get_goal') {
-      const outcome = await handleGetGoal({ result, sessionId, runId, socket })
+      const outcome = await handleGetGoal({ result, sessionId, runId, stream })
       messages.push(...outcome.messages)
       continue
     }
 
     if (result.type === 'complete_goal') {
-      const outcome = await handleCompleteGoal({ result, sessionId, runId, socket })
+      const outcome = await handleCompleteGoal({ result, sessionId, runId, stream })
       messages.push(...outcome.messages)
       if (dynamic) {
         runtime.consecutiveNoProgress = 0
@@ -562,7 +562,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
           compaction_summary: compact.summary!,
           compaction_until_id: compact.compactedUntilId || null,
         })
-        socket?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted to manage token usage' })
+        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted to manage token usage' })
       }
     }
 
@@ -646,7 +646,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     const g = goalStore.get(goal.id)
     if (g && g.status === 'active' && g.budget_tokens && goalStore.usedTokens(g) > g.budget_tokens) {
       goalStore.update(goal.id, { status: 'paused' })
-      socket?.emit('goal.paused', {
+      stream?.emit('goal.paused', {
         session_id: sessionId, run_id: runId, goal_id: goal.id, reason: 'budget_exhausted',
       })
     }

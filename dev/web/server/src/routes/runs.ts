@@ -7,7 +7,7 @@ import { abortSession, enqueueRun } from '../agent/session-runner.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
-import { createDurableSocket, publishRunEvent, forceCancelRun, flushAllPending } from '../agent/runtime/run-event-store.js'
+import { createDurableStream, publishRunEvent, forceCancelRun, flushAllPending } from '../agent/runtime/run-event-store.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { createResumedRun } from '../agent/runtime/run-resume-service.js'
 import { llmCallsForRun, rowToLLMCall } from '../agent/llm-call-store.js'
@@ -16,7 +16,7 @@ import type { TransportBroadcaster } from '../transport/runtime.js'
 
 const router = new Hono()
 
-let ioRef: TransportBroadcaster | null = null
+let broadcasterRef: TransportBroadcaster | null = null
 
 const TERMINAL_RUN_STATUS = new Set([
   'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
@@ -26,14 +26,14 @@ function isNonTerminal(run: { status: string }): boolean {
   return !TERMINAL_RUN_STATUS.has(run.status)
 }
 
-export function setRunsRuntime(io: TransportBroadcaster) {
-  ioRef = io
+export function setRunsRuntime(broadcaster: TransportBroadcaster) {
+  broadcasterRef = broadcaster
 }
 
-function broadcastSocket(io: TransportBroadcaster) {
+function broadcastChannel(broadcaster: TransportBroadcaster) {
   return {
     emit: (type: string, ...args: any[]) => {
-      io.emit(type, ...args)
+      broadcaster.emit(type, ...args)
       const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
       fanOutToSinks(type, payload)
       return true
@@ -135,7 +135,7 @@ router.post('/:id/cancel', (c) => {
   }
   if (!accepted && !forceEvent) return c.json({ error: 'Run is not active' }, 409)
   if (forceEvent) {
-    publishRunEvent(broadcastSocket(ioRef!), run.id, 'run.cancelled', {
+    publishRunEvent(broadcastChannel(broadcasterRef!), run.id, 'run.cancelled', {
       ...JSON.parse(forceEvent.payload),
     })
   }
@@ -147,7 +147,7 @@ router.post('/:id/cancel', (c) => {
       if (member.status === 'queued' || member.status === 'preparing') {
         if (member.id !== run.id) {
           const ev = runEventStore.append(member.id, 'run.cancelled', { status: 'cancelled', reason: 'chain_cancelled' })
-          if (ev) publishRunEvent(broadcastSocket(ioRef!), member.id, 'run.cancelled', { ...JSON.parse(ev.payload) })
+          if (ev) publishRunEvent(broadcastChannel(broadcasterRef!), member.id, 'run.cancelled', { ...JSON.parse(ev.payload) })
         }
       }
     }
@@ -173,8 +173,8 @@ router.post('/:id/cancel', (c) => {
  * semantics stay identical to auto continuation (§10.1).
  */
 router.post('/:id/inputs', async (c) => {
-  const io = ioRef
-  if (!io) return c.json({ error: 'Run runtime is not ready' }, 503)
+  const broadcaster = broadcasterRef
+  if (!broadcaster) return c.json({ error: 'Run runtime is not ready' }, 503)
   const run = runStore.get(c.req.param('id'))
   if (!run) return c.json({ error: 'Not found' }, 404)
   const body = await c.req.json().catch(() => ({}))
@@ -207,8 +207,8 @@ router.post('/:id/inputs', async (c) => {
   checkpointStore.clearForRun(run.id, 'ask_user')
 
   const resumedRun = resumed.run
-  const rawSocket = broadcastSocket(io)
-  publishRunEvent(rawSocket, resumedRun.id, 'run.queued', {
+  const rawStream = broadcastChannel(broadcaster)
+  publishRunEvent(rawStream, resumedRun.id, 'run.queued', {
     session_id: resumed.session.id,
     run_id: resumedRun.id,
     character_id: resumedRun.character_id,
@@ -216,20 +216,20 @@ router.post('/:id/inputs', async (c) => {
     resumed_from_run_id: run.id,
     trigger: 'user_input',
   })
-  const durableSocket = createDurableSocket(rawSocket, resumedRun.id)
+  const durableStream = createDurableStream(rawStream, resumedRun.id)
   const runId = resumedRun.id
   enqueueRun(resumed.session.id, resumedRun.id, async signal => {
     try {
-      await sessionLoop(io, durableSocket, resumed.session.id, signal, { run_id: runId })
+      await sessionLoop(broadcaster, durableStream, resumed.session.id, signal, { run_id: runId })
     } catch (error: any) {
-      publishRunEvent(rawSocket, runId, 'run.failed', {
+      publishRunEvent(rawStream, runId, 'run.failed', {
         session_id: resumed.session.id,
         run_id: runId,
         error: error.message || String(error),
       })
     }
   }, () => {
-    publishRunEvent(rawSocket, runId, 'run.cancelled', {
+    publishRunEvent(rawStream, runId, 'run.cancelled', {
       session_id: resumed.session.id,
       run_id: runId,
       status: 'cancelled',

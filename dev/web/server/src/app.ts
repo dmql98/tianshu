@@ -20,7 +20,7 @@ import runsRouter, { setRunsRuntime } from './routes/runs.js'
 import themesRouter, { initThemeStore } from './routes/themes.js'
 import iconPacksRouter from './routes/iconpacks.js'
 import eventsRouter from './routes/events.js'
-import { setTransportIo, createBroadcaster } from './transport/runtime.js'
+import { setTransportBroadcaster, createBroadcaster } from './transport/runtime.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb, closeDb } from './db/schema.js'
 import { init as initTools } from './tools/registry.js'
@@ -252,12 +252,12 @@ export async function startTianshuServer(
 
   // Transport runtime: the run path only needs an emit-capable broadcaster
   // whose events fan out to the registered sinks (SSE connections + Electron
-  // IPC). No heartbeat, no reconnect, no socket lifecycle to manage.
+  // IPC). No heartbeat, no reconnect, no stream lifecycle to manage.
   const broadcaster = createBroadcaster()
   setEventDefinitionRuntime(broadcaster)
   setGoalRuntime(broadcaster)
   setRunsRuntime(broadcaster)
-  setTransportIo(broadcaster)
+  setTransportBroadcaster(broadcaster)
   startEventScheduler(broadcaster)
   startAssetGC()
   // Interrupt runs that stopped making progress (hung tool / MCP / LLM path),

@@ -11,7 +11,7 @@ import { getDb, closeDb } from '../src/db/schema.js'
 import { sessionStore } from '../src/db/sessionStore.js'
 import { runStore } from '../src/agent/runtime/run-store.js'
 import {
-  createDurableSocket, flushAllPending, publishRunEvent,
+  createDurableStream, flushAllPending, publishRunEvent,
 } from '../src/agent/runtime/run-event-store.js'
 import { addEventSink, clearEventSinks } from '../src/transport/event-sinks.js'
 import { getDataDir } from '../src/config.js'
@@ -46,13 +46,13 @@ function newChar() {
   return id
 }
 
-const NOOP_SOCKET = { emit: () => {} }
+const NOOP_STREAM = { emit: () => {} }
 
 function makeRunning(runId: string) {
   db.prepare("UPDATE runs SET status = 'running', phase = 'model' WHERE id = ?").run(runId)
 }
 
-describe('tool-call event sequence over the durable socket (inner.ts path)', () => {
+describe('tool-call event sequence over the durable stream (inner.ts path)', () => {
   it('tool.started / tool.completed reach sinks and persist; tool.output reaches sinks and does not persist', () => {
     clearEventSinks()
     const received: Array<{ type: string; payload: Record<string, unknown> }> = []
@@ -61,7 +61,7 @@ describe('tool-call event sequence over the durable socket (inner.ts path)', () 
     const session = sessionStore.create({ id: `sess_${randomUUID()}`, character_id: newChar() } as any)
     const run = runStore.create(session, { id: `run_${randomUUID()}` })
     makeRunning(run.id)
-    const durable = createDurableSocket(NOOP_SOCKET, run.id)
+    const durable = createDurableStream(NOOP_STREAM, run.id)
 
     // 模拟 inner.ts 工具执行序列
     durable.emit('tool.started', { session_id: session.id, run_id: run.id, tool_call_id: 'c1', tool_name: 'bash', tool_input: 'ls' })
@@ -94,9 +94,9 @@ describe('tool-call event sequence over the durable socket (inner.ts path)', () 
 
     // run 不存在 → append 会 throw。publishRunEvent 不应让 sink 静默丢失：
     // 但当前实现 append 抛错是同步冒泡的，调用方 emit 会中断。这里记录真实行为，
-    // 见 durable-socket.test.ts 的回归测试（正常 run 序列下不会触发）。
+    // 见 durable-stream.test.ts 的回归测试（正常 run 序列下不会触发）。
     expect(() => {
-      publishRunEvent(NOOP_SOCKET, 'run_does_not_exist', 'tool.started', { session_id: 's', tool_call_id: 'x' })
+      publishRunEvent(NOOP_STREAM, 'run_does_not_exist', 'tool.started', { session_id: 's', tool_call_id: 'x' })
     }).toThrow()
   })
 })

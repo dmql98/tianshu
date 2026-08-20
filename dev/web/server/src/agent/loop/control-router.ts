@@ -27,12 +27,12 @@ export async function handleSubAgentRequest(input: {
   provider: ProviderConfig
   model: string
   signal?: AbortSignal
-  io: TransportBroadcaster
-  socket: TransportBroadcaster
+  broadcaster: TransportBroadcaster
+  stream: TransportBroadcaster
   runId: string
   workspace: string | undefined
 }): Promise<SubAgentOutcome> {
-  const { req, result, session, provider, model, signal, io, socket, runId } = input
+  const { req, result, session, provider, model, signal, broadcaster, stream, runId } = input
   const toolCallId = (result.toolCalls?.find(tc => tc.function.name === 'delegate_to_agent')?.id) || `delegate_${Date.now()}`
   let toolMessage: LLMMessage
 
@@ -46,7 +46,7 @@ export async function handleSubAgentRequest(input: {
       tool_name: 'delegate_to_agent', tool_input: JSON.stringify({}),
       tool_output: errMsg, tool_status: 'error',
     })
-    socket?.emit('tool.completed', {
+    stream?.emit('tool.completed', {
       session_id: session.id, run_id: runId, tool_call_id: toolCallId,
       tool_name: 'delegate_to_agent', tool_output: errMsg,
       tool_status: 'error', duration_ms: 0,
@@ -58,7 +58,7 @@ export async function handleSubAgentRequest(input: {
     const subResult = await spawnAndRunSubAgent(
       req.task, req.target_character_id,
       session, provider, model,
-      req.sub_strategy, signal, 0, io, socket, runId,
+      req.sub_strategy, signal, 0, broadcaster, stream, runId,
     )
     const summary = summarizeAndMerge([subResult])
     const summaryContent = `[Sub-agent "${req.target_character_id}" completed]\n\nSummary: ${summary.summary}\n\nConclusions:\n${summary.conclusions.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
@@ -71,7 +71,7 @@ export async function handleSubAgentRequest(input: {
       tool_output: summaryContent,
       tool_status: 'success',
     })
-    socket?.emit('tool.completed', {
+    stream?.emit('tool.completed', {
       session_id: session.id, run_id: runId, tool_call_id: toolCallId,
       tool_name: 'delegate_to_agent', tool_output: summaryContent,
       tool_status: 'success', duration_ms: 0,
@@ -84,7 +84,7 @@ export async function handleSubAgentRequest(input: {
       tool_name: 'delegate_to_agent', tool_input: JSON.stringify({}),
       tool_output: errMsg, tool_status: 'error',
     })
-    socket?.emit('tool.completed', {
+    stream?.emit('tool.completed', {
       session_id: session.id, run_id: runId, tool_call_id: toolCallId,
       tool_name: 'delegate_to_agent', tool_output: errMsg,
       tool_status: 'error', duration_ms: 0,
@@ -121,10 +121,10 @@ export async function handleAskUser(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
+  stream: TransportBroadcaster
   messages: LLMMessage[]
 }): Promise<AskUserOutcome> {
-  const { question, result, sessionId, runId, socket, messages } = input
+  const { question, result, sessionId, runId, stream, messages } = input
   const askCall = result.toolCalls?.find(tc => tc.function.name === 'ask_user')
   const toolCallId = askCall?.id || `ask_${Date.now()}`
   const content = question || '需要您确认'
@@ -145,7 +145,7 @@ export async function handleAskUser(input: {
     reason: 'ask_user',
     pendingRequest: JSON.stringify({ question: content }),
   })
-  socket?.emit('ask_user', { session_id: sessionId, run_id: runId, question: content })
+  stream?.emit('ask_user', { session_id: sessionId, run_id: runId, question: content })
   return { kind: 'continue', messages: [toolMessage] }
 }
 export interface CreatePlanOutcome {
@@ -166,9 +166,9 @@ export async function handleUpdatePlanStep(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
+  stream: TransportBroadcaster
 }): Promise<UpdatePlanStepOutcome> {
-  const { result, sessionId, runId, socket } = input
+  const { result, sessionId, runId, stream } = input
   const updateCall = result.toolCalls?.find(tc => tc.function.name === 'update_plan_step')
   const toolCallId = updateCall?.id || `plan_step_${Date.now()}`
   const req = result.planStepUpdate
@@ -195,7 +195,7 @@ export async function handleUpdatePlanStep(input: {
       role: 'tool', content: JSON.stringify({ error: message }), tool_name: 'update_plan_step',
       tool_input: JSON.stringify({ call_id: toolCallId, args: req || {} }), tool_output: message, tool_status: 'error',
     })
-    socket?.emit('tool.completed', {
+    stream?.emit('tool.completed', {
       session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
       tool_name: 'update_plan_step', tool_output: message, tool_status: 'error', duration_ms: 0,
     })
@@ -210,11 +210,11 @@ export async function handleUpdatePlanStep(input: {
     role: 'tool', content: JSON.stringify({ output }), tool_name: 'update_plan_step',
     tool_input: JSON.stringify({ call_id: toolCallId, args: req }), tool_output: output, tool_status: 'success',
   })
-  socket?.emit('tool.completed', {
+  stream?.emit('tool.completed', {
     session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
     tool_name: 'update_plan_step', tool_output: output, tool_status: 'success', duration_ms: 0,
   })
-  socket?.emit('plan.step.updated', {
+  stream?.emit('plan.step.updated', {
     session_id: sessionId, run_id: runId, plan_id: activePlan.id,
     plan_status: plan.status, step: updated,
   })
@@ -229,10 +229,10 @@ export async function handleCreatePlan(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
+  stream: TransportBroadcaster
   goalId?: string | null
 }): Promise<CreatePlanOutcome> {
-  const { result, sessionId, runId, socket, goalId } = input
+  const { result, sessionId, runId, stream, goalId } = input
   const planCall = result.toolCalls?.find(tc => tc.function.name === 'create_plan')
   const toolCallId = planCall?.id || `plan_${Date.now()}`
   const req = result.planRequest
@@ -244,7 +244,7 @@ export async function handleCreatePlan(input: {
       tool_name: 'create_plan', tool_input: JSON.stringify({ call_id: toolCallId }),
       tool_output: errMsg, tool_status: 'error',
     })
-    socket?.emit('tool.completed', {
+    stream?.emit('tool.completed', {
       session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
       tool_name: 'create_plan', tool_output: errMsg, tool_status: 'error', duration_ms: 0,
     })
@@ -264,11 +264,11 @@ export async function handleCreatePlan(input: {
     tool_name: 'create_plan', tool_input: JSON.stringify({ call_id: toolCallId }),
     tool_output: summary, tool_status: 'success',
   })
-  socket?.emit('tool.completed', {
+  stream?.emit('tool.completed', {
     session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
     tool_name: 'create_plan', tool_output: summary, tool_status: 'success', duration_ms: 0,
   })
-  socket?.emit('plan.created', {
+  stream?.emit('plan.created', {
     session_id: sessionId, run_id: runId, plan_id: plan.id, version: plan.version,
     steps: req.steps.map((s, i) => ({ ordinal: i + 1, title: s.title, status: 'pending' })),
   })
@@ -280,14 +280,14 @@ export interface GoalOutcome {
   messages: LLMMessage[]
 }
 
-function goalToolMessage(sessionId: string, runId: string, socket: TransportBroadcaster | undefined, name: string, toolCallId: string, output: string, error?: string): LLMMessage {
+function goalToolMessage(sessionId: string, runId: string, stream: TransportBroadcaster | undefined, name: string, toolCallId: string, output: string, error?: string): LLMMessage {
   const message: LLMMessage = { role: 'tool', content: JSON.stringify(error ? { output: '', error } : { output }), tool_call_id: toolCallId }
   messageStore.addMessage(sessionId, {
     role: 'tool', content: JSON.stringify(error ? { output: '', error } : { output }),
     tool_name: name, tool_input: JSON.stringify({ call_id: toolCallId }),
     tool_output: output, tool_status: error ? 'error' : 'success',
   })
-  socket?.emit('tool.completed', {
+  stream?.emit('tool.completed', {
     session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
     tool_name: name, tool_output: output, tool_status: error ? 'error' : 'success', duration_ms: 0,
   })
@@ -302,20 +302,20 @@ export function handleCreateGoal(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
+  stream: TransportBroadcaster
 }): GoalOutcome {
-  const { result, sessionId, runId, socket } = input
+  const { result, sessionId, runId, stream } = input
   const goalCall = result.toolCalls?.find(tc => tc.function.name === 'create_goal')
   const toolCallId = goalCall?.id || `goal_${Date.now()}`
   const req = result.goalRequest
   if (!req || !req.outcome) {
     const errMsg = 'create_goal rejected: outcome is required'
-    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'create_goal', toolCallId, errMsg, errMsg)] }
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'create_goal', toolCallId, errMsg, errMsg)] }
   }
   const active = goalStore.listForSession(sessionId).find(g => g.status === 'active' || g.status === 'paused')
   if (active) {
     const errMsg = `create_goal rejected: 已有进行中的目标「${active.outcome}」（${active.status}）。先 complete_goal 完成它，或暂停后再创建。`
-    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'create_goal', toolCallId, errMsg, errMsg)] }
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'create_goal', toolCallId, errMsg, errMsg)] }
   }
   const goal = goalStore.create({
     session_id: sessionId,
@@ -325,11 +325,11 @@ export function handleCreateGoal(input: {
     budget_tokens: req.budget_tokens ?? null,
   })
   const summary = `已创建目标：${goal.outcome}${goal.verification ? `\n验证标准：${goal.verification}` : ''}`
-  socket?.emit('goal.created', {
+  stream?.emit('goal.created', {
     session_id: sessionId, run_id: runId, goal_id: goal.id, status: goal.status,
     outcome: goal.outcome, verification: goal.verification,
   })
-  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'create_goal', toolCallId, summary)] }
+  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'create_goal', toolCallId, summary)] }
 }
 
 /** get_goal: report the session's active (or latest) goal state to the model. */
@@ -337,22 +337,22 @@ export function handleGetGoal(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
+  stream: TransportBroadcaster
 }): GoalOutcome {
-  const { result, sessionId, runId, socket } = input
+  const { result, sessionId, runId, stream } = input
   const goalCall = result.toolCalls?.find(tc => tc.function.name === 'get_goal')
   const toolCallId = goalCall?.id || `goal_get_${Date.now()}`
   const goals = goalStore.listForSession(sessionId)
   const active = goals.find(g => g.status === 'active' || g.status === 'paused')
   if (!active) {
-    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'get_goal', toolCallId, '当前会话没有进行中的目标。需要长期目标时用 create_goal 创建。')] }
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'get_goal', toolCallId, '当前会话没有进行中的目标。需要长期目标时用 create_goal 创建。')] }
   }
   const output = `目标：${active.outcome}` +
     (active.constraints ? `\n约束：${active.constraints}` : '') +
     (active.verification ? `\n验证标准：${active.verification}` : '') +
     `\n状态：${active.status}` +
     (active.budget_tokens ? `\n预算：${goalStore.usedTokens(active)} / ${active.budget_tokens} tokens` : '')
-  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'get_goal', toolCallId, output)] }
+  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'get_goal', toolCallId, output)] }
 }
 
 /** complete_goal: mark the active goal completed (idempotent). Emits goal.status.changed. */
@@ -360,26 +360,26 @@ export function handleCompleteGoal(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
+  stream: TransportBroadcaster
 }): GoalOutcome {
-  const { result, sessionId, runId, socket } = input
+  const { result, sessionId, runId, stream } = input
   const goalCall = result.toolCalls?.find(tc => tc.function.name === 'complete_goal')
   const toolCallId = goalCall?.id || `goal_done_${Date.now()}`
   // Latest goal (list is created_at DESC). Idempotent when already completed.
   const latest = goalStore.listForSession(sessionId)[0] || null
   if (!latest) {
     const errMsg = 'complete_goal rejected: 当前会话没有进行中的目标'
-    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'complete_goal', toolCallId, errMsg, errMsg)] }
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'complete_goal', toolCallId, errMsg, errMsg)] }
   }
   if (latest.status === 'completed') {
-    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'complete_goal', toolCallId, '目标已完成（幂等）')] }
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'complete_goal', toolCallId, '目标已完成（幂等）')] }
   }
   goalStore.update(latest.id, { status: 'completed' })
-  socket?.emit('goal.status.changed', {
+  stream?.emit('goal.status.changed', {
     session_id: sessionId, run_id: runId, goal_id: latest.id, status: 'completed',
   })
   const summary = result.goalCompleteSummary ? `\n摘要：${result.goalCompleteSummary}` : ''
-  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, socket, 'complete_goal', toolCallId, `目标已完成：${latest.outcome}${summary}`)] }
+  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'complete_goal', toolCallId, `目标已完成：${latest.outcome}${summary}`)] }
 }
 
 export interface SubmitResultOutcome {
@@ -393,7 +393,7 @@ export async function handleTaskComplete(input: {
   result: InnerResult
   sessionId: string
   runId: string
-  socket: TransportBroadcaster
+  stream: TransportBroadcaster
   messages: LLMMessage[]
   mcpClients: Map<string, MCPClient>
   totalInputTokens: number
@@ -406,7 +406,7 @@ export async function handleTaskComplete(input: {
   goalVerification?: string | null
   goal?: { id: string; status: string } | null
 }): Promise<SubmitResultOutcome> {
-  const { result, sessionId, runId, socket, messages, mode, goal } = input
+  const { result, sessionId, runId, stream, messages, mode, goal } = input
   const summaryOutput = result.taskCompleteSummary || ''
   const evidence = result.evidence || []
 
@@ -430,7 +430,7 @@ export async function handleTaskComplete(input: {
       tool_name: 'submit_result', tool_input: JSON.stringify({ call_id: toolCallId }),
       tool_output: rejected, tool_status: 'error',
     })
-    socket?.emit('tool.completed', {
+    stream?.emit('tool.completed', {
       session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
       tool_name: 'submit_result', tool_output: rejected, tool_status: 'error', duration_ms: 0,
     })
@@ -438,15 +438,15 @@ export async function handleTaskComplete(input: {
   }
 
   // Emit summary as assistant delta so the client's streaming renders it
-  if (socket && sessionId && summaryOutput) {
-    socket.emit('message.delta', { session_id: sessionId, run_id: runId, delta: '\n\n' + summaryOutput })
+  if (stream && sessionId && summaryOutput) {
+    stream.emit('message.delta', { session_id: sessionId, run_id: runId, delta: '\n\n' + summaryOutput })
   }
 
   // Goal mode: an accepted submission completes the active goal (idempotent).
   if (mode === 'goal' && goal && goal.status !== 'completed') {
     const updated = goalStore.update(goal.id, { status: 'completed' })
     if (updated) {
-      socket?.emit('goal.status.changed', {
+      stream?.emit('goal.status.changed', {
         session_id: sessionId, run_id: runId, goal_id: goal.id, status: 'completed',
       })
     }
@@ -474,7 +474,7 @@ export async function handleTaskComplete(input: {
     tool_output: summaryOutput,
     tool_status: 'success',
   })
-  socket?.emit('run.completed', { session_id: sessionId, run_id: runId, status: 'task_complete' })
+  stream?.emit('run.completed', { session_id: sessionId, run_id: runId, status: 'task_complete' })
 
   const session = sessionStore.getById(sessionId)
   if (session && (input.totalInputTokens > 0 || input.totalOutputTokens > 0)) {

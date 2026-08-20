@@ -27,19 +27,19 @@ function sse(...lines: string[]): Response {
   })
 }
 
-function makeSocket() {
+function makeStream() {
   const emitted: Array<{ type: string; payload: any }> = []
-  const socket = {
+  const stream = {
     emit: (type: string, payload?: any) => { emitted.push({ type, payload }); return true },
     on: () => { },
     off: () => { },
   }
-  return { socket, emitted }
+  return { stream, emitted }
 }
 
 const originalFetch = globalThis.fetch
 
-function makeArgs(socket: TransportBroadcaster | undefined): Parameters<typeof innerLoop> {
+function makeArgs(stream: TransportBroadcaster | undefined): Parameters<typeof innerLoop> {
   return [
     [{ role: 'user', content: 'hi' }],
     [{ type: 'function', function: { name: 'read_file', description: 'x', parameters: {} } }],
@@ -47,8 +47,8 @@ function makeArgs(socket: TransportBroadcaster | undefined): Parameters<typeof i
     'test-model',
     'char_x',
     undefined, // workspace
-    undefined, // io
-    socket,
+    undefined, // broadcaster
+    stream,
     undefined, // sessionId -> no DB writes
     undefined, // signal
     {},        // opts
@@ -68,8 +68,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"call_2","type":"function","function":{"name":"delegate_to_agent","arguments":"{\\"task\\":\\"do x\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'tool_calls_executed', 'mixed batch returns executed-with-errors, not side effects')
     assert(result.toolCallRecords.length === 2, 'both calls recorded')
@@ -90,8 +90,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"c2","type":"function","function":{"name":"submit_result","arguments":"{\\"summary\\":\\"y\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'tool_calls_executed', 'multiple control actions rejected as a batch')
     assert(result.toolCallRecords.length === 2 && result.toolCallRecords.every((r: any) => r.hasError), 'all control calls rejected')
@@ -105,8 +105,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"delegate_to_agent","arguments":"{\\"task\\":\\"summarize\\",\\"target_character_id\\":\\"char_b\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'sub_agent_request', 'single control call is a valid protocol turn')
     assert(result.subAgentRequest?.task === 'summarize', 'task passed through')
@@ -121,8 +121,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"submit_result","arguments":"{\\"summary\\":\\"done\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'submit_result', 'lone submit_result routes to completion')
     assert(result.taskCompleteSummary === 'done', 'summary passed through')
@@ -136,8 +136,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"ask_user","arguments":"{\\"question\\":\\"confirm?\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'ask_user', 'lone ask_user routes to question turn')
     assert(result.question === 'confirm?', 'question passed through')
@@ -151,8 +151,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"create_plan","arguments":"{\\"goal\\":\\"ship v1\\",\\"steps\\":[{\\"title\\":\\"调研\\"},{\\"title\\":\\"实现\\"}]}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'create_plan', 'lone create_plan routes to plan request')
     assert(result.planRequest?.steps.length === 2, 'steps parsed')
@@ -167,8 +167,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"update_plan_step","arguments":"{\\"ordinal\\":2,\\"status\\":\\"completed\\",\\"evidence\\":\\"tests passed\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'update_plan_step', 'lone update_plan_step routes to plan transition')
     assert(result.planStepUpdate?.ordinal === 2, 'step ordinal parsed')
@@ -184,8 +184,8 @@ try {
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"read_file","arguments":"{\\"path\\":\\"does-not-exist.txt\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
     )) as typeof fetch
 
-    const { socket, emitted } = makeSocket()
-    const result = await innerLoop(...makeArgs(socket as any)) as any
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
 
     assert(result.type === 'tool_calls_executed', 'ordinary tool turn still executes')
     assert(result.toolCallRecords.length === 1, 'one record')

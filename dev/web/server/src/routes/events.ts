@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { randomUUID } from 'crypto'
 import { addEventSink } from '../transport/event-sinks.js'
-import { getTransportIo } from '../transport/runtime.js'
+import { getTransportBroadcaster } from '../transport/runtime.js'
 import {
   handleHello, handleStrategySet, handleChatRun, handleAbort, handleApprovalRespond,
   sinkChannel,
@@ -53,19 +53,19 @@ router.post('/', async (c) => {
   try {
     switch (type) {
       case 'hello':
-        handleHello({ io: getTransportIo() }, channel, payload as { session_id?: string })
+        handleHello({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id?: string })
         break
       case 'strategy.set':
-        handleStrategySet({ io: getTransportIo() }, channel, payload as { session_id: string; strategy: unknown })
+        handleStrategySet({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id: string; strategy: unknown })
         break
       case 'chat-run':
-        await handleChatRun({ io: getTransportIo() }, channel, payload as Record<string, unknown>)
+        await handleChatRun({ broadcaster: getTransportBroadcaster() }, channel, payload as Record<string, unknown>)
         break
       case 'abort':
-        handleAbort({ io: getTransportIo() }, channel, payload as { session_id?: string })
+        handleAbort({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id?: string })
         break
       case 'approval.respond':
-        handleApprovalRespond({ io: getTransportIo() }, channel, payload as { session_id?: string; tool_call_id?: string; choice?: string })
+        handleApprovalRespond({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id?: string; tool_call_id?: string; choice?: string })
         break
       default:
         return c.json({ error: `unknown event type: ${type}` }, 400)

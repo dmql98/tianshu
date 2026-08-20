@@ -4,7 +4,7 @@ import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
-import { createDurableSocket, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { createDurableStream, publishRunEvent } from '../agent/runtime/run-event-store.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { enqueueRun } from '../agent/session-runner.js'
 import { sessionLoop } from '../agent/loop.js'
@@ -12,16 +12,16 @@ import type { TransportBroadcaster } from '../transport/runtime.js'
 
 const router = new Hono()
 
-let ioRef: TransportBroadcaster | null = null
+let broadcasterRef: TransportBroadcaster | null = null
 
-export function setGoalRuntime(io: TransportBroadcaster) {
-  ioRef = io
+export function setGoalRuntime(broadcaster: TransportBroadcaster) {
+  broadcasterRef = broadcaster
 }
 
-function broadcastSocket(io: TransportBroadcaster) {
+function broadcastChannel(broadcaster: TransportBroadcaster) {
   return {
     emit: (type: string, ...args: any[]) => {
-      io.emit(type, ...args)
+      broadcaster.emit(type, ...args)
       const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
       fanOutToSinks(type, payload)
       return true
@@ -57,7 +57,7 @@ router.post('/', async (c) => {
     budget_tokens: typeof body.budget_tokens === 'number' ? body.budget_tokens : null,
     wake_condition: typeof body.wake_condition === 'string' ? body.wake_condition : null,
   })
-  ioRef?.emit('goal.created', {
+  broadcasterRef?.emit('goal.created', {
     session_id: sessionId, goal_id: goal.id, status: goal.status,
     outcome: goal.outcome, verification: goal.verification,
   })
@@ -84,7 +84,7 @@ router.patch('/:id', async (c) => {
 router.post('/:id/pause', (c) => {
   const updated = goalStore.update(c.req.param('id'), { status: 'paused' })
   if (!updated) return c.json({ error: 'Not found' }, 404)
-  ioRef?.emit('goal.status.changed', {
+  broadcasterRef?.emit('goal.status.changed', {
     session_id: updated.session_id, goal_id: updated.id, status: 'paused',
   })
   fanOutToSinks('goal.status.changed', {
@@ -99,8 +99,8 @@ router.post('/:id/pause', (c) => {
  * last assistant summary.
  */
 router.post('/:id/resume', async (c) => {
-  const io = ioRef
-  if (!io) return c.json({ error: 'Goal runtime is not ready' }, 503)
+  const broadcaster = broadcasterRef
+  if (!broadcaster) return c.json({ error: 'Goal runtime is not ready' }, 503)
   const goal = goalStore.get(c.req.param('id'))
   if (!goal) return c.json({ error: 'Not found' }, 404)
   if (goal.status === 'completed' || goal.status === 'cancelled' || goal.status === 'failed') {
@@ -127,8 +127,8 @@ router.post('/:id/resume', async (c) => {
   turnStore.attachUserMessage(turn.id, userMessage.id)
   goalStore.update(goal.id, { current_run_id: run.id })
 
-  const rawSocket = broadcastSocket(io)
-  publishRunEvent(rawSocket, run.id, 'run.queued', {
+  const rawStream = broadcastChannel(broadcaster)
+  publishRunEvent(rawStream, run.id, 'run.queued', {
     session_id: session.id,
     run_id: run.id,
     character_id: run.character_id,
@@ -136,13 +136,13 @@ router.post('/:id/resume', async (c) => {
     goal_id: goal.id,
     source: 'goal',
   })
-  const durableSocket = createDurableSocket(rawSocket, run.id)
+  const durableStream = createDurableStream(rawStream, run.id)
   const runId = run.id
   enqueueRun(session.id, run.id, async signal => {
     try {
-      await sessionLoop(io, durableSocket, session.id, signal, { run_id: runId })
+      await sessionLoop(broadcaster, durableStream, session.id, signal, { run_id: runId })
     } catch (error: any) {
-      publishRunEvent(rawSocket, runId, 'run.failed', {
+      publishRunEvent(rawStream, runId, 'run.failed', {
         session_id: session.id,
         run_id: runId,
         error: error.message || String(error),

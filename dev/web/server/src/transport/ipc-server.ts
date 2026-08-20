@@ -14,7 +14,7 @@ import {
   sinkChannel,
 } from '../ws/handlers.js'
 import { addEventSink } from './event-sinks.js'
-import { getTransportIo } from './runtime.js'
+import { getTransportBroadcaster } from './runtime.js'
 
 const IPC_SINK_ID = 'desktop-ipc'
 
@@ -45,19 +45,19 @@ export function registerIpcTransport(): void {
     const channel = sinkChannel(ack)
     switch (eventType) {
       case 'hello':
-        handleHello({ io: getTransportIo() }, channel, payload as { session_id?: string } | null)
+        handleHello({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id?: string } | null)
         break
       case 'strategy.set':
-        handleStrategySet({ io: getTransportIo() }, channel, payload as { session_id: string; strategy: unknown })
+        handleStrategySet({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id: string; strategy: unknown })
         break
       case 'chat-run':
-        void handleChatRun({ io: getTransportIo() }, channel, payload as Record<string, unknown>)
+        void handleChatRun({ broadcaster: getTransportBroadcaster() }, channel, payload as Record<string, unknown>)
         break
       case 'abort':
-        handleAbort({ io: getTransportIo() }, channel, payload as { session_id?: string })
+        handleAbort({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id?: string })
         break
       case 'approval.respond':
-        handleApprovalRespond({ io: getTransportIo() }, channel, payload as { session_id?: string; tool_call_id?: string; choice?: string })
+        handleApprovalRespond({ broadcaster: getTransportBroadcaster() }, channel, payload as { session_id?: string; tool_call_id?: string; choice?: string })
         break
       default:
         ack({ error: `unknown event type: ${eventType}` })

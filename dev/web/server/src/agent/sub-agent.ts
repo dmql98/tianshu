@@ -12,7 +12,7 @@ import { getDb } from '../db/schema.js'
 import { messageStore } from '../db/messageStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { runStore } from './runtime/run-store.js'
-import { createDurableSocket, publishRunEvent, unwrapDurableSocket } from './runtime/run-event-store.js'
+import { createDurableStream, publishRunEvent, unwrapDurableStream } from './runtime/run-event-store.js'
 import { enqueueRun } from './session-runner.js'
 
 const MAX_DEPTH = 1
@@ -78,8 +78,8 @@ export async function spawnAndRunSubAgent(
   strategyOverride?: StrategyInput,
   signal?: AbortSignal,
   depth = 0,
-  io?: TransportBroadcaster,
-  socket?: TransportBroadcaster,
+  broadcaster?: TransportBroadcaster,
+  stream?: TransportBroadcaster,
   runId?: string,
 ): Promise<SubResult> {
   if (depth >= MAX_DEPTH) {
@@ -136,8 +136,8 @@ export async function spawnAndRunSubAgent(
     ) VALUES (?, ?, ?, ?, ?, ?, NULL, 'foreground', 'queued', NULL, NULL, ?, ?)
   `).run(taskId, runId, subSessionId, childRun.id, targetCharacterId, task, now, now)
 
-  if (socket) {
-    socket.emit('sub_agent.started', {
+  if (stream) {
+    stream.emit('sub_agent.started', {
       session_id: parentSession.id,
       run_id: runId,
       sub_session_id: subSessionId,
@@ -185,23 +185,23 @@ export async function spawnAndRunSubAgent(
   const effectiveTools = toolDefs
 
   const subWorkspaces = parentSession.workspaces ? (() => { try { return JSON.parse(parentSession.workspaces) as string[] } catch { return undefined } })() : undefined
-  const rawSocket = socket ? unwrapDurableSocket(socket) : undefined
-  if (!rawSocket) throw new Error('Sub-agent requires an active event channel')
-  publishRunEvent(rawSocket, childRun.id, 'run.queued', {
+  const rawStream = stream ? unwrapDurableStream(stream) : undefined
+  if (!rawStream) throw new Error('Sub-agent requires an active event channel')
+  publishRunEvent(rawStream, childRun.id, 'run.queued', {
     session_id: subSessionId,
     run_id: childRun.id,
     character_id: targetCharacterId,
     character_revision_id: childRun.character_revision_id,
     parent_run_id: runId,
   })
-  const childSocket = createDurableSocket(rawSocket, childRun.id)
+  const childStream = createDurableStream(rawStream, childRun.id)
 
   const innerResult = await new Promise<InnerResult>((resolve, reject) => {
     enqueueRun(subSessionId, childRun.id, async childSignal => {
       try {
         getDb().prepare("UPDATE agent_tasks SET status = 'running', updated_at = ? WHERE id = ?")
           .run(Date.now(), taskId)
-        childSocket.emit('run.started', {
+        childStream.emit('run.started', {
           session_id: subSessionId,
           run_id: childRun.id,
           context_window: 0,
@@ -216,8 +216,8 @@ export async function spawnAndRunSubAgent(
             model,
             targetCharacterId,
             parentSession.workspace || undefined,
-            io,
-            childSocket,
+            broadcaster,
+            childStream,
             subSessionId,
             childSignal,
             { run_id: childRun.id },
@@ -234,14 +234,14 @@ export async function spawnAndRunSubAgent(
         if (!last) throw new Error('Child run produced no result')
         if (last.type === 'error') throw new Error(last.error || 'Child run failed')
         const terminalStatus = childSignal.aborted ? 'cancelled' : 'completed'
-        childSocket.emit('run.completed', {
+        childStream.emit('run.completed', {
           session_id: subSessionId,
           run_id: childRun.id,
           status: terminalStatus,
         })
         resolve(last)
       } catch (error: any) {
-        childSocket.emit('run.failed', {
+        childStream.emit('run.failed', {
           session_id: subSessionId,
           run_id: childRun.id,
           error: error.message || String(error),

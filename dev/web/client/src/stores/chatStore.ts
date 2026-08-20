@@ -21,16 +21,6 @@ const PARKED_RUN_STATUS = new Set(['awaiting_approval', 'awaiting_input', 'pause
 const TERMINAL_EVENT_TYPES = new Set([
   'run.completed', 'run.failed', 'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
 ])
-// Event types the per-run temporary listeners (sendMessage) actually register.
-// isHandledByTemporaryListener must only claim types they listen for —
-// otherwise an event nobody handles (e.g. run.interrupted) gets dropped while
-// a temporary listener is active and the session stays stuck "streaming".
-const TEMP_STREAM_TYPES = new Set([
-  'strategy.updated', 'message.delta', 'message.metrics', 'tool.started',
-  'tool.completed', 'tool.output', 'approval.requested', 'run.started',
-  'run.completed', 'run.cancelled', 'run.interrupted', 'usage', 'run.compacted',
-  'run.retrying', 'run.failed',
-])
 // Highest persisted event seq seen per run (survives reconnects to resume replay)
 const runSeqByRunId = new Map<string, number>()
 
@@ -149,7 +139,7 @@ interface ChatState {
   sessions: Session[]
   activeSessionId: string | null
   isStreaming: boolean
-  socketConnected: boolean
+  streamConnected: boolean
   isRefreshing: boolean
   pendingApproval: PendingApproval | null
   pendingAskUser: { run_id: string; session_id: string; question: string } | null
@@ -176,7 +166,6 @@ interface ChatState {
   attachments: Attachment[]
 
   // Cleanup ref (not in state, mutable)
-  _currentCleanup: (() => void) | null
   _activeRunId: string | null
   _notificationTimer: ReturnType<typeof setTimeout> | null
   _loadingSessions: boolean
@@ -430,7 +419,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     return abortingSessionId !== null && (sessionId === undefined || sessionId === abortingSessionId)
   }
 
-  // ── Persistent socket listeners (registered once) ──
+  // ── Persistent stream listeners (registered once) ──
   function initPersistentListeners() {
     const bus = getEventBus()
 
@@ -466,13 +455,13 @@ export const useChatStore = create<ChatState>((set, get) => {
       // Fresh connection generation: any replay started by an earlier
       // connect/disconnect cycle is now stale and must not land its results.
       const generation = bumpConnectionGeneration()
-      set({ socketConnected: true })
+      set({ streamConnected: true })
       try {
         // REST replay does not depend on a transport handshake.
-        if (!isCurrentGeneration(generation) || !get().socketConnected) return
+        if (!isCurrentGeneration(generation) || !get().streamConnected) return
         const state = get()
         // Session creation notifications (especially sub-agent sessions) are
-        // ephemeral socket events. Reconcile the authoritative session tree on
+        // ephemeral stream events. Reconcile the authoritative session tree on
         // every connect so an event missed while offline is not lost forever.
         void state.loadSessions()
         // Replay run events through a small concurrency pool: a reconnect
@@ -504,13 +493,13 @@ export const useChatStore = create<ChatState>((set, get) => {
           () => worker(),
         ))
       } catch (error) {
-        console.error('[socket] reconnect replay failed:', error)
+        console.error('[stream] reconnect replay failed:', error)
       }
     })
     const offDisconnect = bus.onDisconnect(() => {
       // Invalidate any replay still in flight from the connection that just died.
       bumpConnectionGeneration()
-      set({ socketConnected: false })
+      set({ streamConnected: false })
     })
 
     // Live context usage — every LLM call reports the real prompt size, so the
@@ -519,13 +508,22 @@ export const useChatStore = create<ChatState>((set, get) => {
     // provider that doesn't report usage) must NOT overwrite the last real one,
     // otherwise the bar collapses then jumps back up.
     bus.off('usage')
-    bus.on('usage', (data: { session_id: string; input_tokens: number }) => {
-      if (!data.session_id || typeof data.input_tokens !== 'number' || data.input_tokens <= 0) return
-      set(state => ({
-        sessions: state.sessions.map(s =>
-          s.id === data.session_id ? { ...s, context_usage: data.input_tokens } : s
-        ),
-      }))
+    bus.on('usage', (data: { session_id: string; run_id?: string; input_tokens?: number; output_tokens?: number }) => {
+      if (!data.session_id) return
+      // Live context usage — bar tracking (only positive counts).
+      if (typeof data.input_tokens === 'number' && data.input_tokens > 0) {
+        set(state => ({
+          sessions: state.sessions.map(s =>
+            s.id === data.session_id ? { ...s, context_usage: data.input_tokens } : s
+          ),
+        }))
+      }
+      // 当前活动会话的 token 统计条：仅跟踪该 session 当前 run 的 usage，
+      // 旧 run 的迟到 usage 不得覆盖新 run 的计数。
+      if (data.session_id === get().activeSessionId && isCurrentTrackedRun(data)
+        && typeof data.input_tokens === 'number' && typeof data.output_tokens === 'number') {
+        set({ tokenUsage: { input: data.input_tokens, output: data.output_tokens, total: data.input_tokens + data.output_tokens } })
+      }
     })
 
     bus.off('strategy.updated')
@@ -609,22 +607,14 @@ export const useChatStore = create<ChatState>((set, get) => {
       }))
     })
 
-    // Persistent streaming for non-active sessions
-    function isHandledByTemporaryListener(data: RunEvent): boolean {
-      const state = get()
-      if (!state._currentCleanup || data.session_id !== state.activeSessionId) return false
-      // Only claim events the temporary listener actually registers; an event
-      // it does not listen for must fall through to the persistent handler.
-      if (!data.type || !TEMP_STREAM_TYPES.has(data.type)) return false
-      const s = state.sessions.find(x => x.id === data.session_id)
-      if (s?.session_type === 'event') return false
-      return !data.run_id || data.run_id === state._activeRunId
-    }
-
-    
+    // ── 全局流式处理（唯一写路径）──
+    // 每个事件按「run 身份」路由：仅当 run_id 匹配该 session 当前跟踪的运行
+    // （sessionRuns[root].activeRunId）才写；旧 run 的迟到事件一律丢弃。
+    // sendMessage 不再注册临时监听器，只在 sessionRuns 上同步声明 run 归属
+    // （claim），全局处理即生效——不存在「临时 + 持久双处理」的可能，翻倍、
+    // 污染类 bug 从结构上消除。
     bus.off('message.delta')
     bus.on('message.delta', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
       // 旧 run 的迟到 delta 不得混入新 run 的消息（否则新 run 的文本被前缀污染/翻倍）。
       if (!isCurrentTrackedRun(data)) return
       const state = get()
@@ -635,7 +625,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('message.metrics')
     bus.on('message.metrics', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       // 终态事件：先把缓冲的最后一段流式文本落地，避免 is_streaming=false 后
       // 残留 delta 被当成"新消息"追加。
       flushStreamBuffers()
@@ -663,7 +653,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('tool.started')
     bus.on('tool.started', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       // 旧 run 的 tool 事件不得注入到新 run 的会话里。
       if (!isCurrentTrackedRun(data)) return
       flushStreamBuffers()
@@ -680,7 +670,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('tool.completed')
     bus.on('tool.completed', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       if (!isCurrentTrackedRun(data)) return
       flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => ({
@@ -695,14 +685,14 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('tool.output')
     bus.on('tool.output', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       if (!isCurrentTrackedRun(data)) return
       enqueueToolOutput(data)
     })
 
     bus.off('run.completed')
     bus.on('run.completed', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       flushStreamBuffers()
       // 旧 run 的终态不得清除新 run 的流式状态（否则新 run 的 delta 被双写翻倍）。
       if (!isCurrentTrackedRun(data)) return
@@ -718,7 +708,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('run.max_turns')
     bus.on('run.max_turns', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       flushStreamBuffers()
       if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => {
@@ -733,7 +723,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('run.cancelled')
     bus.on('run.cancelled', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       flushStreamBuffers()
       if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => {
@@ -762,7 +752,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('run.continuation_queued')
     bus.on('run.continuation_queued', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       handleContinuationQueued(data)
     })
 
@@ -777,7 +767,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('run.failed')
     bus.on('run.failed', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       flushStreamBuffers()
       if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => ({
@@ -802,7 +792,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     // forever, even across client restarts.
     bus.off('run.interrupted')
     bus.on('run.interrupted', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       // 旧 run 的 interrupted（如服务端停滞看门狗误伤已替换的 run）不得重置新 run。
       if (!isCurrentTrackedRun(data)) return
       const reasonText = data.reason === 'stalled' || data.reason === 'stalled_active'
@@ -841,6 +831,9 @@ export const useChatStore = create<ChatState>((set, get) => {
         activeRunId: data.run_id || undefined,
         isStreaming: true,
       })
+      if (data.session_id === get().activeSessionId) {
+        set({ tokenUsage: { input: 0, output: 0, total: 0 } })
+      }
       if (data.context_window) {
         set(state => ({
           sessions: state.sessions.map(s =>
@@ -857,8 +850,12 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('run.retrying')
     bus.on('run.retrying', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
-      if (isAbortingSession(data.session_id)) return
+      
+      // 不在此处拦 isAbortingSession：停止后立刻发新消息时，会话仍处于 aborting
+      // 窗口，但新 run 的首个 LLM 调用同样可能瞬时失败触达 retry——若在这里跳过
+      // resetStreamingContent，attempt 1 已拼进消息的前缀就会与 attempt 2 的完整
+      // 输出叠成重复文本（“你好” → “你好你好”）。旧 run 的迟到 retry 由
+      // isCurrentTrackedRun 拦截，不会误清新 run 的内容。
       // 旧 run 的 retrying 不得清空新 run 已流式的内容（否则内容丢失/错位）。
       if (!isCurrentTrackedRun(data)) return
       // LLM 请求重试：服务端 attempt 1 的部分 delta 已拼进前端消息，attempt 2
@@ -871,7 +868,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     // the page refreshed and resumeActiveRun is tracking the run).
     bus.off('approval.requested')
     bus.on('approval.requested', (data: RunEvent) => {
-      if (isHandledByTemporaryListener(data)) return
+      
       if (!data.session_id || !data.tool_call_id) return
       const pending = pendingApprovalFromEvent(data)
       pendingApprovalBySession.set(data.session_id, pending)
@@ -1044,7 +1041,7 @@ export const useChatStore = create<ChatState>((set, get) => {
   }
 
   // Replay persisted RunEvents (from /api/runs/:id/events) into the session
-  // message list. Mirrors the persistent socket handlers, but batch-applies
+  // message list. Mirrors the persistent stream handlers, but batch-applies
   // events in seq order instead of streaming.
   function applyRunEvents(sessionId: string, events: RunEvent[]) {
     const lastType = events.length > 0 ? events[events.length - 1].type : undefined
@@ -1157,7 +1154,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     sessions: [],
     activeSessionId: null,
     isStreaming: false,
-    socketConnected: getEventBus().connected,
+    streamConnected: getEventBus().connected,
     isRefreshing: false,
     pendingApproval: null,
     pendingAskUser: null,
@@ -1172,7 +1169,6 @@ export const useChatStore = create<ChatState>((set, get) => {
     tokenUsage: { input: 0, output: 0, total: 0 },
     evolutionNotification: null,
     attachments: [],
-    _currentCleanup: null,
     _activeRunId: null,
     _notificationTimer: null,
     _loadingSessions: false,
@@ -1291,11 +1287,9 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     switchSession: async (id: string) => {
       const state = get()
-      // Cleanup previous session listeners
-      if (state._currentCleanup) {
-        state._currentCleanup()
-        set({ _currentCleanup: null })
-      }
+      // 单一写路径：没有临时监听器需要清理，切会话只改 activeSessionId
+      // 与派生状态即可；各 session 的流式跟踪记录（sessionRuns）保持不动，
+      // 后台会话继续由全局处理写入。
 
       // Derive the button/phase from the TARGET session's own record so the
       // previous session's running state never leaks into the view (§14.7).
@@ -1340,8 +1334,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         // Rebuild from the server's authoritative messages, then replay the
         // current run from sequence zero to recover any unpersisted-looking
         // partial output that was actually stored as run events.
-        const cleanup = get()._currentCleanup
-        if (cleanup) cleanup()
+        // (单一写路径：无临时监听器可清理；运行中会话的流式状态保留在
+        // sessionRuns，由全局处理继续写。) 
         getEventBus()
 
         // Refreshing a chat also refreshes the tree: a running parent may have
@@ -1351,21 +1345,28 @@ export const useChatStore = create<ChatState>((set, get) => {
         const previousRunId = get().sessionRuns[resolveSessionRoot(sessionId)]?.activeRunId
         if (previousRunId) runSeqByRunId.delete(previousRunId)
         const messages: Message[] = data.messages.map(toMessage)
-        set(state => ({
-          sessions: state.sessions.map(session =>
-            session.id === sessionId
-              ? {
-                  ...session,
-                  ...data.session,
-                  current_strategy: normalizeStrategy(data.session.current_strategy),
-                  workspaces: data.session.workspaces
-                    ? JSON.parse(data.session.workspaces as string)
-                    : undefined,
-                  messages,
-                }
-              : session
-          ),
-        }))
+        set(state => {
+          // 单一写路径：该 run 正在本窗口实时流式写入（全局处理累积文本）。
+          // 服务端快照可能比游标晚一拍，用它覆盖 messages 会截断进行中的
+          // 流式尾巴（稳妥的做法是只刷新元数据，内容交给全局写路径）。
+          const tracked = state.sessionRuns[resolveSessionRoot(sessionId)]
+          const streamingLive = tracked?.isStreaming || tracked?.activeRun?.phase === 'running'
+          return {
+            sessions: state.sessions.map(session =>
+              session.id === sessionId
+                ? {
+                    ...session,
+                    ...data.session,
+                    current_strategy: normalizeStrategy(data.session.current_strategy),
+                    workspaces: data.session.workspaces
+                      ? JSON.parse(data.session.workspaces as string)
+                      : undefined,
+                    ...(streamingLive ? {} : { messages }),
+                  }
+                : session
+            ),
+          }
+        })
         await get().resumeActiveRun(sessionId)
       } finally {
         set({ isRefreshing: false })
@@ -1489,19 +1490,29 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     sendMessage: async (input: string) => {
       const state = get()
-      // Cleanup any previous run's temporary listeners first. Otherwise a
-      // second sendMessage registers duplicate socket handlers for the same
-      // events, and the earlier run's streamed deltas get dropped (stuck UI).
-      if (state._currentCleanup) {
-        state._currentCleanup()
-        set({ _currentCleanup: null })
-      }
+      // 单一写路径：无临时监听器可清理。多次发送只做「run 归属声明平移」，
+      // 旧 run 的事件由 isCurrentTrackedRun 按 run_id 拦截，结构上不会双写。
 
       let session = state.sessions.find(s => s.id === state.activeSessionId)
 
       if (!session) {
         session = await get().createSession()
         set({ activeSessionId: session.id })
+      }
+
+      // ── 发送即"显式新意图"：立即离开任何残留的停止窗口，并清掉本会话残留的
+      // 流式缓冲。等价于"发送时触发一次轻量刷新"（用户实测刷新后不再翻倍），
+      // 但不做整体刷新、不重放 run 事件，只重置状态前置条件。旧 run 的迟到事件
+      // 由 isCurrentTrackedRun 拦截，不会误伤新 run。
+      if (abortingSessionId !== null) {
+        if (abortTimer) { clearTimeout(abortTimer); abortTimer = null }
+        abortingSessionId = null
+      }
+      for (const key of pendingStreamDeltas.keys()) {
+        if (pendingStreamDeltas.get(key)?.sessionId === session!.id) pendingStreamDeltas.delete(key)
+      }
+      for (const key of pendingToolOutputs.keys()) {
+        if (pendingToolOutputs.get(key)?.sessionId === session!.id) pendingToolOutputs.delete(key)
       }
 
       // Attachments
@@ -1573,6 +1584,10 @@ export const useChatStore = create<ChatState>((set, get) => {
         ? (typeof session.workspaces === 'string' ? JSON.parse(session.workspaces) : session.workspaces)
         : undefined
 
+      // 先声明 run 归属再上行：全局写路径即刻生效，任何同步/最早到达的事件
+      // 都不会丢在「已发出 chat-run、尚未认领」的空窗里。
+      updateSessionRun(session!.id, { activeRunId: runId, isStreaming: true })
+
       bus.emit('chat-run', {
         session_id: session.id,
         run_id: runId,
@@ -1606,317 +1621,13 @@ export const useChatStore = create<ChatState>((set, get) => {
           ),
         }))
       })
-
-      // ── Per-session temporary listeners ──
-      function belongsToRun(data: { run_id?: string }): boolean {
-        return !data.run_id || data.run_id === runId
-      }
-
-      function findSession(sid: string): Session | null {
-        const s = get().sessions
-        if (sid === session!.id) return s.find(x => x.id === sid) || null
-        return s.find(x => x.parent_id === session!.id && x.id === sid) || null
-      }
-
-      function updateMsg(sid: string, updater: (sess: Session) => Session) {
-        set(state => ({
-          sessions: state.sessions.map(s => s.id === sid ? updater(s) : s),
-        }))
-      }
-
-      const onRunStarted = (data: RunEvent & { context_window?: number }) => {
-        if (!belongsToRun(data)) return
-        if (isAbortingSession(data.session_id)) return
-        set({ tokenUsage: { input: 0, output: 0, total: 0 } })
-        const prev = get().sessionRuns[session!.id]?.activeRun
-        updateSessionRun(session!.id, {
-          activeRun: {
-            runId: data.run_id || prev?.runId || null,
-            continuationRootRunId: prev?.continuationRootRunId || null,
-            phase: 'running',
-            nextRunId: null,
-            limitWarning: prev?.limitWarning ?? null,
-          },
-          activeRunId: data.run_id || undefined,
-          isStreaming: true,
-        })
-        if (data.context_window) {
-          const s = findSession(data.session_id)
-          if (s) {
-            set(state => ({
-              sessions: state.sessions.map(x =>
-                x.id === data.session_id ? { ...x, context_window: data.context_window } : x
-              ),
-            }))
-          }
-        }
-      }
-
-      const onDelta = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        enqueueStreamDelta(data)
-      }
-
-      const onMessageMetrics = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        // 终态事件：先把缓冲的最后一段流式文本落地，避免 is_streaming=false 后
-        // 残留 delta 被当成"新消息"追加。
-        flushStreamBuffers()
-        updateMsg(data.session_id, sess => {
-          const messages = [...sess.messages]
-          for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i].role !== 'assistant') continue
-            messages[i] = {
-              ...messages[i],
-              id: data.message_id != null ? String(data.message_id) : messages[i].id,
-              token_speed: data.token_speed,
-              token_speed_estimated: data.token_speed_estimated,
-              is_streaming: false,
-            }
-            break
-          }
-          return { ...sess, messages }
-        })
-      }
-
-      const onToolStarted = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        flushStreamBuffers()
-        updateMsg(data.session_id, sess => ({
-          ...sess,
-          messages: [...sess.messages, {
-            id: uid(), role: 'tool' as const, content: '',
-            tool_name: data.tool_name, tool_input: data.tool_input,
-            tool_status: 'running' as const, timestamp: Date.now(),
-            tool_call_id: data.tool_call_id,
-          }],
-        }))
-      }
-
-      const onToolCompleted = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        flushStreamBuffers()
-        updateMsg(data.session_id, sess => ({
-          ...sess,
-          messages: sess.messages.map(m =>
-            m.role === 'tool' && m.tool_call_id === data.tool_call_id
-              ? { ...m, tool_status: (data.tool_status as Message['tool_status']) || 'success', tool_output: data.tool_output }
-              : m
-          ),
-        }))
-      }
-
-      const onToolOutput = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        enqueueToolOutput(data)
-      }
-
-      const onStrategyUpdated = (data: RunEvent) => {
-        const s = findSession(data.session_id)
-        if (s && data.strategy) {
-          set(state => ({
-            sessions: state.sessions.map(x =>
-              x.id === data.session_id ? { ...x, current_strategy: normalizeStrategy(data.strategy) } : x
-            ),
-          }))
-        }
-      }
-
-      const onApprovalRequested = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        if (data.session_id !== session!.id) return
-        const pending = pendingApprovalFromEvent(data)
-        pendingApprovalBySession.set(data.session_id, pending)
-        set({ pendingApproval: pending })
-      }
-
-      const onUsage = (data: { session_id: string; run_id?: string; input_tokens: number; output_tokens: number }) => {
-        if (!belongsToRun(data)) return
-        if (data.session_id === session!.id) {
-          set({ tokenUsage: { input: data.input_tokens, output: data.output_tokens, total: data.input_tokens + data.output_tokens } })
-        }
-      }
-
-      const onCompleted = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        // 终端事件：先落地缓冲，避免残留 delta 在 is_streaming=false 后被追加。
-        flushStreamBuffers()
-        updateMsg(data.session_id, sess => {
-          const messages = [...sess.messages]
-          const last = messages[messages.length - 1]
-          if (last?.is_streaming) messages[messages.length - 1] = { ...last, is_streaming: false }
-          return { ...sess, messages, cacheStats: data.cache || sess.cacheStats }
-        })
-        if (data.session_id === session!.id) {
-          if (isAbortingSession(data.session_id)) {
-            // The whole chain was cancelled: force idle immediately, whatever
-            // the terminal payload says about continuations.
-            settleAbort(data.session_id)
-            cleanup()
-            return
-          }
-          const summary = data.limit_summary || data.result?.limitSummary
-          const continuationScheduled = !!summary?.continuationScheduled
-            || !!data.continuationScheduled || !!data.result?.continuationScheduled
-            || !!data.next_run_id || !!data.result?.nextRunId
-          const nextRunId = summary?.nextRunId || data.next_run_id || data.result?.nextRunId || null
-          const prev = get().sessionRuns[session!.id]?.activeRun
-          if (continuationScheduled && nextRunId) {
-            // Keep streaming across the continuation boundary (§14.3).
-            updateSessionRun(session!.id, {
-              activeRun: {
-                runId: nextRunId,
-                continuationRootRunId: prev?.continuationRootRunId || data.run_id || null,
-                phase: 'continuation_pending',
-                nextRunId,
-                limitWarning: summary || prev?.limitWarning || null,
-              },
-              activeRunId: nextRunId,
-              isStreaming: true,
-            })
-            return
-          }
-          updateSessionRun(session!.id, {
-            activeRun: { ...IDLE_RUN },
-            activeRunId: null,
-            isStreaming: false,
-          })
-          cleanup()
-        }
-      }
-
-      const onCompacted = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (s) {
-          set(state => ({
-            sessions: state.sessions.map(x =>
-              x.id === data.session_id ? { ...x, compacted: true } : x
-            ),
-          }))
-        }
-      }
-
-      const onFailed = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        flushStreamBuffers()
-        updateMsg(data.session_id, sess => ({
-          ...sess,
-          messages: [...sess.messages, {
-            id: uid(), role: 'assistant' as const,
-            content: `Error: ${data.error || 'Unknown'}`,
-            timestamp: Date.now(),
-          }],
-        }))
-        if (data.session_id === session!.id) {
-          updateSessionRun(session!.id, {
-            activeRun: { ...IDLE_RUN },
-            activeRunId: null,
-            isStreaming: false,
-          })
-          settleAbort(data.session_id)
-          cleanup()
-        }
-      }
-
-      const onInterrupted = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        const s = findSession(data.session_id)
-        if (!s) return
-        flushStreamBuffers()
-        const reasonText = data.reason === 'stalled' || data.reason === 'stalled_active'
-          ? '运行停滞超时，已被服务端自动中断'
-          : data.reason === 'orphaned_after_restart'
-            ? '服务端重启，遗留的运行已中断'
-            : '运行已中断'
-        updateMsg(data.session_id, sess => ({
-          ...sess,
-          messages: [...sess.messages, {
-            id: uid(), role: 'assistant' as const,
-            content: `[${reasonText}]`,
-            timestamp: Date.now(),
-          }],
-        }))
-        if (data.session_id === session!.id) {
-          updateSessionRun(session!.id, {
-            activeRun: { ...IDLE_RUN },
-            activeRunId: null,
-            isStreaming: false,
-          })
-          settleAbort(data.session_id)
-          cleanup()
-        }
-      }
-
-      function cleanup() {
-        bus.off('strategy.updated', onStrategyUpdated)
-        bus.off('message.delta', onDelta)
-        bus.off('message.metrics', onMessageMetrics)
-        bus.off('tool.started', onToolStarted)
-        bus.off('tool.completed', onToolCompleted)
-        bus.off('tool.output', onToolOutput)
-        bus.off('approval.requested', onApprovalRequested)
-        bus.off('run.started', onRunStarted)
-        bus.off('run.completed', onCompleted)
-        bus.off('run.cancelled', onCompleted)
-        bus.off('usage', onUsage)
-        bus.off('run.compacted', onCompacted)
-        bus.off('run.retrying', onRetrying)
-        bus.off('run.failed', onFailed)
-        bus.off('run.interrupted', onInterrupted)
-        // Only drop the listener ref. The session's run record is kept so a
-        // still-running background session keeps being tracked after switching
-        // away (it is cleared by updateSessionRun when the run actually ends).
-        if (get()._currentCleanup === cleanup) set({ _currentCleanup: null })
-      }
-
-      const onRetrying = (data: RunEvent) => {
-        if (!belongsToRun(data)) return
-        if (isAbortingSession(data.session_id)) return
-        // LLM 请求重试：重置流式累积，避免 attempt 1 的残留 delta 与 attempt 2
-        // 的完整输出拼成重复文本。
-        resetStreamingContent(data.session_id)
-        updateSessionRun(data.session_id, { isStreaming: true })
-      }
-
-      bus.on('strategy.updated', onStrategyUpdated)
-      bus.on('message.delta', onDelta)
-      bus.on('message.metrics', onMessageMetrics)
-      bus.on('tool.started', onToolStarted)
-      bus.on('tool.completed', onToolCompleted)
-      bus.on('tool.output', onToolOutput)
-      bus.on('approval.requested', onApprovalRequested)
-      bus.on('run.started', onRunStarted)
-      bus.on('run.completed', onCompleted)
-      bus.on('run.cancelled', onCompleted)
-      bus.on('usage', onUsage)
-      bus.on('run.compacted', onCompacted)
-      bus.on('run.retrying', onRetrying)
-      bus.on('run.failed', onFailed)
-      bus.on('run.interrupted', onInterrupted)
-
-      set({ _currentCleanup: cleanup })
-      updateSessionRun(session!.id, { activeRunId: runId })
     },
 
     resumeActiveRun: async (sessionId: string) => {
-      const state = get()
-      // A live run is already being tracked by the temporary listeners.
-      if (state._currentCleanup) return
+      // A live run is already being tracked (claim exists in sessionRuns):
+      // its events are being written by the global handler, don't re-fetch.
+      const tracked = get().sessionRuns[resolveSessionRoot(sessionId)]?.activeRunId
+      if (tracked) return
       let runs: import('@/api/runs').RunRow[]
       try {
         runs = await fetchRecentRuns(sessionId, 5)
@@ -2043,8 +1754,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (runId) void cancelRun(runId, true).catch(() => {})
       }
       if (bus.connected && sessionId) {
-        // Primary path: socket abort, acked by the server. If the ack is
-        // missing/bad (socket raced a reconnect), fall back to HTTP cancel.
+        // Primary path: stream abort, acked by the server. If the ack is
+        // missing/bad (stream raced a reconnect), fall back to HTTP cancel.
         bus.emit('abort', { session_id: sessionId }, (resp: unknown) => {
           const ok = typeof resp === 'object' && resp !== null
             && (resp as { status?: string }).status === 'ok'

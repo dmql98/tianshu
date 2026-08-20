@@ -7,15 +7,15 @@ import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
-import { createDurableSocket, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { createDurableStream, publishRunEvent } from '../agent/runtime/run-event-store.js'
 import { enqueueRun } from '../agent/session-runner.js'
 import { sessionLoop } from '../agent/loop.js'
 import { getDb } from '../db/schema.js'
 
-let ioRef: TransportBroadcaster | null = null
+let broadcasterRef: TransportBroadcaster | null = null
 
-export function setEventDefinitionRuntime(io: TransportBroadcaster) {
-  ioRef = io
+export function setEventDefinitionRuntime(broadcaster: TransportBroadcaster) {
+  broadcasterRef = broadcaster
 }
 
 /**
@@ -60,10 +60,10 @@ export function drainQueue(definitionId: string): void {
   if (next) scheduleOccurrence(next.id)
 }
 
-function broadcastSocket(io: TransportBroadcaster): TransportBroadcaster {
+function broadcastChannel(broadcaster: TransportBroadcaster): TransportBroadcaster {
   return {
     emit: (type: string, ...args: any[]) => {
-      io.emit(type, ...args)
+      broadcaster.emit(type, ...args)
       const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
       fanOutToSinks(type, payload)
       return true
@@ -75,8 +75,8 @@ function broadcastSocket(io: TransportBroadcaster): TransportBroadcaster {
 }
 
 export async function executeOccurrence(occurrenceId: string): Promise<void> {
-  const io = ioRef
-  if (!io) throw new Error('Event runtime is not ready')
+  const broadcaster = broadcasterRef
+  if (!broadcaster) throw new Error('Event runtime is not ready')
   const occurrence = eventOccurrenceStore.get(occurrenceId)
   if (!occurrence) throw new Error('Event occurrence not found')
   const definition = eventDefinitionStore.get(occurrence.definition_id)
@@ -105,7 +105,7 @@ export async function executeOccurrence(occurrenceId: string): Promise<void> {
     getDb().prepare(
       'UPDATE event_occurrences SET session_id = ?, updated_at = ? WHERE id = ?',
     ).run(session.id, Date.now(), occurrence.id)
-    io.emit('session:new', { sessionId: session.id, title: session.title, isEvent: true })
+    broadcaster.emit('session:new', { sessionId: session.id, title: session.title, isEvent: true })
     fanOutToSinks('session:new', { sessionId: session.id, title: session.title, isEvent: true })
   }
 
@@ -123,20 +123,20 @@ export async function executeOccurrence(occurrenceId: string): Promise<void> {
     SET current_run_id = ?, status = 'running', error = NULL, updated_at = ?
     WHERE id = ?
   `).run(run.id, Date.now(), occurrence.id)
-  const rawSocket = broadcastSocket(io)
-  publishRunEvent(rawSocket, run.id, 'run.queued', {
+  const rawStream = broadcastChannel(broadcaster)
+  publishRunEvent(rawStream, run.id, 'run.queued', {
     session_id: session.id,
     run_id: run.id,
     character_id: run.character_id,
     character_revision_id: run.character_revision_id,
     event_occurrence_id: occurrence.id,
   })
-  const durableSocket = createDurableSocket(rawSocket, run.id)
+  const durableStream = createDurableStream(rawStream, run.id)
 
   await new Promise<void>((resolve) => {
     enqueueRun(session!.id, run.id, async signal => {
       try {
-        const result = await sessionLoop(io, durableSocket, session!.id, signal, { run_id: run.id })
+        const result = await sessionLoop(broadcaster, durableStream, session!.id, signal, { run_id: run.id })
         const persisted = runStore.get(run.id)
         const messages = messageStore.getMessages(session!.id, 100000)
         const lastAssistant = [...messages].reverse().find(message => message.role === 'assistant')
@@ -151,10 +151,10 @@ export async function executeOccurrence(occurrenceId: string): Promise<void> {
           Date.now(),
           occurrence.id,
         )
-        io.emit('event_occurrence.updated', eventOccurrenceStore.get(occurrence.id))
+        broadcaster.emit('event_occurrence.updated', eventOccurrenceStore.get(occurrence.id))
         fanOutToSinks('event_occurrence.updated', { occurrence: eventOccurrenceStore.get(occurrence.id) })
       } catch (error: any) {
-        publishRunEvent(rawSocket, run.id, 'run.failed', {
+        publishRunEvent(rawStream, run.id, 'run.failed', {
           session_id: session!.id,
           run_id: run.id,
           error: error.message || String(error),

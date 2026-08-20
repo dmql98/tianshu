@@ -12,12 +12,12 @@ let sessionId = 'sess_goal_ctrl'
 
 type AnyRecord = Record<string, any>
 
-interface FakeSocket {
+interface FakeStream {
   events: Array<[string, any]>
   emit: (type: string, ...args: any[]) => boolean
 }
 
-function fakeSocket(): FakeSocket {
+function fakeStream(): FakeStream {
   const events: Array<[string, any]> = []
   return {
     events,
@@ -63,26 +63,26 @@ describe('goal 控制工具', () => {
   it('create_goal 创建目标并广播 goal.created', async () => {
     const { goalStore } = await import('../src/agent/plan/plan-store.js')
     const { handleCreateGoal } = await import('../src/agent/loop/control-router.js')
-    const socket = fakeSocket()
+    const stream = fakeStream()
     const outcome = await handleCreateGoal({
       result: goalResult({ goalRequest: { outcome: '实现轨迹功能', verification: '前端单测+构建通过' } }),
-      sessionId, runId: 'run_1', socket: socket as any,
+      sessionId, runId: 'run_1', stream: stream as any,
     })
     expect(outcome.kind).toBe('continue')
     const goals = goalStore.listForSession(sessionId)
     expect(goals.length).toBe(1)
     expect(goals[0].outcome).toBe('实现轨迹功能')
     expect(goals[0].status).toBe('active')
-    expect(socket.events.some(([t]) => t === 'goal.created')).toBe(true)
+    expect(stream.events.some(([t]) => t === 'goal.created')).toBe(true)
   })
 
   it('create_goal 在已有 active goal 时拒绝', async () => {
     const { goalStore } = await import('../src/agent/plan/plan-store.js')
     const { handleCreateGoal } = await import('../src/agent/loop/control-router.js')
-    const socket = fakeSocket()
+    const stream = fakeStream()
     const outcome = await handleCreateGoal({
       result: goalResult({ goalRequest: { outcome: '第二个目标' } }),
-      sessionId, runId: 'run_2', socket: socket as any,
+      sessionId, runId: 'run_2', stream: stream as any,
     })
     expect(outcome.kind).toBe('continue')
     const msg = JSON.parse(outcome.messages[0].content as string)
@@ -93,10 +93,10 @@ describe('goal 控制工具', () => {
 
   it('get_goal 返回进行中的目标', async () => {
     const { handleGetGoal } = await import('../src/agent/loop/control-router.js')
-    const socket = fakeSocket()
+    const stream = fakeStream()
     const outcome = await handleGetGoal({
       result: { toolCalls: [{ id: 'c2', type: 'function', function: { name: 'get_goal', arguments: '{}' } }] },
-      sessionId, runId: 'run_3', socket: socket as any,
+      sessionId, runId: 'run_3', stream: stream as any,
     })
     const output = JSON.parse(outcome.messages[0].content as string).output as string
     expect(output).toContain('实现轨迹功能')
@@ -105,15 +105,15 @@ describe('goal 控制工具', () => {
   it('complete_goal 完成目标并广播 goal.status.changed', async () => {
     const { goalStore } = await import('../src/agent/plan/plan-store.js')
     const { handleCompleteGoal } = await import('../src/agent/loop/control-router.js')
-    const socket = fakeSocket()
+    const stream = fakeStream()
     const outcome = await handleCompleteGoal({
       result: { toolCalls: [{ id: 'c3', type: 'function', function: { name: 'complete_goal', arguments: '{}' } }], goalCompleteSummary: '全部落地' },
-      sessionId, runId: 'run_4', socket: socket as any,
+      sessionId, runId: 'run_4', stream: stream as any,
     })
     expect(outcome.kind).toBe('continue')
     const goal = goalStore.listForSession(sessionId)[0]
     expect(goal.status).toBe('completed')
-    expect(socket.events.some(([t, a]) => t === 'goal.status.changed' && a[0].status === 'completed')).toBe(true)
+    expect(stream.events.some(([t, a]) => t === 'goal.status.changed' && a[0].status === 'completed')).toBe(true)
   })
 
   it('complete_goal 幂等：已完成时不再报错', async () => {
@@ -136,7 +136,7 @@ describe('submit_result -> goal 自动完成', () => {
     const s2 = 'sess_goal_submit'
     sessionStore.create({ id: s2, character_id: 'char_goal_ctrl' })
     const goal = goalStore.create({ session_id: s2, outcome: '交付目标' })
-    const socket = fakeSocket()
+    const stream = fakeStream()
     const outcome = await handleTaskComplete({
       result: {
         toolCalls: [{ id: 'c5', type: 'function', function: { name: 'submit_result', arguments: '{}' } }],
@@ -145,7 +145,7 @@ describe('submit_result -> goal 自动完成', () => {
       },
       sessionId: s2,
       runId: 'run_6',
-      socket: socket as any,
+      stream: stream as any,
       messages: [],
       mcpClients: new Map(),
       totalInputTokens: 0,
@@ -160,7 +160,7 @@ describe('submit_result -> goal 自动完成', () => {
     })
     expect(outcome.kind).toBe('done')
     expect(goalStore.get(goal.id)!.status).toBe('completed')
-    expect(socket.events.some(([t, a]) => t === 'goal.status.changed' && a[0].goal_id === goal.id)).toBe(true)
+    expect(stream.events.some(([t, a]) => t === 'goal.status.changed' && a[0].goal_id === goal.id)).toBe(true)
   })
 
   it('goal 模式缺 evidence 时拒绝提交（completion-evaluator 原有语义）', async () => {
