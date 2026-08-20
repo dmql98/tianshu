@@ -729,11 +729,36 @@ export async function innerLoop(
   async function runOne(p: typeof allowed[0]): Promise<void> {
     const startTime = Date.now()
 
+    // ── tool.output 服务端合并（R10）──
+    // bash 等工具以 chunk 频率回调 onOutput（Node child stdout 'data' 事件，
+    // 每秒可达数百次）。若每 chunk 一次 socket.emit('tool.output')，SSE 会以
+    // 同等频率写帧：writeSSE 无背压地入队，几十万字节输出时写端积压、
+    // EventSource 连接假死——表现正是"连续几个 bash 后前端不动了，刷新后
+    // 工具事件批量补出"。这里把 chunk 合并到 ~50ms 窗口（与前端 chatStore 的
+    // 合并缓冲对齐），把 SSE 帧率从 O(chunk) 降到 O(20/s)；tool.completed
+    // 前强制 flush 一次，保证最终内容不丢。
+    let pendingOutput = ''
+    let outputTimer: ReturnType<typeof setTimeout> | null = null
+    const flushOutput = () => {
+      if (outputTimer) { clearTimeout(outputTimer); outputTimer = null }
+      if (!pendingOutput) return
+      const output = pendingOutput
+      pendingOutput = ''
+      socket?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output })
+    }
+    const onOutput = (chunk: string) => {
+      pendingOutput += chunk
+      if (!outputTimer) {
+        outputTimer = setTimeout(() => {
+          outputTimer = null
+          flushOutput()
+        }, 50)
+      }
+    }
+
     async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
       try {
-        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, (chunk) => {
-          socket?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output: chunk })
-        }, workspaces, dataspace, sessionId)
+        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, dataspace, sessionId)
       } catch (err: any) {
         return { output: '', error: `${p.name}: ${err.message || String(err)}` }
       }
@@ -797,6 +822,9 @@ export async function innerLoop(
     }
 
     const duration = Date.now() - startTime
+
+    // 工具结束：强制 flush 最后一段缓冲的 output，再发 tool.completed。
+    flushOutput()
 
     // Result hash: stable over the tool outcome so identical calls with the
     // same result are recognized as repeats. Full outputs never enter the

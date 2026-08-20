@@ -125,4 +125,57 @@ describe('stream integration: sendMessage → delta → flush', () => {
     expect(assistants.length).toBe(2)
     expect((assistants[1] as any).content).toBe('二')
   })
+
+  it('tool call sequence renders as a tool message with streamed output', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    const send = useChatStore.getState().sendMessage
+
+    await send('run a tool')
+    const runId = (mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as { run_id?: string })?.run_id || ''
+    const h = handlers()
+
+    // tool.started 创建工具消息
+    h.get('tool.started')?.({ session_id: SID, run_id: runId, tool_call_id: 'c1', tool_name: 'bash', tool_input: 'ls', type: 'tool.started' } as RunEvent)
+    let msgs = useChatStore.getState().sessions[0].messages
+    const toolMsg = msgs.find(m => (m as any).role === 'tool')
+    expect(toolMsg).toBeDefined()
+    expect((toolMsg as any).tool_status).toBe('running')
+
+    // tool.output 缓冲后合并追加
+    h.get('tool.output')?.({ session_id: SID, run_id: runId, tool_call_id: 'c1', output: 'file1', type: 'tool.output' } as RunEvent)
+    h.get('tool.output')?.({ session_id: SID, run_id: runId, tool_call_id: 'c1', output: ' file2', type: 'tool.output' } as RunEvent)
+    vi.advanceTimersByTime(60)
+    msgs = useChatStore.getState().sessions[0].messages
+    expect((msgs.find(m => (m as any).tool_call_id === 'c1') as any).tool_output).toBe('file1 file2')
+
+    // tool.completed 更新状态，且先 flush 未合并的 output
+    h.get('tool.completed')?.({ session_id: SID, run_id: runId, tool_call_id: 'c1', tool_output: 'file1 file2', tool_status: 'success', type: 'tool.completed' } as RunEvent)
+    msgs = useChatStore.getState().sessions[0].messages
+    const done = msgs.find(m => (m as any).tool_call_id === 'c1') as any
+    expect(done.tool_status).toBe('success')
+    expect(done.tool_output).toBe('file1 file2')
+  })
+
+  it('tool events for a background session (no temp listener) are handled by the persistent path', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    // 无临时监听器（_currentCleanup 为 null）：持久监听器接管
+    useChatStore.setState({
+      activeSessionId: 'other-session',
+      sessions: [{
+        id: 's-bg', character_id: 'c1', session_type: 'chat',
+        messages: [{ id: 'm0', role: 'user', content: 'prev', timestamp: Date.now() }],
+      }] as never,
+      sessionRuns: {},
+      isStreaming: false,
+      _currentCleanup: null,
+      _activeRunId: null,
+    } as never)
+
+    const h = handlers()
+    h.get('tool.started')?.({ session_id: 's-bg', run_id: 'r-bg', tool_call_id: 'c1', tool_name: 'bash', tool_input: 'ls', type: 'tool.started' } as RunEvent)
+    const msgs = useChatStore.getState().sessions[0].messages
+    const toolMsg = msgs.find(m => (m as any).role === 'tool')
+    expect(toolMsg).toBeDefined()
+    expect((toolMsg as any).tool_call_id).toBe('c1')
+  })
 })

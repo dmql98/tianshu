@@ -345,6 +345,42 @@ export const useChatStore = create<ChatState>((set, get) => {
     }
   }
 
+  /** LLM 请求重试（run.retrying）时重置该 session 的流式累积：服务端
+   *  streamWithRetry 的每个 attempt 都会实时 emit message.delta——若 attempt 1
+   *  输出了一部分后失败，这部分已拼进前端消息，attempt 2 会从零重新完整输出，
+   *  若不重置前端就会把两段拼成重复文本（新会话/停止后首次调用最易触发重试，
+   *  刷新后从 messages 表读最终结果所以正常）。这里清空 pending 缓冲并把当前
+   *  流式消息的内容/思考置空，让重试的新流从零累积。 */
+  function resetStreamingContent(sessionId: string) {
+    for (const key of [...pendingStreamDeltas.keys()]) {
+      if (pendingStreamDeltas.get(key)?.sessionId === sessionId) pendingStreamDeltas.delete(key)
+    }
+    for (const key of [...pendingToolOutputs.keys()]) {
+      if (pendingToolOutputs.get(key)?.sessionId === sessionId) pendingToolOutputs.delete(key)
+    }
+    updateSessionMessage(sessionId, sess => ({
+      ...sess,
+      messages: sess.messages.map((m, i) =>
+        i === sess.messages.length - 1 && m.role === 'assistant' && m.is_streaming
+          ? { ...m, content: '', reasoning: '' }
+          : m
+      ),
+    }))
+  }
+
+  /** 判断一个终态/里程碑事件是否属于该 session 当前跟踪的运行。停止（abort）后
+   *  立刻发新消息时，旧 run 的 run.cancelled / run.completed 等终态会姗姗来迟；
+   *  若此时仍按旧逻辑处理（把最后一条流式消息置终、settleAbort 清空 activeRunId），
+   *  _activeRunId 会在新 run 流式过程中被清零，导致后续每个 message.delta 被临时
+   *  监听器与持久监听器各入队一次——每个 chunk 追加两遍，整段回复文本翻倍
+   *  （“你好” → “你好你好”）。旧 run 的终态只应作用于它自己，不能改写新 run
+   *  的流式状态；新 run 会有自己的终态事件。 */
+  function isCurrentTrackedRun(data: RunEvent): boolean {
+    if (!data.session_id) return true
+    const tracked = get().sessionRuns[resolveSessionRoot(data.session_id)]?.activeRunId
+    return !tracked || !data.run_id || data.run_id === tracked
+  }
+
   function clearPendingApproval(sessionId: string) {
     pendingApprovalBySession.delete(sessionId)
     if (get().activeSessionId === sessionId) set({ pendingApproval: null })
@@ -353,6 +389,14 @@ export const useChatStore = create<ChatState>((set, get) => {
   function setSessionMotion(sessionId: string, motion: CharacterMotion, since = Date.now()) {
     if (!sessionId || since < (sessionMotionSince.get(sessionId) ?? 0)) return
     sessionMotionSince.set(sessionId, since)
+    // 高频流式事件（message.delta / tool.output 每 chunk 一条）都走这里。
+    // 持续态（working/speaking/thinking/listening）在整段输出期间不变化：
+    // 相同 motion 直接跳过 store set，把 set 频率从"每 chunk 一次"降到
+    // "每状态变化一次"，否则 bash 输出几百条 chunk 时主线程被 set 风暴拖垮，
+    // 表现就是"界面不动了"，刷新后积压事件批量补出。终态仍走原逻辑
+    // （需要正确重置 success/error 的 TTL 定时器）。
+    const currentMotion = get().sessionMotions[sessionId]
+    if (currentMotion === motion && motion !== 'success' && motion !== 'error') return
     const existingTimer = sessionMotionTimers.get(sessionId)
     if (existingTimer) clearTimeout(existingTimer)
     sessionMotionTimers.delete(sessionId)
@@ -581,6 +625,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('message.delta')
     bus.on('message.delta', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      // 旧 run 的迟到 delta 不得混入新 run 的消息（否则新 run 的文本被前缀污染/翻倍）。
+      if (!isCurrentTrackedRun(data)) return
       const state = get()
       const s = state.sessions.find(x => x.id === data.session_id)
       if (!s) return
@@ -593,6 +639,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       // 终态事件：先把缓冲的最后一段流式文本落地，避免 is_streaming=false 后
       // 残留 delta 被当成"新消息"追加。
       flushStreamBuffers()
+      // 旧 run 的 message.metrics 不得把新 run 还在流式的消息置为终态。
+      if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => {
         let updated = false
         const messages = [...sess.messages]
@@ -616,6 +664,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('tool.started')
     bus.on('tool.started', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      // 旧 run 的 tool 事件不得注入到新 run 的会话里。
+      if (!isCurrentTrackedRun(data)) return
       flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
@@ -631,6 +681,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('tool.completed')
     bus.on('tool.completed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      if (!isCurrentTrackedRun(data)) return
       flushStreamBuffers()
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
@@ -645,6 +696,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('tool.output')
     bus.on('tool.output', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      if (!isCurrentTrackedRun(data)) return
       enqueueToolOutput(data)
     })
 
@@ -652,6 +704,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.on('run.completed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       flushStreamBuffers()
+      // 旧 run 的终态不得清除新 run 的流式状态（否则新 run 的 delta 被双写翻倍）。
+      if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -666,6 +720,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.on('run.max_turns', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       flushStreamBuffers()
+      if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -680,6 +735,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.on('run.cancelled', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       flushStreamBuffers()
+      if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -723,6 +779,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.on('run.failed', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
       flushStreamBuffers()
+      if (!isCurrentTrackedRun(data)) return
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: [...sess.messages, {
@@ -746,6 +803,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('run.interrupted')
     bus.on('run.interrupted', (data: RunEvent) => {
       if (isHandledByTemporaryListener(data)) return
+      // 旧 run 的 interrupted（如服务端停滞看门狗误伤已替换的 run）不得重置新 run。
+      if (!isCurrentTrackedRun(data)) return
       const reasonText = data.reason === 'stalled' || data.reason === 'stalled_active'
         ? '运行停滞超时，已被服务端自动中断'
         : data.reason === 'orphaned_after_restart'
@@ -798,7 +857,13 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     bus.off('run.retrying')
     bus.on('run.retrying', (data: RunEvent) => {
+      if (isHandledByTemporaryListener(data)) return
       if (isAbortingSession(data.session_id)) return
+      // 旧 run 的 retrying 不得清空新 run 已流式的内容（否则内容丢失/错位）。
+      if (!isCurrentTrackedRun(data)) return
+      // LLM 请求重试：服务端 attempt 1 的部分 delta 已拼进前端消息，attempt 2
+      // 会完整重发，必须重置流式累积避免拼成重复文本。
+      resetStreamingContent(data.session_id)
       updateSessionRun(data.session_id, { isStreaming: true })
     })
 
@@ -1822,6 +1887,9 @@ export const useChatStore = create<ChatState>((set, get) => {
       const onRetrying = (data: RunEvent) => {
         if (!belongsToRun(data)) return
         if (isAbortingSession(data.session_id)) return
+        // LLM 请求重试：重置流式累积，避免 attempt 1 的残留 delta 与 attempt 2
+        // 的完整输出拼成重复文本。
+        resetStreamingContent(data.session_id)
         updateSessionRun(data.session_id, { isStreaming: true })
       }
 
@@ -1998,11 +2066,17 @@ export const useChatStore = create<ChatState>((set, get) => {
         const sid = abortingSessionId
         abortingSessionId = null
         if (sid) {
-          updateSessionRun(sid, {
-            activeRun: { ...IDLE_RUN },
-            activeRunId: null,
-            isStreaming: false,
-          })
+          // 只清理仍跟踪被中止 run 的会话：用户可能已立刻发了新消息（新 run 正在
+          // 流式），此时清空 activeRunId 会让新 run 的每个 delta 被双写翻倍。
+          const tracked = get().sessionRuns[resolveSessionRoot(sid)]?.activeRunId
+          if (!tracked || tracked === runId) {
+            updateSessionRun(sid, {
+              activeRun: { ...IDLE_RUN },
+              activeRunId: null,
+              isStreaming: false,
+            })
+          }
+          // tracked 已指向更新的 run：保留其流式状态，交给它自己的终态事件收尾。
         } else {
           set({ activeRun: { ...IDLE_RUN }, _activeRunId: null, isStreaming: false })
         }

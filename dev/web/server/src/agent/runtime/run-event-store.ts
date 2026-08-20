@@ -255,7 +255,16 @@ export function createDurableSocket(socket: TransportBroadcaster, runId: string)
       if (prop !== 'emit') return Reflect.get(target, prop, receiver)
       return (type: string, payload?: Record<string, unknown>, ...rest: unknown[]) => {
         if (DURABLE_EVENT.test(type) && payload && typeof payload === 'object') {
-          return !!publishRunEvent(target, runId, type, { ...payload, run_id: runId })
+          try {
+            return !!publishRunEvent(target, runId, type, { ...payload, run_id: runId })
+          } catch (err) {
+            // 落库（append/状态机）抛错绝不能拖垮实时广播：广播是流式命脉，
+            // 落库是 write-behind 日志。降级为纯广播（不落库），并记录错误。
+            console.error(`[run-event] durable emit failed for ${type}, degrading to broadcast-only:`, err)
+            target.emit(type, payload as Record<string, unknown>, ...rest)
+            fanOutToSinks(type, payload as Record<string, unknown>)
+            return true
+          }
         }
         // R8: 非 durable 高频事件（message.delta / tool.output）不落库，但必须
         // 照常投递——`target` 在 SSE / Electron IPC 传输下是 NOOP shim

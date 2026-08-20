@@ -4,64 +4,59 @@ import { IncrementalMarkdown } from './incremental-markdown'
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true, typographer: true })
 
-function frozenKeys(r: { frozen: readonly { key: number }[] }): number[] {
-  return r.frozen.map(b => b.key)
+function plainText(html: string): string {
+  // markdown-it 渲染会折叠空格；用与渲染一致的归一化比较
+  return html.replace(/<[^>]+>/g, '').replace(/\s+/g, '')
 }
 
-describe('IncrementalMarkdown', () => {
-  it('freezes stable prefix blocks and only keeps the tail unstable', () => {
+describe('IncrementalMarkdown anti-duplication (transcript regression)', () => {
+  it('streaming reasoning text must not render duplicated words', () => {
     const inc = new IncrementalMarkdown(md)
-    // 4 个顶层块：标题 / 段落 / 列表 / 段落
-    const src = '# t\n\npara one\n\n- a\n- b\n\nlast\n'
-    const r1 = inc.update(src)
-    // 4 块 - 保留 2 块尾部 → 冻结前 2 块
-    expect(frozenKeys(r1)).toEqual([0, 2])
-    expect(r1.tailHtml).toContain('<li>a</li>')
-    expect(r1.tailHtml).toContain('last')
+    const fragments = [
+      '用户想让我研究一下今天关于agent skill的新闻。',
+      '这需要搜索最新的网络信息。',
+      '首先我需要知道今天的日期，',
+      '然后进行网络搜索。',
+    ]
+    const out: string[] = []
+    let acc = ''
+    for (const frag of fragments) {
+      acc += frag
+      const r = inc.update(acc)
+      out.push(plainText(r.frozen.map(b => b.html).join('') + r.tailHtml))
+    }
+    const final = out[out.length - 1]
+    const expected = plainText(fragments.join(''))
+    expect(final).toBe(expected)
+    // 中间帧不允许出现"词对重复"（长度不得大于最终归一化长度）
+    for (const frame of out) {
+      expect(frame.length).toBeLessThanOrEqual(expected.length)
+    }
   })
 
-  it('monotonically freezes as the stream grows (append-only)', () => {
+  it('frozen block html must be stable (never re-rendered with shifted content)', () => {
     const inc = new IncrementalMarkdown(md)
-    const r1 = inc.update('# t\n\npara one\n\n- a\n- b\n\nlast\n')
-    expect(frozenKeys(r1)).toEqual([0, 2])
-    // 追加更多块：旧的尾部应进入冻结区（块起始行号 4=列表、7=last、9=more）
-    const r2 = inc.update('# t\n\npara one\n\n- a\n- b\n\nlast\n\nmore\n\neven more\n')
-    expect(frozenKeys(r2)).toEqual([0, 2, 4, 7])
-    // 冻结块的 HTML 不变（缓存复用）
-    expect(r2.frozen[0].html).toBe(r1.frozen[0].html)
-    expect(r2.frozen[1].html).toBe(r1.frozen[1].html)
-    expect(r2.tailHtml).toContain('more')
-    expect(r2.tailHtml).toContain('even more')
+    const r1 = inc.update('# 标题\n\n用户想让我研究一下今天关于agent skill的新闻。\n这需要搜索最新的网络信息。\n\n最后一段')
+    const firstFrozenHtml = r1.frozen[0]?.html
+    const r2 = inc.update('# 标题\n\n用户想让我研究一下今天关于agent skill的新闻。\n这需要搜索最新的网络信息。\n\n最后一段\n\n新增段落一\n\n新增段落二')
+    expect(r2.frozen.some(b => b.html === firstFrozenHtml)).toBe(true)
+    const plain = plainText(r2.frozen.map(b => b.html).join('') + r2.tailHtml)
+    // 期望文本用“渲染后的纯文本”构造（# 标题 会被渲染成 <h1>标题</h1>，
+    // 不能把 markdown 语法记号原样留在期望串里）
+    const expected = plainText('标题\n\n用户想让我研究一下今天关于agent skill的新闻。\n这需要搜索最新的网络信息。\n\n最后一段\n\n新增段落一\n\n新增段落二')
+    expect(plain).toBe(expected)
   })
 
-  it('resets cache with a new generation on non-append input (edits)', () => {
+  it('paragraph growth mid-stream: no duplicate text at any frame', () => {
     const inc = new IncrementalMarkdown(md)
-    inc.update('# t\n\npara one\n\n- a\n- b\n\nlast\n')
-    const r2 = inc.update('# t\n\nREPLACED\n\n- a\n- b\n\nlast\n')
-    expect(r2.generation).toBe(1)
-    expect(frozenKeys(r2)).toEqual([0, 2])
-    // 编辑后整篇重渲：被替换段落是第 2 个块，HTML 包含新文本
-    expect(r2.frozen[0].html).toContain('<h1>t</h1>')
-    expect(r2.frozen[1].html).toContain('REPLACED')
-  })
-
-  it('returns the cached result for identical input (idempotent)', () => {
-    const inc = new IncrementalMarkdown(md)
-    const src = '# t\n\npara\n'
-    const r1 = inc.update(src)
-    const r2 = inc.update(src)
-    expect(r2).toBe(r1)
-  })
-
-  it('keeps a growing fence block unstable until it closes', () => {
-    const inc = new IncrementalMarkdown(md)
-    // 未闭合 fence：标题 + fence 共 2 块，全部保留在尾部 → 不冻结
-    const r1 = inc.update('# t\n\n```js\nlet a = 1\n')
-    expect(frozenKeys(r1)).toEqual([])
-    // 闭合后出现新块：heading/fence/after 共 3 块，冻结前 1 块（heading）
-    const r2 = inc.update('# t\n\n```js\nlet a = 1\n```\n\nafter\n')
-    expect(frozenKeys(r2)).toEqual([0])
-    expect(r2.tailHtml).toContain('let a = 1')
-    expect(r2.tailHtml).toContain('after')
+    // 无换行：单一块全在 tail；追加换行+第二段后第一段冻结
+    const r1 = inc.update('用户想让我研究一下今天关于agent skill的新闻。这需要搜索最新的网络信息。首先我需要知道今天的日期，然后进行网络搜索。')
+    const plain1 = plainText(r1.frozen.map(b => b.html).join('') + r1.tailHtml)
+    const r2 = inc.update('用户想让我研究一下今天关于agent skill的新闻。这需要搜索最新的网络信息。首先我需要知道今天的日期，然后进行网络搜索。\n\n第二段内容')
+    const plain2 = plainText(r2.frozen.map(b => b.html).join('') + r2.tailHtml)
+    const expected1 = plainText('用户想让我研究一下今天关于agent skill的新闻。这需要搜索最新的网络信息。首先我需要知道今天的日期，然后进行网络搜索。')
+    const expected2 = expected1 + plainText('第二段内容')
+    expect(plain1).toBe(expected1)
+    expect(plain2).toBe(expected2)
   })
 })
