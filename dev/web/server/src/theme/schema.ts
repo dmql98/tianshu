@@ -34,6 +34,9 @@ export interface ThemeArtworkSpec {
   homeOpacity: number
   taskOpacity: number
   dim: number
+  /** 水平/垂直镜像翻转（缺省视为 false）。 */
+  flipX?: boolean
+  flipY?: boolean
 }
 
 /** 首页配置（HOME_PAGE_DEVELOPMENT_PLAN §5.1）：可选字段，向后兼容。 */
@@ -123,6 +126,8 @@ function normalizeArtwork(value: unknown): ThemeArtworkSpec | undefined {
     homeOpacity: clampNumber(candidate.homeOpacity, 0.8, 0, 1),
     taskOpacity: clampNumber(candidate.taskOpacity, 0.35, 0, 1),
     dim: clampNumber(candidate.dim, 0.2, 0, 0.85),
+    flipX: candidate.flipX === true,
+    flipY: candidate.flipY === true,
   }
   if (isValidAssetFileName(candidate.file)) artwork.file = candidate.file
   if (isValidAssetFileName(candidate.preview)) artwork.preview = candidate.preview

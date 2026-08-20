@@ -72,6 +72,8 @@ const BACKDROP_VARIABLES = [
   '--theme-backdrop-focus-x',
   '--theme-backdrop-focus-y',
   '--theme-backdrop-scale',
+  '--theme-backdrop-flip-x',
+  '--theme-backdrop-flip-y',
 ] as const
 
 export function tokenVariableValue(tokens: ThemeTokens, name: string): string {
@@ -158,6 +160,8 @@ function applyBackdrop(artwork: ThemeArtwork | undefined, root: HTMLElement): vo
     style.setProperty('--theme-backdrop-focus-x', `${artwork.focusX * 100}%`)
     style.setProperty('--theme-backdrop-focus-y', `${artwork.focusY * 100}%`)
     style.setProperty('--theme-backdrop-scale', String(artwork.scale))
+    style.setProperty('--theme-backdrop-flip-x', artwork.flipX === true ? '-1' : '1')
+    style.setProperty('--theme-backdrop-flip-y', artwork.flipY === true ? '-1' : '1')
   } else {
     style.removeProperty('--theme-artwork-image')
     style.removeProperty('--theme-artwork-preview')
@@ -168,6 +172,8 @@ function applyBackdrop(artwork: ThemeArtwork | undefined, root: HTMLElement): vo
     style.removeProperty('--theme-backdrop-focus-x')
     style.removeProperty('--theme-backdrop-focus-y')
     style.removeProperty('--theme-backdrop-scale')
+    style.removeProperty('--theme-backdrop-flip-x')
+    style.removeProperty('--theme-backdrop-flip-y')
   }
 }
 

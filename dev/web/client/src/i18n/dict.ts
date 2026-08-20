@@ -926,6 +926,8 @@ export const dict: Record<string, DictEntry> = {
   '水平焦点': { zh: '水平焦点', en: 'Horizontal Focus' },
   '垂直焦点': { zh: '垂直焦点', en: 'Vertical Focus' },
   '背景缩放': { zh: '背景缩放', en: 'Background Scale' },
+  '水平翻转': { zh: '水平翻转', en: 'Flip Horizontal' },
+  '垂直翻转': { zh: '垂直翻转', en: 'Flip Vertical' },
   '主题名称': { zh: '主题名称', en: 'Theme Name' },
   '显示在首页中央；留空使用默认标题': { zh: '显示在首页中央；留空使用默认标题', en: 'Shown in the home center; leave blank for the default title' },
   '背景图片': { zh: '背景图片', en: 'Background Image' },

@@ -70,6 +70,9 @@ export interface ThemeArtwork {
   homeOpacity: number
   taskOpacity: number
   dim: number
+  /** 水平/垂直镜像翻转（缺省视为 false）。 */
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export interface ThemeDefinition {
@@ -269,6 +272,8 @@ export function normalizeArtwork(value: unknown): ThemeArtwork | undefined {
     homeOpacity: normalizeNumber(candidate.homeOpacity, 0.8, 0, 1),
     taskOpacity: normalizeNumber(candidate.taskOpacity, 0.35, 0, 1),
     dim: normalizeNumber(candidate.dim, 0.2, 0, 0.85),
+    flipX: candidate.flipX === true,
+    flipY: candidate.flipY === true,
   }
 }
 

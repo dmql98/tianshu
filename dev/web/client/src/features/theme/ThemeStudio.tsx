@@ -30,6 +30,9 @@ export interface StudioArtworkState {
   homeOpacity: number
   taskOpacity: number
   dim: number
+  /** 水平/垂直镜像翻转（缺省视为 false）。 */
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export interface StudioSnapshot {
@@ -58,7 +61,9 @@ export function snapshotEquals(a: StudioSnapshot, b: StudioSnapshot): boolean {
     a.artwork.scale === b.artwork.scale &&
     a.artwork.homeOpacity === b.artwork.homeOpacity &&
     a.artwork.taskOpacity === b.artwork.taskOpacity &&
-    a.artwork.dim === b.artwork.dim
+    a.artwork.dim === b.artwork.dim &&
+    (a.artwork.flipX === true) === (b.artwork.flipX === true) &&
+    (a.artwork.flipY === true) === (b.artwork.flipY === true)
 }
 
 const paletteToTokens = (p: GeneratedPalette): ThemeTokens => ({
@@ -265,6 +270,8 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
         homeOpacity: snapshot.artwork.homeOpacity,
         taskOpacity: snapshot.artwork.taskOpacity,
         dim: snapshot.artwork.dim,
+        flipX: snapshot.artwork.flipX === true,
+        flipY: snapshot.artwork.flipY === true,
       }
       const common = {
         name: snapshot.name,
@@ -354,7 +361,7 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
                 style={{
                   opacity: previewPage === 'home' ? snapshot.artwork.homeOpacity : snapshot.artwork.taskOpacity,
                   backgroundImage: imageUrl ? `url("${imageUrl}")` : 'none',
-                  transform: `scale(${snapshot.artwork.scale})`,
+                  transform: `scale(${snapshot.artwork.scale * (snapshot.artwork.flipX === true ? -1 : 1)}, ${snapshot.artwork.scale * (snapshot.artwork.flipY === true ? -1 : 1)})`,
                 }}
               />
               <div className="studio-backdrop-dim" aria-hidden="true" />
@@ -438,6 +445,20 @@ export default function ThemeStudio({ editing, onClose, onSaved, showToast }: Th
                 />
                 <output>{Math.round(snapshot.artwork.scale * 100)}%</output>
               </label>
+              <div className="studio-segmented" role="group" aria-label={t('图片翻转')}>
+                <button
+                  type="button"
+                  className={snapshot.artwork.flipX === true ? 'active' : ''}
+                  aria-pressed={snapshot.artwork.flipX === true}
+                  onClick={() => patch(s => ({ ...s, artwork: { ...s.artwork, flipX: s.artwork.flipX !== true } }))}
+                >{t('水平翻转')}</button>
+                <button
+                  type="button"
+                  className={snapshot.artwork.flipY === true ? 'active' : ''}
+                  aria-pressed={snapshot.artwork.flipY === true}
+                  onClick={() => patch(s => ({ ...s, artwork: { ...s.artwork, flipY: s.artwork.flipY !== true } }))}
+                >{t('垂直翻转')}</button>
+              </div>
             </div>
           </div>
 

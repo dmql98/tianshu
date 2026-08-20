@@ -33,6 +33,8 @@ export interface ThemeDto {
     homeOpacity: number
     taskOpacity: number
     dim: number
+    flipX?: boolean
+    flipY?: boolean
   }
   colors: Record<string, string>
   home?: { title: string }
@@ -59,6 +61,8 @@ export function toThemeDefinition(dto: ThemeDto): ThemeDefinition {
       homeOpacity: dto.artwork.homeOpacity,
       taskOpacity: dto.artwork.taskOpacity,
       dim: dto.artwork.dim,
+      flipX: dto.artwork.flipX === true,
+      flipY: dto.artwork.flipY === true,
     } : undefined,
     ...(dto.home && typeof dto.home.title === 'string' && dto.home.title.trim() ? { home: { title: dto.home.title } } : {}),
     updatedAt: dto.updatedAt,
@@ -93,6 +97,8 @@ export interface CreateThemeInput {
     homeOpacity: number
     taskOpacity: number
     dim: number
+    flipX?: boolean
+    flipY?: boolean
   }
   /** 背景图（可选）；浏览器 File 或 Blob。 */
   background?: File | Blob

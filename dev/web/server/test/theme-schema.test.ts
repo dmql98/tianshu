@@ -130,6 +130,18 @@ describe('theme schema: 记录解析', () => {
     expect(record.updatedAt).toBeTruthy()
     expect(record.artwork?.scale).toBe(2.5)
   })
+
+  it('artwork 翻转：缺省为 false，true 原样保留', () => {
+    const record = parseThemeRecord(
+      JSON.stringify({ ...valid, artwork: { ...valid.artwork, flipX: true } }),
+      'custom-forest',
+    )
+    expect(record!.artwork?.flipX).toBe(true)
+    expect(record!.artwork?.flipY).toBe(false)
+    const legacy = parseThemeRecord(JSON.stringify(valid), 'custom-forest')
+    expect(legacy!.artwork?.flipX).toBe(false)
+    expect(legacy!.artwork?.flipY).toBe(false)
+  })
 })
 
 describe('theme schema: home.title', () => {

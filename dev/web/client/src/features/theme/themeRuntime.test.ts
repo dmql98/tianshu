@@ -192,6 +192,36 @@ describe('themeRuntime: apply', () => {
     expect(root.style.getPropertyValue('--theme-backdrop-focus-x')).toBe('30%')
     expect(root.style.getPropertyValue('--theme-backdrop-focus-y')).toBe('70%')
     expect(root.style.getPropertyValue('--theme-backdrop-scale')).toBe('1.4')
+    expect(root.style.getPropertyValue('--theme-backdrop-flip-x')).toBe('1')
+    expect(root.style.getPropertyValue('--theme-backdrop-flip-y')).toBe('1')
+  })
+
+  it('artwork 翻转写入 -1，切回内置时清除', () => {
+    const root = makeRoot()
+    const custom: ThemeDefinition = {
+      ...BUILTIN_THEME_DARK,
+      id: 'custom-flip',
+      source: 'custom',
+      name: '翻转',
+      artwork: {
+        url: 'http://localhost/api/themes/custom-flip/assets/background.webp',
+        focusX: 0.5,
+        focusY: 0.5,
+        scale: 1,
+        homeOpacity: 0.8,
+        taskOpacity: 0.35,
+        dim: 0.2,
+        flipX: true,
+        flipY: false,
+      },
+    }
+    applyResolvedTheme({ theme: custom, selection: { mode: 'custom', themeId: 'custom-flip' } }, root as unknown as HTMLElement)
+    expect(root.style.getPropertyValue('--theme-backdrop-flip-x')).toBe('-1')
+    expect(root.style.getPropertyValue('--theme-backdrop-flip-y')).toBe('1')
+
+    applyResolvedTheme({ theme: BUILTIN_THEME_LIGHT, selection: { mode: 'builtin', themeId: BUILTIN_THEME_LIGHT_ID } }, root as unknown as HTMLElement)
+    expect(root.style.getPropertyValue('--theme-backdrop-flip-x')).toBe('')
+    expect(root.style.getPropertyValue('--theme-backdrop-flip-y')).toBe('')
   })
 
   it('切换 custom → builtin 时清除残留 inline token', () => {
