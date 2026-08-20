@@ -39,7 +39,6 @@ export default function CharacterDetailPage() {
   const [idEdited, setIdEdited] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [avatar, setAvatar] = useState('')
   const [color, setColor] = useState('#6366f1')
   const [enabled, setEnabled] = useState(true)
   const [role, setRole] = useState<Character['role']>('both')
@@ -108,7 +107,6 @@ export default function CharacterDetailPage() {
       setCurrentId(c.id)
       setName(c.name)
       setDescription(c.description || '')
-      setAvatar(c.avatar || '')
       setColor(c.color || '#6366f1')
       setEnabled(c.enabled ?? true)
       setRole(c.role || 'both')
@@ -192,7 +190,6 @@ export default function CharacterDetailPage() {
       ...(charId.trim() !== (id || '') ? { id: charId.trim() } : {}),
       name: name.trim(),
       description,
-      avatar,
       color,
       enabled,
       role,
@@ -261,19 +258,6 @@ export default function CharacterDetailPage() {
     if (!confirm(t('确定删除此角色？'))) return
     await deleteCharacter(id)
     navigate('/characters')
-  }
-
-  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const dataUrl = ev.target?.result as string
-      setAvatar(dataUrl)
-      autoSave({ avatar: dataUrl })
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
   }
 
   function toggleGroup(grp: string) {
@@ -345,17 +329,12 @@ export default function CharacterDetailPage() {
             <CharacterRenderer
               characterId={currentId}
               name={name}
-              legacyAvatar={avatar}
               mode="portrait"
               className="character-renderer-detail"
             />
           </div>
           <div className="detail-actions">
             {!isNew && <button className="detail-btn primary" onClick={() => navigate('/chat')}>{t('开始对话')}</button>}
-            <label className="detail-btn" style={{ cursor: 'pointer' }}>
-              {t('上传头像')}
-              <input type="file" accept="image/*" hidden onChange={handleAvatarUpload} />
-            </label>
             {!isNew && <button className="detail-btn danger" onClick={handleDelete}>{t('删除角色')}</button>}
           </div>
         </div>

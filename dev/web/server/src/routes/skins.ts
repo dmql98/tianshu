@@ -46,11 +46,11 @@ router.delete('/:id', (c) => {
   return c.json({ success: true })
 })
 
-/** 上传文件：slot = portrait | avatar | motion（idle/thinking/working/speaking/success/error）。 */
+/** 上传文件：slot = original | portrait | avatar | motion（idle/thinking/working/speaking/success/error）。 */
 router.post('/:id/upload/:slot', async (c) => {
   const skinId = c.req.param('id')
   const slot = c.req.param('slot')
-  if (slot !== 'portrait' && slot !== 'avatar' && !isMotionSlot(slot)) {
+  if (slot !== 'portrait' && slot !== 'avatar' && slot !== 'original' && !isMotionSlot(slot)) {
     return c.json({ error: `Invalid slot: ${slot}` }, 400)
   }
   const skin = skinStore.get(skinId)

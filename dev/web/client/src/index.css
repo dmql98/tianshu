@@ -998,19 +998,121 @@ textarea:focus{border-color:var(--gold)}
 }
 
 .character-visual-editor {
-  display: grid;
-  grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr);
-  gap: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   padding: 22px;
 }
 
-.visual-preview-panel {
-  position: sticky;
-  top: 16px;
-  align-self: start;
+/* 顶部身份区：左立绘大卡 + 右 id/名称/头像 */
+.visual-slot-header {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.visual-slot-portrait {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 12px;
+  flex: none;
+}
+
+.visual-slot-portrait-preview {
+  width: 232px;
+  aspect-ratio: 3 / 4;
+  flex: none;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--gold-soft), var(--gold-mist));
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 18px 46px var(--theme-shadow);
+}
+
+.visual-slot-portrait-preview img,
+.visual-slot-portrait-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.visual-slot-portrait-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.visual-slot-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.visual-slot-note {
+  font-size: 11px;
+  color: var(--ink-light);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.visual-slot-id {
+  font-family: monospace;
+  font-size: calc(16px * var(--ui-font-scale));
+  color: var(--ink-deep);
+}
+
+/* 动画区：放大卡片，尺寸与对话界面头像展示框（130px）一致 */
+.visual-animations {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.visual-slot.motion-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--bg-hover);
+}
+
+.visual-slot.motion-card .visual-slot-info {
+  text-align: center;
+}
+
+.visual-slot-preview.motion-card-preview {
+  width: 130px;
+  height: 130px;
+  aspect-ratio: 1;
+  border: 2px solid var(--star-color, var(--gold));
+  border-radius: 16px;
+  box-shadow: 0 8px 24px var(--theme-shadow);
+}
+
+.visual-slot-preview.motion-card-preview video,
+.visual-slot-preview.motion-card-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 底部删除区 */
+.visual-delete-zone {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
 }
 
 .character-renderer-editor {
@@ -1021,27 +1123,6 @@ textarea:focus{border-color:var(--gold)}
   font-size: 48px;
   border: 1px solid var(--border);
   box-shadow: 0 18px 46px var(--theme-shadow);
-}
-
-.visual-preview-motion {
-  text-align: center;
-  color: var(--ink-mid);
-  font-size: 12px;
-}
-
-.visual-preview-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-  width: 100%;
-}
-
-.visual-editor-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .visual-slot {
@@ -1069,11 +1150,24 @@ textarea:focus{border-color:var(--gold)}
   border: 1px solid var(--border-light);
 }
 
-.visual-slot-preview img {
+.visual-slot-preview img,
+.visual-slot-preview video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transform-origin: center;
+}
+
+.visual-slot-preview.visual-slot-preview-lg {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+}
+
+.visual-slot-preview.visual-slot-original-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
 }
 
 .visual-slot-empty {

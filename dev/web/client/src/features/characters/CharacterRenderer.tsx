@@ -93,9 +93,9 @@ export default function CharacterRenderer({
     const assets = new Map(data.assets.map(asset => [asset.assetId, asset]))
     const candidates: AssetCandidate[] = mode === 'avatar'
       ? [
-          { id: data.visual.originalAssetId, crop: 'avatar' },
           { id: data.visual.avatarAssetId },
           { id: data.visual.portraitAssetId, crop: 'avatar' },
+          { id: data.visual.originalAssetId, crop: 'avatar' },
         ]
       : mode === 'portrait'
         ? [

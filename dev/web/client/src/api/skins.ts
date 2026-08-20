@@ -22,6 +22,7 @@ export interface Skin {
   id: string
   name: string
   description?: string
+  original?: SkinSlotEntry
   portrait?: SkinSlotEntry
   avatar?: SkinSlotEntry
   motions: Partial<Record<SkinMotion, SkinMotionEntry>>
@@ -49,8 +50,8 @@ export function skinFileUrl(skinId: string, filename: string): string {
   return apiUrl(`/api/skins/${encodeURIComponent(skinId)}/file/${encodeURIComponent(filename)}`)
 }
 
-/** 上传皮肤文件。slot: 'portrait' | 'avatar' | SkinMotion */
-export async function uploadSkinFile(id: string, slot: 'portrait' | 'avatar' | SkinMotion, file: File): Promise<Skin> {
+/** 上传皮肤文件。slot: 'original' | 'portrait' | 'avatar' | SkinMotion */
+export async function uploadSkinFile(id: string, slot: 'original' | 'portrait' | 'avatar' | SkinMotion, file: File): Promise<Skin> {
   const form = new FormData()
   form.append('file', file)
   const response = await fetch(apiUrl(`/api/skins/${encodeURIComponent(id)}/upload/${slot}`), {

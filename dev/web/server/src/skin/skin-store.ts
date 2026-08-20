@@ -26,7 +26,11 @@ export const SKIN_MOTIONS: SkinMotion[] = [
 ]
 
 /** 语义文件名 → 角色。 */
-export const SKIN_SLOTS: Record<string, { role: 'portrait' | 'avatar' | 'motion'; motion?: SkinMotion }> = {
+export const SKIN_SLOTS: Record<string, { role: 'portrait' | 'avatar' | 'motion' | 'original'; motion?: SkinMotion }> = {
+  'original.png': { role: 'original' },
+  'original.jpg': { role: 'original' },
+  'original.jpeg': { role: 'original' },
+  'original.webp': { role: 'original' },
   'portrait.png': { role: 'portrait' },
   'portrait.jpg': { role: 'portrait' },
   'portrait.jpeg': { role: 'portrait' },
@@ -70,6 +74,8 @@ export interface Skin {
   id: string
   name: string
   description?: string
+  /** 原画（裁剪前的大图）。 */
+  original?: SkinSlotEntry
   portrait?: SkinSlotEntry
   avatar?: SkinSlotEntry
   motions: Partial<Record<SkinMotion, SkinMotionEntry>>
@@ -94,13 +100,13 @@ function safeId(input: string): string {
   return cleaned.replace(/-+/g, '-').replace(/^-|-$/g, '')
 }
 
-function baseSlotFilename(filename: string, slot: 'portrait' | 'avatar'): string {
+function baseSlotFilename(filename: string, slot: 'portrait' | 'avatar' | 'original'): string {
   const ext = extname(basename(filename)).toLowerCase()
   const allowed: Record<string, string> = {
     '.png': 'png', '.jpg': 'jpg', '.jpeg': 'jpeg', '.webp': 'webp',
   }
   const e = allowed[ext] || 'png'
-  return slot === 'portrait' ? `portrait.${e}` : `avatar.${e}`
+  return `${slot}.${e}`
 }
 
 function motionFilename(motion: SkinMotion, filename: string): string {
@@ -142,10 +148,12 @@ function readSkinDir(skinId: string): Skin | null {
   const meta = readMeta(skinId)
   const portrait = files.find(f => SKIN_SLOTS[f]?.role === 'portrait')
   const avatar = files.find(f => SKIN_SLOTS[f]?.role === 'avatar')
+  const original = files.find(f => SKIN_SLOTS[f]?.role === 'original')
   return {
     id: skinId,
     name: meta?.name || skinId,
     description: meta?.description,
+    original: original ? { slot: 'portrait', filename: original, mime: mimeFor(original) } : undefined,
     portrait: portrait ? { slot: 'portrait', filename: portrait, mime: mimeFor(portrait) } : undefined,
     avatar: avatar ? { slot: 'avatar', filename: avatar, mime: mimeFor(avatar) } : undefined,
     motions: SKIN_MOTIONS.reduce((acc, motion) => {
@@ -221,7 +229,7 @@ export const skinStore = {
    * slot: 'portrait' | 'avatar' | SkinMotion
    * 文件名即语义，按 slot 落盘为固定语义文件名。
    */
-  upload(skinId: string, slot: 'portrait' | 'avatar' | SkinMotion, input: {
+  upload(skinId: string, slot: 'portrait' | 'avatar' | 'original' | SkinMotion, input: {
     bytes: Uint8Array
     filename: string
     mime: string
@@ -230,11 +238,11 @@ export const skinStore = {
     if (!meta) throw new Error(`Skin not found: ${skinId}`)
     const dir = skinDir(skinId)
     mkdirSync(dir, { recursive: true })
-    const target = slot === 'portrait' || slot === 'avatar'
+    const target = slot === 'portrait' || slot === 'avatar' || slot === 'original'
       ? baseSlotFilename(input.filename, slot)
       : motionFilename(slot, input.filename)
     // 先删掉旧的语义文件，避免历史扩展名残留。
-    if (slot === 'portrait' || slot === 'avatar') {
+    if (slot === 'portrait' || slot === 'avatar' || slot === 'original') {
       const old = readdirSync(dir).find(f => SKIN_SLOTS[f]?.role === slot)
       if (old && old !== target) { try { rmSync(join(dir, old)) } catch {} }
     } else {
