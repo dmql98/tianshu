@@ -27,6 +27,7 @@ export interface Skin {
   avatar?: SkinSlotEntry
   motions: Partial<Record<SkinMotion, SkinMotionEntry>>
   boundCharacters?: string[]
+  updatedAt?: number
   dir: string
 }
 
@@ -46,8 +47,10 @@ export const deleteSkin = (id: string) =>
 export const bindSkinCharacter = (id: string, characterId: string, bind: boolean) =>
   apiPost<Skin>(`/api/skins/${encodeURIComponent(id)}/bind`, { characterId, bind })
 
-export function skinFileUrl(skinId: string, filename: string): string {
-  return apiUrl(`/api/skins/${encodeURIComponent(skinId)}/file/${encodeURIComponent(filename)}`)
+/** 文件 URL。updatedAt 用于缓存破坏：裁剪/上传覆盖同名语义文件后 URL 变化，避免浏览器展示旧图。 */
+export function skinFileUrl(skinId: string, filename: string, updatedAt?: number): string {
+  const base = apiUrl(`/api/skins/${encodeURIComponent(skinId)}/file/${encodeURIComponent(filename)}`)
+  return updatedAt ? `${base}?v=${updatedAt}` : base
 }
 
 /** 上传皮肤文件。slot: 'original' | 'portrait' | 'avatar' | SkinMotion */

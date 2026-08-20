@@ -8,7 +8,7 @@ import { useI18n } from '@/i18n'
 
 interface Props {
   characterId: string
-  skinId?: string
+  skinId?: string | null
   name: string
 }
 
@@ -44,12 +44,12 @@ export default function CharacterSkinBinder({ characterId, skinId, name }: Props
     return null
   }
 
-  // 保存激活状态：next 为空表示取消激活（回到未绑定）。
+  // 保存激活状态：next 为空表示取消激活 → 写入 null（回退到同名默认皮肤 skin/<id>/）。
   const save = async (next: string) => {
     setSavingId(next)
     setMessage('')
     try {
-      const updated: Character = await updateCharacter(characterId, { skinId: next || undefined })
+      const updated: Character = await updateCharacter(characterId, { skinId: next || null })
       setActiveId(updated.skinId || '')
       // 皮肤变更后使角色视觉缓存失效，让卡片/侧边栏/详情页/舞台各点位刷新。
       invalidateCharacterVisual(characterId)
@@ -70,7 +70,7 @@ export default function CharacterSkinBinder({ characterId, skinId, name }: Props
         <div className="visual-slot-file" style={{ marginBottom: 12 }}>
           {activeId
             ? t('已激活：{name}', { name: (skins.find(s => s.id === activeId)?.name) || activeId })
-            : t('未绑定皮肤 · 该角色将回退使用默认占位视觉')}
+            : t('未激活皮肤 · 默认展示同名皮肤 {name}', { name: characterId })}
         </div>
 
         {loading ? (
@@ -85,6 +85,8 @@ export default function CharacterSkinBinder({ characterId, skinId, name }: Props
             {skins.map(skin => {
               const url = previewUrlOf(skin)
               const isActive = activeId === skin.id
+              // 未激活时，与角色同名的皮肤是默认展示皮肤（skinId 为 null → 展示 id）。
+              const isDefault = !activeId && skin.id === characterId
               const busy = savingId === skin.id
               return (
                 <div key={skin.id} className="star-card" style={{ width: 300, display: 'flex', flexDirection: 'column' }}>
@@ -96,9 +98,10 @@ export default function CharacterSkinBinder({ characterId, skinId, name }: Props
                     <div
                       className="star-avatar"
                       style={{
+                        position: 'relative',
                         width: 84,
                         height: 112,
-                        border: isActive ? '2px solid var(--gold, #d4a017)' : '1px solid var(--border)',
+                        border: isActive ? '2px solid var(--gold, #d4a017)' : isDefault ? '2px solid var(--border)' : '1px solid var(--border)',
                         borderRadius: 8,
                         overflow: 'hidden',
                         background: 'linear-gradient(135deg, rgba(120,120,200,0.15), rgba(120,120,200,0.05))',
@@ -107,6 +110,9 @@ export default function CharacterSkinBinder({ characterId, skinId, name }: Props
                       {url
                         ? <img src={url} alt={skin.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span className="visual-slot-empty" style={{ height: '100%', width: '100%' }}>{skin.name}</span>}
+                      {isDefault && !isActive && (
+                        <span style={{ position: 'absolute', bottom: 4, right: 4, fontSize: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '1px 5px', borderRadius: 4 }}>{t('默认')}</span>
+                      )}
                     </div>
                     <div className="star-card-heading">
                       <div className="star-name">{skin.name}</div>

@@ -28,13 +28,14 @@ function useSkinPreview(skin: Skin | null) {
 
   useEffect(() => {
     if (!skin) { setOriginalUrl(null); setPortraitUrl(null); setAvatarUrl(null); setMotionUrls({}); return }
-    setOriginalUrl(skin.original ? skinFileUrl(skin.id, skin.original.filename) : null)
-    setPortraitUrl(skin.portrait ? skinFileUrl(skin.id, skin.portrait.filename) : null)
-    setAvatarUrl(skin.avatar ? skinFileUrl(skin.id, skin.avatar.filename) : null)
+    const v = skin.updatedAt
+    setOriginalUrl(skin.original ? skinFileUrl(skin.id, skin.original.filename, v) : null)
+    setPortraitUrl(skin.portrait ? skinFileUrl(skin.id, skin.portrait.filename, v) : null)
+    setAvatarUrl(skin.avatar ? skinFileUrl(skin.id, skin.avatar.filename, v) : null)
     const m: Partial<Record<SkinMotion, string>> = {}
     for (const motion of SKIN_MOTIONS) {
       const entry = skin.motions[motion]
-      m[motion] = entry ? skinFileUrl(skin.id, entry.filename) : undefined
+      m[motion] = entry ? skinFileUrl(skin.id, entry.filename, v) : undefined
     }
     setMotionUrls(m)
   }, [skin])

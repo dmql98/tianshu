@@ -9,7 +9,7 @@ import { findSkillPackage } from '../agent/skill-catalog.js'
 import { resolveCharacterTools } from '../tools/definitions.js'
 import { characterRevisionStore } from '../character/revision-store.js'
 import { characterVisualStore, type CharacterVisual, type CharacterAssetKind } from '../character/visual-store.js'
-import { skinStore, skinToCharacterVisual } from '../skin/skin-store.js'
+import { skinStore, skinToCharacterVisual, type Skin } from '../skin/skin-store.js'
 import { characterPresenceProjector } from '../character/presence-projector.js'
 import { touchPlayerLease } from '../character/asset-refs.js'
 import { gzipSync, gunzipSync } from 'zlib'
@@ -31,6 +31,15 @@ function runPolicyView(meta: CharacterRecord) {
   if (configured?.maxAutoContinuations != null && configured.maxAutoContinuations > system.maxAutoContinuations) constrainedFields.push('maxAutoContinuations')
   if (configured?.autoContinuation === 'enabled' && !system.autoContinuationEnabled) constrainedFields.push('autoContinuation')
   return { configured, effectivePreview: snapshot.effective, constrainedFields }
+}
+
+/**
+ * 角色生效皮肤：绑定（激活）的 skinId 优先；未绑定（null/缺失）时回退到
+ * 与角色同名的默认皮肤 skin/<角色id>/（用户设计：skinId 为 null → 展示角色 id）。
+ */
+function effectiveSkin(record: CharacterRecord): Skin | null {
+  const skinId = record.skinId || record.id
+  return skinStore.get(skinId)
 }
 
 function mergeContent(meta: CharacterRecord & { source?: string; readOnly?: boolean; overridesBuiltin?: boolean; builtinVersion?: string }, id: string) {
@@ -76,13 +85,13 @@ router.get('/:id/visual', (c) => {
   const id = c.req.param('id')
   const record = characterMetaStore.getById(id)
   if (!record) return c.json({ error: 'Not found' }, 404)
-  // 皮肤解耦：角色绑定皮肤时，虚拟地从皮肤解析角色视觉（渲染无需改前端）。
-  if (record.skinId) {
-    const skin = skinStore.get(record.skinId)
-    if (skin) {
-      const virtual = skinToCharacterVisual(skin)
-      return c.json(virtual)
-    }
+  // 皮肤解耦：角色绑定皮肤（或回退到同名默认皮肤）时，虚拟地从皮肤解析角色
+  // 视觉（渲染无需改前端）。skinId 为 null → 展示 skin/<角色id>/ 默认皮肤。
+  // 该 JSON 随绑定变化且 URL 稳定，禁用浏览器缓存，避免切肤后命中旧清单。
+  c.header('Cache-Control', 'no-store')
+  const skin = effectiveSkin(record)
+  if (skin) {
+    return c.json(skinToCharacterVisual(skin))
   }
   return c.json({
     visual: characterVisualStore.get(id),
@@ -127,12 +136,14 @@ router.post('/:id/assets', async (c) => {
 router.get('/:id/assets/:assetId', (c) => {
   const id = c.req.param('id')
   const assetId = c.req.param('assetId')
-  // 皮肤解耦：角色绑定皮肤后，skin: 前缀的 assetId 从皮肤目录读取文件渲染。
-  if (assetId.startsWith('skin:')) {
+  // 皮肤解耦：角色绑定皮肤（或回退到同名默认皮肤）后，skin: 前缀的 assetId 从皮肤目录读取文件渲染。
+  // assetId 格式 skin:<skinId>:<slot>，把皮肤 id 编入 URL（避免切换皮肤时被旧 URL 的 immutable 缓存命中）。
+  const skinMatch = /^skin:([^:]+):([^:]+)$/.exec(assetId)
+  if (skinMatch) {
     const record = characterMetaStore.getById(id)
-    const skin = record?.skinId ? skinStore.get(record.skinId) : null
-    if (!skin) return c.json({ error: 'Not found' }, 404)
-    const slot = assetId.slice('skin:'.length)
+    const skin = record ? effectiveSkin(record) : null
+    if (!skin || skin.id !== skinMatch[1]) return c.json({ error: 'Not found' }, 404)
+    const slot = skinMatch[2]
     const filename = slot === 'portrait'
       ? skin.portrait?.filename
       : slot === 'avatar'

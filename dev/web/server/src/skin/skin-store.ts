@@ -80,6 +80,7 @@ export interface Skin {
   avatar?: SkinSlotEntry
   motions: Partial<Record<SkinMotion, SkinMotionEntry>>
   boundCharacters?: string[]
+  updatedAt?: number
   dir: string
 }
 
@@ -162,6 +163,7 @@ function readSkinDir(skinId: string): Skin | null {
       return acc
     }, {} as Partial<Record<SkinMotion, SkinMotionEntry>>),
     boundCharacters: meta?.boundCharacters,
+    updatedAt: meta?.updatedAt,
     dir,
   }
 }
@@ -368,8 +370,9 @@ export function migrateCharacterVisualToSkin(
  * 时无需改动前端，只要视觉接口返回从皮肤解析的虚拟视觉即可让所有渲染点位
  * （列表卡片/预览/会话舞台）自动按皮肤加载。
  *
- * assetId 采用稳定语义 id：`skin:portrait` / `skin:avatar` / `skin:<motion>`，
- * 便于角色的 assets 静态接口识别并转读皮肤文件。
+ * assetId 采用稳定语义 id：`skin:<skinId>:portrait` / `skin:<skinId>:avatar` /
+ * `skin:<skinId>:<motion>`，把皮肤 id 编入 URL，保证切换皮肤后 URL 变化，
+ * 不会被浏览器按旧 URL 的 immutable 缓存命中。
  */
 export function skinToCharacterVisual(skin: Skin): {
   visual: CharacterVisual
@@ -396,15 +399,15 @@ export function skinToCharacterVisual(skin: Skin): {
   let avatarAssetId: string | undefined
   let portraitAssetId: string | undefined
 
-  if (skin.portrait) { push('skin:portrait', skin.portrait.filename); portraitAssetId = 'skin:portrait' }
-  if (skin.avatar) { push('skin:avatar', skin.avatar.filename); avatarAssetId = 'skin:avatar' }
+  if (skin.portrait) { push(`skin:${skin.id}:portrait`, skin.portrait.filename); portraitAssetId = `skin:${skin.id}:portrait` }
+  if (skin.avatar) { push(`skin:${skin.id}:avatar`, skin.avatar.filename); avatarAssetId = `skin:${skin.id}:avatar` }
   if (portraitAssetId) originalAssetId = portraitAssetId
 
   const motions: CharacterVisual['motions'] = {}
   for (const motion of SKIN_MOTIONS) {
     const entry = skin.motions[motion]
     if (!entry) continue
-    const id = `skin:${motion}`
+    const id = `skin:${skin.id}:${motion}`
     push(id, entry.filename)
     motions[motion] = { assetId: id, loop: motion !== 'success' && motion !== 'error' }
   }

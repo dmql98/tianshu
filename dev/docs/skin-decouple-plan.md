@@ -1,6 +1,6 @@
 # 天枢 · 角色与皮肤解耦改造方案（待确认）
 
-> 状态：方案草稿，未改业务代码。欢迎逐条确认。
+> 状态：已按「角色元数据 skinId 绑定」设计落地（commit 9d44f87 + 后续修正）。
 
 ## 一、目标
 
@@ -71,10 +71,14 @@ dataDir/
 - 把现有 `characters/*/visual/assets` 按 `visual.json` 语义重命名迁移到 `skin/<名>/`
 - 角色若无绑定皮肤 → 回退默认占位
 
-## 五、需要你确认的决策点
+## 五、已确认的设计决策
 
-1. **动画命名统一**：皮肤 6 个动画沿用现有 `idle/thinking/working/speaking/success/error`，还是用你写的 `working/idle/speak`？`speak` 与 `speaking` 是否同一动画？（建议沿用现有枚举，改动最小）
-2. **分页形态**：皮肤页是「`/characters` 页内两个 Tab」还是「独立 `/skins` 路由」？（建议页内 Tab + 皮肤编辑用独立路由）
-3. **旧数据兼容**：老角色视觉是否**全部强制迁移成皮肤**，还是保留旧 `visual` 作为回退？（建议强制迁移 + 无绑定回退占位）
-4. **皮肤归属**：皮肤是否可被多个角色复用（值为 yes，否则只做 1:1）？
-5. **立绘文件是否含透明背景/仅静态**：沿用现有 assets 的文件格式即可，暂按 PNG/MP4 处理？
+1. **动画命名统一**：皮肤 6 个动画沿用现有枚举 `idle/thinking/working/speaking/success/error`（`speaking` 即 `speak`）。
+2. **分页形态**：`/characters` 页内「角色 / 皮肤」两个 Tab；皮肤编辑用独立路由 `/skins/:id`。
+3. **绑定机制（最终设计）**：角色元数据 `character.json` 里维护 `skinId` 字段。
+   - 角色详情页「激活」皮肤 → 把该皮肤 id 写入 `skinId`；
+   - 「取消激活」→ 写 `null`；
+   - `skinId` 为 `null`（或缺失）→ 展示与角色同名的默认皮肤 `skin/<角色id>/`；
+   - 全系统展示（列表卡片/预览/会话舞台等）统一按生效 skinId 从 `skin/<skinId>/` 目录加载素材（前端 `CharacterRenderer` 走 `/api/characters/:id/visual` + `/assets/:assetId`，后端按生效皮肤虚拟解析，前端无需按皮肤改渲染）。
+4. **皮肤归属**：皮肤可被多个角色复用（`boundCharacters` 仅记录归属供 UI 显示）。
+5. **文件格式**：沿用现有 PNG/MP4，立绘/头像支持 png/jpg/jpeg/webp，动画支持 mp4/webp/gif。

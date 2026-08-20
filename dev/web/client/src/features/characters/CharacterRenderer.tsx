@@ -114,9 +114,9 @@ export default function CharacterRenderer({
             loop: data.visual.motions.idle?.loop,
             motionCrop: data.visual.motions.idle?.crop,
           },
-          { id: data.visual.originalAssetId, crop: 'avatar' },
           { id: data.visual.avatarAssetId },
           { id: data.visual.portraitAssetId, crop: 'avatar' },
+          { id: data.visual.originalAssetId, crop: 'avatar' },
         ]
     for (const candidate of candidates) {
       const id = candidate.id
