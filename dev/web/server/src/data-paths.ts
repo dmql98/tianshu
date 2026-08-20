@@ -63,3 +63,8 @@ export function iconPacksRoot(): string {
 export function contentStateFile(): string {
   return resolve(dataRoot(), 'content-state.json')
 }
+
+/** 用户偏好文件：<dataDir>/user-preferences.json（主题/图标包等轻量偏好持久层）。 */
+export function userPreferencesFile(): string {
+  return resolve(dataRoot(), 'user-preferences.json')
+}

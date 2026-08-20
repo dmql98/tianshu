@@ -20,6 +20,7 @@ import runsRouter, { setRunsRuntime } from './routes/runs.js'
 import themesRouter, { initThemeStore } from './routes/themes.js'
 import iconPacksRouter from './routes/iconpacks.js'
 import eventsRouter from './routes/events.js'
+import preferencesRouter from './routes/preferences.js'
 import { setTransportBroadcaster, createBroadcaster } from './transport/runtime.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb, closeDb } from './db/schema.js'
@@ -223,6 +224,7 @@ export async function startTianshuServer(
   app.route('/api/themes', themesRouter)
   app.route('/api/iconpacks', iconPacksRouter)
   app.route('/api/events', eventsRouter)
+  app.route('/api/user-preferences', preferencesRouter)
   app.get('/health', (c) => c.json({ ok: true }))
 
   // Any unmatched /api path must return JSON 404, not the SPA shell.
