@@ -26,6 +26,11 @@ export function skillsRoot(): string {
   return resolve(dataRoot(), 'skills')
 }
 
+/** 用户皮肤目录：<dataDir>/skin（SKIN_DECOUPLE_PLAN，角色视觉/动画独立成皮肤）。 */
+export function skinRoot(): string {
+  return resolve(dataRoot(), 'skin')
+}
+
 /**
  * builtin/content 出厂镜像根：<dataDir>/builtin。
  *

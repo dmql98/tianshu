@@ -5,6 +5,7 @@ import type { Character } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import type { I18nState } from '@/i18n'
 import { useI18n } from '@/i18n'
+import SkinsPage from './SkinsPage'
 
 type T = I18nState['t']
 
@@ -38,6 +39,7 @@ function timeAgo(ts: number | undefined, t: T): string {
 export default function CharactersPage() {
   const navigate = useNavigate()
   const t = useI18n()
+  const [tab, setTab] = useState<'characters' | 'skins'>('characters')
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -63,6 +65,14 @@ export default function CharactersPage() {
 
   return (
     <div className="main">
+      <div className="detail-tabs detail-tabs-page">
+        <button className={`detail-tab ${tab === 'characters' ? 'active' : ''}`} onClick={() => setTab('characters')}>{t('角色')}</button>
+        <button className={`detail-tab ${tab === 'skins' ? 'active' : ''}`} onClick={() => setTab('skins')}>{t('皮肤')}</button>
+      </div>
+      {tab === 'skins' ? (
+        <SkinsPage />
+      ) : (
+      <>
       <div className="page-header">
         <span className="page-title">{t('角色管理')}</span>
         <div className="header-actions">
@@ -202,6 +212,8 @@ export default function CharactersPage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )

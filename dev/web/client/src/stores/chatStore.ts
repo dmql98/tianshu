@@ -1602,7 +1602,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         active_group: session.active_group || undefined,
         session_type: session.session_type || undefined,
         event_id: session.event_id || undefined,
-        thinking: session.thinking || undefined,
+        thinking: !!session.thinking || !!session.reasoning_effort || undefined,
         reasoning_effort: session.reasoning_effort || undefined,
         supersedes_message_id: pendingSupersedesMessageId,
       }, (resp: unknown) => {

@@ -6,7 +6,7 @@ import { fetchSkillPackages } from '@/api/skills'
 import { normalizeStrategy, STRATEGIES, type Character, type CharacterStats, type Strategy } from '@/types'
 import type { ToolMeta } from '@/api/tools'
 import type { SkillPackageMeta } from '@/api/skills'
-import CharacterVisualEditor from '@/features/characters/CharacterVisualEditor'
+import CharacterSkinBinder from '@/features/skins/CharacterSkinBinder'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import { dedupeToolBindings, getUnboundTools, toToolBindingName } from '@/features/characters/toolBindings'
 import EditField from '@/components/EditField'
@@ -607,13 +607,13 @@ export default function CharacterDetailPage() {
             </div>
           </div>
 
-          {/* 视觉与动画 */}
+          {/* 视觉与动画（绑定皮肤） */}
           <div className={`tab-page ${activeTab === 'visual' ? 'active' : ''}`}>
             {char && (
-              <CharacterVisualEditor
+              <CharacterSkinBinder
                 characterId={char.id}
+                skinId={char.skinId}
                 name={char.name}
-                legacyAvatar={char.avatar}
               />
             )}
           </div>

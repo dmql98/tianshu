@@ -274,3 +274,56 @@ describe('stream delta coalescing (50ms window)', () => {
     expect(useChatStore.getState().sessions[0].messages[0].tool_output).toBe('ab')
   })
 })
+
+describe('sendMessage thinking payload (P-reasoning fix)', () => {
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mocks.fakeBus.connected = true
+  })
+
+  it('emits thinking:true when the session has a reasoning_effort', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    useChatStore.setState({
+      activeSessionId: SID,
+      sessions: [{
+        id: SID,
+        character_id: 'c1',
+        session_type: 'chat',
+        provider_id: 'p1',
+        model: 'deepseek-v4-flash',
+        reasoning_effort: 'medium',
+        messages: [],
+      }] as never[],
+    } as never)
+
+    await useChatStore.getState().sendMessage('hello')
+
+    const chatRun = mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as Record<string, unknown> | undefined
+    expect(chatRun).toBeDefined()
+    expect(chatRun!.thinking).toBe(true)
+    expect(chatRun!.reasoning_effort).toBe('medium')
+  })
+
+  it('emits thinking falsy when no reasoning_effort is set', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    useChatStore.setState({
+      activeSessionId: SID,
+      sessions: [{
+        id: SID,
+        character_id: 'c1',
+        session_type: 'chat',
+        provider_id: 'p1',
+        model: 'deepseek-v4-flash',
+        messages: [],
+      }] as never[],
+    } as never)
+
+    await useChatStore.getState().sendMessage('hello')
+
+    const chatRun = mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as Record<string, unknown> | undefined
+    expect(chatRun).toBeDefined()
+    expect(chatRun!.thinking).toBeFalsy()
+    expect(chatRun!.reasoning_effort).toBeUndefined()
+  })
+})

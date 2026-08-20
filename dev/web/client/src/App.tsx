@@ -4,6 +4,8 @@ import { fetchEventDefinitions } from './api/eventDefinitions'
 import { fetchDataspace } from './api/config'
 import CharacterDetailPage from './pages/CharacterDetailPage'
 import CharactersPage from './pages/CharactersPage'
+import SkinsPage from './pages/SkinsPage'
+import SkinDetailPage from './pages/SkinDetailPage'
 import ChatPage from './pages/ChatPage'
 import SkillsPage from './pages/SkillsPage'
 import SkillPackageDetailPage from './pages/SkillPackageDetailPage'
@@ -145,6 +147,8 @@ export default function App() {
         <Route path="/characters" element={<CharactersPage />} />
         <Route path="/characters/new" element={<CharacterDetailPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
+        <Route path="/skins" element={<SkinsPage />} />
+        <Route path="/skins/:id" element={<SkinDetailPage />} />
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/skills/new" element={<NewSkillPackagePage />} />
         <Route path="/skills/packages/:category/:packageId" element={<SkillPackageDetailPage />} />

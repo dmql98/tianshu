@@ -168,7 +168,7 @@ export async function handleChatRun(
   const enqueueResult = enqueueRun(sessionId, runId, async (signal) => {
     try {
       await sessionLoop(broadcaster, durableStream, sessionId, signal, {
-        thinking: !!data.thinking,
+        thinking: !!data.thinking || !!data.reasoning_effort,
         reasoning_effort: data.reasoning_effort as string | undefined,
         run_id: runId,
       })

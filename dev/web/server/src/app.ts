@@ -21,6 +21,7 @@ import themesRouter, { initThemeStore } from './routes/themes.js'
 import iconPacksRouter from './routes/iconpacks.js'
 import eventsRouter from './routes/events.js'
 import preferencesRouter from './routes/preferences.js'
+import skinsRouter from './routes/skins.js'
 import { setTransportBroadcaster, createBroadcaster } from './transport/runtime.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb, closeDb } from './db/schema.js'
@@ -30,6 +31,7 @@ import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
 import { runStore } from './agent/runtime/run-store.js'
 import { forceCancelSessionRuns, recoverContinuationState } from './agent/runtime/run-event-store.js'
 import { materializeAllBuiltinContent, materializeSummary } from './content/materialize-builtin.js'
+import { migrateAllCharacterVisualsToSkin } from './skin/migrate.js'
 import { startRunStallWatchdog } from './agent/runtime/run-stall-watchdog.js'
 
 export interface StartServerOptions {
@@ -169,6 +171,12 @@ export async function startTianshuServer(
     const result = materializeAllBuiltinContent()
     console.log(materializeSummary(result))
   }
+  // 皮肤解耦：把现有角色的 visual 抽取为 <dataDir>/skin/<id>/ 皮肤并绑定角色
+  // （SKIN_DECOUPLE_PLAN）。幂等；在 builtin 物化之后执行，确保角色齐全。
+  {
+    const result = migrateAllCharacterVisualsToSkin()
+    console.log(`[startup] migrated ${result.migrated} character visual(s) to skin, skipped ${result.skipped}`)
+  }
   // Reclaim orphaned runs left behind by a previous process. Approval/ask
   // waits live only in-memory, so after a restart any run still parked in
   // awaiting_approval/awaiting_input/paused is dead: without this sweep the
@@ -225,6 +233,7 @@ export async function startTianshuServer(
   app.route('/api/iconpacks', iconPacksRouter)
   app.route('/api/events', eventsRouter)
   app.route('/api/user-preferences', preferencesRouter)
+  app.route('/api/skins', skinsRouter)
   app.get('/health', (c) => c.json({ ok: true }))
 
   // Any unmatched /api path must return JSON 404, not the SPA shell.

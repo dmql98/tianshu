@@ -54,6 +54,8 @@ export interface CharacterRecord {
   default_strategy?: Strategy
   skills?: string[]
   skillBindings?: SkillBinding[]
+  /** 绑定的皮肤 id（SKIN_DECOUPLE_PLAN）。 */
+  skinId?: string
   enabled?: boolean
   hidden?: boolean
   createdAt?: number

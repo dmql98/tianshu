@@ -9,6 +9,7 @@ import { findSkillPackage } from '../agent/skill-catalog.js'
 import { resolveCharacterTools } from '../tools/definitions.js'
 import { characterRevisionStore } from '../character/revision-store.js'
 import { characterVisualStore, type CharacterVisual, type CharacterAssetKind } from '../character/visual-store.js'
+import { skinStore, skinToCharacterVisual } from '../skin/skin-store.js'
 import { characterPresenceProjector } from '../character/presence-projector.js'
 import { touchPlayerLease } from '../character/asset-refs.js'
 import { gzipSync, gunzipSync } from 'zlib'
@@ -73,7 +74,16 @@ router.get('/:id/revisions', (c) => {
 
 router.get('/:id/visual', (c) => {
   const id = c.req.param('id')
-  if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
+  const record = characterMetaStore.getById(id)
+  if (!record) return c.json({ error: 'Not found' }, 404)
+  // 皮肤解耦：角色绑定皮肤时，虚拟地从皮肤解析角色视觉（渲染无需改前端）。
+  if (record.skinId) {
+    const skin = skinStore.get(record.skinId)
+    if (skin) {
+      const virtual = skinToCharacterVisual(skin)
+      return c.json(virtual)
+    }
+  }
   return c.json({
     visual: characterVisualStore.get(id),
     assets: characterVisualStore.listAssets(id),
@@ -115,10 +125,52 @@ router.post('/:id/assets', async (c) => {
 })
 
 router.get('/:id/assets/:assetId', (c) => {
-  const stored = characterVisualStore.getAsset(c.req.param('id'), c.req.param('assetId'))
+  const id = c.req.param('id')
+  const assetId = c.req.param('assetId')
+  // 皮肤解耦：角色绑定皮肤后，skin: 前缀的 assetId 从皮肤目录读取文件渲染。
+  if (assetId.startsWith('skin:')) {
+    const record = characterMetaStore.getById(id)
+    const skin = record?.skinId ? skinStore.get(record.skinId) : null
+    if (!skin) return c.json({ error: 'Not found' }, 404)
+    const slot = assetId.slice('skin:'.length)
+    const filename = slot === 'portrait'
+      ? skin.portrait?.filename
+      : slot === 'avatar'
+        ? skin.avatar?.filename
+        : (skin.motions as Record<string, { filename: string } | undefined>)[slot]?.filename
+    if (!filename) return c.json({ error: 'Not found' }, 404)
+    const stored = skinStore.getFile(skin.id, filename)
+    if (!stored) return c.json({ error: 'Not found' }, 404)
+    // 活跃读取刷新角色皮肤租约，避免 GC。
+    touchPlayerLease(id, assetId, 60 * 60 * 1000)
+    c.header('Cache-Control', 'public, max-age=31536000, immutable')
+    c.header('Accept-Ranges', 'bytes')
+    const range = c.req.header('range')
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range)
+      if (match) {
+        const size = stored.size
+        const start = match[1] ? parseInt(match[1], 10) : 0
+        const end = match[2] ? parseInt(match[2], 10) : size - 1
+        if (start >= size || end >= size) {
+          c.header('Content-Range', `bytes */${size}`)
+          return c.body(null, 416)
+        }
+        const chunk = readFileSync(stored.file).subarray(start, end + 1)
+        c.header('Content-Type', stored.mime)
+        c.header('Content-Length', String(chunk.length))
+        c.header('Content-Range', `bytes ${start}-${end}/${size}`)
+        return c.body(chunk, 206)
+      }
+    }
+    c.header('Content-Type', stored.mime)
+    c.header('Content-Length', String(stored.size))
+    return c.body(readFileSync(stored.file))
+  }
+  const stored = characterVisualStore.getAsset(id, assetId)
   if (!stored) return c.json({ error: 'Not found' }, 404)
   // A live fetch refreshes the player lease so in-use assets survive GC.
-  touchPlayerLease(c.req.param('id'), stored.asset.assetId, 60 * 60 * 1000)
+  touchPlayerLease(id, stored.asset.assetId, 60 * 60 * 1000)
   c.header('Cache-Control', 'public, max-age=31536000, immutable')
   c.header('Accept-Ranges', 'bytes')
   const range = c.req.header('range')
