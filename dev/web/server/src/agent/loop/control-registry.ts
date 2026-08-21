@@ -18,8 +18,14 @@ export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'submit_result', 'ask_us
 
 export const CONTROL_TOOL_SET: ReadonlySet<string> = new Set<string>(CONTROL_TOOL_NAMES)
 
-export function getControlToolDefinitions(): ControlToolDefinition[] {
-  return [
+// The exclusivity rule is enforced in inner.ts (mixed batches are rejected
+// atomically). It must ALSO be model-visible: the model can only comply with a
+// constraint it can see, so every control description carries this note.
+const EXCLUSIVITY_NOTE =
+  '\n\n⚠️ 协议约束：控制动作必须独占一轮——不能与任何其他工具调用并行发出，否则整批调用都会被拒绝。' +
+  '如需同时执行普通工具，先发普通工具调用，下一轮再单独发出控制动作。'
+
+const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
     {
       type: 'function',
       function: {
@@ -153,4 +159,10 @@ export function getControlToolDefinitions(): ControlToolDefinition[] {
       },
     },
   ]
+
+export function getControlToolDefinitions(): ControlToolDefinition[] {
+  return BASE_CONTROL_TOOL_DEFINITIONS.map(d => ({
+    ...d,
+    function: { ...d.function, description: d.function.description + EXCLUSIVITY_NOTE },
+  }))
 }

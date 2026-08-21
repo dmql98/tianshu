@@ -75,6 +75,7 @@ try {
     assert(result.toolCallRecords.length === 2, 'both calls recorded')
     assert(result.toolCallRecords.every((r: any) => r.hasError), 'no call produced a real result')
     assert(result.toolCallRecords.every((r: any) => r.error?.includes('control actions')), 'error explains protocol violation')
+    assert(result.toolCallRecords.every((r: any) => r.error?.includes('Recovery:')), 'error includes the recovery recipe')
     const rejected = emitted.filter(e => e.type === 'control.rejected')
     assert(rejected.length === 2, 'control.rejected emitted for every call in the batch')
     assert(!emitted.some(e => e.type === 'tool.started'), 'no tool.started: no execution began')

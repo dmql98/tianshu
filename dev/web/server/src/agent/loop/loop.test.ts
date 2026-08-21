@@ -13,7 +13,7 @@ function assert(cond: unknown, message: string): asserts cond {
   if (!cond) throw new Error(`FAIL: ${message}`)
 }
 
-const toolRecord = (toolName: string, hasError: boolean): ToolCallRecord => ({ toolName, hasError, error: hasError ? 'boom' : undefined })
+const toolRecord = (toolName: string, hasError: boolean, extra: Partial<ToolCallRecord> = {}): ToolCallRecord => ({ toolName, hasError, error: hasError ? 'boom' : undefined, ...extra })
 
 function asm(content: string): LLMMessage { return { role: 'assistant', content } }
 function toolMsg(callId: string, output = 'out'): LLMMessage { return { role: 'tool', content: JSON.stringify({ output }), tool_call_id: callId } }
@@ -96,14 +96,36 @@ function userMsg(content: string): LLMMessage { return { role: 'user', content }
 
 // ---- detectDoomLoop ----------------------------------------------------------
 {
-  assert(!detectDoomLoop([]), 'empty history not doomed')
-  assert(!detectDoomLoop([toolRecord('read', true), toolRecord('read', true), toolRecord('read', true)]), '3 errors not enough')
+  assert(!detectDoomLoop([]).doomed, 'empty history not doomed')
+  const threeErrors = [1, 2, 3].map(() => toolRecord('read', true))
+  assert(!detectDoomLoop(threeErrors).doomed, '3 errors not enough')
+
+  // Regression (session mt2i2ie348v2tb): a legitimate sequential workflow —
+  // same tool, different args/results, all successful — must NOT be flagged.
+  const exploration = [1, 2, 3, 4, 5, 6].map(i => toolRecord('bash', false, {
+    args: `{"command":"step ${i}"}`, normalizedArgsHash: `a${i}`, resultHash: `r${i}`,
+  }))
+  assert(!detectDoomLoop(exploration).doomed, 'sequential exploration with distinct calls not doomed')
+
+  // Identical spin: same tool + same args hash + same result hash.
+  const spin = [1, 2, 3, 4, 5, 6].map(() => toolRecord('bash', false, {
+    args: '{"command":"ls"}', normalizedArgsHash: 'a', resultHash: 'r',
+  }))
+  const spinVerdict = detectDoomLoop(spin)
+  assert(spinVerdict.doomed && spinVerdict.kind === 'identical_calls', 'identical-call spin is doomed')
+  assert(spinVerdict.doomed && spinVerdict.lastTool === 'bash' && spinVerdict.argsPreview.includes('ls'), 'verdict names the spinning tool and previews args')
+
+  // Six consecutive failures remain doomed under all_failed.
   const sixErrors = [1, 2, 3, 4, 5, 6].map(() => toolRecord('bash', true))
-  assert(detectDoomLoop(sixErrors), '6 consecutive errors is doomed')
-  const repeating = [1, 2, 3, 4, 5, 6].map(() => toolRecord('write', false))
-  assert(detectDoomLoop(repeating), '6 same-tool calls is doomed')
+  const errVerdict = detectDoomLoop(sixErrors)
+  assert(errVerdict.doomed && errVerdict.kind === 'all_failed', '6 consecutive errors is doomed (all_failed)')
+
+  // Legacy/synthetic records without hashes: repetition branch never fires.
+  const legacy = [1, 2, 3, 4, 5, 6].map(() => toolRecord('write', false))
+  assert(!detectDoomLoop(legacy).doomed, 'same-name records without hashes are not repetition-doomed')
+
   const mixed = [toolRecord('a', false), toolRecord('b', true), toolRecord('a', false), toolRecord('b', true), toolRecord('a', false), toolRecord('b', true)]
-  assert(!detectDoomLoop(mixed), 'mixed history not doomed')
+  assert(!detectDoomLoop(mixed).doomed, 'mixed history not doomed')
   console.log('  OK detectDoomLoop semantics preserved')
 }
 

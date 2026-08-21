@@ -518,10 +518,15 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       continue
     }
 
-    if (result.toolCallRecords?.length && detectDoomLoop(toolCallHistory)) {
-      const recent = toolCallHistory.slice(-6)
-      const lastTool = recent[recent.length - 1]?.toolName || 'unknown'
-      composeCtx.systemAlerts!.push(`[System Alert] Repeated failures detected (last: ${lastTool}). Two strikes with the same tool type — do NOT retry with minor changes. Switch to a completely different tool category.`)
+    if (result.toolCallRecords?.length) {
+      const doom = detectDoomLoop(toolCallHistory)
+      if (doom.doomed) {
+        composeCtx.systemAlerts!.push(
+          doom.kind === 'all_failed'
+            ? `[System Alert] The last 6 ${doom.lastTool} calls all failed. Do NOT retry with minor changes. Switch to a different approach or tool category, or report the blocker via ask_user.`
+            : `[System Alert] ${doom.lastTool} was called repeatedly with identical arguments and produced an identical result each time (no progress). Last args: ${doom.argsPreview}. Stop repeating this exact call; adjust the approach instead.`,
+        )
+      }
     }
 
     // Snip stale tool results first (cache-friendly), then compact if still over limit.

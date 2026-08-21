@@ -445,7 +445,7 @@ export async function innerLoop(
   const delegateCall = toolCallsAcc.find(tc => tc.function.name === 'delegate_to_agent')
   const controlCalls = toolCallsAcc.filter(tc => CONTROL_TOOL_SET.has(tc.function.name))
   if (controlCalls.length > 0 && toolCallsAcc.length !== 1) {
-    const error = 'Protocol error: control actions must be the only tool call in a model turn'
+    const error = 'Protocol error: control actions must be the only tool call in a model turn. Recovery: re-issue the ordinary tool call(s) now, then send the control action alone in a following turn.'
     for (const tc of toolCallsAcc) {
       newMessages.push({ role: 'tool', content: JSON.stringify({ error }), tool_call_id: tc.id })
       if (sessionId) {

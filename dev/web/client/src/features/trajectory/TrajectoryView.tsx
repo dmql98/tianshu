@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchSessionTrajectory, type SessionTrajectoryData } from '@/api/sessions'
+import { getEventBus } from '@/api/eventBus'
 import {
   buildTrajectory,
   filterTrajectory,
@@ -12,6 +13,22 @@ import {
 } from '@/features/trajectory/trajectory'
 import { formatDuration, formatTokens } from '@/features/chat/runStats'
 import { useI18n } from '@/i18n'
+
+/** 实时重拉的节流窗口：合并同一窗口内的多次事件，避免工具密集 loop 时频繁整拉。 */
+const TRAJECTORY_REFRESH_THROTTLE_MS = 400
+
+/**
+ * 会影响轨迹视图重建的 durable 事件。刻意排除 message.delta / tool.output：
+ * 它们是高频流式事件，只改 chat 侧流式文本，而轨迹内容来自 messages 表的最终态，
+ * 系统提示注入来自 llm_calls 快照，二者都不依赖这两个事件，重拉无需被它们驱动。
+ */
+const TRAJECTORY_REFRESH_EVENTS = [
+  'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
+  'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
+  'run.limit_warning', 'run.grace_started', 'run.continuation_queued', 'run.compacted',
+  'message.metrics', 'tool.started', 'tool.completed',
+  'approval.requested', 'ask_user', 'usage', 'sub_agent.started',
+] as const
 
 const STATUS_LABEL: Record<string, string> = {
   queued: '排队中', preparing: '准备中', running: '运行中', cancelling: '取消中',
@@ -96,6 +113,7 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
   // 会话切换时重置，再按会话加载整条轨迹。
   useEffect(() => {
     let cancelled = false
+    let refetchTimer: ReturnType<typeof setTimeout> | null = null
     setData(null)
     setError(null)
     setSelection(null)
@@ -105,7 +123,35 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
       .then(result => { if (!cancelled) setData(result) })
       .catch(() => { if (!cancelled) setError(t('加载轨迹失败')) })
       .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+
+    // 实时刷新：订阅本会话的轨迹相关事件，节流后重新拉取整条轨迹。
+    // 只在本会话的事件上触发；重拉失败静默处理（初始快照仍有效，不闪烁报错）。
+    const bus = getEventBus()
+    const scheduleRefetch = (): void => {
+      if (refetchTimer) return
+      refetchTimer = setTimeout(() => {
+        refetchTimer = null
+        fetchSessionTrajectory(sessionId)
+          .then(result => { if (!cancelled) setData(result) })
+          .catch(() => { /* 实时重拉失败：保留当前快照 */ })
+      }, TRAJECTORY_REFRESH_THROTTLE_MS)
+    }
+    const listeners = TRAJECTORY_REFRESH_EVENTS.map(type => {
+      const cb = (data: unknown): void => {
+        const ev = data as { session_id?: string | number } | null
+        const evSession = ev?.session_id
+        if (evSession === undefined || String(evSession) !== sessionId) return
+        scheduleRefetch()
+      }
+      bus.on(type, cb)
+      return [type, cb] as const
+    })
+
+    return () => {
+      cancelled = true
+      if (refetchTimer) { clearTimeout(refetchTimer); refetchTimer = null }
+      for (const [type, cb] of listeners) bus.off(type, cb)
+    }
   }, [sessionId, t])
 
   const model = useMemo<TrajectoryModel | null>(

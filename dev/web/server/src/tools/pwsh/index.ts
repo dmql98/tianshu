@@ -238,11 +238,15 @@ export const tool: ToolModule = {
           child.on('close', (code) => {
             clearTimeout(timeoutId)
             signal?.removeEventListener('abort', abortHandler)
-            const combined = stdout + (stderr ? `\n${stderr}` : '')
+            // Non-zero exit is the COMMAND's outcome, not a tool failure:
+            // probes legitimately exit non-zero. Surface the exit code as a
+            // marker in the output and let the model decide; only spawn-level
+            // errors (the 'error' event) count as tool errors.
+            const combined = stdout + (stderr ? `\n[stderr]\n${stderr}` : '')
             if (code === 0 || (code === null && stdout)) {
               resolvePromise({ output: combined.trim() })
             } else {
-              resolvePromise({ output: stdout.trim(), error: stderr.trim() || `Exit code: ${code}` })
+              resolvePromise({ output: `[exit code: ${code}]\n${combined}`.trim() })
             }
           })
         })

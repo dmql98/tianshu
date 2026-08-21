@@ -6,17 +6,41 @@ import type { ToolCallRecord } from '../inner.js'
  * and agent/outer.ts (final-answer policy).
  */
 
-export function detectDoomLoop(toolCallHistory: ToolCallRecord[]): boolean {
-  if (toolCallHistory.length < 6) return false
-  const recent = toolCallHistory.slice(-6)
-  return recent.every(r => r.hasError) || hasRepeatingPattern(recent)
-}
+export type DoomVerdict =
+  | { doomed: false }
+  | { doomed: true; kind: 'all_failed'; lastTool: string }
+  | { doomed: true; kind: 'identical_calls'; lastTool: string; argsPreview: string }
 
-function hasRepeatingPattern(recent: ToolCallRecord[]): boolean {
-  if (recent.length < 2) return false
-  const names = recent.map(r => r.toolName)
-  const first = names[0]
-  return names.every(n => n === first)
+export function detectDoomLoop(toolCallHistory: ToolCallRecord[]): DoomVerdict {
+  if (toolCallHistory.length < 6) return { doomed: false }
+  const recent = toolCallHistory.slice(-6)
+
+  // Branch A: six consecutive real failures — the model is genuinely stuck.
+  if (recent.every(r => r.hasError)) {
+    return { doomed: true, kind: 'all_failed', lastTool: recent[recent.length - 1].toolName }
+  }
+
+  // Branch B: identical-call spin — same tool + same normalized args + same
+  // result hash. Legitimate sequential workflows (install → verify → probe →
+  // locate) reuse one tool with DIFFERENT args and must not trip this; records
+  // without hashes (legacy/synthetic) are never comparable and never doom here.
+  const first = recent[0]
+  const identical = recent.every(r =>
+    r.toolName === first.toolName &&
+    !!r.normalizedArgsHash &&
+    r.normalizedArgsHash === first.normalizedArgsHash &&
+    !!r.resultHash &&
+    r.resultHash === first.resultHash,
+  )
+  if (identical) {
+    return {
+      doomed: true,
+      kind: 'identical_calls',
+      lastTool: first.toolName,
+      argsPreview: (first.args || '').slice(0, 200),
+    }
+  }
+  return { doomed: false }
 }
 
 export interface FinalAnswerDecision {
