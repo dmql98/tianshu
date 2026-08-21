@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import { getDataDir, setDataDir, isConfigured, getSystemRunPolicy, setSystemRunPolicy, resetSystemRunPolicy } from '../config.js'
+import { getDataDir, setDataDir, isConfigured, getSystemRunPolicy, setSystemRunPolicy, resetSystemRunPolicy, getRtkConfig, setRtkConfig } from '../config.js'
+import { isRtkAvailable, getRtkVersion, getRtkLatestVersion, isRtkUpdateAvailable, installRtk, updateRtk } from '../tools/rtk.js'
 import { DEFAULT_SYSTEM_RUN_POLICY, type SystemRunPolicy } from '../agent/loop/run-policy.js'
 import { existsSync, mkdirSync, readdirSync } from 'fs'
 import { resolve } from 'path'
@@ -87,6 +88,35 @@ router.post('/reload', (c) => {
   closeDb()
   getDb()
   return c.json({ ok: true, dataDir: getDataDir() })
+})
+
+// ── RTK (Rust Token Killer) 集成 ──
+
+router.get('/rtk', async (c) => {
+  const config = getRtkConfig()
+  const available = isRtkAvailable()
+  const version = available ? getRtkVersion() : ''
+  const latestVersion = await getRtkLatestVersion()
+  const updateAvailable = available && !!version && !!latestVersion
+    ? (await isRtkUpdateAvailable())
+    : false
+  return c.json({ config, available, version, latestVersion, updateAvailable })
+})
+
+router.put('/rtk', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const config = setRtkConfig(body?.config ?? body)
+  return c.json({ ok: true, config })
+})
+
+router.post('/rtk/install', (c) => {
+  const result = installRtk()
+  return c.json({ ok: result.ok, output: result.output })
+})
+
+router.post('/rtk/update', (c) => {
+  const result = updateRtk()
+  return c.json({ ok: result.ok, output: result.output })
 })
 
 /**

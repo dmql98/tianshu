@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { validate } from '../validate.js'
 import { getOutputDir } from '../truncate.js'
 import { getDataDir } from '../../config.js'
+import { maybeRtkWrap } from '../rtk.js'
 import * as iconv from 'iconv-lite'
 
 let consoleEncoding = 'utf8'
@@ -188,6 +189,8 @@ export const tool: ToolModule = {
       }
     }
 
+    // RTK 集成：若启用且 rtk 可用，命令经 rtk 前缀压缩（路径安全检查仍用原命令）。
+    const execCmd = maybeRtkWrap(cmd)
     const shellCandidates = getShellCandidates()
 
     let lastError: string | undefined
@@ -195,7 +198,7 @@ export const tool: ToolModule = {
     for (const shell of shellCandidates) {
       try {
         const shellCwd = workspace && existsSync(workspace) ? workspace : getDataDir()
-        const { child, cleanup } = await trySpawn(shell, cmd, shellCwd, true)
+        const { child, cleanup } = await trySpawn(shell, execCmd, shellCwd, true)
         cleanup()
 
         return new Promise((resolvePromise) => {

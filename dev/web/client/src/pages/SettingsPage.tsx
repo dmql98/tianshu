@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
-import { fetchDataspace, saveDataspace, reloadDataspace, reimportBuiltin } from '@/api/config'
+import { fetchDataspace, saveDataspace, reloadDataspace, reimportBuiltin, fetchRtk, saveRtk, installRtk, updateRtk } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
 import type { Provider, Character } from '@/types'
@@ -105,6 +105,14 @@ export default function SettingsPage() {
   const [reloading, setReloading] = useState(false)
   const [reimporting, setReimporting] = useState(false)
 
+  // ── token节省设置 ──
+  const [rtkEnabled, setRtkEnabled] = useState(false)
+  const [rtkAvailable, setRtkAvailable] = useState(false)
+  const [rtkVersion, setRtkVersion] = useState('')
+  const [rtkLatestVersion, setRtkLatestVersion] = useState('')
+  const [rtkUpdateAvailable, setRtkUpdateAvailable] = useState(false)
+  const [rtkBusy, setRtkBusy] = useState<null | 'install' | 'update'>(null)
+
   // ── 桌面客户端信息 ──
   const [serverStatus, setServerStatus] = useState<DesktopServerStatus | null>(null)
 
@@ -151,11 +159,77 @@ export default function SettingsPage() {
     fetchCharacters().then(setCharacters).catch(() => {})
     // 从后端加载配置路径
     fetchDataspace().then(res => { setWorkspace(res.dataDir); saveLs('defaultWorkspace', res.dataDir) }).catch(() => {})
+    // 从后端加载 RTK 集成配置与服务端可用性
+    fetchRtk().then(res => {
+      setRtkEnabled(res.config.enabled)
+      setRtkAvailable(res.available)
+      setRtkVersion(res.version)
+      setRtkLatestVersion(res.latestVersion)
+      setRtkUpdateAvailable(res.updateAvailable)
+    }).catch(() => {})
   }, [])
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  const handleToggleRtk = async () => {
+    const next = !rtkEnabled
+    setRtkEnabled(next)
+    try {
+      const saved = await saveRtk({ enabled: next })
+      setRtkEnabled(saved.enabled)
+      showToast(next ? t('RTK 已开启') : t('RTK 已关闭'))
+    } catch {
+      setRtkEnabled(!next)
+      showToast(t('保存失败'), 'err')
+    }
+  }
+
+  const refreshRtkStatus = () => {
+    fetchRtk(true).then(res => {
+      setRtkAvailable(res.available)
+      setRtkVersion(res.version)
+      setRtkLatestVersion(res.latestVersion)
+      setRtkUpdateAvailable(res.updateAvailable)
+    }).catch(() => {})
+  }
+
+  const handleInstallRtk = async () => {
+    if (!window.confirm(t('即将安装 rtk（按当前系统选择官方安装方式：macOS 用 brew，Windows / Linux 下载官方预编译二进制）。是否继续？'))) return
+    setRtkBusy('install')
+    try {
+      const res = await installRtk()
+      if (res.ok) {
+        showToast(t('RTK 安装成功'))
+        refreshRtkStatus()
+      } else {
+        showToast(t('RTK 安装失败：{msg}', { msg: res.output.slice(0, 300) }), 'err')
+      }
+    } catch {
+      showToast(t('RTK 安装失败'), 'err')
+    } finally {
+      setRtkBusy(null)
+    }
+  }
+
+  const handleUpdateRtk = async () => {
+    if (!window.confirm(t('即将把 rtk 更新到 {latest}。是否继续？', { latest: rtkLatestVersion }))) return
+    setRtkBusy('update')
+    try {
+      const res = await updateRtk()
+      if (res.ok) {
+        showToast(t('RTK 更新成功'))
+        refreshRtkStatus()
+      } else {
+        showToast(t('RTK 更新失败：{msg}', { msg: res.output.slice(0, 300) }), 'err')
+      }
+    } catch {
+      showToast(t('RTK 更新失败'), 'err')
+    } finally {
+      setRtkBusy(null)
+    }
   }
 
   const handleReloadDataspace = async () => {
@@ -362,6 +436,7 @@ export default function SettingsPage() {
     { id: 'system', icon: 'nav-settings', label: t('系统') },
     { id: 'display', icon: 'palette', label: t('显示') },
     { id: 'session', icon: 'nav-chat', label: t('会话') },
+    { id: 'tokensaving', icon: 'tool-bash', label: t('token节省') },
     { id: 'event', icon: 'nav-events', label: t('事件') },
     { id: 'about', icon: 'info', label: t('关于') },
   ]
@@ -688,6 +763,47 @@ export default function SettingsPage() {
               <div className="setting-info"><span className="setting-label">{t('显示消耗')}</span><span className="setting-hint">{t('在消息中显示 token 消耗')}</span></div>
               <div className="setting-control"><div className={`toggle ${showCost ? 'on' : ''}`} onClick={() => { setShowCost(!showCost); saveLs('showCost', !showCost) }} /></div>
             </div>
+          </div>
+        </div>
+
+        {/* token节省 */}
+        <div className="tab-page" style={{ display: activeTab === 'tokensaving' ? 'block' : 'none' }}>
+          <div className="settings-section">
+            <div className="section-title">{t('token节省')}</div>
+            <div className="section-desc">{t('压缩 agent 输入与命令输出，降低 token 消耗。')}</div>
+
+            <div className="setting-row">
+              <div className="setting-info">
+                <span className="setting-label">{t('RTK 开关')}</span>
+                <span className="setting-hint">{t('开启后所有 bash / pwsh 命令经 rtk 压缩输出，节省 token。')}</span>
+              </div>
+              <div className="setting-control">
+                <div className={`toggle ${rtkEnabled ? 'on' : ''}`} onClick={handleToggleRtk} />
+              </div>
+            </div>
+
+            {!rtkAvailable ? (
+              <div className="setting-hint" style={{ color: 'var(--cinnabar)' }}>
+                <span>{t('RTK 未安装。')}</span>
+                <button className="btn sm" disabled={rtkBusy !== null} onClick={handleInstallRtk} style={{ marginLeft: 8 }}>
+                  {rtkBusy === 'install' ? t('安装中…') : t('一键安装 rtk')}
+                </button>
+              </div>
+            ) : (
+              <div className="setting-hint" style={{ color: 'var(--jade)' }}>
+                <span>{t('RTK 已启用（{version}）', { version: rtkVersion || '—' })}</span>
+                {rtkUpdateAvailable ? (
+                  <button className="btn sm" disabled={rtkBusy !== null} onClick={handleUpdateRtk} style={{ marginLeft: 8 }}>
+                    {rtkBusy === 'update' ? t('更新中…') : t('更新到 {latest}', { latest: rtkLatestVersion })}
+                  </button>
+                ) : (
+                  <button className="btn sm" disabled={rtkBusy !== null} onClick={refreshRtkStatus} style={{ marginLeft: 8 }}>
+                    {t('检查更新')}
+                  </button>
+                )}
+                {!rtkUpdateAvailable && rtkLatestVersion && <span style={{ marginLeft: 6 }}>· {t('已是最新')}</span>}
+              </div>
+            )}
           </div>
         </div>
 

@@ -25,6 +25,13 @@ interface Config {
   runPolicy?: SystemRunPolicy
   /** dataDir 来源标记，见 DataDirSource。 */
   dataDirSource?: DataDirSource
+  /** RTK（Rust Token Killer）集成开关：开启后 bash/pwsh 命令经 rtk 压缩输出。 */
+  rtk?: RtkConfig
+}
+
+/** RTK 集成配置。目前仅有启用开关，后续可扩展压缩级别等。 */
+export interface RtkConfig {
+  enabled: boolean
 }
 
 /**
@@ -175,6 +182,28 @@ export function resetSystemRunPolicy(): SystemRunPolicy {
   writeConfig(config)
   cached = { ...config }
   return DEFAULT_SYSTEM_RUN_POLICY
+}
+
+/** RTK 集成配置（默认禁用）。 */
+export function getRtkConfig(): RtkConfig {
+  const raw = loadConfig().rtk
+  return { enabled: !!raw?.enabled }
+}
+
+/**
+ * 持久化 RTK 集成配置，返回规范化后的值。仅更新 rtk 字段，
+ * 写入时保留已有的 dataDir / runPolicy / dataDirSource，避免误覆盖。
+ */
+export function setRtkConfig(input: unknown): RtkConfig {
+  const normalized: RtkConfig = { enabled: !!(input as { enabled?: boolean } | null)?.enabled }
+  const current = loadConfig()
+  const next: Config = { dataDir: current.dataDir }
+  if (current.runPolicy) next.runPolicy = current.runPolicy
+  if (current.dataDirSource) next.dataDirSource = current.dataDirSource
+  next.rtk = normalized
+  writeConfig(next)
+  cached = next
+  return normalized
 }
 
 export function isConfigured(): boolean {
