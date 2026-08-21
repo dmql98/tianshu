@@ -6,7 +6,8 @@ import { fetchCharacters } from '@/api/characters'
 import type { Character, Strategy } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import Icon from '@/features/icons/Icon'
-import ModelPicker from './ModelPicker'
+import PickerSelect from './PickerSelect'
+import { recordModelUse, TOP_MODELS_LIMIT } from '@/features/chat/modelUsage'
 import { useCharacterPresence } from '@/features/character-presence/useCharacterPresence'
 import { useI18n } from '@/i18n'
 
@@ -178,6 +179,7 @@ export default function ChatInput() {
     // modelId format: "providerId::modelName"
     const [providerId, model] = modelId.split('::')
     if (activeSessionId) {
+      recordModelUse(modelId) // 常用榜计数（PickerSelect 置顶依据）
       updateSession(activeSessionId, { provider_id: providerId, model }).catch(() => {})
       useChatStore.setState(state => ({
         sessions: state.sessions.map(s =>
@@ -347,44 +349,51 @@ export default function ChatInput() {
           </div>
           {compactNotice && <div className="input-ctx-notice">{compactNotice}</div>}
         </div>
-        <ModelPicker options={modelOptions} value={currentModelKey} onChange={handleModelChange} />
-        <select
-          value={session?.reasoning_effort || 'medium'}
-          onChange={e => handleReasoningEffortChange(e.target.value)}
+        <PickerSelect
+          searchable
+          frequentCount={TOP_MODELS_LIMIT}
+          title={t('模型')}
+          value={currentModelKey}
+          onChange={handleModelChange}
+          options={modelOptions.map(o => ({ value: o.modelId, label: o.modelName, group: o.providerName }))}
+        />
+        <PickerSelect
           title={t('思考强度')}
-          className="io-select"
-        >
-          <option value="low">{t('低')}</option>
-          <option value="medium">{t('中')}</option>
-          <option value="high">{t('高')}</option>
-          <option value="max">{t('最高')}</option>
-        </select>
-        <select
-          value={session?.execution_mode || 'direct'}
-          onChange={e => handleExecutionModeChange(e.target.value as 'direct' | 'plan_first' | 'goal')}
+          value={session?.reasoning_effort || 'medium'}
+          onChange={handleReasoningEffortChange}
+          options={[
+            { value: 'low', label: t('低') },
+            { value: 'medium', label: t('中') },
+            { value: 'high', label: t('高') },
+            { value: 'max', label: t('最高') },
+          ]}
+        />
+        <PickerSelect
           title={t('执行模式：Direct 可选计划/目标；Plan-first 必须建计划；Goal 必须建计划与目标')}
-          className="io-select"
-        >
-          <option value="direct">{t('Direct（直接执行）')}</option>
-          <option value="plan_first">{t('Plan-first（先计划后执行）')}</option>
-          <option value="goal">{t('Goal（目标+计划）')}</option>
-        </select>
-        <select
-          value={session?.current_strategy || 'Ask Risky'}
-          onChange={e => handleStrategyChange(e.target.value as Strategy)}
+          value={session?.execution_mode || 'direct'}
+          onChange={v => handleExecutionModeChange(v as 'direct' | 'plan_first' | 'goal')}
+          options={[
+            { value: 'direct', label: t('Direct（直接执行）') },
+            { value: 'plan_first', label: t('Plan-first（先计划后执行）') },
+            { value: 'goal', label: t('Goal（目标+计划）') },
+          ]}
+        />
+        <PickerSelect
           title={session?.current_strategy === 'Auto Approve'
             ? t('所有工具操作和授权路径均自动允许')
             : session?.current_strategy === 'Auto in Workspace'
               ? t('授权工作区内自动允许，新增路径时询问')
             : t('审批模式')}
-          className="io-select"
-        >
-          <option value="Read Only">{t('Read Only')}</option>
-          <option value="Ask Every Change">{t('Ask Every Change')}</option>
-          <option value="Ask Risky">{t('Ask Risky')}</option>
-          <option value="Auto in Workspace">{t('Auto in Workspace')}</option>
-          <option value="Auto Approve">{t('Auto Approve')}</option>
-        </select>
+          value={session?.current_strategy || 'Ask Risky'}
+          onChange={v => handleStrategyChange(v as Strategy)}
+          options={[
+            { value: 'Read Only', label: t('Read Only') },
+            { value: 'Ask Every Change', label: t('Ask Every Change') },
+            { value: 'Ask Risky', label: t('Ask Risky') },
+            { value: 'Auto in Workspace', label: t('Auto in Workspace') },
+            { value: 'Auto Approve', label: t('Auto Approve') },
+          ]}
+        />
       </div>
     </div>
   )

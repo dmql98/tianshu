@@ -101,6 +101,8 @@ export interface TianShuDesktopAPI {
   /** The desktop window returned from a minimized/background state. */
   onResumeSync(listener: () => void): () => void
   openDirectoryDialog(defaultPath?: string): Promise<string | null>
+  /** 在文件管理器中打开（定位）指定目录；路径不存在时返回 false。仅桌面端可用。 */
+  openPath(path: string): Promise<boolean>
   /** 打开图片选择对话框，返回 dataURL 供预览（仅桌面端可用） */
   openImageDialog(): Promise<OpenImageDialogResult>
   /** 把 dataURL 图片落盘到 userData/backgrounds，返回可加载 URL */

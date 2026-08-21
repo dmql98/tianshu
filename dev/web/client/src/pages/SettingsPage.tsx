@@ -152,6 +152,20 @@ export default function SettingsPage() {
     }
   }
 
+  const handleOpenConfigFolder = async () => {
+    const api = window.tianshuDesktop
+    if (!api) {
+      showToast(t('打开文件夹仅在桌面客户端中可用'), 'err')
+      return
+    }
+    try {
+      const ok = await api.openPath(workspace)
+      if (!ok) showToast(t('配置目录不存在，请先刷新配置路径'), 'err')
+    } catch {
+      showToast(t('打开文件夹仅在桌面客户端中可用'), 'err')
+    }
+  }
+
   useEffect(() => {
     load()
     fetchDefaultPrompt().then(setDefaultPrompt).catch(() => {})
@@ -589,7 +603,7 @@ export default function SettingsPage() {
             <div className="section-title">{t('系统')}</div>
             <div className="section-desc">{t('全局系统配置，影响所有会话和角色。')}</div>
 
-            <div className="setting-row">
+            <div className="setting-row setting-row-stacked">
               <div className="setting-info"><span className="setting-label">{t('配置路径')}</span><span className="setting-hint">{t('天枢系统配置与数据的根目录')}</span></div>
               <div className="setting-control">
                 <input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataspace(e.target.value).then(() => { window.dispatchEvent(new Event('dataspace-configured')) }).catch(() => {}) }} style={{width:280}}/>
@@ -597,6 +611,7 @@ export default function SettingsPage() {
                 <button className="btn" onClick={handleReloadDataspace} disabled={reloading} style={{marginLeft:8}}>
                   {reloading ? t('加载中…') : t('刷新')}
                 </button>
+                <button className="btn" onClick={handleOpenConfigFolder} style={{marginLeft:8}}>{t('打开配置文件夹')}</button>
               </div>
             </div>
 

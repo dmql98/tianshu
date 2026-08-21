@@ -33,6 +33,8 @@ const api = {
   },
   openDirectoryDialog: (defaultPath?: string) =>
     ipcRenderer.invoke('desktop:open-directory', defaultPath),
+  openPath: (path: string) =>
+    ipcRenderer.invoke('desktop:open-path', path),
 
   // ── Transport-neutral event channel (IPC bridge for the desktop app) ──
   eventSend: (type: string, payload: unknown, ack?: (resp: unknown) => void) => {

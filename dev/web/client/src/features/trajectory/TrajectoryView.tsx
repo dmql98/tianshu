@@ -5,6 +5,9 @@ import {
   buildTrajectory,
   filterTrajectory,
   summarizeTrajectory,
+  toolDescriptionOf,
+  toolNameOf,
+  toolNames,
   type TrajectoryLifecycleItem,
   type TrajectoryModel,
   type TrajectoryRow,
@@ -243,12 +246,22 @@ function MergedTimeline({
     ref: row,
     time: row.createdAt,
   }))
-  const systemItems = model.systemRows.map((row, i) => ({
+  const allSystemItems = model.systemRows.map((row, i) => ({
     key: `sys-${row.callTurn}-${i}`,
     kind: 'system' as const,
     ref: row,
     time: row.createdAt,
   }))
+  // 初始系统提示（会话开头注入）始终钉在时间线最顶端——它在构造上最先被注入，
+  // 不应被按 createdAt 的归并排序推到用户消息 / 生命周期事件之后（llm_calls.created_at
+  // 记录的是调用返回时刻，天然晚于首条消息与 run.started，见 llm-call-store.ts）。
+  // 之后的 system / tools 变化(update)仍按真实时间参与三路归并。
+  const initialSystemItems = allSystemItems.filter(
+    it => (it.ref as TrajectorySystemRow).kind === 'initial',
+  )
+  const updateSystemItems = allSystemItems.filter(
+    it => (it.ref as TrajectorySystemRow).kind === 'update',
+  )
   const lifecycleItems = model.lifecycle.map((item, i) => ({
     key: `lc-${i}-${item.type}-${item.createdAt}`,
     kind: 'lifecycle' as const,
@@ -256,7 +269,7 @@ function MergedTimeline({
     time: item.createdAt,
   }))
 
-  // 三路归并：row / system / lifecycle 按 createdAt 交错。
+  // 三路归并：row / update-system / lifecycle 按 createdAt 交错。
   const merged: Array<{
     key: string
     kind: 'lifecycle' | 'row' | 'system'
@@ -265,9 +278,9 @@ function MergedTimeline({
   let r = 0
   let s = 0
   let l = 0
-  while (r < rowItems.length || s < systemItems.length || l < lifecycleItems.length) {
+  while (r < rowItems.length || s < updateSystemItems.length || l < lifecycleItems.length) {
     const row = rowItems[r]
-    const sys = systemItems[s]
+    const sys = updateSystemItems[s]
     const lc = lifecycleItems[l]
     const pick = (a: { time: number } | undefined, b: { time: number } | undefined): boolean =>
       a !== undefined && (b === undefined || a.time <= b.time)
@@ -290,6 +303,8 @@ function MergedTimeline({
     kind: 'lifecycle' | 'row' | 'system' | 'run'
     ref: TrajectoryLifecycleItem | TrajectoryRow | TrajectorySystemRow | TrajectoryRunMeta
   }> = []
+  // 初始系统提示钉顶：在任何内容行 / 生命周期事件 / run 分隔条之前。
+  for (const it of initialSystemItems) items.push(it)
   for (const it of merged) {
     if (it.kind === 'row') {
       const runId = (it.ref as TrajectoryRow).runId
@@ -539,17 +554,19 @@ function SystemDetails({ row, tab }: { row: TrajectorySystemRow; tab: string }) 
     return <PreBlock value={row.system} />
   }
   if (tab === t('工具')) {
-    const names = (row.tools || []).map(tool => {
-      const name = (tool as { name?: unknown })?.name
-      const desc = (tool as { description?: unknown })?.description
-      return typeof name === 'string' ? `${name}${typeof desc === 'string' && desc ? ` — ${desc}` : ''}` : ''
-    }).filter(Boolean)
+    const names = (row.tools || [])
+      .map(tool => {
+        const name = toolNameOf(tool)
+        const desc = toolDescriptionOf(tool)
+        return name ? `${name}${desc ? ` — ${desc}` : ''}` : ''
+      })
+      .filter(Boolean)
     return <PreBlock value={names.join('\n') || (t('（无工具）'))} />
   }
   if (tab === t('差异') && row.previous) {
     const prev = row.previous
     const prevNames = new Set(prev.toolNames)
-    const curNames = (row.tools || []).map(tool => String((tool as { name?: unknown })?.name ?? '')).filter(Boolean)
+    const curNames = toolNames(row.tools)
     const added = curNames.filter(name => !prevNames.has(name))
     const removed = prev.toolNames.filter(name => !curNames.includes(name))
     const lines: string[] = []

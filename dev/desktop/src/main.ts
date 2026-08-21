@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { appendFileSync, mkdirSync } from 'fs'
+import { appendFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { ServerManager } from './server-manager.js'
 import { bundledNodePath, verifyBundledNode } from './runtime-paths.js'
@@ -189,6 +189,13 @@ function registerIpc(manager: ServerManager): void {
     })
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
+  })
+
+  ipcMain.handle('desktop:open-path', async (_event, path: string) => {
+    // 打开（定位）指定目录到系统文件管理器；路径非法或不存在时安全返回 false。
+    if (typeof path !== 'string' || path.length === 0 || !existsSync(path)) return false
+    await shell.openPath(path)
+    return true
   })
 
   // ── Transport-neutral event channel (renderer ↔ server child) ──

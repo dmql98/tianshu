@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrajectoryData } from '@/types'
-import { buildTrajectory, filterTrajectory, summarizeTrajectory } from './trajectory'
+import { buildTrajectory, filterTrajectory, summarizeTrajectory, toolNames } from './trajectory'
 
 const data: TrajectoryData = {
   run: {
@@ -217,5 +217,61 @@ describe('system prompt injection rows', () => {
     }
     const model = buildTrajectory(same)
     expect(model.systemRows).toHaveLength(1)
+  })
+})
+
+// ── 工具名提取（OpenAI 格式工具定义）──
+// llm_calls.request.tools 按 OpenAI 格式落库 { type:'function', function:{ name } }，
+// 取名字必须兼容该形状，否则系统提示「工具」标签为空、且工具变化的 update 行不触发。
+describe('tool name extraction (OpenAI-format tool defs)', () => {
+  it('extracts names from OpenAI {type:"function", function:{name}} shape', () => {
+    const tools = [
+      { type: 'function', function: { name: 'bash', description: 'run shell', parameters: {} } },
+      { type: 'function', function: { name: 'read', description: 'read file', parameters: {} } },
+    ]
+    expect(toolNames(tools)).toEqual(['bash', 'read'])
+  })
+
+  it('still handles flat {name} shape', () => {
+    expect(toolNames([{ name: 'bash' }, { name: 'read' }])).toEqual(['bash', 'read'])
+    expect(toolNames(undefined)).toEqual([])
+  })
+
+  it('emits an update row when OpenAI-format tools change between calls', () => {
+    const data: TrajectoryData = {
+      runs: [],
+      messages: [
+        { id: 1, session_id: 's1', run_id: 'r1', role: 'user', content: 'hi', created_at: 1000 },
+      ],
+      events: [],
+      llmCalls: [
+        {
+          sessionId: 's1', runId: 'r1', turn: 1, fp: 'f1', createdAt: 900,
+          request: {
+            model: 'm',
+            messages: [{ role: 'system', content: 'sys v1' }, { role: 'user', content: 'hi' }],
+            tools: [{ type: 'function', function: { name: 'bash', description: 'd' } }],
+          },
+          response: { text: 'ok', reasoning: '', toolCalls: [], usage: { input: 1, output: 1 } },
+        },
+        {
+          sessionId: 's1', runId: 'r1', turn: 2, fp: 'f2', createdAt: 1900,
+          request: {
+            model: 'm',
+            messages: [{ role: 'system', content: 'sys v1' }, { role: 'user', content: 'hi' }],
+            tools: [
+              { type: 'function', function: { name: 'bash', description: 'd' } },
+              { type: 'function', function: { name: 'write', description: 'd' } },
+            ],
+          },
+          response: { text: 'ok2', reasoning: '', toolCalls: [], usage: { input: 1, output: 1 } },
+        },
+      ],
+    }
+    const model = buildTrajectory(data)
+    expect(model.systemRows).toHaveLength(2)
+    expect(model.systemRows[0].kind).toBe('initial')
+    expect(model.systemRows[1].kind).toBe('update')
+    expect(model.systemRows[1].previous?.toolNames).toEqual(['bash'])
   })
 })

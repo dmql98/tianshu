@@ -147,10 +147,41 @@ function extractSystemText(messages: unknown[]): string {
     .join('\n\n')
 }
 
+/**
+ * 从工具定义提取名称。兼容 OpenAI 格式 { type:'function', function:{ name } }
+ * 与扁平 { name }。llm_calls.request.tools 实际按 OpenAI 格式落库（见
+ * server tools/definitions.ts getCharacterToolDefinitions），此前按扁平
+ * tool.name 读取会全部读不到 → 系统提示的「工具」标签显示为空。
+ */
+export function toolNameOf(tool: unknown): string {
+  if (!tool || typeof tool !== 'object') return ''
+  const t = tool as Record<string, unknown>
+  const fn = t.function
+  if (fn && typeof fn === 'object') {
+    const name = (fn as Record<string, unknown>).name
+    if (typeof name === 'string') return name
+  }
+  if (typeof t.name === 'string') return t.name
+  return ''
+}
+
+/** 从工具定义提取描述（OpenAI function.description 或扁平 description）。 */
+export function toolDescriptionOf(tool: unknown): string {
+  if (!tool || typeof tool !== 'object') return ''
+  const t = tool as Record<string, unknown>
+  const fn = t.function
+  if (fn && typeof fn === 'object') {
+    const desc = (fn as Record<string, unknown>).description
+    if (typeof desc === 'string') return desc
+  }
+  if (typeof t.description === 'string') return t.description
+  return ''
+}
+
 /** 工具名列表（稳定指纹：只看 name，忽略参数体变化）。 */
-function toolNames(tools: unknown[] | undefined): string[] {
+export function toolNames(tools: unknown[] | undefined): string[] {
   if (!Array.isArray(tools)) return []
-  return tools.map(tool => String((tool as { name?: unknown })?.name ?? '')).filter(Boolean)
+  return tools.map(tool => toolNameOf(tool)).filter(Boolean)
 }
 
 /**
