@@ -6,6 +6,7 @@ import { fetchCharacters } from '@/api/characters'
 import type { Character, Strategy } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import Icon from '@/features/icons/Icon'
+import ModelPicker from './ModelPicker'
 import { useCharacterPresence } from '@/features/character-presence/useCharacterPresence'
 import { useI18n } from '@/i18n'
 
@@ -346,27 +347,7 @@ export default function ChatInput() {
           </div>
           {compactNotice && <div className="input-ctx-notice">{compactNotice}</div>}
         </div>
-        <select
-          value={currentModelKey}
-          onChange={e => handleModelChange(e.target.value)}
-          title={t('模型')}
-          className="io-select"
-        >
-          {modelOptions.length === 0 && <option value="">--</option>}
-          {providers.map(p => {
-            const enabledSet = p.enabled_models && p.enabled_models.length > 0 ? new Set(p.enabled_models) : null
-            const models = (p.models || []).filter(m => !enabledSet || enabledSet.has(m.id || m.name))
-            if (models.length === 0) return null
-            return (
-              <optgroup key={p.id} label={p.name}>
-                {models.map(m => {
-                  const key = `${p.id}::${m.id || m.name}`
-                  return <option key={key} value={key}>{m.name || m.id}</option>
-                })}
-              </optgroup>
-            )
-          })}
-        </select>
+        <ModelPicker options={modelOptions} value={currentModelKey} onChange={handleModelChange} />
         <select
           value={session?.reasoning_effort || 'medium'}
           onChange={e => handleReasoningEffortChange(e.target.value)}
