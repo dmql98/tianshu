@@ -47,11 +47,11 @@ let explicitlySet = false
 
 /**
  * 配置文件位置：
- * - 默认：程序自身路径下 <server>/config.json（紧邻 dist）。
- *   dev = web/server/config.json；打包 = resources/server/config.json。
- *   随程序目录一同清除，重装/卸载不会残留旧 dataDir。
- * - TIANSHU_CONFIG_DIR：仅测试 / CI 用它把 config 隔离到临时目录，避免污染
- *   真实配置；生产（desktop 外壳）不再设置该变量。
+ * - TIANSHU_CONFIG_DIR：desktop 外壳指向 <userData>/config，使 dataDir 选择
+ *   等配置跨版本存活（卸载/重装不清除 userData）；测试 / CI 也用它把 config
+ *   隔离到临时目录。
+ * - 默认（未设置该变量，如 dev 直接跑 server）：程序自身路径下
+ *   <server>/config.json（紧邻 dist），dev = web/server/config.json。
  */
 function configFilePath(): string {
   const configDir = process.env.TIANSHU_CONFIG_DIR

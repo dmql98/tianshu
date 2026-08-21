@@ -223,10 +223,14 @@ export class ServerManager {
         PORT: '0',
         NODE_ENV: 'production',
         TIANSHU_CLIENT_DIST: this.opts.clientDist,
-        // 数据目录默认在客户端安装路径下（由主进程传入），首次启动自动创建并
-        // 物化 builtin content。config.json 固定写在 server 程序自身路径
-        // （resources/server/config.json），随程序目录一并清除，不残留旧配置。
+        // 数据目录默认在 userData 下（%APPDATA%/天枢/data），卸载/重装不清除
+        // （deleteAppDataOnUninstall: false），首次启动自动创建并物化 builtin
+        // content。config.json 同样放 userData（见下），用户自定义的 dataDir
+        // 等设置跨版本存活，不随程序目录被卸载清除。
         TIANSHU_DEFAULT_DATA_DIR: this.opts.defaultDataDir || join(this.opts.userDataDir, 'data'),
+        // 配置文件目录：server 端 config.ts 原生支持该变量。指向 userData 使
+        // config.json（含 dataDir / dataDirSource）在更新/重装后保留。
+        TIANSHU_CONFIG_DIR: join(this.opts.userDataDir, 'config'),
         // 只读内置内容根（content/builtin → resources/content/builtin）。
         // resourcesPath 只在 Electron 运行时存在；测试环境回退到用户数据目录
         // 下的 content/builtin（不存在时 server 使用仓库根定位）。

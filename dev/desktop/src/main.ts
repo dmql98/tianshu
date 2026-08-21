@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { appendFileSync, mkdirSync } from 'fs'
-import { dirname, join } from 'path'
+import { join } from 'path'
 import { ServerManager } from './server-manager.js'
 import { bundledNodePath, verifyBundledNode } from './runtime-paths.js'
 import { UpdateManager } from './updater.js'
@@ -332,13 +332,12 @@ if (!app.requestSingleInstanceLock()) {
     const userData = app.getPath('userData')
     mkdirSync(join(userData, 'logs'), { recursive: true })
 
-    // 默认数据目录 = 客户端安装路径下（跨平台：exe 所在目录）。首次启动 server
-    // 自动在此创建 dataDir 并物化 builtin content，无需用户手动选择。
+    // 默认数据目录不在此指定：ServerManager 回退到 <userData>/data
+    // （%APPDATA%/天枢/data）。卸载/重装不清除 userData
+    // （deleteAppDataOnUninstall: false），会话 db 与内容因此跨版本存活；
+    // 放在安装目录内会随 NSIS 卸载一并被删。首次启动 server 自动在该目录
+    // 创建 dataDir 并物化 builtin content，无需用户手动选择。
     // dev 模式由 dev-desktop.mjs 提供 TIANSHU_DEFAULT_DATA_DIR，不走此默认。
-    const defaultDataDir = app.isPackaged
-      ? join(dirname(app.getPath('exe')), 'data')
-      : undefined
-
     const manager = new ServerManager({
       packaged: app.isPackaged,
       // 跨平台解析内置 Node 可执行文件（win32 -> node.exe，POSIX -> bin/node）。
@@ -346,7 +345,6 @@ if (!app.requestSingleInstanceLock()) {
       serverEntry: join(process.resourcesPath, 'server', 'dist', 'index.js'),
       clientDist: join(process.resourcesPath, 'client'),
       userDataDir: userData,
-      defaultDataDir,
       devUrl: DEV_URL,
       // 启动前校验：Node 文件存在 + runtime-manifest 与当前平台/架构一致（§8.5）。
       preflight: () => {

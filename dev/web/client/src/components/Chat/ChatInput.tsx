@@ -166,7 +166,6 @@ export default function ChatInput() {
     : Math.ceil(totalChars / 4)
   const contextWindow = session?.context_window || 200000
   const contextPct = Math.min(100, Math.round((tokenEst / contextWindow) * 100))
-  const cacheHit = session?.cacheStats?.hitRatio || session?.cache_hit_ratio
 
   function formatTokens(n: number): string {
     if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`
@@ -330,8 +329,12 @@ export default function ChatInput() {
       </div>
       <div className="input-options">
         <div className="input-ctx">
-          <div className="input-ctx-cache">
-            <span>{t('缓存命中')}：{cacheHit || '--'}</span>
+          {/* 进度条+压缩按钮整体位于 grid 第一列（130px），与上方头像列对齐 */}
+          <div className="input-ctx-row">
+            <div className="input-ctx-bar">
+              <div className="fill" style={{ width: `${contextPct}%` }}></div>
+              <span className="input-ctx-text">{formatTokens(tokenEst)} / {formatTokens(contextWindow)}</span>
+            </div>
             <button
               className="ctx-compact-btn"
               onClick={handleCompact}
@@ -340,12 +343,6 @@ export default function ChatInput() {
             >
               {compacting ? '…' : '⇕'}
             </button>
-          </div>
-          <div className="input-ctx-row">
-            <div className="input-ctx-bar">
-              <div className="fill" style={{ width: `${contextPct}%` }}></div>
-              <span className="input-ctx-text">{formatTokens(tokenEst)} / {formatTokens(contextWindow)}</span>
-            </div>
           </div>
           {compactNotice && <div className="input-ctx-notice">{compactNotice}</div>}
         </div>
