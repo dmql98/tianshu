@@ -2,19 +2,14 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs'
 import { resolve } from 'path'
 import { characterMetaStore, type CharacterRecord } from '../db/characterStore.js'
 import { charactersRoot } from '../data-paths.js'
-import { builtinCharactersRoot } from '../content/paths.js'
-import { materializeCharacter } from '../content/copy-on-write.js'
-import { builtinContentVersion } from '../agent/skill-catalog.js'
 
 /**
- * 角色内容（soul / user / memory / prompt）的最终获胜来源目录：
- * 用户层目录存在时用用户层（完整覆盖内置层），否则用内置只读目录。
- * 运行状态（memory.md 等）只在用户层产生；内置层只读。
+ * 角色内容（soul / user / memory / prompt）的目录：单层化后所有角色
+ * （内置 seed 副本 + 用户创建/编辑）都在 <dataDir>/characters/<id>/。
+ * 运行状态（memory.md 等）只在用户层产生。
  */
 export function characterDir(id: string): string {
-  const userDir = resolve(charactersRoot(), id)
-  if (existsSync(userDir)) return userDir
-  return resolve(builtinCharactersRoot(), id)
+  return resolve(charactersRoot(), id)
 }
 
 /** 用户层角色目录是否存在（写入口判断）。 */
@@ -51,10 +46,7 @@ export const characterContentStore = {
    * 之后所有内容写入用户层。缺省字段表示"保持不变"。
    */
   save(characterId: string, data: { soul?: string; user?: string; memory?: string; prompt?: string }) {
-    const builtinExists = existsSync(resolve(builtinCharactersRoot(), characterId, 'character.json'))
-    if (builtinExists && !existsSync(resolve(charactersRoot(), characterId))) {
-      materializeCharacter(characterId, builtinContentVersion())
-    }
+    // 单层化：seed 保证 <dataDir>/characters/<id> 已存在；直接写入用户层。
     const dir = userCharacterDir(characterId)
     mkdirSync(dir, { recursive: true })
     if (data.soul !== undefined) writeFileSync(resolve(dir, 'soul.md'), data.soul, 'utf-8')

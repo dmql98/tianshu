@@ -24,6 +24,9 @@ beforeEach(async () => {
   resetContentStateCache()
   rmSync(join(root, 'data'), { recursive: true, force: true })
   mkdirSync(join(root, 'data'), { recursive: true })
+  // 单层化：运行链路只读 <dataDir>；测试需先把出厂内容 seed 进 dataDir。
+  const { materializeAllBuiltinContent } = await import('../src/content/materialize-builtin.js')
+  materializeAllBuiltinContent()
 })
 
 afterEach(async () => {

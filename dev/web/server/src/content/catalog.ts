@@ -60,11 +60,14 @@ export function mergeById<T extends { id: string }>(options: MergeOptions<T>): M
       throw new Error(`User copy of "${item.id}" is corrupted; refusing to fall back to the builtin item`)
     }
     const builtinItem = builtin.find(b => b.id === item.id)
+    // 单层化：用户项若自带 overridesBuiltin 标记（编辑过内置项时写入），即使 dataDir
+    // 中已无同名 builtin 项也视为覆盖内置；否则回退到"builtin 层有同名"。
+    const overridesBuiltin = !!builtinItem || (item as { overridesBuiltin?: boolean }).overridesBuiltin === true
     result.push({
       ...item,
       source: 'user',
       readOnly: false,
-      overridesBuiltin: !!builtinItem,
+      overridesBuiltin,
       ...(builtinItem && builtinVersion ? { builtinVersion } : {}),
     })
   }

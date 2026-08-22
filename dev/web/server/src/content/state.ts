@@ -14,6 +14,8 @@ import { contentStateFile } from '../data-paths.js'
 export interface ContentState {
   schemaVersion: 1
   lastSeenBuiltinVersion?: string
+  /** 最近一次成功 seed 的时间戳（ISO），用于诊断初始化是否发生过。 */
+  seededAt?: string
   hidden: {
     characters: string[]
     skills: string[]
@@ -91,4 +93,14 @@ export function setLastSeenBuiltinVersion(version: string): void {
   const state = readContentState()
   if (state.lastSeenBuiltinVersion === version) return
   persist({ ...state, lastSeenBuiltinVersion: version })
+}
+
+/** 记录一次成功的 builtin 物化（seed）：保存发行版本与完成时间戳（供诊断）。 */
+export function markSeeded(version: string): void {
+  const state = readContentState()
+  persist({
+    ...state,
+    lastSeenBuiltinVersion: version,
+    seededAt: new Date().toISOString(),
+  })
 }

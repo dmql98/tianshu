@@ -5,6 +5,7 @@ import App from './App'
 import { initializeDisplayPreferences } from './features/display/displayPreferences'
 import { initializeThemeRuntime } from './features/theme/themeRuntime'
 import { initializeIconRuntime, waitForIconRegistry } from './features/icons/iconRuntime'
+import { persistPreferenceChanges, syncPreferencesFromServer } from './features/preferences/preferencesSync'
 import './index.css'
 
 // 在 React 首次渲染前应用主题与显示偏好，避免闪白/错误主题（TIANSHU_THEME_SWITCHING_PLAN §9.1）。
@@ -16,6 +17,15 @@ initializeDisplayPreferences()
 async function bootstrap(): Promise<void> {
   await waitForIconRegistry()
   initializeIconRuntime()
+  // 服务端偏好同步：桌面端每次启动随机端口 → localStorage origin 变化不可跨重启，
+  // 服务端 <dataDir>/config 才是权威来源。先拉取应用（不阻塞首屏），完成后再订阅
+  // 推送，避免同步触发的变更事件被回写服务端（自写回环）。失败静默：保留本地值，
+  // 订阅仍建立，后续用户改动照常推送。
+  void syncPreferencesFromServer()
+    .catch(() => {})
+    .finally(() => {
+      persistPreferenceChanges()
+    })
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <BrowserRouter>

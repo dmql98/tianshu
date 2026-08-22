@@ -6,10 +6,10 @@ import { existsSync, mkdirSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 import { getDb, closeDb } from '../db/schema.js'
 import { materializeAllBuiltinContent, materializeSummary, type MaterializeResult } from '../content/materialize-builtin.js'
-import { restoreBuiltinCharacter } from '../content/copy-on-write.js'
+import { restoreBuiltinCharacter, restoreBuiltinIconPack, restoreBuiltinPrompt, restoreBuiltinProvider } from '../content/copy-on-write.js'
 import { restoreBuiltinSkill } from '../agent/skill-catalog.js'
-import { builtinCharactersRoot, builtinSkillsRoot } from '../content/paths.js'
-import { charactersRoot, skillsRoot } from '../data-paths.js'
+import { builtinCharactersRoot, builtinSkillsRoot, builtinIconPacksRoot, builtinPromptsRoot, builtinProvidersRoot } from '../content/paths.js'
+import { charactersRoot, skillsRoot, iconPacksRoot, providersRoot } from '../data-paths.js'
 
 const router = new Hono()
 
@@ -120,65 +120,68 @@ router.post('/rtk/update', (c) => {
 })
 
 /**
- * 重新导入初始配置：删除所有"有 builtin 出厂版对应"的用户层副本（无论是否
- * 编辑过），保留用户自建的角色/技能，然后重新物化 builtin 出厂版。
- * 效果 = 把搞坏的内置角色/技能恢复到出厂内容；自建内容不受影响。
+ * 重新导入初始配置（恢复出厂内容）：
+ * - 删除 dataDir 中"出厂源存在同名"的内置项副本（无论是否编辑/篡改过），再重新物化出厂版；
+ * - 保留用户自建内容（出厂源无同名 → kept，绝不触碰）；
+ * - 覆盖五类：角色 / 技能 / 图标包 / 默认提示词 / 服务商预设。
+ * 效果 = 把搞坏的内置项恢复到出厂内容；自建内容不受影响。
  */
 router.post('/reimport-builtin', (c) => {
-  const restoredChars: string[] = []
+  const restoredCharacters: string[] = []
   const restoredSkills: string[] = []
+  const restoredIconPacks: string[] = []
+  const restoredProviders: string[] = []
+  let restoredPrompts = 0
   const kept: string[] = []
+  const subdirs = (root: string): string[] =>
+    existsSync(root) ? readdirSync(root, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name) : []
 
-  // 角色：用户层每个目录，若 builtin 层存在同名 → 删副本（恢复出厂）。
-  const builtinCharIds = new Set<string>()
-  if (existsSync(builtinCharactersRoot())) {
-    for (const e of readdirSync(builtinCharactersRoot(), { withFileTypes: true })) {
-      if (e.isDirectory()) builtinCharIds.add(e.name)
-    }
-  }
-  if (existsSync(charactersRoot())) {
-    for (const e of readdirSync(charactersRoot(), { withFileTypes: true })) {
-      if (!e.isDirectory()) continue
-      if (builtinCharIds.has(e.name)) {
-        restoreBuiltinCharacter(e.name)
-        restoredChars.push(e.name)
-      } else {
-        kept.push(`character:${e.name}`)
-      }
-    }
+  // 角色：用户层每个目录，若出厂源存在同名 → 删副本（恢复出厂）。
+  const builtinCharIds = new Set(subdirs(builtinCharactersRoot()))
+  for (const name of subdirs(charactersRoot())) {
+    if (builtinCharIds.has(name)) { restoreBuiltinCharacter(name); restoredCharacters.push(name) }
+    else kept.push(`character:${name}`)
   }
 
-  // 技能：用户层 <cat>/<pkg>，builtin 层存在同名 → 删副本（恢复出厂）。
-  if (existsSync(skillsRoot()) && existsSync(builtinSkillsRoot())) {
-    for (const cat of readdirSync(skillsRoot(), { withFileTypes: true })) {
-      if (!cat.isDirectory()) continue
-      const builtinCatDir = resolve(builtinSkillsRoot(), cat.name)
-      const builtinPkgIds = new Set<string>()
-      if (existsSync(builtinCatDir)) {
-        for (const p of readdirSync(builtinCatDir, { withFileTypes: true })) {
-          if (p.isDirectory()) builtinPkgIds.add(p.name)
-        }
-      }
-      const userCatDir = resolve(skillsRoot(), cat.name)
-      for (const p of readdirSync(userCatDir, { withFileTypes: true })) {
-        if (!p.isDirectory()) continue
-        if (builtinPkgIds.has(p.name)) {
-          restoreBuiltinSkill(cat.name, p.name)
-          restoredSkills.push(`${cat.name}/${p.name}`)
-        } else {
-          kept.push(`skill:${cat.name}/${p.name}`)
-        }
-      }
+  // 技能：用户层 <cat>/<pkg>，出厂源存在同名 → 删副本（恢复出厂）。
+  for (const cat of subdirs(skillsRoot())) {
+    const builtinPkgIds = new Set(subdirs(resolve(builtinSkillsRoot(), cat)))
+    const userCatDir = resolve(skillsRoot(), cat)
+    for (const pkg of subdirs(userCatDir)) {
+      if (builtinPkgIds.has(pkg)) { restoreBuiltinSkill(cat, pkg); restoredSkills.push(`${cat}/${pkg}`) }
+      else kept.push(`skill:${cat}/${pkg}`)
     }
   }
 
-  // 重新物化出厂副本。
+  // 图标包：用户层每个目录，若出厂源存在同名 → 删副本（恢复出厂）。
+  const builtinPackIds = new Set(subdirs(builtinIconPacksRoot()))
+  for (const name of subdirs(iconPacksRoot())) {
+    if (builtinPackIds.has(name)) { restoreBuiltinIconPack(name); restoredIconPacks.push(name) }
+    else kept.push(`iconpack:${name}`)
+  }
+
+  // 默认提示词（单文件）：出厂源有默认提示词且用户层副本存在 → 恢复出厂。
+  if (existsSync(resolve(builtinPromptsRoot(), 'default.md')) && existsSync(resolve(getDataDir(), 'prompts', 'builtin-default.md'))) {
+    restoreBuiltinPrompt(); restoredPrompts++
+  }
+
+  // 服务商预设（目录树 <dataDir>/providers/<name>）：出厂源有同名 → 删目录（恢复出厂）。
+  const builtinProviderNames = new Set(subdirs(builtinProvidersRoot()))
+  for (const name of subdirs(providersRoot())) {
+    if (builtinProviderNames.has(name)) { restoreBuiltinProvider(name); restoredProviders.push(name) }
+    else kept.push(`provider:${name}`)
+  }
+
+  // 重新物化出厂副本（补齐缺失项；用户自建项因出厂源无名而跳过保留）。
   const result = materializeAllBuiltinContent()
 
   return c.json({
     ok: true,
-    restoredCharacters: restoredChars,
+    restoredCharacters,
     restoredSkills,
+    restoredIconPacks,
+    restoredProviders,
+    restoredPrompts,
     kept,
     materialized: result.materialized.length,
     failed: result.failed,

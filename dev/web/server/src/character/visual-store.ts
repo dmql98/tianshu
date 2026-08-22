@@ -4,9 +4,6 @@ import {
 } from 'fs'
 import { basename, extname, resolve } from 'path'
 import { charactersRoot } from '../data-paths.js'
-import { builtinCharactersRoot } from '../content/paths.js'
-import { materializeCharacter } from '../content/copy-on-write.js'
-import { builtinContentVersion } from '../agent/skill-catalog.js'
 import { getDb } from '../db/schema.js'
 
 export type CharacterMotion =
@@ -50,22 +47,14 @@ const DEFAULT_VISUAL: CharacterVisual = {
 }
 
 /**
- * 视觉目录按最终获胜来源解析：用户层存在则用用户层（完整覆盖内置层），
- * 否则用内置只读目录（若内置提供默认视觉）。
+ * 视觉目录：单层化后所有角色视觉都在 <dataDir>/characters/<id>/visual。
  */
 function visualDir(characterId: string) {
-  const userDir = resolve(charactersRoot(), characterId, 'visual')
-  if (existsSync(userDir)) return userDir
-  return resolve(builtinCharactersRoot(), characterId, 'visual')
+  return resolve(charactersRoot(), characterId, 'visual')
 }
 
-/** 写入口：确保视觉落在用户层（内置角色首次写入自动物化用户副本）。 */
+/** 写入口：视觉落在用户层 <dataDir>/characters/<id>/visual（seed 保证角色目录存在）。 */
 function ensureWritableVisual(characterId: string): string {
-  const builtinExists = existsSync(resolve(builtinCharactersRoot(), characterId, 'character.json'))
-  const userDir = resolve(charactersRoot(), characterId)
-  if (builtinExists && !existsSync(userDir)) {
-    materializeCharacter(characterId, builtinContentVersion())
-  }
   return resolve(charactersRoot(), characterId, 'visual')
 }
 

@@ -1,7 +1,6 @@
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { getDataDir } from '../../config.js'
-import { builtinPromptsRoot } from '../../content/paths.js'
 import { characterMetaStore, type CharacterRecord } from '../../db/characterStore.js'
 import { characterContentStore } from '../../character/store.js'
 import { messageStore } from '../../db/messageStore.js'
@@ -20,7 +19,8 @@ import type { MessageRow } from '../../db/messageStore.js'
  */
 
 const USER_DEFAULT_PROMPT_FILE = () => resolve(getDataDir(), 'prompts', 'default.md')
-const BUILTIN_DEFAULT_PROMPT_FILE = () => resolve(builtinPromptsRoot(), 'default.md')
+// 单层化：出厂默认提示词经 seed 落到 <dataDir>/prompts/builtin-default.md。
+const BUILTIN_DEFAULT_PROMPT_FILE = () => resolve(getDataDir(), 'prompts', 'builtin-default.md')
 
 export function resolveWorkspace(ws: string | null | undefined): string {
   return ws || getDataDir()

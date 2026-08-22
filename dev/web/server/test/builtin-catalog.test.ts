@@ -24,6 +24,9 @@ beforeEach(async () => {
   resetContentStateCache()
   rmSync(join(root, 'data'), { recursive: true, force: true })
   mkdirSync(join(root, 'data'), { recursive: true })
+  // 单层化：运行链路只读 <dataDir>；测试需先把出厂内容 seed 进 dataDir。
+  const { materializeAllBuiltinContent } = await import('../src/content/materialize-builtin.js')
+  materializeAllBuiltinContent()
 })
 
 describe('builtin + userdata 双层合并', () => {
@@ -48,24 +51,17 @@ describe('builtin + userdata 双层合并', () => {
 
   it('同 ID 用户内容完整覆盖内置内容（无逐字段隐式合并）', async () => {
     const { characterMetaStore } = await import('../src/db/characterStore.js')
-    // 找一个内置角色，在用户层创建同 ID 完整副本并修改 name
+    // 找一个内置角色，编辑其（单层化下已 seed 在 dataDir 的）副本以模拟用户覆盖。
     const builtin = characterMetaStore.getAll().find(c => c.source === 'builtin')!
-    const userDir = join(root, 'data', 'characters', builtin.id)
-    mkdirSync(userDir, { recursive: true })
-    writeFileSync(join(userDir, 'character.json'), JSON.stringify({
-      id: builtin.id,
-      name: '我的自定义版本',
-      description: '用户覆盖',
-      enabled: true,
-    }, null, 2), 'utf-8')
+    characterMetaStore.update(builtin.id, { name: '我的自定义版本' })
 
     const merged = characterMetaStore.getById(builtin.id)!
     expect(merged.source).toBe('user')
     expect(merged.readOnly).toBe(false)
     expect(merged.overridesBuiltin).toBe(true)
     expect(merged.name).toBe('我的自定义版本')
-    // 用户副本没有 soul.md 时不会回退内置 soul（完整覆盖语义由内容 store 的
-    // characterDir 保证——用户目录存在即优先）。
+    // 用户编辑内置角色后来源标签为 user 且标记 overridesBuiltin（完整覆盖语义由
+    // 合并层 source 标签保证——dataDir 副本即为获胜来源）。
   })
 
   it('隐藏状态生效：内置角色被隐藏后普通列表不返回，all=true 可见', async () => {

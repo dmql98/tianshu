@@ -277,7 +277,12 @@ export default function SettingsPage() {
         load(),
         fetchCharacters().then(setCharacters),
       ])
-      const restored = (res.restoredCharacters?.length || 0) + (res.restoredSkills?.length || 0)
+      const restored =
+        (res.restoredCharacters?.length || 0) +
+        (res.restoredSkills?.length || 0) +
+        (res.restoredIconPacks?.length || 0) +
+        (res.restoredProviders?.length || 0) +
+        (res.restoredPrompts || 0)
       showToast(t('已恢复 {n} 项内置内容', { n: restored }))
     } catch (err: any) {
       showToast(`${t('恢复失败')}: ${err.message || t('网络错误')}`, 'err')

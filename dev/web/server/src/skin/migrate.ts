@@ -12,15 +12,12 @@ import { existsSync } from 'fs'
 import { resolve } from 'path'
 import { characterMetaStore } from '../db/characterStore.js'
 import { charactersRoot } from '../data-paths.js'
-import { builtinCharactersRoot } from '../content/paths.js'
 import { migrateCharacterVisualToSkin, skinStore } from './skin-store.js'
 
-/** 角色 visual 解析：用户层优先，否则内置只读层。 */
+/** 角色 visual 解析：单层化后视觉只位于 <dataDir>/characters/<id>/visual。 */
 function visualDirFor(characterId: string): string | null {
   const userDir = resolve(charactersRoot(), characterId, 'visual')
   if (existsSync(userDir)) return userDir
-  const builtinDir = resolve(builtinCharactersRoot(), characterId, 'visual')
-  if (existsSync(builtinDir)) return builtinDir
   return null
 }
 

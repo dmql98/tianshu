@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, rmSync } from 'fs'
 import { extname, join, relative, resolve, sep } from 'path'
 import { skillsRoot as userSkillsRoot } from '../data-paths.js'
-import { builtinContentRoot, builtinSkillsRoot, type ContentSource } from '../content/paths.js'
+import { builtinContentRoot, type ContentSource } from '../content/paths.js'
 import { mergeById, type ContentOriginFields } from '../content/catalog.js'
 import { readContentState } from '../content/state.js'
 import { materializeSkillPackage, readSourceTag, markSourceAsUser } from '../content/copy-on-write.js'
@@ -242,10 +242,11 @@ function checkDuplicateIds(packages: SkillPackageRecord[]): void {
  * 同 ID（category + packageId）用户项完整覆盖内置项，不做逐字段隐式合并。
  */
 export function listSkillPackages(): SkillPackageRecord[] {
-  const builtin = scanSkillPackages(builtinSkillsRoot(), 'builtin')
-  // 用户层排除"未编辑的物化副本"（source 标签为 builtin，仍由 builtin 层提供）。
-  const user = scanSkillPackages(skillsRoot(), 'user')
-    .filter(pkg => readSourceTag(pkg.dir, 'skill') !== 'builtin')
+  // 单层化：所有技能（内置 seed 副本 + 用户创建/编辑）都在 <dataDir>/skills。
+  // 扫描一次，按 source 标签拆出 builtin/user 两层供 mergeById 复用。
+  const all = scanSkillPackages(skillsRoot(), 'user')
+  const builtin = all.filter(pkg => readSourceTag(pkg.dir, 'skill') === 'builtin')
+  const user = all.filter(pkg => readSourceTag(pkg.dir, 'skill') !== 'builtin')
   checkDuplicateIds(builtin)
   checkDuplicateIds(user)
 
@@ -306,8 +307,16 @@ export function ensureSkillPackageWritable(category: string, id: string): SkillP
   return { ...userCopy, overridesBuiltin: true }
 }
 
-/** 恢复内置版本：删除用户副本目录（builtin 重新可见，除非仍被隐藏）。 */
+/**
+ * 恢复内置版本（单层化语义）：先删用户层副本，再从出厂源重新物化一份干净的
+ * 内置副本到 dataDir。若出厂源缺失则保留已删状态。只影响内置项。
+ */
 export function restoreBuiltinSkill(category: string, id: string): void {
   const dir = resolve(skillsRoot(), category, id)
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true })
+  try {
+    materializeSkillPackage(category, id, builtinContentVersion())
+  } catch {
+    /* 出厂源缺失：保留已删状态 */
+  }
 }

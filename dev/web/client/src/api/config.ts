@@ -16,6 +16,9 @@ export interface ReimportBuiltinResult {
   ok: boolean
   restoredCharacters: string[]
   restoredSkills: string[]
+  restoredIconPacks: string[]
+  restoredProviders: string[]
+  restoredPrompts: number
   kept: string[]
   materialized: number
   failed: Array<{ id: string; error: string }>

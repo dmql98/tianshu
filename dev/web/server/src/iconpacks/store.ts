@@ -23,7 +23,6 @@ import {
   writeFileSync,
 } from 'fs'
 import { join, resolve } from 'path'
-import { builtinIconPacksRoot } from '../content/paths.js'
 import { iconPacksRoot } from '../data-paths.js'
 import { detectImageFormat } from '../theme/image-validation.js'
 import {
@@ -60,7 +59,8 @@ const MAX_ICON_BYTES = 512 * 1024 // 512 KB（图标远小于主题图）
 const ALLOWED_EXT = new Set(['.svg', '.png', '.webp'])
 
 function rootFor(id: string): string {
-  return isBuiltinIconPackId(id) ? builtinIconPacksRoot() : iconPacksRoot()
+  // 单层化：内置包已 seed 到 <dataDir>/iconpacks，读写均走用户层根。
+  return iconPacksRoot()
 }
 
 function packDir(id: string): string {
@@ -84,9 +84,9 @@ function assertWritable(id: string): void {
   if (isBuiltinIconPackId(id)) throw new Error('Builtin icon packs are read-only')
 }
 
-/** 扫描 <dataDir>/iconpacks（用户层）与 content/builtin/iconpacks（内置层）下的包目录。 */
+/** 扫描 <dataDir>/iconpacks 下的包目录（内置包已 seed 进用户层，无需再扫出厂层）。 */
 export function listIconPacks(): { packs: IconPackRecord[]; skipped: { dir: string; reason: string }[] } {
-  const roots = [builtinIconPacksRoot(), iconPacksRoot()]
+  const roots = [iconPacksRoot()]
   const packs: IconPackRecord[] = []
   const skipped: { dir: string; reason: string }[] = []
   for (const root of roots) {

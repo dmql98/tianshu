@@ -69,6 +69,11 @@ export function iconPacksRoot(): string {
   return resolve(dataRoot(), 'iconpacks')
 }
 
+/** 出厂服务商预设目录（D6 single-layer seed）：<dataDir>/providers。 */
+export function providersRoot(): string {
+  return resolve(dataRoot(), 'providers')
+}
+
 /** 内容层状态文件：<dataDir>/content-state.json（builtin 隐藏状态等）。 */
 export function contentStateFile(): string {
   return resolve(dataRoot(), 'content-state.json')

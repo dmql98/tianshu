@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
 import { isAbsolute, join, relative, resolve, sep } from 'path'
 import { providerPresetSchema, type ProviderPreset } from './schema.js'
 import { getPlugin } from '../providers/index.js'
-import { builtinProvidersRoot } from '../content/paths.js'
+import { providersRoot } from '../data-paths.js'
 
 /**
  * Catalog 根目录定位（BUILTIN_CONTENT_DEVELOPMENT_PLAN §2 / §11）：
@@ -13,7 +13,8 @@ import { builtinProvidersRoot } from '../content/paths.js'
 export function getCatalogRoot(): string {
   const override = process.env.TIANSHU_PROVIDER_CATALOG_DIR
   if (override) return resolve(override)
-  return builtinProvidersRoot()
+  // 单层化：出厂服务商预设已 seed 到 <dataDir>/providers（仍可读 TIANSHU_PROVIDER_CATALOG_DIR 覆盖）。
+  return providersRoot()
 }
 
 export interface CatalogIssue {

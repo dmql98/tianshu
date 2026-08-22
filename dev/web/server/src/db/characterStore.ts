@@ -3,10 +3,10 @@ import { resolve } from 'path'
 import { getSystemRunPolicy } from '../config.js'
 import { charactersRoot } from '../data-paths.js'
 import { builtinCharactersRoot } from '../content/paths.js'
-import { readSourceTag, markSourceAsUser } from '../content/copy-on-write.js'
+import { readSourceTag } from '../content/copy-on-write.js'
 import { mergeById, type ContentOriginFields } from '../content/catalog.js'
 import { readContentState } from '../content/state.js'
-import { materializeCharacter, userCharacterDirExists } from '../content/copy-on-write.js'
+import { materializeCharacter } from '../content/copy-on-write.js'
 import { builtinContentVersion } from '../agent/skill-catalog.js'
 import { normalizeStrategy, type Strategy, type StrategyInput } from '../agent/strategy.js'
 import { normalizeCharacterRunPolicy, migrateCharacterRunPolicy, type CharacterRunPolicy } from '../agent/loop/run-policy.js'
@@ -40,6 +40,8 @@ export interface CharacterRecord {
   name: string
   /** 来源标签：builtin（内置出厂/未编辑物化副本）/ user（用户创建或编辑过）。 */
   source?: 'builtin' | 'user'
+  /** 单层化：该项是否覆盖/派生自一个出厂内置项（用户编辑过内置项时置 true）。 */
+  overridesBuiltin?: boolean
   description?: string
   avatar?: string
   color?: string
@@ -107,15 +109,11 @@ export function scanCharacters(root: string): CharacterRecord[] {
   return items
 }
 
-/** 扫描用户层角色，排除"未编辑的物化副本"（source 标签为 builtin，仍由 builtin 层提供）。 */
-function scanUserCharacters(): CharacterRecord[] {
-  return scanCharacters(charactersRoot()).filter(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') !== 'builtin')
-}
-
-/** 双层角色合并（builtin + userdata），返回带来源字段的稳定排序列表。 */
+/** 单层角色合并（所有角色都在 <dataDir>/characters，按 source 标签拆 builtin/user），返回带来源字段的稳定排序列表。 */
 export function listMergedCharacters(includeHidden = false): Array<CharacterRecord & CharacterOriginFields> {
-  const builtin = scanCharacters(builtinCharactersRoot())
-  const user = scanUserCharacters()
+  const all = scanCharacters(charactersRoot())
+  const builtin = all.filter(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') === 'builtin')
+  const user = all.filter(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') !== 'builtin')
   const state = readContentState()
   const hiddenIds = new Set<string>()
   if (!includeHidden) for (const id of state.hidden.characters) hiddenIds.add(id)
@@ -128,12 +126,11 @@ export function listMergedCharacters(includeHidden = false): Array<CharacterReco
   })
 }
 
-/** 解析单个角色：用户层完整覆盖内置层；不存在的 ID 返回 null。 */
+/** 解析单个角色：用户层（source=user）完整覆盖内置层（source=builtin）；不存在的 ID 返回 null。 */
 export function resolveCharacterRecord(id: string): (CharacterRecord & CharacterOriginFields) | null {
-  const builtin = scanCharacters(builtinCharactersRoot()).find(c => c.id === id)
-  const user = scanCharacters(charactersRoot())
-    .filter(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') !== 'builtin')
-    .find(c => c.id === id)
+  const all = scanCharacters(charactersRoot()).filter(c => c.id === id)
+  const builtin = all.find(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') === 'builtin')
+  const user = all.find(c => readSourceTag(resolve(charactersRoot(), c.id), 'character') !== 'builtin')
   if (!builtin && !user) return null
   const [merged] = mergeById<CharacterRecord>({
     builtin: builtin ? [builtin] : [],
@@ -167,9 +164,10 @@ function nextId(items: CharacterRecord[]): string {
  * 用户副本已存在（含损坏目录）时不覆盖。
  */
 function ensureWritable(id: string): void {
-  const builtin = scanCharacters(builtinCharactersRoot()).some(c => c.id === id)
-  if (!builtin) return
-  if (!userCharacterDirExists(id)) {
+  // 单层化：seed 保证 <dataDir>/characters/<id> 已存在；若缺失则尝试从出厂源物化兜底。
+  const dir = resolve(charactersRoot(), id)
+  if (existsSync(dir)) return
+  if (existsSync(resolve(builtinCharactersRoot(), id))) {
     materializeCharacter(id, builtinContentVersion())
   }
 }
@@ -206,14 +204,20 @@ export const characterMetaStore = {
   },
 
   update: (id: string, data: Partial<CharacterRecord>) => {
-    // 编辑内置角色：先物化用户副本，再改副本（copy-on-write）。
+    // 编辑内置角色（copy-on-write）：确保 dataDir 副本存在，写回时来源标签置 user。
+    // 若副本原本是出厂内置项，附加 overridesBuiltin 标记供合并层识别"已自定义"。
     ensureWritable(id)
     const record = characterMetaStore.getUserRecord(id)
     if (!record) return null
-    // 用户编辑了内置角色副本 → source 标签置 user（合并时覆盖 builtin）。
-    // 注意 source 要放在 record 展开之后，避免被副本里的 builtin 标签覆盖。
-    markSourceAsUser(resolve(charactersRoot(), id), 'character')
-    const updated: CharacterRecord = normalizeRecord({ ...record, ...data, id, source: 'user', updatedAt: Date.now() })
+    const isBuiltin = record.source === 'builtin'
+    const updated: CharacterRecord = normalizeRecord({
+      ...record,
+      ...data,
+      id,
+      source: 'user',
+      updatedAt: Date.now(),
+      ...(isBuiltin ? { overridesBuiltin: true } : {}),
+    })
     writeSingle(updated)
     return updated
   },
