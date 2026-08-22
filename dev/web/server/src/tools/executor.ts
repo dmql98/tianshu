@@ -1,6 +1,6 @@
 import { execute as registryExecute } from './registry.js'
 import { PathEscapeError } from './utils.js'
-import type { ToolResult } from './types.js'
+import type { ToolResult, ToolArgs } from './types.js'
 import type { MCPClient } from './mcp-client.js'
 
 function parseMCPToolName(name: string): { serverName: string; toolName: string } | null {
@@ -9,7 +9,7 @@ function parseMCPToolName(name: string): { serverName: string; toolName: string 
   return { serverName: m[1], toolName: m[2] }
 }
 
-export async function executeTool(name: string, args: Record<string, string>, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void, workspaces?: string[], dataspace?: string, sessionId?: string): Promise<ToolResult> {
+export async function executeTool(name: string, args: ToolArgs, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void, workspaces?: string[], dataspace?: string, sessionId?: string): Promise<ToolResult> {
   if (name.startsWith('mcp__') && mcpClients) {
     const parsed = parseMCPToolName(name)
     if (!parsed) return { output: '', error: `Invalid MCP tool name: ${name}` }

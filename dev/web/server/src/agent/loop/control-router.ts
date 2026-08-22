@@ -231,8 +231,9 @@ export async function handleCreatePlan(input: {
   runId: string
   stream: TransportBroadcaster
   goalId?: string | null
+  mode?: 'direct' | 'plan_first' | 'goal'
 }): Promise<CreatePlanOutcome> {
-  const { result, sessionId, runId, stream, goalId } = input
+  const { result, sessionId, runId, stream, goalId, mode } = input
   const planCall = result.toolCalls?.find(tc => tc.function.name === 'create_plan')
   const toolCallId = planCall?.id || `plan_${Date.now()}`
   const req = result.planRequest
@@ -251,9 +252,29 @@ export async function handleCreatePlan(input: {
     return { kind: 'continue', messages: [toolMessage], planCreated: false }
   }
   planStore.supersedeActive(sessionId)
+  // Goal mode: reuse create_plan's goal/verification as the single goal
+  // declaration (no separate forced create_goal). Auto-link a goal object so
+  // the [Goal] re-anchor, final-answer gate and budget/pause keep working.
+  let resolvedGoalId = goalId || null
+  if (!resolvedGoalId && mode === 'goal' && req.goal) {
+    const created = goalStore.create({
+      session_id: sessionId,
+      outcome: req.goal,
+      verification: req.verification || null,
+    })
+    resolvedGoalId = created.id
+    stream?.emit('goal.created', {
+      session_id: sessionId,
+      run_id: runId,
+      goal_id: created.id,
+      status: created.status,
+      outcome: created.outcome,
+      verification: created.verification,
+    })
+  }
   const plan = planStore.createPlan({
     session_id: sessionId,
-    goal_id: goalId || null,
+    goal_id: resolvedGoalId,
     steps: req.steps,
   })
   const stepCount = planStore.steps(plan.id).length

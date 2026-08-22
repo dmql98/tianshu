@@ -1,6 +1,6 @@
 import { readdirSync, existsSync } from 'fs'
 import { resolve } from 'path'
-import type { ToolModule, ToolResult, ToolContext } from './types.js'
+import type { ToolModule, ToolResult, ToolContext, ToolArgs } from './types.js'
 import { readToolMeta, validateToolMetas } from './tool-meta.js'
 
 const TOOLS_DIR = import.meta.dirname
@@ -71,7 +71,7 @@ export function getFilteredDefinitions(names: string[]) {
   return result
 }
 
-export async function execute(name: string, args: Record<string, string>, ctx: ToolContext): Promise<ToolResult> {
+export async function execute(name: string, args: ToolArgs, ctx: ToolContext): Promise<ToolResult> {
   const tool = byName.get(name)
   if (!tool) return { output: '', error: `Unknown tool: ${name}` }
   if (tool.signal) return { output: '', error: `Signal tool "${name}" is handled at loop level, not executor` }

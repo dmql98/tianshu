@@ -22,7 +22,7 @@ export const tool: ToolModule = {
       return { output: '暂无 LLM 调用记录' }
     }
 
-    const filterId = args.session_id
+    const filterId = args.session_id != null ? String(args.session_id) : undefined
     if (filterId) {
       sessions = sessions.filter(s => s.includes(filterId))
     }

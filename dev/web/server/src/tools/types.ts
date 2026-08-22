@@ -45,6 +45,11 @@ export interface ToolContext {
   onOutput?: (chunk: string) => void
 }
 
+// Tool arguments as delivered at runtime: the model's tool-call arguments are
+// JSON.parse'd, so top-level values are mixed scalars (string | number | boolean)
+// — NOT strings. Each tool's zod schema is responsible for final coercion/validation.
+export type ToolArgs = Record<string, string | number | boolean>
+
 export interface ToolModule {
   name: string
   description: string
@@ -56,5 +61,5 @@ export interface ToolModule {
   dangerous?: boolean
   signal?: boolean
   constraintFields?: ConstraintField[]
-  execute: (args: Record<string, string>, ctx: ToolContext) => Promise<ToolResult>
+  execute: (args: ToolArgs, ctx: ToolContext) => Promise<ToolResult>
 }

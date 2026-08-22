@@ -4,7 +4,7 @@ import { characterMetaStore, type ToolBinding } from '../db/characterStore.js'
 import { streamChatCompletion, type LLMMessage, type ToolCall, type ProviderConfig } from '../llm/client.js'
 import { getDangerousTools, validateConstraints } from '../tools/definitions.js'
 import { executeTool } from '../tools/executor.js'
-import type { ToolResult } from '../tools/types.js'
+import type { ToolResult, ToolArgs } from '../tools/types.js'
 import { getSessionState, isToolApprovedForSession, approveToolForSession } from './session.js'
 import { logLLMCall } from './llm-call-store.js'
 import type { Strategy } from './session.js'
@@ -94,7 +94,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms))
 }
 
-function checkToolBinding(characterId: string, toolName: string, args: Record<string, string>): string | null {
+function checkToolBinding(characterId: string, toolName: string, args: ToolArgs): string | null {
   const character = characterMetaStore.getById(characterId)
   if (!character) return null
   const bindings = character.tools
@@ -645,14 +645,14 @@ export async function innerLoop(
   }
 
   // Phase 1: pre-check all tools, separate deny/ask from allow
-  const prechecked: { tc: ToolCall; name: string; args: Record<string, string>; argsStr: string; skip: boolean; skipReason?: string }[] = []
+  const prechecked: { tc: ToolCall; name: string; args: ToolArgs; argsStr: string; skip: boolean; skipReason?: string }[] = []
 
   for (const tc of toolCallsAcc) {
     const { name, arguments: argsStr } = tc.function
     if (name === 'invalid_tool_call') continue // handled above
     // Arguments were canonicalized before persistence, so this parse must
     // succeed; a failure here is a programming error, never a silent `{}`.
-    let args: Record<string, string>
+    let args: ToolArgs
     try { args = JSON.parse(argsStr) } catch (err: any) {
       throw new Error(`Internal error: tool arguments failed to parse after canonicalization (${name}): ${err?.message}`)
     }

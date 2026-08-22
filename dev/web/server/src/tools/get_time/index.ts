@@ -1,4 +1,4 @@
-import type { ToolModule, ToolResult, ToolContext } from '../types.js'
+import type { ToolModule, ToolResult, ToolContext, ToolArgs } from '../types.js'
 
 export const tool: ToolModule = {
   name: 'get_time',
@@ -8,7 +8,7 @@ export const tool: ToolModule = {
     properties: {},
     required: [],
   },
-  async execute(_args: Record<string, string>, _ctx: ToolContext): Promise<ToolResult> {
+  async execute(_args: ToolArgs, _ctx: ToolContext): Promise<ToolResult> {
     const now = new Date()
     const offset = -now.getTimezoneOffset()
     const tz = `UTC${offset >= 0 ? '+' : ''}${Math.floor(offset / 60)}:${String(offset % 60).padStart(2, '0')}`

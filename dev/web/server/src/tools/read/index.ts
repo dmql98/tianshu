@@ -46,8 +46,8 @@ export const tool: ToolModule = {
     const input = validate(
       z.object({
         path: z.string().min(1, 'path 不能为空'),
-        offset: z.string().optional(),
-        limit: z.string().optional(),
+        offset: z.coerce.number().int().min(1).optional(),
+        limit: z.coerce.number().int().min(1).optional(),
       }),
       args, 'read',
     )
@@ -66,8 +66,8 @@ export const tool: ToolModule = {
     const lines = content.split('\n')
     const totalLines = lines.length
 
-    const offset = input.offset ? Math.max(1, parseInt(input.offset)) : 1
-    const limit = input.limit ? Math.max(1, parseInt(input.limit)) : PAGE_SIZE
+    const offset = Math.max(1, input.offset ?? 1)
+    const limit = Math.max(1, input.limit ?? PAGE_SIZE)
 
     const end = Math.min(offset + limit - 1, totalLines)
     const sliced = lines.slice(offset - 1, end)

@@ -243,9 +243,11 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
           (g.verification ? `\n验证标准: ${g.verification}` : ''),
         )
       } else {
-        // Goal mode mandates a goal + plan: force the model to create the goal
-        // first (re-injected only when the state changes, like the plan alert).
-        const noGoalAlert = '[Policy Goal] 当前会话没有进行中的目标。先调用 create_goal 创建目标（建议包含验证标准），再 create_plan 拆分步骤执行。'
+        // Goal mode no longer forces a separate create_goal: the goal is
+        // declared via create_plan's goal/verification fields (which auto-link
+        // a goal object in control-router), or via create_goal when a cross-run
+        // budget/pause is needed. Soft hint only, re-injected on state change.
+        const noGoalAlert = '[Policy Goal] 目标尚未声明。可在 create_plan 时填写 goal 与 verification 字段来声明目标（将自动关联目标对象）；如需跨 Run 预算/暂停再调用 create_goal。计划仍必须先建。'
         if (noGoalAlert !== lastGoalAlert) {
           composeCtx.systemAlerts!.push(noGoalAlert)
           lastGoalAlert = noGoalAlert
@@ -460,6 +462,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         runId,
         stream,
         goalId: executionMode === 'goal' ? goal?.id || null : null,
+        mode: executionMode,
       })
       if (outcome.planId) currentPlanId = outcome.planId
       messages.push(...outcome.messages)

@@ -11,6 +11,7 @@ import { characterPresenceProjector } from '../character/presence-projector.js'
 import { runCoordinator } from '../agent/runtime/run-coordinator.js'
 import { llmCallsForSession, rowToLLMCall } from '../agent/llm-call-store.js'
 import { runStore } from '../agent/runtime/run-store.js'
+import { planStore, goalStore } from '../agent/plan/plan-store.js'
 import { runEventStore, flushAllPending } from '../agent/runtime/run-event-store.js'
 import {
   resolveWorkspace, resolveDataspace,
@@ -63,8 +64,21 @@ router.post('/:id/generate-title', async (c) => {
 })
 router.put('/:id', async (c) => {
   const body = await c.req.json()
-  const updated = sessionStore.update(c.req.param('id'), body)
+  const id = c.req.param('id')
+  const prev = sessionStore.getById(id)
+  const updated = sessionStore.update(id, body)
   if (!updated) return c.json({ error: 'Not found' }, 404)
+  // 切回 direct 时清理遗留的计划/目标工件，避免 direct 模式被旧的
+  // 计划/目标约束“软强制”（见 loop-engine 的 [Policy Direct] 渲染）。
+  const nextMode = (body.execution_mode ?? updated.execution_mode) as string
+  if (prev && prev.execution_mode !== 'direct' && nextMode === 'direct') {
+    planStore.supersedeActive(id)
+    for (const g of goalStore.listForSession(id)) {
+      if (g.status === 'active' || g.status === 'paused') {
+        goalStore.update(g.id, { status: 'cancelled' })
+      }
+    }
+  }
   return c.json(updated)
 })
 router.delete('/:id', (c) => {

@@ -1,4 +1,4 @@
-import type { ToolModule, ToolResult, ToolContext } from '../types.js'
+import type { ToolModule, ToolResult, ToolContext, ToolArgs } from '../types.js'
 
 export const tool: ToolModule = {
   name: 'my-tool',
@@ -11,7 +11,7 @@ export const tool: ToolModule = {
     required: ['arg1'],
   },
   dangerous: false,
-  async execute(args: Record<string, string>, ctx: ToolContext): Promise<ToolResult> {
+  async execute(args: ToolArgs, ctx: ToolContext): Promise<ToolResult> {
     return { output: 'result' }
   },
 }

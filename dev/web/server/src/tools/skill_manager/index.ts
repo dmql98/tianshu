@@ -39,6 +39,11 @@ export const tool: ToolModule = {
   },
   execute: async (args, ctx) => {
     const action = args.action
+    // model-supplied args are mixed scalars (string | number | boolean) at runtime;
+    // coerce the id-like fields to strings before passing to string-typed APIs.
+    const packageId = args.package_id != null ? String(args.package_id) : ''
+    const skillId = args.skill_id != null ? String(args.skill_id) : ''
+    const skillName = args.skill_name != null ? String(args.skill_name) : ''
 
     if (action === 'list_packages') {
       const packages = listSkillPackages().map(pkg => ({
@@ -53,10 +58,10 @@ export const tool: ToolModule = {
     }
 
     if (action === 'describe_package' || action === 'list_children') {
-      if (!args.package_id) return { output: '', error: 'package_id is required' }
-      if (ctx.sessionId && !packageAllowed(ctx.sessionId, args.package_id)) return { output: '', error: `Package "${args.package_id}" is not bound to this character` }
-      const pkg = findSkillPackage(args.package_id)
-      if (!pkg) return { output: '', error: `Skill package "${args.package_id}" not found` }
+      if (!packageId) return { output: '', error: 'package_id is required' }
+      if (ctx.sessionId && !packageAllowed(ctx.sessionId, packageId)) return { output: '', error: `Package "${packageId}" is not bound to this character` }
+      const pkg = findSkillPackage(packageId)
+      if (!pkg) return { output: '', error: `Skill package "${packageId}" not found` }
       return { output: JSON.stringify({ id: pkg.id, name: pkg.name, description: pkg.description, version: pkg.version, dir: pkg.dir, root: pkg.rootBody, children: pkg.children }, null, 2) }
     }
 
@@ -67,17 +72,17 @@ export const tool: ToolModule = {
 
     if (action === 'activate') {
       if (!ctx.sessionId) return { output: '', error: 'No active session context' }
-      if (!args.package_id || !args.skill_id) return { output: '', error: 'package_id and skill_id are required' }
-      if (!packageAllowed(ctx.sessionId, args.package_id)) return { output: '', error: `Package "${args.package_id}" is not bound to this character` }
-      const ref = `${args.package_id}/${args.skill_id}`
+      if (!packageId || !skillId) return { output: '', error: 'package_id and skill_id are required' }
+      if (!packageAllowed(ctx.sessionId, packageId)) return { output: '', error: `Package "${packageId}" is not bound to this character` }
+      const ref = `${packageId}/${skillId}`
       const found = resolveSkillReference(ref)
       if (!found?.child) return { output: '', error: `Child skill "${ref}" not found` }
       const active = sessionSkillStore.list(ctx.sessionId)
-      if (!active.some(item => item.package_id === args.package_id && item.skill_id === args.skill_id) && active.length >= 3) {
+      if (!active.some(item => item.package_id === packageId && item.skill_id === skillId) && active.length >= 3) {
         return { output: '', error: 'At most 3 child skills may be active in one session. Deactivate one first.' }
       }
       const hash = createHash('sha256').update(found.body).digest('hex')
-      sessionSkillStore.activate(ctx.sessionId, args.package_id, args.skill_id, hash)
+      sessionSkillStore.activate(ctx.sessionId, packageId, skillId, hash)
       const childDir = resolve(found.pkg.dir, found.child.path)
       // 把运行时 dataDir 真实路径带给模型：技能正文里的 `<dataDir>` 占位符
       // 无法被模型解析（bash 工作区 ≠ dataDir），激活时直接注入绝对路径。
@@ -87,13 +92,13 @@ export const tool: ToolModule = {
 
     if (action === 'deactivate') {
       if (!ctx.sessionId) return { output: '', error: 'No active session context' }
-      if (!args.package_id || !args.skill_id) return { output: '', error: 'package_id and skill_id are required' }
-      const changed = sessionSkillStore.deactivate(ctx.sessionId, args.package_id, args.skill_id)
-      return { output: changed ? `Deactivated ${args.package_id}/${args.skill_id}` : 'Skill was not active' }
+      if (!packageId || !skillId) return { output: '', error: 'package_id and skill_id are required' }
+      const changed = sessionSkillStore.deactivate(ctx.sessionId, packageId, skillId)
+      return { output: changed ? `Deactivated ${packageId}/${skillId}` : 'Skill was not active' }
     }
 
     if (action === 'read') {
-      const ref = args.skill_name || (args.package_id && args.skill_id ? `${args.package_id}/${args.skill_id}` : args.package_id)
+      const ref = skillName || (packageId && skillId ? `${packageId}/${skillId}` : packageId)
       if (!ref) return { output: '', error: 'skill_name or package_id is required' }
       if (ctx.sessionId && !packageAllowed(ctx.sessionId, ref.split('/', 1)[0])) return { output: '', error: `Package "${ref.split('/', 1)[0]}" is not bound to this character` }
       const found = resolveSkillReference(ref)
