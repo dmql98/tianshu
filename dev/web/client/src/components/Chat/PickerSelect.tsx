@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { topModelKeys } from '@/features/chat/modelUsage'
+import { loadModelUsage, topModelKeys } from '@/features/chat/modelUsage'
 import { useI18n } from '@/i18n'
 
 export interface PickerSelectOption {
@@ -34,11 +34,17 @@ export default function PickerSelect({ value, options, onChange, title, searchab
   const [activeIndex, setActiveIndex] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  // 每次展开时重算常用榜，避免使用计数更新后展示滞后。
-  const topKeys = useMemo(
-    () => (open && frequentCount > 0 ? topModelKeys(frequentCount) : []),
-    [open, frequentCount],
-  )
+  // 每次展开时异步加载常用榜（服务端计数，见 features/chat/modelUsage.ts）。
+  const [topKeys, setTopKeys] = useState<string[]>([])
+  useEffect(() => {
+    setTopKeys([])
+    if (!open || frequentCount <= 0) return
+    let cancelled = false
+    loadModelUsage()
+      .then(usage => { if (!cancelled) setTopKeys(topModelKeys(usage, frequentCount)) })
+      .catch(() => { if (!cancelled) setTopKeys([]) })
+    return () => { cancelled = true }
+  }, [open, frequentCount])
 
   const q = search.trim().toLowerCase()
   const matches = (o: PickerSelectOption) =>

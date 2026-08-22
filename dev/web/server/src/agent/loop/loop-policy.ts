@@ -1,6 +1,6 @@
 import type { LLMMessage } from '../../llm/client.js'
 import type { ToolCallRecord } from '../inner.js'
-import { pruneToolResultContent } from './tool-result-pruner.js'
+import { codePointLength, pruneToolResultContent } from './tool-result-pruner.js'
 import { envInt } from '../../config.js'
 
 /**
@@ -21,12 +21,19 @@ export const KEEP_TOKENS_MIN = envInt('TSS_KEEP_TOKENS_MIN', 4000)
 export const KEEP_TOKENS_MAX = envInt('TSS_KEEP_TOKENS_MAX', 64000)
 /** 保留比：默认 0.16，对齐 deepseek-harness（P1-3）。 */
 export const COMPACT_RETAIN_RATIO = parseFloat(process.env.TSS_COMPACT_RETAIN_RATIO || '0.16') || 0.16
+/** 手动压缩触发阈值（用户主动点击）：会话用量超过该比例才执行压缩；低于视为无需压缩。 */
+export const MANUAL_COMPACT_RATIO = parseFloat(process.env.TSS_MANUAL_COMPACT_RATIO || '0.5') || 0.5
 /** 单次压缩重试上限（P0-1，对齐 compactionRetries）。 */
 export const MAX_COMPACT_ATTEMPTS = envInt('TSS_COMPACT_RETRIES', 2)
 /** 溢出触发的压缩重试上限（P1-6，对齐 maxOverflowRetries）。 */
 export const MAX_OVERFLOW_COMPACTS = envInt('TSS_OVERFLOW_RETRIES', 2)
 export const SNIP_KEEP_TOOL_TURNS = envInt('TSS_SNIP_KEEP_TOOL_TURNS', 3)
 export const SUMMARY_OUTPUT_TOKENS = 2048
+/** P0-1：snip 时对近期窗口（最近 SNIP_KEEP_TOOL_TURNS 轮）工具结果的头尾剪枝上限（字符）。 */
+export const RECENT_PRUNE_CHARS = envInt('TSS_RECENT_PRUNE_CHARS', 16384)
+/** P2：压缩预留缓冲（环境变量）。压缩后的 recent 预算不超过 contextWindow − reserved，
+ *  为模型输出留出空间。默认 0 = 不额外限制（沿用阈值与保留比之间的天然差 + shrinkVerified）。 */
+export const COMPACT_RESERVED = envInt('TSS_COMPACT_RESERVED', 0)
 
 /**
  * 可配置的压缩策略（P1-4）：阈值/保留比/摘要模型。模型级（ModelInfo 扩展字段）
@@ -66,10 +73,15 @@ export function resolveKeepTokens(
   contextWindow = DEFAULT_CONTEXT_WINDOW,
   attempt = 0,
   policy: CompactPolicy = DEFAULT_COMPACT_POLICY,
+  reserved: number = COMPACT_RESERVED,
 ): number {
   const scaled = Math.floor(contextWindow * policy.retainRatio)
   const budget = Math.min(KEEP_TOKENS_MAX, Math.max(KEEP_TOKENS_MIN, scaled))
-  return Math.max(KEEP_TOKENS_MIN, budget >> attempt)
+  // P2：reserved > 0 时强制 recent 预算不超过 contextWindow − reserved，为模型输出留空间。
+  const capped = reserved > 0
+    ? Math.max(KEEP_TOKENS_MIN, Math.min(budget, Math.max(0, contextWindow - reserved)))
+    : budget
+  return Math.max(KEEP_TOKENS_MIN, capped >> attempt)
 }
 
 const IMAGE_TOKEN_EQUIVALENT = 1100
@@ -171,19 +183,31 @@ export function trimToolResults(messages: LLMMessage[]): TrimResult {
     const m = messages[i]
     if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
       turnCount++
-      if (turnCount > SNIP_KEEP_TOOL_TURNS) {
-        const toolIds = new Set(m.tool_calls.filter(tc => tc.id).map(tc => tc.id!))
-        for (let j = i + 1; j < messages.length; j++) {
-          if (messages[j].role === 'tool' && messages[j].tool_call_id && toolIds.has(messages[j].tool_call_id!)) {
-            const content = messages[j].content
-            const original = typeof content === 'string' ? content : ''
-            const prunedContent = pruneToolResultContent(original)
-            if (prunedContent !== original) {
-              messages[j] = { ...messages[j], content: prunedContent }
-              pruned = true
-              const dbId = (messages[j] as unknown as { __dbId?: number }).__dbId
-              if (typeof dbId === 'number' && dbId > trimmedUntilId) trimmedUntilId = dbId
-            }
+      const isRecent = turnCount <= SNIP_KEEP_TOOL_TURNS
+      const toolIds = new Set(m.tool_calls.filter(tc => tc.id).map(tc => tc.id!))
+      for (let j = i + 1; j < messages.length; j++) {
+        if (messages[j].role === 'tool' && messages[j].tool_call_id && toolIds.has(messages[j].tool_call_id!)) {
+          const content = messages[j].content
+          const original = typeof content === 'string' ? content : ''
+          if (!original) continue
+          // P0-1：近期窗口（最近 SNIP_KEEP_TOOL_TURNS 轮）内超过硬上限的工具结果也做头尾剪枝
+          // （防止其被 repair 整体拉入 recent 后撑破压缩预算导致 not_smaller 死锁）；
+          // 旧结果沿用默认阈值。两者都扩展 trimmedUntilId 水印以便重载一致恢复。
+          const recentOversized = isRecent && codePointLength(original) > RECENT_PRUNE_CHARS
+          const stale = turnCount > SNIP_KEEP_TOOL_TURNS
+          if (!recentOversized && !stale) continue
+          const prunedContent = recentOversized
+            ? pruneToolResultContent(original, {
+                thresholdChars: RECENT_PRUNE_CHARS,
+                headChars: Math.floor(RECENT_PRUNE_CHARS * 0.6),
+                tailChars: Math.floor(RECENT_PRUNE_CHARS * 0.4),
+              })
+            : pruneToolResultContent(original)
+          if (prunedContent !== original) {
+            messages[j] = { ...messages[j], content: prunedContent }
+            pruned = true
+            const dbId = (messages[j] as unknown as { __dbId?: number }).__dbId
+            if (typeof dbId === 'number' && dbId > trimmedUntilId) trimmedUntilId = dbId
           }
         }
       }

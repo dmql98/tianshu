@@ -1,5 +1,7 @@
 import { streamChatCompletion, type LLMMessage, type LLMOptions, type ProviderConfig } from '../../llm/client.js'
 import { providerStore } from '../../db/providerStore.js'
+import { envInt } from '../../config.js'
+import { codePointLength, pruneToolResultContent, type PruneBudgets } from './tool-result-pruner.js'
 import {
   contentToText, systemMessageEnd, estimateTextTokens, estimateTokens,
   DEFAULT_CONTEXT_WINDOW, DEFAULT_COMPACT_POLICY, MAX_COMPACT_ATTEMPTS,
@@ -16,10 +18,64 @@ export const SUMMARY_OUTPUT_TOKENS = 2048
 /** 摘要长度保险（P2-7）：LLM 输出的摘要超过该 token 上限时按节截断。 */
 export const COMPACT_SUMMARY_CAP = 2048
 
+/** P0-1：recent 窗口内工具结果的头尾剪枝上限（Unicode code point）。 */
+export const RECENT_TOOL_RESULT_CAP_CHARS = envInt('TSS_RECENT_TOOL_CAP_CHARS', 16384)
+/** recent 窗口工具剪枝预算：保留更多首部、少量尾部关键信息。 */
+const RECENT_PRUNE_BUDGETS: PruneBudgets = {
+  thresholdChars: RECENT_TOOL_RESULT_CAP_CHARS,
+  headChars: Math.floor(RECENT_TOOL_RESULT_CAP_CHARS * 0.6),
+  tailChars: Math.floor(RECENT_TOOL_RESULT_CAP_CHARS * 0.4),
+}
+
 /** 硬约束：压缩只能作用于 system 块之后的对话，system 前缀逐字节保留。 */
 const COMPACTED_PREFIX = '[Compacted History]'
 const isCompactedSummary = (m: LLMMessage) =>
   m.role === 'system' && typeof m.content === 'string' && m.content.startsWith(COMPACTED_PREFIX)
+
+/** P0-2：纯文本消息才可中段切分（tool 消息走剪枝，带 tool_calls 的 assistant 不允许拆分以保护配对）。 */
+function canSplit(m: LLMMessage): boolean {
+  if (m.role === 'tool') return false
+  if (m.tool_calls && m.tool_calls.length) return false
+  return typeof m.content === 'string' && m.content.length > 0
+}
+
+/** P0-2：把一条纯文本消息从中间切开：尾部（约 keepTailTokens）留 recent，头部并入 head 参与摘要。 */
+function splitMessage(msg: LLMMessage, keepTailTokens: number): [LLMMessage, LLMMessage] {
+  const points = Array.from(msg.content as string)
+  if (points.length <= 1) return [msg, msg]
+  let tailChars = 0
+  let acc = 0
+  for (let i = points.length - 1; i >= 0; i--) {
+    const t = estimateTextTokens(points[i])
+    if (acc + t > keepTailTokens) break
+    acc += t
+    tailChars++
+  }
+  const splitAt = Math.min(points.length - 1, Math.max(1, points.length - tailChars))
+  return [
+    { ...msg, content: points.slice(0, splitAt).join('') },
+    { ...msg, content: points.slice(splitAt).join('') },
+  ]
+}
+
+/** P1-1：保底保留最新 user 意图。预算循环从尾部累加，被它排除的 user 必然使整段
+ *  tail 超过预算；但当 repair 为保持 tool 配对把大消息拉进 recent 造成轻度膨胀（≤25%）时，
+ *  原本被挤进 head 的最新 user 值得拉回 recent，随后 P0-1 会把膨胀部分剪掉。 */
+function ensureLastUserInRecent(
+  serialized: Array<{ msg: LLMMessage; tokens: number }>,
+  split: number,
+  tokenBudget: number,
+): number {
+  let lu = -1
+  for (let i = serialized.length - 1; i >= 0; i--) {
+    if (serialized[i].msg.role === 'user') { lu = i; break }
+  }
+  if (lu < 0 || lu >= split) return split
+  let tail = 0
+  for (let i = lu; i < serialized.length; i++) tail += serialized[i].tokens
+  if (tail > tokenBudget + Math.floor(tokenBudget * 0.25)) return split
+  return lu
+}
 
 // P0-3: 摘要调用默认复用会话前缀（system + tools + 消息），把压缩指令作为
 // 最后一条 user 消息，让辅助调用成为主请求的真实前缀以复用 provider KV cache。
@@ -102,24 +158,24 @@ export function selectEntries(
   msgs: LLMMessage[],
   tokenBudget: number,
 ): { head: LLMMessage[]; recent: LLMMessage[] } | undefined {
-  type SerEntry = { text: string; msg: LLMMessage }
+  type SerEntry = { text: string; msg: LLMMessage; tokens: number }
   const serialized: SerEntry[] = []
   for (const m of msgs) {
     if (m.role === 'user' && m.content) {
-      serialized.push({ text: `[User]: ${contentToText(m.content)}`, msg: m })
+      serialized.push({ text: `[User]: ${contentToText(m.content)}`, msg: m, tokens: estimateTokens([m]) })
     } else if (m.role === 'assistant') {
       const parts: string[] = []
       if (m.content) parts.push(`[Assistant]: ${contentToText(m.content)}`)
       if (m.tool_calls) {
         for (const tc of m.tool_calls) parts.push(`[Tool call]: ${tc.function.name}`)
       }
-      if (parts.length) serialized.push({ text: parts.join('\n'), msg: m })
+      if (parts.length) serialized.push({ text: parts.join('\n'), msg: m, tokens: estimateTokens([m]) })
     } else if (m.role === 'tool') {
       const content = contentToText(m.content)
       const status = content.includes('error') ? content.slice(0, 100) : 'success'
-      serialized.push({ text: `[Tool result]: ${status}`, msg: m })
+      serialized.push({ text: `[Tool result]: ${status}`, msg: m, tokens: estimateTokens([m]) })
     } else if (m.role === 'system' && m.content) {
-      serialized.push({ text: `[System]: ${contentToText(m.content).slice(0, 200)}`, msg: m })
+      serialized.push({ text: `[System]: ${contentToText(m.content).slice(0, 200)}`, msg: m, tokens: estimateTokens([m]) })
     }
   }
   if (serialized.length === 0) return
@@ -127,9 +183,38 @@ export function selectEntries(
   let total = 0
   let split = serialized.length
   for (let i = serialized.length - 1; i >= 0; i--) {
-    total += estimateTextTokens(serialized[i].text)
+    // 预算按消息真实 token 估算累加（与 estimateTokens(messages) 口径一致）。
+    // 原先使用被简化的序列化文本（工具结果被压缩成 'success'），会让工具密集
+    // 会话在预算累加中几乎不占空间，导致 split=0、head 为空，永远判定无需压缩。
+    total += serialized[i].tokens
     if (total > tokenBudget) { split = i + 1; break }
     split = i
+  }
+
+  if (split === 0) return
+
+  // P0-1/P0-2：边界救援。最近一条消息单独就超预算时（split===length、recent 为空），
+  // 后续 repair 在 split===length 时返回 0，selectEntries 只能返回 undefined —— 压缩
+  // 永远不触发，会话会在超大单条消息（大工具结果 / 长回答）下卡死直至溢出。
+  // 对超大工具结果做头尾剪枝、对超大纯文本做中段切分，让其一截能留在 recent。
+  const boundaryExtraHead: LLMMessage[] = []
+  if (split === serialized.length && split > 0) {
+    const idx = split - 1
+    const entry = serialized[idx]
+    const m = entry.msg
+    if (m.role === 'tool' && typeof m.content === 'string' && codePointLength(m.content) > RECENT_TOOL_RESULT_CAP_CHARS) {
+      const pruned = pruneToolResultContent(m.content, RECENT_PRUNE_BUDGETS)
+      if (pruned !== m.content) {
+        const prunedMsg = { ...m, content: pruned }
+        serialized[idx] = { ...entry, msg: prunedMsg, tokens: estimateTokens([prunedMsg]) }
+        split = idx
+      }
+    } else if (canSplit(m) && entry.tokens > tokenBudget * 0.5) {
+      const [headPart, tailPart] = splitMessage(m, tokenBudget)
+      boundaryExtraHead.push(headPart)
+      serialized[idx] = { ...entry, msg: tailPart, tokens: estimateTokens([tailPart]) }
+      split = idx
+    }
   }
 
   if (split === 0) return
@@ -139,10 +224,25 @@ export function selectEntries(
   split = repairSplitForPairs(serialized, split)
   if (split === 0) return
 
-  const recentMsgs = serialized.slice(split).map(e => e.msg)
-  const headMsgs = serialized.slice(0, split).map(e => e.msg)
+  // P1-1：保底保留最新 user 意图；拉回后重新修复配对。
+  split = ensureLastUserInRecent(serialized, split, tokenBudget)
+  if (split === 0) return
+  split = repairSplitForPairs(serialized, split)
+  if (split === 0) return
 
-  return { head: headMsgs, recent: recentMsgs }
+  const headMsgs = serialized.slice(0, split).map(e => e.msg)
+  let recentMsgs = serialized.slice(split).map(e => e.msg)
+
+  // P0-1 兜底：recent 内超过硬上限的工具结果做头尾剪枝（克隆，不污染原始数组）。
+  recentMsgs = recentMsgs.map((m) => {
+    if (m.role === 'tool' && typeof m.content === 'string' && codePointLength(m.content) > RECENT_TOOL_RESULT_CAP_CHARS) {
+      const pruned = pruneToolResultContent(m.content, RECENT_PRUNE_BUDGETS)
+      return pruned === m.content ? m : { ...m, content: pruned }
+    }
+    return m
+  })
+
+  return { head: [...headMsgs, ...boundaryExtraHead], recent: recentMsgs }
 }
 
 function callIdsOf(m: LLMMessage): string[] {

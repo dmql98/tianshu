@@ -177,10 +177,10 @@ function assertBalancedSeq(msgs: LLMMessage[], label: string): void {
     ({ role: 'assistant', content, tool_calls: [{ id: callId, type: 'function', function: { name: 'read', arguments: '{}' } }] })
   const messages: LLMMessage[] = [
     userMsg('q0'),
-    bigCall('c0', 'x'.repeat(300)), // token-heavy: 50+ tokens
-    toolMsg('c0', 'y'.repeat(40)),  // ~10 tokens; budget 12 keeps it but not its call
+    bigCall('c0', 'x'.repeat(300)), // ~81 tokens（真实 token 口径）
+    toolMsg('c0', 'y'.repeat(40)),  // ~18 tokens；预算 20 留下它但切掉它的调用
   ]
-  const selected = selectEntries(messages, 12)
+  const selected = selectEntries(messages, 20)
   assert(!!selected && selected.head.length > 0, 'repair keeps some head')
   assertBalancedSeq(selected.recent, 'tool-first crossing')
   assert(selected.recent[0]?.role === 'assistant' || selected.recent[0]?.role === 'user',
@@ -197,9 +197,9 @@ function assertBalancedSeq(msgs: LLMMessage[], label: string): void {
     userMsg('q0'),
     multiCall(['a', 'b']),
     toolMsg('a', 'yy'.repeat(6)), // small-ish
-    toolMsg('b', 'zz'.repeat(40)), // heavier tail
+    toolMsg('b', 'zz'.repeat(40)), // ~28 tokens；预算 30 留下它但切掉更早消息
   ]
-  const selected = selectEntries(messages, 10)
+  const selected = selectEntries(messages, 30)
   assert(!!selected, 'selection happened')
   assertBalancedSeq(selected.recent, 'multi-call split')
   assert(selected.recent.some(m => m.role === 'assistant' && m.tool_calls?.length === 2),
@@ -300,6 +300,98 @@ function assertBalancedSeq(msgs: LLMMessage[], label: string): void {
   const small = '## Goal\n- done'
   assert(capSummaryLength(small) === small, 'under-cap summary untouched')
   console.log('  OK P2-7 capSummaryLength bounds summary, keeps section headers')
+}
+
+// ---- P0-1: trimToolResults 剪近期窗口内超大工具结果 --------------------------
+{
+  const messages: LLMMessage[] = [
+    userMsg('hi'),
+    asmCalls('c1'), toolMsg('c1', 'b'.repeat(40)),       // turn 4 → stale, small → 不动
+    asmCalls('c2'), toolMsg('c2', 'c'.repeat(20000)),   // turn 3 → recent oversized → 剪枝
+    asmCalls('c3'), toolMsg('c3', 'fresh'),              // turn 2 → recent small → 保留
+    asmCalls('c4'), toolMsg('c4', 'out'),                // turn 1 → recent small → 保留
+  ]
+  const trimmed = trimToolResults(messages)
+  assert(trimmed.pruned === true, 'recent oversized result pruned')
+  const c2 = JSON.parse(messages[4].content as string)
+  assert(typeof c2.output === 'string' && c2.output.includes('工具输出中部已省略'), 'recent oversized c2 head/tail pruned')
+  assert(JSON.parse(messages[2].content as string).output === 'b'.repeat(40), 'stale small kept untouched')
+  assert(JSON.parse(messages[6].content as string).output === 'fresh', 'recent small kept')
+  assert(JSON.parse(messages[8].content as string).output === 'out', 'newest kept')
+  console.log('  OK P0-1 trimToolResults prunes recent oversized tool result')
+}
+
+// ---- P0-1b: selectEntries 边界救援（最后一条超大工具结果单独超预算）----------
+{
+  const messages: LLMMessage[] = []
+  for (let i = 0; i < 5; i++) {
+    messages.push(userMsg(`q${i}`))
+    messages.push(asmCalls(`c${i}`))
+    messages.push(toolMsg(`c${i}`))
+  }
+  messages.push(asmCalls('clast'))
+  messages.push(toolMsg('clast', 'x'.repeat(100000)))   // ~25k tokens，单独超预算
+  const selected = selectEntries(messages, 10000)
+  assert(!!selected, 'boundary rescue: selection happens instead of undefined')
+  assert(selected!.head.length > 0 && selected!.recent.length > 0, 'head & recent non-empty')
+  assert(selected!.recent.some(m => m.role === 'tool' && typeof m.content === 'string' && m.content.includes('工具输出中部已省略')),
+    'oversized last tool result pruned into recent')
+  const lastOriginal = messages[messages.length - 1].content as string
+  assert(lastOriginal.includes('x'.repeat(100000)), 'original array untouched (full result kept)')
+  const compacted = compactHistory(messages, '## Goal\n- x', selected!.recent)
+  assert(estimateTokens(compacted) < estimateTokens(messages), 'compacted shrinks below original (shrinkVerified holds)')
+  console.log('  OK P0-1b selectEntries boundary rescue prunes oversized last tool result')
+}
+
+// ---- P0-2b: selectEntries 中段切分（最后一条超大纯文本） ---------------------
+{
+  const big = 'x'.repeat(100000)
+  const originalLen = Array.from('huge ' + big).length
+  const messages: LLMMessage[] = [
+    userMsg('q0'), asm('a0'),
+    userMsg('q1'), asm('a1'),
+    userMsg('huge ' + big),   // ~25k tokens，最后一条
+  ]
+  const selected = selectEntries(messages, 10000)
+  assert(!!selected && selected!.head.length > 0 && selected!.recent.length > 0, 'split gives head & recent')
+  const users = [...selected!.head, ...selected!.recent].filter((m): m is LLMMessage & { content: string } => m.role === 'user' && typeof m.content === 'string')
+  const totalUserLen = users.reduce((s, m) => s + m.content.length, 0)
+  assert(totalUserLen >= originalLen - 4, `split preserves ~all user text (${totalUserLen} vs ${originalLen})`)
+  assert(selected!.head.some(m => m.role === 'user' && typeof m.content === 'string' && m.content.startsWith('huge ')),
+    'head part keeps the message prefix')
+  console.log('  OK P0-2b selectEntries splits oversized pure-text last message')
+}
+
+// ---- P1-1: repair 膨胀时最新 user 保底回 recent ------------------------------
+{
+  const messages: LLMMessage[] = [
+    userMsg('q0'), asm('a0'),
+    userMsg('keep'), asm('aKeep'),
+    userMsg('intent'),
+    { role: 'assistant', content: 'x'.repeat(39800), tool_calls: [{ id: 'c99', type: 'function', function: { name: 'read', arguments: '{}' } }] },
+    toolMsg('c99', 'y'.repeat(60000)),
+  ]
+  // 动态构造预算：不加 intent 时 recent 刚好在预算内，加上 intent 就超 → intent 被划进 head；
+  // 但 intent 到末尾 < 1.25×预算 → P1-1 允许拉回，随后 P0-1 剪掉大结果。
+  const recentWithoutIntent = estimateTokens(messages.slice(5))
+  const budget = recentWithoutIntent + 1
+  const selected = selectEntries(messages, budget)
+  assert(!!selected, 'selection happens')
+  assert(selected!.recent.some(m => m.role === 'user' && m.content === 'intent'),
+    'latest user message preserved in recent (P1-1 floor)')
+  assert(messages[4].content === 'intent', 'original messages untouched')
+  console.log('  OK P1-1 latest user intent kept in recent under repair inflation')
+}
+
+// ---- P2: COMPACT_RESERVED 旋钮 ----------------------------------------------
+{
+  const w = 200000
+  assert(resolveKeepTokens(w, 0) === 32000, 'default: no reserved, 16% = 32000')
+  assert(resolveKeepTokens(w, 0, undefined, 180000) === 20000, 'reserved 180k caps recent to 20k')
+  const attempt1 = resolveKeepTokens(w, 1, undefined, 180000)
+  assert(attempt1 === 10000, 'reserved still halves on retry (20000>>1 = 10000)')
+  assert(resolveKeepTokens(50000, 0, undefined, 49000) === 4000, 'reserved clamps to KEEP_TOKENS_MIN floor')
+  console.log('  OK P2 COMPACT_RESERVED caps recent budget below window-reserved, default off')
 }
 
 console.log('ALL LOOP TESTS PASSED')

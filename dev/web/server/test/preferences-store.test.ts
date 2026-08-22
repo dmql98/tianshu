@@ -1,13 +1,17 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { userPreferencesFile } from '../src/data-paths.js'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
-  readUserPreferences,
-  resetUserPreferencesCache,
-  setUserPreferences,
-} from '../src/preferences/store.js'
+  configThemeFile,
+  configIconPackFile,
+  configModelUsageFile,
+  userPreferencesFile,
+} from '../src/data-paths.js'
+import { getThemeSelection, saveThemeSelection } from '../src/preferences/themeStore.js'
+import { getIconPackSelection, saveIconPackSelection } from '../src/preferences/iconPackStore.js'
+import { getModelUsage, saveModelUsage, normalizeModelUsage } from '../src/preferences/modelUsageStore.js'
+import { normalizeThemeSelection, normalizeIconPackSelection } from '../src/preferences/validation.js'
 
 let tmpData: string
 
@@ -21,68 +25,77 @@ afterAll(() => {
   delete process.env.TIANSHU_DATA_DIR
 })
 
-describe('user preferences store', () => {
-  it('returns empty state when nothing is written', () => {
-    resetUserPreferencesCache()
-    expect(readUserPreferences()).toEqual({ schemaVersion: 1 })
+// 每个用例前清空 config/ 与旧聚合文件，保证隔离
+beforeEach(() => {
+  rmSync(join(tmpData, 'config'), { recursive: true, force: true })
+  rmSync(userPreferencesFile(), { force: true })
+})
+
+describe('themeStore', () => {
+  it('returns null when nothing is written (route layer supplies the default)', () => {
+    expect(getThemeSelection()).toBeNull()
   })
 
-  it('persists theme and iconPack selections to the config file and survives reload', () => {
-    resetUserPreferencesCache()
-    const updated = setUserPreferences({
-      theme: { mode: 'builtin', themeId: 'tianshu-dark' },
-      iconPack: { packId: 'lucide' },
-    })
-    expect(updated.theme).toEqual({ mode: 'builtin', themeId: 'tianshu-dark' })
-    expect(updated.iconPack).toEqual({ packId: 'lucide' })
-
-    const raw = readFileSync(userPreferencesFile(), 'utf8')
-    expect(JSON.parse(raw)).toEqual({
-      schemaVersion: 1,
-      theme: { mode: 'builtin', themeId: 'tianshu-dark' },
-      iconPack: { packId: 'lucide' },
-    })
-
-    // 清缓存模拟"重启进程后重新读取"：配置仍在（这才是持久化要保护的能力）
-    resetUserPreferencesCache()
-    const reloaded = readUserPreferences()
-    expect(reloaded.theme?.themeId).toBe('tianshu-dark')
-    expect(reloaded.iconPack?.packId).toBe('lucide')
+  it('persists theme selection to config/theme.json and survives reload', () => {
+    saveThemeSelection({ mode: 'builtin', themeId: 'tianshu-dark' })
+    expect(getThemeSelection()).toEqual({ mode: 'builtin', themeId: 'tianshu-dark' })
+    expect(JSON.parse(readFileSync(configThemeFile(), 'utf8'))).toEqual({ mode: 'builtin', themeId: 'tianshu-dark' })
+    // 重新读取（模拟重启）仍在
+    expect(getThemeSelection()?.themeId).toBe('tianshu-dark')
   })
 
-  it('merges partial updates without clobbering the other field', () => {
-    resetUserPreferencesCache()
-    setUserPreferences({ theme: { mode: 'system' } })
-    setUserPreferences({ iconPack: { packId: 'custom-abc' } })
-    const prefs = readUserPreferences()
-    expect(prefs.theme).toEqual({ mode: 'system' })
-    expect(prefs.iconPack).toEqual({ packId: 'custom-abc' })
+  it('rejects unsafe theme ids', () => {
+    expect(normalizeThemeSelection({ mode: 'custom', themeId: '../evil' })).toBeNull()
+    expect(normalizeThemeSelection({ mode: 'builtin', themeId: 'x'.repeat(200) })).toBeNull()
+    expect(normalizeThemeSelection({ mode: 'weird' })).toBeNull()
+  })
+})
+
+describe('iconPackStore', () => {
+  it('returns null when nothing is written (route layer supplies the default)', () => {
+    expect(getIconPackSelection()).toBeNull()
   })
 
-  it('clears a field when null is provided', () => {
-    resetUserPreferencesCache()
-    setUserPreferences({ theme: { mode: 'system' }, iconPack: { packId: 'lucide' } })
-    const prefs = setUserPreferences({ theme: null })
-    expect(prefs.theme).toBeUndefined()
-    expect(prefs.iconPack).toEqual({ packId: 'lucide' })
+  it('persists iconPack selection to config/iconpack.json', () => {
+    saveIconPackSelection({ packId: 'custom-abc' })
+    expect(getIconPackSelection()).toEqual({ packId: 'custom-abc' })
+    expect(JSON.parse(readFileSync(configIconPackFile(), 'utf8'))).toEqual({ packId: 'custom-abc' })
   })
 
-  it('rejects unsafe IDs, invalid modes, and unknown versions', () => {
-    resetUserPreferencesCache()
-    setUserPreferences({ theme: { mode: 'custom', themeId: '../evil' } })
-    expect(readUserPreferences().theme).toBeUndefined()
+  it('rejects unsafe pack ids', () => {
+    expect(normalizeIconPackSelection({ packId: '/etc/passwd' })).toBeNull()
+  })
+})
 
-    resetUserPreferencesCache()
-    setUserPreferences({ iconPack: { packId: '/etc/passwd' } })
-    expect(readUserPreferences().iconPack).toBeUndefined()
+describe('modelUsageStore', () => {
+  it('persists counts to config/model-usage.json', () => {
+    saveModelUsage({ version: 1, counts: { 'p::a': 3, 'p::b': 1 } })
+    expect(getModelUsage().counts).toEqual({ 'p::a': 3, 'p::b': 1 })
+    expect(JSON.parse(readFileSync(configModelUsageFile(), 'utf8')).counts).toEqual({ 'p::a': 3, 'p::b': 1 })
+  })
 
-    resetUserPreferencesCache()
-    setUserPreferences({ theme: { mode: 'builtin', themeId: 'tianshu-light' } })
-    expect(readUserPreferences().theme?.themeId).toBe('tianshu-light')
+  it('drops invalid keys and non-positive counts on normalize', () => {
+    const u = normalizeModelUsage({ version: 1, counts: { bad: 1, 'p::ok': 2.9, 'p::neg': -1 } })
+    expect(u.counts).toEqual({ 'p::ok': 2 })
+  })
+})
 
-    // 直接写入一个未知版本号 → 重启后安全回退空状态，不阻塞
-    writeFileSync(userPreferencesFile(), JSON.stringify({ schemaVersion: 99 }), 'utf-8')
-    resetUserPreferencesCache()
-    expect(readUserPreferences()).toEqual({ schemaVersion: 1 })
+describe('legacy user-preferences migration', () => {
+  it('migrates theme+iconPack from old user-preferences.json into config/ files and removes the legacy file', () => {
+    writeFileSync(
+      userPreferencesFile(),
+      JSON.stringify({
+        schemaVersion: 1,
+        theme: { mode: 'builtin', themeId: 'tianshu-mid' },
+        iconPack: { packId: 'lucide' },
+      }),
+      'utf-8',
+    )
+    expect(getThemeSelection()).toEqual({ mode: 'builtin', themeId: 'tianshu-mid' })
+    expect(getIconPackSelection()).toEqual({ packId: 'lucide' })
+    expect(existsSync(configThemeFile())).toBe(true)
+    expect(existsSync(configIconPackFile())).toBe(true)
+    // 旧聚合文件应被删除
+    expect(existsSync(userPreferencesFile())).toBe(false)
   })
 })

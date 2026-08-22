@@ -16,6 +16,11 @@ export function dataRoot(): string {
   return getDataDir()
 }
 
+/** 轻量配置目录：<dataDir>/config（providers / 主题 / 图标包 / 常用模型计数的落盘处）。 */
+export function configDir(): string {
+  return resolve(dataRoot(), 'config')
+}
+
 /** 用户角色目录：<dataDir>/characters */
 export function charactersRoot(): string {
   return resolve(dataRoot(), 'characters')
@@ -69,7 +74,29 @@ export function contentStateFile(): string {
   return resolve(dataRoot(), 'content-state.json')
 }
 
-/** 用户偏好文件：<dataDir>/user-preferences.json（主题/图标包等轻量偏好持久层）。 */
+/** 旧版用户偏好文件：<dataDir>/user-preferences.json（主题/图标包聚合）。
+ *  仅作迁移读取源——迁移后主题/图标包选择分别落到 config/theme.json、config/iconpack.json，
+ *  本函数随之废弃（见 preferences 各 store 的迁移逻辑）。 */
 export function userPreferencesFile(): string {
   return resolve(dataRoot(), 'user-preferences.json')
+}
+
+/** 用户服务商配置：<dataDir>/config/providers.json（由 <dataDir>/providers.json 迁移而来）。 */
+export function configProvidersFile(): string {
+  return resolve(configDir(), 'providers.json')
+}
+
+/** 主题选择：<dataDir>/config/theme.json。 */
+export function configThemeFile(): string {
+  return resolve(configDir(), 'theme.json')
+}
+
+/** 图标包选择：<dataDir>/config/iconpack.json。 */
+export function configIconPackFile(): string {
+  return resolve(configDir(), 'iconpack.json')
+}
+
+/** 常用模型计数：<dataDir>/config/model-usage.json。 */
+export function configModelUsageFile(): string {
+  return resolve(configDir(), 'model-usage.json')
 }

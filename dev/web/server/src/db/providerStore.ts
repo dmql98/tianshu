@@ -1,9 +1,25 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'fs'
 import { resolve } from 'path'
 import { getDataDir } from '../config.js'
+import { configProvidersFile, configDir } from '../data-paths.js'
 
-const FILE = () => resolve(getDataDir(), 'providers.json')
-const DATA_DIR = () => getDataDir()
+const FILE = () => configProvidersFile()
+
+// 启动迁移：旧 <dataDir>/providers.json → <dataDir>/config/providers.json（仅当新文件不存在时）。
+function migrateProviders() {
+  const oldPath = resolve(getDataDir(), 'providers.json')
+  const newPath = FILE()
+  if (oldPath !== newPath && existsSync(oldPath) && !existsSync(newPath)) {
+    mkdirSync(configDir(), { recursive: true })
+    try {
+      renameSync(oldPath, newPath)
+    } catch {
+      // 跨设备/权限失败退化为复制
+      writeFileSync(newPath, readFileSync(oldPath, 'utf-8'), 'utf-8')
+    }
+  }
+}
+migrateProviders()
 
 export interface ProviderRecord {
   id: string; name: string; base_url: string; api_key: string
@@ -39,18 +55,18 @@ export interface ModelInfo {
 }
 
 function readAll(): ProviderRecord[] {
-  ensureDataDir()
+  ensureConfigDir()
   const f = FILE()
   if (!existsSync(f)) return []
   return JSON.parse(readFileSync(f, 'utf-8'))
 }
 function writeAll(items: ProviderRecord[]) {
-  ensureDataDir()
+  ensureConfigDir()
   writeFileSync(FILE(), JSON.stringify(items, null, 2), 'utf-8')
 }
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR())) mkdirSync(DATA_DIR(), { recursive: true })
+function ensureConfigDir() {
+  if (!existsSync(configDir())) mkdirSync(configDir(), { recursive: true })
 }
 
 // migrate existing records that lack an id

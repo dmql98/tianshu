@@ -17,7 +17,7 @@ import {
   assembleStaticPrompt, buildInitialMessages,
 } from '../agent/loop/context-builder.js'
 import { selectAndSummarize } from '../agent/loop/context-compactor.js'
-import { estimateTokens, DEFAULT_CONTEXT_WINDOW, resolveCompactPolicy } from '../agent/loop/loop-policy.js'
+import { estimateTokens, DEFAULT_CONTEXT_WINDOW, resolveCompactPolicy, MANUAL_COMPACT_RATIO } from '../agent/loop/loop-policy.js'
 import { resolveCapability } from '../agent/attachments.js'
 import { getCharacterToolDefinitions } from '../tools/definitions.js'
 import { sessionSkillStore } from '../agent/session-skill-store.js'
@@ -207,7 +207,15 @@ router.post('/:id/compact', async (c) => {
     activeSkills: sessionSkillStore.bodies(id),
   })
 
-  const tokensBefore = estimateTokens(messages)
+  // 手动压缩触发阈值：优先采用 provider 实测 input token（session.context_usage 每轮
+  // 持久化，对中文更准），缺失时回退本地估算。与自动压缩（thresholdRatio≈0.75）区分，
+  // 手动阈值更低，用户主动点击时更易触发。
+  const estimatedTokens = estimateTokens(messages)
+  const tokensBefore = (session.context_usage && session.context_usage > 0) ? session.context_usage : estimatedTokens
+  if (tokensBefore <= contextWindow * MANUAL_COMPACT_RATIO) {
+    return c.json({ ok: true, didCompact: false, reason: 'below_manual_threshold', tokensBefore })
+  }
+
   const result = await selectAndSummarize(messages, effProvider, model, {
     tools: toolDefs.length > 0 ? toolDefs : undefined,
     contextWindow,

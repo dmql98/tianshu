@@ -232,7 +232,7 @@ export async function startTianshuServer(
   app.route('/api/themes', themesRouter)
   app.route('/api/iconpacks', iconPacksRouter)
   app.route('/api/events', eventsRouter)
-  app.route('/api/user-preferences', preferencesRouter)
+  app.route('/api/preferences', preferencesRouter)
   app.route('/api/skins', skinsRouter)
   app.get('/health', (c) => c.json({ ok: true }))
 
