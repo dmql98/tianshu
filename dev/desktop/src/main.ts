@@ -15,6 +15,9 @@ import type { ServerMessage } from '../../shared/server-ipc.js'
 const isDev = !app.isPackaged
 const DEV_URL = process.env.TIANSHU_DEV_URL || 'http://127.0.0.1:3457'
 
+// 后台定时检索更新的间隔（§11.4）：每小时一次；首次在窗口起来后延迟 7s 初检。
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000
+
 // 首次启动的初始化 splash：server 创建 dataDir + 物化 builtin content 期间展示。
 const SPLASH_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
 <html><head><meta charset="utf-8"><style>
@@ -406,11 +409,11 @@ if (!app.requestSingleInstanceLock()) {
       void mainWindow.loadURL(serverUrl)
     }
 
-    // Silent background check ~7s after the window is up (packaged only).
+    // 后台定时检索更新：窗口起来后延迟 7s 初检，之后每小时一次（§11.4）。
+    // 发现更新即由 updater 后台自动下载，下载完前端弹窗提示直接安装，
+    // 不再在启动期阻塞等待下载。
     if (app.isPackaged) {
-      setTimeout(() => {
-        updateManager?.checkForUpdates().catch(() => {})
-      }, 7_000)
+      updateManager?.startPeriodicCheck(UPDATE_CHECK_INTERVAL_MS, 7_000)
     }
   })
 
@@ -429,6 +432,8 @@ if (!app.requestSingleInstanceLock()) {
       } catch (err) {
         console.error('[desktop] error while stopping server:', err)
       }
+      // 清理周期性更新检查定时器，避免退出时残留定时器句柄。
+      updateManager?.stopPeriodicCheck()
       app.exit(0)
     })()
   })

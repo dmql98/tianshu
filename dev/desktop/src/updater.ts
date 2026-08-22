@@ -77,6 +77,10 @@ export class UpdateManager {
   private lastLoggedProgressPercent = -1
   /** 上次记录进日志的差分状态（状态切换时记录，§11.2）。 */
   private lastLoggedDelta: boolean | null = null
+  /** 周期性检查定时器句柄（setInterval）。 */
+  private checkTimer: ReturnType<typeof setInterval> | null = null
+  /** 初始延迟检查的 setTimeout 句柄（initialDelayMs > 0 时）。 */
+  private initialTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(opts: UpdateManagerOptions) {
     this.opts = opts
@@ -86,7 +90,8 @@ export class UpdateManager {
       ...(opts.disabledReason ? { disabledReason: opts.disabledReason } : {}),
     }
     if (opts.enabled) {
-      this.opts.updater.autoDownload = false
+      // 发现更新即后台自动下载（不再依赖用户在弹窗里手动点"下载"）。
+      this.opts.updater.autoDownload = true
       this.opts.updater.autoInstallOnAppQuit = true
       this.opts.updater.allowDowngrade = false
       this.hookEvents()
@@ -115,6 +120,38 @@ export class UpdateManager {
       } catch {
         /* a bad listener must not break the updater */
       }
+    }
+  }
+
+  /**
+   * 后台定时检索更新：立即（initialDelayMs<=0）或延迟初检一次，之后按
+   * intervalMs 周期调用 checkForUpdates。重复调用会先清理旧定时器。
+   * disabled 时不注册任何定时器（§11.4）。
+   */
+  startPeriodicCheck(intervalMs: number, initialDelayMs = 0): void {
+    if (!this.opts.enabled) return
+    this.stopPeriodicCheck()
+    const tick = () => { void this.checkForUpdates() }
+    if (initialDelayMs > 0) {
+      this.initialTimer = setTimeout(() => {
+        tick()
+        this.checkTimer = setInterval(tick, intervalMs)
+      }, initialDelayMs)
+    } else {
+      tick()
+      this.checkTimer = setInterval(tick, intervalMs)
+    }
+  }
+
+  /** 停止周期性检查并清理所有定时器句柄。 */
+  stopPeriodicCheck(): void {
+    if (this.checkTimer !== null) {
+      clearInterval(this.checkTimer)
+      this.checkTimer = null
+    }
+    if (this.initialTimer !== null) {
+      clearTimeout(this.initialTimer)
+      this.initialTimer = null
     }
   }
 

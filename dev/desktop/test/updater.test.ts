@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UpdateManager, type UpdaterLike } from '../src/updater.js'
 
 class FakeUpdater extends EventEmitter implements UpdaterLike {
@@ -75,7 +75,8 @@ describe('UpdateManager', () => {
 
   it('configures autoDownload/autoInstallOnAppQuit/no-downgrade when enabled', () => {
     const { updater } = makeManager()
-    expect(updater.autoDownload).toBe(false)
+    // 发现更新即后台自动下载（不再依赖用户在弹窗手动点"下载"）。
+    expect(updater.autoDownload).toBe(true)
     expect(updater.autoInstallOnAppQuit).toBe(true)
     expect(updater.allowDowngrade).toBe(false)
   })
@@ -183,5 +184,57 @@ describe('UpdateManager', () => {
     fake.emit('update-available', { version: '0.2.0' })
     expect(listener).toHaveBeenCalledTimes(1)
     expect(manager.getState().phase).toBe('available')
+  })
+
+  describe('periodic check', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it('does an immediate initial check when initialDelayMs=0, then repeats on interval', async () => {
+      const { manager, updater } = makeManager()
+      manager.startPeriodicCheck(1000, 0)
+      expect(updater.checkCalls).toBe(1) // 立即初检一次
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(updater.checkCalls).toBe(2)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(updater.checkCalls).toBe(4)
+    })
+
+    it('defers the initial check by initialDelayMs, then repeats on interval', async () => {
+      const { manager, updater } = makeManager()
+      manager.startPeriodicCheck(1000, 500)
+      expect(updater.checkCalls).toBe(0) // 延迟期内不查
+      await vi.advanceTimersByTimeAsync(500)
+      expect(updater.checkCalls).toBe(1) // 初检触发
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(updater.checkCalls).toBe(2)
+    })
+
+    it('stopPeriodicCheck clears timers so no further checks occur', async () => {
+      const { manager, updater } = makeManager()
+      manager.startPeriodicCheck(1000, 0)
+      expect(updater.checkCalls).toBe(1)
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(updater.checkCalls).toBe(2)
+      manager.stopPeriodicCheck()
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(updater.checkCalls).toBe(2) // 定时器已清理，不再检查
+    })
+
+    it('does not register timers when disabled', async () => {
+      const updater = new FakeUpdater()
+      const manager = new UpdateManager({
+        updater,
+        currentVersion: '0.1.0',
+        enabled: false,
+        stopServer: vi.fn(),
+        log: vi.fn(),
+        sanitize: (m) => m,
+      })
+      manager.startPeriodicCheck(1000, 0)
+      expect(updater.checkCalls).toBe(0)
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(updater.checkCalls).toBe(0)
+    })
   })
 })
