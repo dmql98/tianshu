@@ -17,6 +17,7 @@ interface Props {
 export default memo(function MessageItem({ message, characterId, sessionId }: Props) {
   const editMessage = useChatStore(s => s.editMessage)
   const forkFromMessage = useChatStore(s => s.forkFromMessage)
+  const sessionWorkspace = useChatStore(s => s.sessions.find(x => x.id === sessionId)?.workspace ?? undefined)
   const isStreaming = useChatStore(s => s.isStreaming)
   const t = useI18n()
   const locale = useI18nStore(s => s.locale)
@@ -126,7 +127,7 @@ export default memo(function MessageItem({ message, characterId, sessionId }: Pr
         </div>
       ) : hasVisibleContent ? (
         <div className="msg-bubble">
-          <MarkdownContent content={message.content} streaming={!!message.is_streaming} />
+          <MarkdownContent content={message.content} streaming={!!message.is_streaming} workspace={sessionWorkspace} />
         </div>
       ) : null}
       {(hasVisibleContent || isEditing) && (

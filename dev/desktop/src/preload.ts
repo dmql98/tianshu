@@ -31,8 +31,8 @@ const api = {
     ipcRenderer.on('desktop:resume-sync', handler)
     return () => ipcRenderer.removeListener('desktop:resume-sync', handler)
   },
-  openDirectoryDialog: (defaultPath?: string) =>
-    ipcRenderer.invoke('desktop:open-directory', defaultPath),
+  openDirectoryDialog: (defaultPath?: string, title?: string) =>
+    ipcRenderer.invoke('desktop:open-directory', defaultPath, title),
   openPath: (path: string) =>
     ipcRenderer.invoke('desktop:open-path', path),
 

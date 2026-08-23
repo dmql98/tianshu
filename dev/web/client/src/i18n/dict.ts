@@ -290,6 +290,7 @@ export const dict: Record<string, DictEntry> = {
   '路径不存在': { zh: '路径不存在', en: 'Path does not exist' },
   '路径解析失败': { zh: '路径解析失败', en: 'Failed to resolve path' },
   '选择项目目录': { zh: '选择项目目录', en: 'Select Project Directory' },
+  '选择授权工作区目录': { zh: '选择授权工作区目录', en: 'Select authorized workspace directory' },
   '直接输入路径后按回车，如 C:\\Users\\...': { zh: '直接输入路径后按回车，如 C:\\Users\\...', en: 'Type a path and press Enter, e.g. C:\\Users\\…' },
   '前往': { zh: '前往', en: 'Go' },
   '上级': { zh: '上级', en: 'Up' },

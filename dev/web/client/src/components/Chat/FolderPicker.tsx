@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, Fragment } from 'react'
 import { browseDirectory, resolvePath, type DirEntry } from '@/api/workspace'
 import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
@@ -6,6 +6,38 @@ import { useI18n } from '@/i18n'
 interface Props {
   onSelect: (path: string) => void
   onClose: () => void
+}
+
+/** 把绝对路径拆成可点击的面包屑分段（支持 Windows 盘符 / Unix / 网络路径）。 */
+function splitPath(path: string): { name: string; path: string }[] {
+  if (!path) return []
+  if (path.startsWith('\\\\')) return [{ name: path, path }]
+  const isWin = /^[A-Za-z]:[\\/]/.test(path)
+  if (isWin) {
+    const m = path.match(/^([A-Za-z]:)\\?(.*)$/)
+    if (m) {
+      const segs: { name: string; path: string }[] = [{ name: m[1] + '\\', path: m[1] + '\\' }]
+      const rest = m[2]
+      if (rest) {
+        const parts = rest.split(/[\\/]/).filter(Boolean)
+        let acc = m[1] + '\\'
+        for (const p of parts) {
+          acc += p + '\\'
+          segs.push({ name: p, path: acc })
+        }
+      }
+      return segs
+    }
+  }
+  const parts = path.split(/[\\/]/).filter(Boolean)
+  if (parts.length === 0) return [{ name: '/', path: '/' }]
+  let acc = ''
+  const segs: { name: string; path: string }[] = []
+  for (const p of parts) {
+    acc += '/' + p
+    segs.push({ name: p, path: acc })
+  }
+  return segs
 }
 
 export default function FolderPicker({ onSelect, onClose }: Props) {
@@ -53,113 +85,62 @@ export default function FolderPicker({ onSelect, onClose }: Props) {
     if (currentPath) onSelect(currentPath)
   }
 
+  const crumbs = splitPath(currentPath)
+
   return (
     <div className="approval-overlay" onClick={onClose}>
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: 'var(--bg-card)', borderRadius: 12, width: 560, maxHeight: '70vh',
-          display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden',
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 8px' }}>
-          <span style={{ fontSize: 'calc(15px * var(--ui-font-scale))', fontWeight: 600, color: 'var(--ink-deep)' }}>{t('选择项目目录')}</span>
-          <button onClick={onClose} style={{ fontSize: 20, color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
+      <div className="folder-picker" onClick={e => e.stopPropagation()}>
+        <div className="fpk-header">
+          <span className="fpk-title">{t('选择项目目录')}</span>
+          <button className="fpk-close" onClick={onClose} title={t('关闭')} aria-label={t('关闭')}>×</button>
         </div>
 
-        {/* Manual input */}
-        <div style={{ display: 'flex', gap: 6, padding: '6px 20px 4px' }}>
+        <div className="fpk-crumbs">
+          <button
+            className="fpk-up"
+            onClick={() => load(parentPath || undefined)}
+            disabled={!parentPath}
+            title={t('上级')}
+          >↑</button>
+          {crumbs.length === 0 ? (
+            <span className="fpk-crumb" style={{ cursor: 'default' }}>{t('快捷入口')}</span>
+          ) : crumbs.map((c, i) => (
+            <Fragment key={c.path + i}>
+              {i > 0 && <span className="fpk-sep">›</span>}
+              <button className="fpk-crumb" title={c.path} onClick={() => load(c.path)}>{c.name}</button>
+            </Fragment>
+          ))}
+        </div>
+
+        <div className="fpk-address">
           <input
             value={manualPath}
             onChange={e => setManualPath(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') goToPath() }}
             placeholder={t('直接输入路径后按回车，如 C:\\Users\\...')}
-            style={{
-              flex: 1, padding: '6px 10px', border: '1px solid var(--border)',
-              borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', outline: 'none',
-              background: 'var(--bg-input)', color: 'var(--ink-deep)',
-            }}
           />
-          <button
-            onClick={goToPath}
-            disabled={!manualPath.trim()}
-            style={{
-              padding: '6px 14px', border: 'none', borderRadius: 6,
-              background: 'var(--gold)', color: '#fff', fontSize: 'calc(13px * var(--ui-font-scale))',
-              cursor: 'pointer', whiteSpace: 'nowrap', opacity: manualPath.trim() ? 1 : 0.5,
-            }}
-          >{t('前往')}</button>
+          <button className="fpk-go" onClick={goToPath} disabled={!manualPath.trim()}>{t('前往')}</button>
         </div>
-        {manualError && <div style={{ padding: '0 20px 4px', fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--cinnabar)' }}>{manualError}</div>}
+        {manualError && <div className="fpk-addr-err">{manualError}</div>}
 
-        {/* Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', borderBottom: '1px solid var(--border)' }}>
-          <button
-            onClick={() => load(parentPath || undefined)}
-            disabled={!currentPath}
-            style={{
-              background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 4,
-              padding: '3px 8px', fontSize: 'calc(12px * var(--ui-font-scale))', cursor: currentPath ? 'pointer' : 'default',
-              opacity: currentPath ? 1 : 0.4, whiteSpace: 'nowrap', color: 'var(--ink-mid)',
-            }}
-          >.. {t('上级')}</button>
-          <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-            {currentPath || t('快捷入口')}
-          </span>
-          <button
-            onClick={selectCurrentDir}
-            disabled={!currentPath}
-            style={{
-              background: 'rgba(200,150,10,0.08)', border: '1px solid rgba(200,150,10,0.2)',
-              borderRadius: 4, padding: '3px 8px', fontSize: 'calc(12px * var(--ui-font-scale))', cursor: currentPath ? 'pointer' : 'default',
-              color: 'var(--gold)', whiteSpace: 'nowrap', opacity: currentPath ? 1 : 0.4,
-            }}
-          >{t('选择当前目录')}</button>
-        </div>
-
-        {/* Directory list */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+        <div className="fpk-list">
           {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>{t('加载中...')}</div>
+            <div className="fpk-loading">{t('加载中...')}</div>
           ) : error ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--cinnabar)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>{error}</div>
+            <div className="fpk-error">{error}</div>
           ) : entries.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)', fontSize: 'calc(13px * var(--ui-font-scale))' }}>{t('空目录')}</div>
+            <div className="fpk-empty">{t('空目录')}</div>
           ) : entries.map(entry => (
-            <div
-              key={entry.path}
-              onClick={() => load(entry.path)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 20px', cursor: 'pointer', fontSize: 'calc(13px * var(--ui-font-scale))',
-                color: 'var(--ink-deep)',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >
-              <span style={{ flexShrink: 0, display: 'inline-flex' }}><Icon name="folder" size={15} ariaHidden /></span>
-              <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{entry.name}</span>
-              <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', flexShrink: 0 }}>▸</span>
+            <div key={entry.path} className="fpk-row" title={entry.path} onClick={() => load(entry.path)}>
+              <span className="fpk-ico"><Icon name="folder" size={16} ariaHidden /></span>
+              <span className="fpk-name">{entry.name}</span>
             </div>
           ))}
         </div>
 
-        {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
-          <button
-            onClick={onClose}
-            style={{ padding: '7px 16px', border: 'none', borderRadius: 6, background: 'var(--bg-hover)', color: 'var(--ink-mid)', cursor: 'pointer', fontSize: 'calc(13px * var(--ui-font-scale))' }}
-          >{t('取消')}</button>
-          <button
-            onClick={selectCurrentDir}
-            disabled={!currentPath}
-            style={{
-              padding: '7px 16px', border: 'none', borderRadius: 6,
-              background: 'var(--gold)', color: '#fff', cursor: currentPath ? 'pointer' : 'default',
-              fontSize: 'calc(13px * var(--ui-font-scale))', opacity: currentPath ? 1 : 0.5,
-            }}
-          >{t('选择此目录')}</button>
+        <div className="fpk-footer">
+          <button className="fpk-btn" onClick={onClose}>{t('取消')}</button>
+          <button className="fpk-confirm" onClick={selectCurrentDir} disabled={!currentPath}>{t('选择此目录')}</button>
         </div>
       </div>
     </div>

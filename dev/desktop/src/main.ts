@@ -183,10 +183,10 @@ function registerIpc(manager: ServerManager): void {
     win.setTitleBarOverlay({ color, symbolColor, height: 42 })
   })
 
-  ipcMain.handle('desktop:open-directory', async (event, defaultPath?: string) => {
+  ipcMain.handle('desktop:open-directory', async (event, defaultPath?: string, title?: string) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win!, {
-      title: '选择天枢数据存储目录',
+      title: title || '选择天枢数据存储目录',
       defaultPath,
       properties: ['openDirectory', 'createDirectory'],
     })

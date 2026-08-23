@@ -197,6 +197,12 @@ body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink
 .md-content tr:nth-child(even) td{background:color-mix(in srgb,var(--ink-faint) 4%,transparent)}
 .md-content img{max-width:100%;border-radius:6px}
 .md-content a[href^="http"]{word-break:break-all}
+/* 聊天内提到的文件路径：可点击超链接，Ctrl/⌘+点击直接打开，普通点击弹菜单 */
+.md-content a.ts-file-link{color:var(--gold);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;cursor:pointer;word-break:break-all}
+.md-content a.ts-file-link:hover{text-decoration-style:solid}
+.ts-file-menu{position:fixed;z-index:1000;min-width:148px;padding:4px;display:flex;flex-direction:column;gap:2px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ts-file-menu button{background:none;border:none;color:var(--ink-deep);text-align:left;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px * var(--ui-font-scale));font-family:inherit;line-height:1.3}
+.ts-file-menu button:hover{background:var(--gold-soft);color:var(--gold)}
 .msg-group.user .md-content{color:var(--theme-text-on-accent)}
 .msg-group.user .md-content h1,.msg-group.user .md-content h2,.msg-group.user .md-content h3,.msg-group.user .md-content h4,.msg-group.user .md-content h5,.msg-group.user .md-content h6{border-color:rgba(255,255,255,0.4)}
 .msg-group.user .md-content a{color:var(--theme-text-on-accent);text-decoration:underline}
@@ -341,8 +347,44 @@ textarea.chat-textarea::placeholder{color:var(--ink-faint)}
 .rp-ws-path{flex:1;font-size:calc(11px * var(--ui-font-scale));color:var(--ink-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace}
 .rp-ws-del{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:calc(12px * var(--ui-font-scale));padding:2px;line-height:1}
 .rp-ws-del:hover{color:var(--cinnabar)}
+.rp-ws-open{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:calc(12px * var(--ui-font-scale));padding:2px;line-height:1;display:inline-flex;align-items:center}
+.rp-ws-open:hover{color:var(--gold)}
 
 .approval-overlay{position:fixed;inset:0;z-index:100;background:var(--theme-overlay);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center}
+
+/* FolderPicker — 接近系统原生“选择文件夹”对话框的观感 */
+.folder-picker{width:560px;max-width:92vw;max-height:74vh;display:flex;flex-direction:column;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:0 24px 70px var(--theme-shadow);overflow:hidden}
+.fpk-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.fpk-title{font-size:calc(15px * var(--ui-font-scale));font-weight:600;color:var(--ink-deep)}
+.fpk-close{width:26px;height:26px;border:none;background:none;border-radius:6px;color:var(--ink-faint);font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center}
+.fpk-close:hover{background:var(--bg-hover);color:var(--ink-deep)}
+.fpk-crumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--border-light);flex-shrink:0}
+.fpk-up{width:24px;height:24px;border:1px solid var(--border);background:var(--bg-input);border-radius:5px;color:var(--ink-mid);cursor:pointer;font-size:13px;line-height:1;display:grid;place-items:center;flex-shrink:0}
+.fpk-up:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+.fpk-up:disabled{opacity:.4;cursor:default}
+.fpk-crumb{border:none;background:none;color:var(--ink-mid);cursor:pointer;font-size:calc(12px * var(--ui-font-scale));padding:3px 6px;border-radius:5px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fpk-crumb:hover{background:var(--bg-hover);color:var(--gold)}
+.fpk-sep{color:var(--ink-faint);font-size:calc(11px * var(--ui-font-scale));user-select:none}
+.fpk-address{display:flex;gap:6px;padding:0 16px 8px;flex-shrink:0}
+.fpk-address input{flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--ink-deep);font-size:calc(12px * var(--ui-font-scale));outline:none;font-family:monospace}
+.fpk-address input:focus{border-color:var(--gold)}
+.fpk-go{border:none;border-radius:6px;background:var(--bg-hover);color:var(--ink-mid);padding:0 14px;cursor:pointer;font-size:calc(12px * var(--ui-font-scale));white-space:nowrap}
+.fpk-go:hover:not(:disabled){color:var(--ink-deep)}
+.fpk-go:disabled{opacity:.5;cursor:default}
+.fpk-addr-err{padding:0 16px 8px;color:var(--cinnabar);font-size:calc(12px * var(--ui-font-scale))}
+.fpk-list{flex:1;min-height:160px;overflow-y:auto;padding:6px 0}
+.fpk-row{display:flex;align-items:center;gap:10px;padding:8px 18px;cursor:pointer;font-size:calc(13px * var(--ui-font-scale));color:var(--ink-deep)}
+.fpk-row:hover{background:var(--bg-hover)}
+.fpk-ico{color:var(--gold);flex-shrink:0;display:inline-flex}
+.fpk-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fpk-loading,.fpk-empty,.fpk-error{padding:36px 18px;text-align:center;font-size:calc(13px * var(--ui-font-scale));color:var(--ink-faint)}
+.fpk-error{color:var(--cinnabar)}
+.fpk-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0}
+.fpk-btn{border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);border-radius:7px;padding:8px 18px;font-size:calc(13px * var(--ui-font-scale));cursor:pointer}
+.fpk-btn:hover{background:var(--bg-hover)}
+.fpk-confirm{background:var(--gold);border:1px solid var(--gold);color:#fff;font-weight:600;border-radius:7px;padding:8px 18px;font-size:calc(13px * var(--ui-font-scale));cursor:pointer}
+.fpk-confirm:hover:not(:disabled){filter:brightness(1.05)}
+.fpk-confirm:disabled{opacity:.5;cursor:default;filter:none}
 .approval-dialog{width:400px;max-height:80vh;padding:20px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 20px 60px var(--theme-shadow);display:flex;flex-direction:column;overflow:hidden}
 .approval-title{font-size:calc(15px * var(--ui-font-scale));font-weight:600;margin-bottom:6px;color:var(--ink-deep);flex-shrink:0}
 .approval-desc{font-size:calc(13px * var(--ui-font-scale));color:var(--ink-mid);margin-bottom:12px;line-height:1.6;flex-shrink:0;word-break:break-all}

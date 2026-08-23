@@ -3,6 +3,8 @@ import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
 import { fetchCharacters } from '@/api/characters'
 import CharacterPicker from './CharacterPicker'
+import FolderPicker from './FolderPicker'
+import Icon from '@/features/icons/Icon'
 import GoalPanel from './GoalPanel'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import { useSessionStats } from '@/features/chat/useSessionStats'
@@ -10,10 +12,49 @@ import { buildStatsCards } from '@/features/chat/runStats'
 import type { Character } from '@/types'
 import { useI18n } from '@/i18n'
 
+async function openWorkspaceDir(path: string): Promise<void> {
+  const api = window.tianshuDesktop
+  if (api?.openPath) {
+    try {
+      const ok = await api.openPath(path)
+      if (ok) return
+    } catch {
+      // fall through to the server route
+    }
+  }
+  try {
+    await fetch('/api/workspace/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
+  } catch {
+    // filesystem open is best-effort; ignore network/OS failures
+  }
+}
+
 export default function RightPanel() {
   const { sessions, activeSessionId, addWorkspace, removeWorkspace } = useChatStore()
   const { toggleRightPanel } = useUIStore()
   const t = useI18n()
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
+
+  // 桌面端用系统原生文件夹选择框；无桥（纯网页端）时回退到 in-app FolderPicker。
+  const handleAddWorkspace = async () => {
+    const api = window.tianshuDesktop
+    if (api?.openDirectoryDialog) {
+      try {
+        const dir = await api.openDirectoryDialog(session?.workspace ?? undefined, t('选择授权工作区目录'))
+        if (dir) {
+          addWorkspace(dir)
+          return
+        }
+      } catch {
+        // fall through to the in-app picker
+      }
+    }
+    setShowFolderPicker(true)
+  }
   const session = sessions.find(s => s.id === activeSessionId)
   const stats = useSessionStats(activeSessionId)
   const [character, setCharacter] = useState<Character | null>(null)
@@ -123,6 +164,14 @@ export default function RightPanel() {
           {session.workspace ? (
             <div className="rp-ws-item">
               <span className="rp-ws-path">{session.workspace}</span>
+              <button
+                className="rp-ws-open"
+                type="button"
+                title={t('打开所在目录')}
+                onClick={() => void openWorkspaceDir(session.workspace!)}
+              >
+                <Icon name="folder-open" size={13} ariaHidden />
+              </button>
             </div>
           ) : (
             <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('未设置项目')}</div>
@@ -135,11 +184,8 @@ export default function RightPanel() {
             {t('授权工作区')}
             <button
               style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 'calc(14px * var(--ui-font-scale))', lineHeight: 1 }}
-              title={t('添加路径')}
-              onClick={() => {
-                const path = prompt(t('输入工作区路径：'))
-                if (path) addWorkspace(path)
-              }}
+              title={t('添加授权工作区')}
+              onClick={() => void handleAddWorkspace()}
             >+</button>
           </div>
           {authorizedWorkspaces.length === 0 ? (
@@ -147,7 +193,20 @@ export default function RightPanel() {
           ) : authorizedWorkspaces.map((ws, i) => (
             <div key={i} className="rp-ws-item">
               <span className="rp-ws-path">{ws}</span>
-              <button className="rp-ws-del" title={t('删除')} onClick={() => removeWorkspace(ws)}>✕</button>
+              <button
+                className="rp-ws-open"
+                type="button"
+                title={t('打开所在目录')}
+                onClick={() => void openWorkspaceDir(ws)}
+              >
+                <Icon name="folder-open" size={13} ariaHidden />
+              </button>
+              <button
+                className="rp-ws-del"
+                type="button"
+                title={t('删除')}
+                onClick={() => removeWorkspace(ws)}
+              >✕</button>
             </div>
           ))}
         </div>
@@ -171,6 +230,16 @@ export default function RightPanel() {
           </div>
         </div>
       </div>
+
+      {showFolderPicker && (
+        <FolderPicker
+          onSelect={(path) => {
+            setShowFolderPicker(false)
+            addWorkspace(path)
+          }}
+          onClose={() => setShowFolderPicker(false)}
+        />
+      )}
     </aside>
   )
 }

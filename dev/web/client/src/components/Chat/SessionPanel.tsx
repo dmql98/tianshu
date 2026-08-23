@@ -117,6 +117,19 @@ export default function SessionPanel() {
   }
 
   async function handleNewSession() {
+    // 桌面端优先用系统原生文件夹选择框；无桥（纯网页端）时回退到 in-app FolderPicker。
+    const api = window.tianshuDesktop
+    if (api?.openDirectoryDialog) {
+      try {
+        const dir = await api.openDirectoryDialog(undefined, t('选择项目目录'))
+        if (dir) {
+          await handleFolderSelect(dir)
+          return
+        }
+      } catch {
+        // fall through to the in-app picker
+      }
+    }
     setShowFolderPicker(true)
   }
 

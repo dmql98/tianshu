@@ -114,4 +114,37 @@ describe('MarkdownContent streaming render', () => {
       r.unmount()
     }
   })
+
+  describe('file-path autolink', () => {
+    const html = (content: string) => {
+      const r = mount(<MarkdownContent content={content} />)
+      const out = (r.host.querySelector('.md-content') as HTMLElement).innerHTML
+      r.unmount()
+      return out
+    }
+
+    it('links a relative path mentioned in prose (Chinese dir + extension)', () => {
+      const out = html('已落到文件 知识体系构建/04-0期-地基与进化解耦-可执行步骤.md（8.8KB）。')
+      expect(out).toContain('ts-file-link')
+      expect(out).toContain('data-path="知识体系构建/04-0期-地基与进化解耦-可执行步骤.md"')
+      expect(out).toContain('data-abs="0"')
+    })
+
+    it('links an absolute Windows path and marks it absolute', () => {
+      const out = html('路径 C:\\Users\\name\\file.ts 在此')
+      expect(out).toContain('ts-file-link')
+      expect(out).toContain('data-path="C:\\Users\\name\\file.ts"')
+      expect(out).toContain('data-abs="1"')
+    })
+
+    it('does not link ordinary dotted prose without a separator', () => {
+      const out = html('版本 v1.2 已发布，见 foo.txt 说明')
+      expect(out).not.toContain('ts-file-link')
+    })
+
+    it('does not link paths inside inline code', () => {
+      const out = html('运行 `a/b/config.json` 后重试')
+      expect(out).not.toContain('ts-file-link')
+    })
+  })
 })
