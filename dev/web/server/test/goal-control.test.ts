@@ -163,9 +163,11 @@ describe('submit_result -> goal 自动完成', () => {
     expect(stream.events.some(([t, a]) => t === 'goal.status.changed' && a[0].goal_id === goal.id)).toBe(true)
   })
 
-  it('goal 模式缺 evidence 时拒绝提交（completion-evaluator 原有语义）', async () => {
+  it('goal 模式证据可选（缺 evidence 但有 summary 时通过；仅 summary 缺失才拒）', async () => {
     const { evaluateSubmission } = await import('../src/agent/loop/completion-evaluator.js')
-    const check = evaluateSubmission({
+    // Evidence is optional now, so a missing evidence array must not reject a
+    // submission that carries a summary — this avoids the reject→resubmit loop.
+    const withSummaryNoEvidence = evaluateSubmission({
       mode: 'goal',
       planCompleted: true,
       unmetSteps: [],
@@ -173,7 +175,17 @@ describe('submit_result -> goal 自动完成', () => {
       summary: '已完成',
       evidence: [],
     })
-    expect(check.accepted).toBe(false)
-    expect(check.unmet.some(u => u.includes('证据'))).toBe(true)
+    expect(withSummaryNoEvidence.accepted).toBe(true)
+    // Summary remains mandatory: a submission with no summary is still rejected.
+    const noSummary = evaluateSubmission({
+      mode: 'goal',
+      planCompleted: true,
+      unmetSteps: [],
+      goalVerification: '验证标准',
+      summary: '',
+      evidence: ['some tool output'],
+    })
+    expect(noSummary.accepted).toBe(false)
+    expect(noSummary.unmet.some(u => u.includes('摘要'))).toBe(true)
   })
 })

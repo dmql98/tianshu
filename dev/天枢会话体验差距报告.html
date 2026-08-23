@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢会话体验差距报告 · 工具调用 / 问答 / 压缩</title>
+<style>
+  :root {
+    --bg: #f7f7fb; --surface: #fff; --ink: #1a1d29; --ink-2: #4b5060; --ink-3: #8a8fa3;
+    --line: #e5e7f0; --a: #2563eb; --a-bg: #eff4ff; --a-line: #c7d7fe;
+    --b: #d97706; --b-bg: #fff7ea; --b-line: #fde3b3;
+    --ts: #0f766e; --ts-bg: #ecfdf9; --ts-line: #a7f3d0;
+    --accent: #6d28d9; --red: #dc2626; --red-bg: #fef2f2; --red-line: #fecaca;
+    --code-bg: #14161f; --code-ink: #d6dcff; --radius: 14px;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.75; font-size: 15px; }
+
+  .hero { background: radial-gradient(900px 380px at 12% -10%, rgba(220,38,38,.12), transparent 60%), radial-gradient(900px 380px at 88% -10%, rgba(15,118,110,.14), transparent 60%), linear-gradient(180deg,#fdfdff,var(--bg)); border-bottom: 1px solid var(--line); padding: 52px 24px 40px; text-align: center; }
+  .hero h1 { font-size: clamp(22px, 3.2vw, 30px); font-weight: 700; letter-spacing: -.02em; }
+  .hero p.sub { margin-top: 10px; color: var(--ink-2); font-size: 14.5px; max-width: 760px; margin-inline: auto; }
+  .hero .meta { margin-top: 16px; display: inline-flex; flex-wrap: wrap; gap: 8px; justify-content: center; font-size: 12.5px; color: var(--ink-3); }
+  .hero .meta span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; justify-content: center; }
+  nav.toc a { font-size: 13px; color: var(--ink-2); text-decoration: none; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; transition: all .15s; }
+  nav.toc a:hover { color: var(--accent); border-color: var(--accent); }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 40px 20px 80px; }
+  section { margin-top: 52px; scroll-margin-top: 24px; }
+  section:first-child { margin-top: 0; }
+  h2 { font-size: 21px; font-weight: 700; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  h2::before { content: ""; width: 5px; height: 22px; border-radius: 3px; background: linear-gradient(180deg, var(--red), var(--accent)); flex: none; }
+  h2 + p.lead { color: var(--ink-2); font-size: 13.5px; margin-bottom: 20px; }
+  h3 { font-size: 15.5px; font-weight: 650; margin: 24px 0 10px; }
+  p { color: var(--ink-2); margin: 10px 0; }
+
+  .trio { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .trio { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 18px 16px; box-shadow: 0 1px 2px rgba(20,22,31,.04); }
+  .card .tag { display: inline-block; font-size: 11px; font-weight: 650; letter-spacing: .05em; border-radius: 6px; padding: 2px 9px; margin-bottom: 8px; text-transform: uppercase; }
+  .card.ts .tag { color: var(--ts); background: var(--ts-bg); border: 1px solid var(--ts-line); }
+  .card.a  .tag { color: var(--a); background: var(--a-bg); border: 1px solid var(--a-line); }
+  .card.b  .tag { color: var(--b); background: var(--b-bg); border: 1px solid var(--b-line); }
+  .card h3 { margin: 0 0 6px; font-size: 14.5px; }
+  .card ul { list-style: none; }
+  .card li { position: relative; padding-left: 16px; margin: 6px 0; color: var(--ink-2); font-size: 13.2px; }
+  .card li::before { content: ""; position: absolute; left: 1px; top: .72em; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); }
+  .card.ts li::before { background: var(--ts); }
+  .card.good li::before { background: #16a34a; }
+  .card.bad li::before { background: var(--red); }
+
+  code { font-family: var(--mono); font-size: .87em; background: #eef0f7; border: 1px solid var(--line); border-radius: 5px; padding: .08em .38em; color: #3730a3; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 12.6px; line-height: 1.7; margin: 12px 0; }
+  pre code { background: none; border: none; color: inherit; padding: 0; }
+  pre .cm { color: #6b7394; } pre .kw { color: #93c5fd; } pre .st { color: #a5e8b8; } pre .fn { color: #fcd34d; } pre .rd { color: #fca5a5; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 720px; }
+  thead th { background: #fafafe; text-align: left; font-weight: 650; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); padding: 11px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafaff; }
+  td.dim { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  thead th.h-ts { color: var(--ts); } thead th.h-a { color: var(--a); } thead th.h-b { color: var(--b); }
+  td.col-a { border-left: 2px solid var(--a-line); } td.col-b { border-left: 2px solid var(--b-line); }
+  td b, td strong { color: var(--ink); }
+
+  .alert { background: var(--red-bg); border: 1px solid var(--red-line); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 18px; }
+  .alert h3 { margin: 0 0 8px; color: var(--red); display: flex; align-items: center; gap: 8px; }
+  .alert p { font-size: 13.8px; }
+
+  .flow { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 24px; margin: 14px 0; }
+  .flow h4 { font-size: 13px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+  .flow ol { list-style: none; counter-reset: f; }
+  .flow ol li { counter-increment: f; position: relative; padding: 5px 0 5px 34px; font-size: 13.4px; color: var(--ink-2); font-family: var(--mono); }
+  .flow ol li::before { content: counter(f); position: absolute; left: 0; top: 7px; width: 22px; height: 22px; display: grid; place-items: center; background: #eef0f7; border: 1px solid var(--line); border-radius: 7px; font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
+  .flow ol li.miss::before { background: var(--red-bg); border-color: var(--red-line); color: var(--red); }
+  .flow ol li.miss { color: var(--red); }
+  .flow .split { display: grid; grid-template-columns: 1fr; gap: 4px; }
+
+  ol.rec { counter-reset: rec; list-style: none; display: grid; gap: 12px; }
+  ol.rec li { counter-increment: rec; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px 16px 62px; position: relative; font-size: 14px; color: var(--ink-2); }
+  ol.rec li::before { content: counter(rec); position: absolute; left: 18px; top: 16px; width: 30px; height: 30px; display: grid; place-items: center; background: linear-gradient(135deg, var(--a), var(--accent)); color: #fff; font-weight: 700; font-size: 14px; border-radius: 9px; }
+  ol.rec li.p0::before { background: linear-gradient(135deg, var(--red), #f97316); }
+  ol.rec li strong { color: var(--ink); }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 9px; margin-right: 6px; vertical-align: 1px; }
+  .pill.p0 { color: var(--red); background: var(--red-bg); border: 1px solid var(--red-line); }
+  .pill.p1 { color: var(--b); background: var(--b-bg); border: 1px solid var(--b-line); }
+  .pill.p2 { color: var(--ts); background: var(--ts-bg); border: 1px solid var(--ts-line); }
+
+  blockquote { border-left: 3px solid var(--accent); background: #f6f3ff; border-radius: 0 10px 10px 0; padding: 10px 18px; margin: 14px 0; color: var(--ink-2); font-size: 13.8px; }
+  footer { border-top: 1px solid var(--line); padding: 28px 20px 48px; text-align: center; color: var(--ink-3); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>天枢会话体验差距报告<br><span style="font-size:.58em;font-weight:500;color:var(--ink-2)">工具调用展示 · 问答闭环 · 上下文压缩 —— 附「问答后不显示」Bug 根因</span></h1>
+  <p class="sub">对照 deepseek-harness 与 opencode-dev 的成熟实现，盘点天枢会话界面在三块能力上的现状差距，并定位「问答结束后必须刷新才显示」的根因。</p>
+  <div class="meta">
+    <span>天枢 web/client + web/server 源码实读</span>
+    <span>deepseek-harness · ui-conversation</span>
+    <span>opencode-dev · session-ui</span>
+  </div>
+  <nav class="toc">
+    <a href="#bug">P0 · 问答 Bug 根因</a>
+    <a href="#tool">工具调用展示</a>
+    <a href="#ask">问答交互</a>
+    <a href="#compact">上下文压缩</a>
+    <a href="#rec">改造清单</a>
+    <a href="#traj">六 · 轨迹联动分析</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= BUG ================= -->
+<section id="bug">
+  <h2>一、P0 · 「问答结束后不显示，要刷新才出来」根因</h2>
+  <p class="lead">结论先行：这不是流式问题，是<b>事件缺失 + 无乐观更新</b>的双重缺口。用户回答被服务端静默写库，前端全程无感知。</p>
+
+  <div class="alert">
+    <h3>根因 1（主因）：用户的回答入库时没有发出任何事件</h3>
+    <p><code>POST /runs/:id/inputs</code>（routes/runs.ts）应答后调用 <code>createResumedRun({ createUserTurn: true })</code>，它在 <code>run-resume-service.ts:147</code> 直接 <code>messageStore.addMessage(role:'user')</code> 把回答写进 messages 表——<b>全程没有 publish 任何事件</b>。前端的 AskUserDialog 提交成功后只做 <code>clearAskUser()</code> 关弹窗，也不做本地乐观插入。于是：回答气泡不出现，直到某次 <code>fetchSessionMessages</code>（刷新/重进）才从库里读出来。</p>
+  </div>
+
+  <div class="alert">
+    <h3>根因 2（次因）：恢复 run 的认领只靠 run.started 单点，且 run.queued 被显式忽略</h3>
+    <p>恢复 run 带 <code>trigger: 'user_input'</code>，而客户端 <code>handleAutoSuccessorQueued</code> 只认领 <code>trigger === 'auto_limit'</code> 的 run.queued——user_input 的 run.queued 直接落空。后续只能等 loop-engine 发出的 <code>run.started</code> 兜底认领。一旦这条事件因 SSE 抖动 / IPC 重连丢失，整个后续回复都不会实时出现（<code>resumeActiveRun</code> 只在切换会话和手动刷新时触发），表现同样是「刷新才出来」。</p>
+  </div>
+
+  <div class="flow">
+    <h4>当前事件时序（红色 = 断点）</h4>
+    <div class="split">
+      <ol>
+        <li>模型调 ask_user → 服务端 checkpoint + emit <code>ask_user</code> → 前端弹 AskUserDialog ✓</li>
+        <li>循环 break → run 正常收尾 → emit <code>run.completed</code>（旧 run）→ 前端清 activeRunId ✓</li>
+        <li>用户提交回答 → POST /runs/:id/inputs → <b class="rd">messageStore.addMessage(回答) —— 无事件，前端不知道</b></li>
+        <li>emit <code>run.queued</code> (trigger=user_input) → <b class="rd">前端 handleAutoSuccessorQueued 只认 auto_limit，忽略</b></li>
+        <li>恢复 run 执行 → emit <code>run.started</code> → 前端认领（唯一兜底，丢了就全断）</li>
+        <li>message.delta 流式追加 → 后续回复理论上能实时显示（依赖第 5 步成功）</li>
+        <li>用户回答气泡 → <b class="rd">永远不实时显示，等刷新拉库</b></li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>修复建议（双保险）</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>层</th><th>改法</th><th>效果</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">服务端</td><td><code>createResumedRun</code> 落库用户回答后，补发一条 durable 事件（如 <code>message.created</code>，带 message_id / role / content），并加入客户端 <code>ALL_KNOWN_EVENTS</code>；同时把 <code>handleAutoSuccessorQueued</code> 放宽到也认领 <code>trigger === 'user_input'</code></td><td><b>权威修复</b>：重连重放（fetchRunEvents）也能恢复，任何传输通道一致</td></tr>
+        <tr><td class="dim">客户端</td><td><code>AskUserDialog.handleSubmit</code> 成功后立即把回答作为 user 消息乐观插入 <code>sessions[id].messages</code>（带临时 id）</td><td><b>零延迟反馈</b>：点下「回答」立刻看到自己的气泡，不等任何往返</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <blockquote>附带发现：客户端 <code>switchSession</code> 对已有消息的会话<b>早退不重新拉取</b>（只 resumeActiveRun），所以「切走再切回」并不能修复数据，只有整页刷新或点刷新按钮才行——这与用户「退出去刷新才显示」的体感吻合，也值得顺手修掉（切回时若该会话 updated_at 比本地新则静默重取一次）。</blockquote>
+</section>
+
+<!-- ================= 工具调用 ================= -->
+<section id="tool">
+  <h2>二、工具调用展示对比</h2>
+  <p class="lead">这是差距最大的一块。天枢目前是「一行文本标签」，两个参考项目都是「按工具定制的结构化卡片体系」。</p>
+
+  <div class="trio">
+    <div class="card ts">
+      <span class="tag">天枢现状</span>
+      <h3>ToolCall.tsx · 全部 43 行</h3>
+      <ul class="bad">
+        <li>一行 tag：图标 + 工具名 + ✓成功/✗失败/执行中</li>
+        <li><code>tool_input</code> 以原始字符串平铺在标签下（无格式化、无截断策略）</li>
+        <li>展开后 <code>tool_output</code> 纯文本直出，无高亮、无 diff、无虚拟滚动</li>
+        <li>iconByTool 只映射 6 种工具，其余全部回落 bash 图标</li>
+        <li>无错误卡片、无耗时、无重试语义、无按工具定制</li>
+      </ul>
+    </div>
+    <div class="card a">
+      <span class="tag">deepseek-harness</span>
+      <h3>工具行分组 + 槽位渲染</h3>
+      <ul>
+        <li>ChatView 把 tool-call head 分组为<b>工具行</b>（keyed toolview slot），与文本/推理块按序穿插</li>
+        <li>CodeBlock / JsonBlock 统一承载输出，带截断与复制</li>
+        <li>未知块回落 JsonBlock（label + truncatedLabel），永不空白</li>
+        <li>工具行与 turn 统计（StatsLine / toolCallHistory）联动</li>
+      </ul>
+    </div>
+    <div class="card b">
+      <span class="tag">opencode-dev</span>
+      <h3>ToolRegistry 注册表体系（最完整）</h3>
+      <ul>
+        <li><code>ToolRegistry.register({name, render})</code> 每工具一个定制组件：read 显示 offset/limit 参数、bash 流式 output、write/edit 渲染 <b>DiffChanges</b>（含 virtualizeDiff）</li>
+        <li>未注册工具回落 <b>GenericTool</b>；错误态走 <b>ToolErrorCard</b>（区分 websearch 供应商等）</li>
+        <li>task 工具带跳转链接（sessionLink）与副标题；todowrite 隐藏、question 工具 pending 时隐藏问题体</li>
+        <li>状态机完整：pending / running / error / completed，受控展开（onToolOpenChange）</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>天枢落地建议（工具调用）</h3>
+  <p>引入 opencode 式 <b>ToolRegistry</b>：保留现有 <code>tool.started / tool.completed / tool.output</code> 事件（数据已够），只重做展示层——</p>
+  <ul style="padding-left:20px;color:var(--ink-2);font-size:13.8px">
+    <li><b>骨架</b>：可折叠卡片 = 头部（图标+工具名+参数摘要+状态点+耗时）+ 展开体（结构化输入/输出）</li>
+    <li><b>优先定制 4 个</b>：bash（输出终端样式 + 流式追加已有）、read/grep/glob（参数表格化）、write/edit（diff 视图，可引 prism/shiki 轻量方案）</li>
+    <li><b>兜底</b>：GenericTool 渲染 JSON.stringify(input, null, 2)，错误态红卡片，杜绝现在的「原始字符串平铺」</li>
+    <li>tool_input 是 JSON 字符串就先 parse 再展示，parse 失败才原文兜底</li>
+  </ul>
+</section>
+
+<!-- ================= 问答交互 ================= -->
+<section id="ask">
+  <h2>三、问答（ask_user）交互对比</h2>
+  <p class="lead">天枢已有可用的 checkpoint 机制（这部分骨架是好的），差距在「闭环后的呈现」与「历史可见性」。</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>能力</th><th class="h-ts">天枢现状</th><th class="h-a">deepseek-harness</th><th class="h-b">opencode-dev</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="dim">提问呈现</td>
+          <td>全局模态弹窗（approval-overlay），问题文本 + textarea</td>
+          <td class="col-a">ask_user 作为<b>会话内消息流</b>的一部分渲染（问题与回答都留在对话上下文中）</td>
+          <td class="col-b">question 工具 part：pending 时隐藏问题体，回答后作为 tool part 留在时间线</td>
+        </tr>
+        <tr>
+          <td class="dim">回答落会话</td>
+          <td><b class="rd">不显示</b>（见 P0 根因）</td>
+          <td class="col-a">回答作为 user turn 持久化并渲染</td>
+          <td class="col-b">回答写入 tool part output，历史完整可回看</td>
+        </tr>
+        <tr>
+          <td class="dim">历史回看</td>
+          <td>刷新后只有 tool 角色的 <code>[asked user]</code> 消息，回答本体混在下一条 user 消息里，无问答配对感</td>
+          <td class="col-a">问答对在消息流中天然成对</td>
+          <td class="col-b">问答对在时间线中天然成对，dismissed 态也有文案</td>
+        </tr>
+        <tr>
+          <td class="dim">暂不回答</td>
+          <td>「暂不回答」仅关弹窗，checkpoint 仍在，run 停在 parked——无超时/提醒</td>
+          <td class="col-a">—</td>
+          <td class="col-b">dismiss 有明确状态文案（"dismissed this question"）</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <blockquote>方向：问答应从「一次性模态」升级为「会话内可见的问答对」。模态可以保留（保证用户必答），但提交后问题与回答都要以消息对形式落进时间线（P0 修复已覆盖回答侧；问题侧可在 ask_user 事件到达时同步插入一条 assistant 提问消息）。</blockquote>
+</section>
+
+<!-- ================= 压缩 ================= -->
+<section id="compact">
+  <h2>四、上下文压缩展示对比</h2>
+  <p class="lead">天枢压缩能力存在（手动 /compact + run.compacted 事件），但 UI 上只有一个角落标记，会话流里毫无痕迹。</p>
+
+  <div class="trio">
+    <div class="card ts">
+      <span class="tag">天枢现状</span>
+      <h3>右栏一行小字</h3>
+      <ul class="bad">
+        <li><code>run.compacted</code> → 仅 <code>session.compacted = true</code></li>
+        <li>RightPanel 渲染「⚠ 会话已压缩」10px 小字，仅此而已</li>
+        <li>手动压缩成功 → toast「已压缩至 N tokens」，转瞬即逝</li>
+        <li><b>会话流内无任何压缩标记</b>：用户不知道历史在哪被截断、模型从哪开始"失忆"</li>
+      </ul>
+    </div>
+    <div class="card b">
+      <span class="tag">opencode-dev</span>
+      <h3>会话流内分隔线</h3>
+      <ul>
+        <li>compaction 是一种 message part，渲染为时间线中的 <b>MessageDivider</b>（"Context compacted" 居中分隔线）</li>
+        <li>压缩点之上是旧历史、之下是新上下文，位置语义直观</li>
+        <li>实现约 10 行——成本极低，收益是用户能感知"模型记忆边界"</li>
+      </ul>
+    </div>
+    <div class="card a">
+      <span class="tag">deepseek-harness</span>
+      <h3>可展开的压缩检查点卡片（最完整）</h3>
+      <ul>
+        <li>CompactionItem：默认收起的一行标记，明确表述"模型从这里停止看到更早历史"，<b>不替换</b>历史只遮蔽</li>
+        <li>摘要行显示遮蔽条目数 + token 数（shadowedItemCount / shadowedTokenCount）</li>
+        <li>展开可看压缩摘要全文（来自 compaction/summary 事件）；摘要缺失时禁用展开而非空白</li>
+        <li>CompactionCommandCard 单独承载 /compact 命令的 running 态与结果</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>天枢落地建议（压缩）</h3>
+  <p>分两步走，第一步当天可完成：</p>
+  <ul style="padding-left:20px;color:var(--ink-2);font-size:13.8px">
+    <li><b>第一步（抄 opencode）</b>：<code>run.compacted</code> 到达时往 messages 插入一条 <code>role:'system-notice'</code> 类消息（或前端虚拟标记），MessageList 渲染为居中分隔线「── 上下文已压缩 ──」。持久化侧让压缩事件落 messages 表（带 marker 类型），重进会话也能看到。</li>
+    <li><b>第二步（抄 harness）</b>：分隔线可点击展开，显示压缩摘要与"遮蔽了 N 条 / M tokens"；服务端 compaction 时把 summary 与计数放进事件 payload。</li>
+  </ul>
+</section>
+
+<!-- ================= 改造清单 ================= -->
+<section id="rec">
+  <h2>五、改造清单（按优先级）</h2>
+  <p class="lead">P0 是 bug 修复，P1/P2 是体验补齐，均标注参考来源。</p>
+  <ol class="rec">
+    <li class="p0"><span class="pill p0">P0</span><strong>修复问答不显示</strong> —— 服务端 <code>createResumedRun</code> 补发 <code>message.created</code> durable 事件 + 放宽 <code>handleAutoSuccessorQueued</code> 认领 user_input run；客户端 AskUserDialog 提交后乐观插入回答消息。<br>改动点：run-resume-service.ts、chatStore.ts、AskUserDialog.tsx、eventBus.ts（注册新事件名）。</li>
+    <li class="p0"><span class="pill p0">P0</span><strong>switchSession 切回时静默重取</strong> —— 已加载会话若服务端 updated_at 更新则重拉 messages，消除「切走再切回还是旧数据」的陷阱。</li>
+    <li class="p0"><span class="pill p0">P0</span><strong>ask_user 问题侧入流</strong> —— ask_user 事件到达时同步插入一条 assistant 提问消息，与回答形成可见问答对。</li>
+    <li class="p0"><span class="pill p1">P1</span><strong>ToolRegistry 工具卡片体系</strong> —— 头部（图标/名称/参数摘要/状态/耗时）+ 可展开结构化体；先定制 bash、read、edit（diff）三件套，GenericTool 兜底。<span style="color:var(--b);font-weight:600">← 抄 opencode</span></li>
+    <li class="p0"><span class="pill p2">P2</span><strong>压缩分隔线入流</strong> —— run.compacted → 时间线居中分隔线「上下文已压缩」；第二步升级为可展开摘要卡（遮蔽条数/token 数）。<span style="color:var(--b);font-weight:600">← 抄 opencode + harness</span></li>
+    <li class="p0"><span class="pill p2">P2</span><strong>工具行耗时与错误卡片</strong> —— tool.started/completed 时间差算耗时上屏；错误态统一红卡片而非 ✗ 后跟原始输出。<span style="color:var(--b);font-weight:600">← 抄 opencode ToolErrorCard</span></li>
+    <li class="p0"><span class="pill p2">P2</span><strong>轨迹联动收尾</strong> —— run.compacted payload 带上压缩摘要；轨迹时间线聚合问答对；message.created 加进 TRAJECTORY_REFRESH_EVENTS。详见第六章。</li>
+  </ol>
+</section>
+
+<!-- ================= 轨迹联动 ================= -->
+<section id="traj">
+  <h2>六、轨迹页与对话改造的联动分析</h2>
+  <p class="lead">轨迹页是<b>纯读模型</b>：GET /:id/trajectory = runs + messages 全量 + run_events（durable 事件）+ llm_calls 快照，无自有状态。对话侧改对了，轨迹自动跟上；但下面四处需要显式补齐。</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>对话侧改造项</th><th>轨迹是否自动同步</th><th class="h-ts">说明 / 需要补什么</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="dim">问答回答入流<br><span style="font-weight:400;color:var(--ink-3)">(P0 · message.created 事件)</span></td>
+          <td><b style="color:#16a34a">✓ 自动同步</b></td>
+          <td>轨迹内容行直接读 messages 表，回答落库后轨迹天然多一行 user 行。唯一要求：<b>新事件必须走 publishRunEvent（durable）</b>——这正好是 P0 修复方案本身，两个页面共享同一份修复。</td>
+        </tr>
+        <tr>
+          <td class="dim">问答问题侧入流<br><span style="font-weight:400;color:var(--ink-3)">(P0 · assistant 提问消息)</span></td>
+          <td><b style="color:#16a34a">✓ 自动同步</b></td>
+          <td>提问消息入 messages 表后轨迹自动成对显示。但建议顺手把 TrajectoryRow 的 user/assistant/tool 三类扩展出 <b>ask 对</b>语义标记，让详情面板能按「问答对」展示（现在是平铺行，看不出配对关系）。</td>
+        </tr>
+        <tr>
+          <td class="dim">压缩分隔线入流<br><span style="font-weight:400;color:var(--ink-3)">(P2 · 时间线 marker)</span></td>
+          <td><b style="color:#f59e0b">△ 半自动</b></td>
+          <td>轨迹已有生命周期事件条「上下文压缩」(run.compacted → LIFECYCLE_LABEL)，<b>但只有一行文字，没有摘要内容</b>。服务端 compaction 后 summary 存在 sessions.compaction_summary 字段里，事件 payload 里没有带上——补上 payload 即可让轨迹的压缩事件条可展开看摘要。</td>
+        </tr>
+        <tr>
+          <td class="dim">工具卡片体系<br><span style="font-weight:400;color:var(--ink-3)">(P1 · ToolRegistry)</span></td>
+          <td><b style="color:#16a34a">— 不依赖</b></td>
+          <td>轨迹的工具行有自己的展示（参数/结果/指标/原始 tabs），与聊天侧 ToolRegistry 独立，互不影响。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>轨迹侧独立优化点（不依赖对话改造，顺路可做）</h3>
+  <ol class="rec">
+    <li><strong>run.compacted 事件 payload 补摘要数据</strong> —— loop-engine.ts 三处 emit 处把 <code>{ summary, shadowedTokens }</code> 带上；trajectory.ts 的 LIFECYCLE 条渲染时支持展开。<span style="color:var(--ts);font-weight:600">改动极小，收益直接</span></li>
+    <li><strong>ask_user 问答对在轨迹中配对显示</strong> —— 现在 ask_user 是一条 warn 色事件条 + 一条 tool 行(<code>[asked user]</code>)，用户回答是另一条独立 user 行，三者散落在时间线各处。buildTrajectory 时把 checkpoint 事件、tool 行、回答行聚合成一个「问答对」组。</li>
+    <li><strong>message.created 加入 TRAJECTORY_REFRESH_EVENTS</strong> —— 新增 durable 事件后记得加进这个订阅列表，否则轨迹要等到下一条 run.* 事件才刷新（有 400ms 节流兜底，影响小但值得对齐）。</li>
+  </ol>
+
+  <blockquote>
+    <b>架构判断：</b>天枢的轨迹页设计是对的——纯读模型 + 单一事实源（messages / run_events / llm_calls），参考项目 deepseek-harness 也是这个思路（trajectory-assistant-definition 等全部从 snapshot store 派生）。这意味着对话侧的所有改造<b>不需要为轨迹做第二份数据写入</b>，只要保证：① 新消息走 durable 事件；② 压缩/问答的结构化信息放进事件 payload。轨迹自动受益。
+  </blockquote>
+</section>
+
+</main>
+
+<footer>
+  天枢 · 会话体验差距调研（工具调用 / 问答 / 压缩） · 基于三仓库源码实读
+</footer>
+
+</body>
+</html>

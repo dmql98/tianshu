@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会话界面流式输出样式对比报告 · deepseek-harness vs opencode-dev</title>
+<style>
+  :root {
+    --bg: #f7f7fb;
+    --surface: #ffffff;
+    --ink: #1a1d29;
+    --ink-2: #4b5060;
+    --ink-3: #8a8fa3;
+    --line: #e5e7f0;
+    --a: #2563eb;         /* deepseek-harness 蓝 */
+    --a-bg: #eff4ff;
+    --a-line: #c7d7fe;
+    --b: #d97706;         /* opencode 琥珀 */
+    --b-bg: #fff7ea;
+    --b-line: #fde3b3;
+    --accent: #6d28d9;
+    --code-bg: #14161f;
+    --code-ink: #d6dcff;
+    --radius: 14px;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "JetBrains Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.75;
+    font-size: 15px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background:
+      radial-gradient(900px 380px at 15% -10%, rgba(37,99,235,.16), transparent 60%),
+      radial-gradient(900px 380px at 85% -10%, rgba(217,119,6,.14), transparent 60%),
+      linear-gradient(180deg, #fdfdff 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--line);
+    padding: 56px 24px 44px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: clamp(22px, 3.4vw, 32px);
+    font-weight: 700;
+    letter-spacing: -.02em;
+  }
+  .hero h1 .vs-a { color: var(--a); }
+  .hero h1 .vs-b { color: var(--b); }
+  .hero p.sub {
+    margin-top: 10px;
+    color: var(--ink-2);
+    font-size: 14.5px;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+  .hero .meta {
+    margin-top: 18px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
+  .hero .meta span {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 12px;
+  }
+
+  /* ---------- Layout ---------- */
+  main { max-width: 1060px; margin: 0 auto; padding: 40px 20px 80px; }
+  section { margin-top: 52px; scroll-margin-top: 24px; }
+  section:first-child { margin-top: 0; }
+
+  h2 {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  h2::before {
+    content: "";
+    width: 5px; height: 22px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, var(--a), var(--accent));
+    flex: none;
+  }
+  h2 + p.lead { color: var(--ink-2); font-size: 13.5px; margin-bottom: 20px; }
+  h3 { font-size: 15.5px; font-weight: 650; margin: 26px 0 10px; }
+
+  /* ---------- TOC ---------- */
+  nav.toc {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 28px;
+  }
+  nav.toc a {
+    font-size: 13px;
+    color: var(--ink-2);
+    text-decoration: none;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 14px;
+    transition: all .15s ease;
+  }
+  nav.toc a:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- Cards ---------- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 780px) { .duo { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 22px 20px;
+    box-shadow: 0 1px 2px rgba(20,22,31,.04);
+  }
+  .card.a { border-top: 3px solid var(--a); }
+  .card.b { border-top: 3px solid var(--b); }
+  .card .tag {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border-radius: 6px;
+    padding: 2px 9px;
+    margin-bottom: 10px;
+  }
+  .card.a .tag { color: var(--a); background: var(--a-bg); border: 1px solid var(--a-line); }
+  .card.b .tag { color: var(--b); background: var(--b-bg); border: 1px solid var(--b-line); }
+  .card h3 { margin-top: 0; }
+  .card ul { list-style: none; }
+  .card li { position: relative; padding-left: 18px; margin: 7px 0; color: var(--ink-2); font-size: 13.8px; }
+  .card li::before {
+    content: ""; position: absolute; left: 2px; top: .72em;
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .card.a li::before { background: var(--a); opacity: .55; }
+  .card.b li::before { background: var(--b); opacity: .55; }
+  .card code { font-size: 12.5px; }
+  .verdict {
+    margin-top: 16px;
+    grid-column: 1 / -1;
+    background: linear-gradient(90deg, var(--a-bg), var(--b-bg));
+    border: 1px dashed var(--ink-3);
+    border-radius: var(--radius);
+    padding: 16px 22px;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .verdict strong { color: var(--ink); }
+
+  /* ---------- Tables ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.8px; min-width: 640px; }
+  thead th {
+    background: #fafafe;
+    text-align: left;
+    font-weight: 650;
+    font-size: 12.5px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafaff; }
+  td.dim { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  td.col-a b, td.col-b b { color: var(--ink); font-weight: 600; }
+  td.col-a { border-left: 2px solid var(--a-line); }
+  td.col-b { border-left: 2px solid var(--b-line); }
+  thead th.h-a { color: var(--a); }
+  thead th.h-b { color: var(--b); }
+
+  /* ---------- Prose & code ---------- */
+  p { color: var(--ink-2); margin: 10px 0; }
+  code {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: #eef0f7;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: .08em .38em;
+    color: #3730a3;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.8px;
+    line-height: 1.65;
+    margin: 12px 0;
+  }
+  pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+  pre .cm { color: #6b7394; }        /* comment */
+  pre .kw { color: #93c5fd; }        /* constant/value */
+  pre .st { color: #a5e8b8; }        /* string */
+  pre .fn { color: #fcd34d; }        /* fn name */
+
+  blockquote {
+    border-left: 3px solid var(--accent);
+    background: #f6f3ff;
+    border-radius: 0 10px 10px 0;
+    padding: 10px 18px;
+    margin: 14px 0;
+    color: var(--ink-2);
+    font-size: 13.8px;
+  }
+
+  /* ---------- Mechanism blocks ---------- */
+  .mech {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px 26px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(20,22,31,.03);
+  }
+  .mech > h3 {
+    margin: 0 0 4px;
+    font-size: 16.5px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 11px; font-weight: 650;
+    border-radius: 999px; padding: 2px 10px;
+    letter-spacing: .03em;
+  }
+  .badge.a-only { color: var(--a); background: var(--a-bg); border: 1px solid var(--a-line); }
+  .badge.b-only { color: var(--b); background: var(--b-bg); border: 1px solid var(--b-line); }
+  .badge.both   { color: var(--accent); background: #f6f3ff; border: 1px solid #ddd3f8; }
+  .mech .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; margin-top: 12px; }
+  @media (max-width: 780px) { .mech .cols { grid-template-columns: 1fr; } }
+  .mech .col h4 { font-size: 13px; margin-bottom: 6px; }
+  .mech .col.ca h4 { color: var(--a); }
+  .mech .col.cb h4 { color: var(--b); }
+  .mech .col p, .mech .col li { font-size: 13.6px; color: var(--ink-2); }
+  .mech .col ul { padding-left: 17px; }
+
+  /* ---------- Recommendation list ---------- */
+  ol.rec { counter-reset: rec; list-style: none; display: grid; gap: 12px; }
+  ol.rec li {
+    counter-increment: rec;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 20px 16px 62px;
+    position: relative;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  ol.rec li::before {
+    content: counter(rec);
+    position: absolute; left: 18px; top: 16px;
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--a), var(--accent));
+    color: #fff; font-weight: 700; font-size: 14px;
+    border-radius: 9px;
+  }
+  ol.rec li strong { color: var(--ink); }
+  ol.rec li .src { font-size: 12px; font-weight: 650; margin-left: 6px; white-space: nowrap; }
+  ol.rec li .src.from-a { color: var(--a); }
+  ol.rec li .src.from-b { color: var(--b); }
+
+  /* ---------- File index ---------- */
+  .files { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 780px) { .files { grid-template-columns: 1fr; } }
+  .filelist {
+    font-family: var(--mono);
+    font-size: 12.3px;
+    line-height: 2;
+    color: var(--ink-2);
+  }
+  .filelist .pkg {
+    font-weight: 700; font-family: inherit;
+    display: block; margin-bottom: 4px; font-size: 13px;
+  }
+  .filelist.a .pkg { color: var(--a); }
+  .filelist.b .pkg { color: var(--b); }
+  .filelist div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .filelist em { color: var(--ink-3); font-style: normal; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 28px 20px 48px;
+    text-align: center;
+    color: var(--ink-3);
+    font-size: 12.5px;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>会话界面流式输出样式对比报告<br>
+    <span style="font-size:.58em;font-weight:500;color:var(--ink-2)">
+      <span class="vs-a">deepseek-harness</span> &nbsp;×&nbsp; <span class="vs-b">opencode-dev</span>
+    </span>
+  </h1>
+  <p class="sub">两条主流「LLM 会话流式渲染」实现路线的深度拆解：解析策略、节奏控制、代码高亮、视觉指示与 DOM 更新方式，以及给天枢的落地建议。</p>
+  <div class="meta">
+    <span>React + 自研 mdast 管线</span>
+    <span>SolidJS + marked + morphdom + Shiki Worker</span>
+    <span>用途：天枢会话界面流式输出优化选型参考</span>
+  </div>
+
+  <nav class="toc">
+    <a href="#overview">总体架构</a>
+    <a href="#mech">核心机制</a>
+    <a href="#perf">性能画像</a>
+    <a href="#rec">天枢借鉴清单</a>
+    <a href="#files">关键文件索引</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= 总览 ================= -->
+<section id="overview">
+  <h2>一、总体架构</h2>
+  <p class="lead">A = deepseek-harness（保守派：流式期纯文本、定稿一次付清）；B = opencode-dev（激进派：边流边高亮、节流削峰）。</p>
+
+  <div class="duo">
+    <div class="card a">
+      <span class="tag">A · deepseek-harness</span>
+      <ul>
+        <li><b>栈</b>：React + memo/useMemo 缓存元素树</li>
+        <li><b>引擎</b>：自研 mdast 管线 —— <code>parse.ts</code>（GFM+数学）→ <code>incremental.ts</code>（增量切分）→ <code>render.tsx</code>（语义 React 元素）</li>
+        <li><b>数据源</b>：<code>BlockAssembler</code> 把 StreamChunk 组装为 text / reasoning / tool-call / image 块</li>
+        <li><b>入口</b>：<code>&lt;MarkdownText streaming&gt;</code> 单 prop 切换流式 / 定稿两条管线</li>
+        <li><b>哲学</b>：流式零闪烁零跳动，复杂度保证严格（每块只 parse O(1) 次）</li>
+      </ul>
+    </div>
+    <div class="card b">
+      <span class="tag">B · opencode-dev</span>
+      <ul>
+        <li><b>栈</b>：SolidJS 细粒度响应 + 手动 DOM 操作</li>
+        <li><b>引擎</b>：marked lexer 投影 → 异步产 HTML → <code>morphdom</code> 打补丁；双层缓存免重绘</li>
+        <li><b>数据源</b>：part 存储，<code>readPartText</code> 读累积增量</li>
+        <li><b>入口</b>：<code>PacedMarkdown</code>（流式）/ <code>Markdown streaming=false</code>（定稿）</li>
+        <li><b>哲学</b>：即时反馈优先 —— 未闭合代码块立即流式高亮，<code>remend</code> heal 尾部语法</li>
+      </ul>
+    </div>
+    <div class="verdict">
+      <strong>一句话总结：</strong>A 把功夫花在「解析层」（冻结 + 增量 + 稳定 key），B 把功夫花在「感知层」（节流打字机 + Worker 流式高亮 + morphdom 微更新）。两者不互斥——天枢完全可以取长补短。
+    </div>
+  </div>
+</section>
+
+<!-- ================= 核心机制 ================= -->
+<section id="mech">
+  <h2>二、核心机制逐项对比</h2>
+  <p class="lead">六个维度：增量解析 / 未闭合语法处理 / 输出节奏 / 代码块高亮 / 视觉指示 / DOM 更新与安全。</p>
+
+  <div class="mech">
+    <h3>1. 增量解析与免重绘策略 <span class="badge both">两家共识：别整段重绘</span></h3>
+    <div class="cols">
+      <div class="col ca">
+        <h4>A · 冻结式增量解析（130 行）</h4>
+        <ul>
+          <li>冻结除最后 <b>2 个 top-level block</b> 外的全部块（<code>UNSTABLE_TAIL_BLOCKS = 2</code>），每 chunk 只重解析尾部</li>
+          <li>冻结块 key = <b>源码绝对偏移量</b>，跨 chunk 稳定 → React reconcile 而非 remount，选中态/滚动不丢</li>
+          <li><code>text.startsWith(prev)</code> memcmp 判定追加/重置；重置时 bump generation 全量丢弃缓存</li>
+          <li><code>render()</code> 幂等：text 未变直接返回缓存结果数组</li>
+        </ul>
+      </div>
+      <div class="col cb">
+        <h4>B · 全量 lex + 双层缓存</h4>
+        <ul>
+          <li>每次 <code>marked.lexer(text)</code> 全量 lex，最后一个非空 token 视为 live 区</li>
+          <li><code>markdown-cache</code> 按 <code>key:index:mode</code> 缓存 {raw, hash, html}，raw 未变直接复用（LRU touch）</li>
+          <li><code>canReusePendingBlock</code>：mode 相同且 code 前缀延伸时复用已渲染块</li>
+          <li><b>围栏快路径</b>：<code>closesFence(tail.raw, suffix)</code> 发现后缀不含 ``` 时，suffix 直接拼进现有 code block，完全跳过 re-lex</li>
+        </ul>
+      </div>
+    </div>
+    <blockquote>A 的复杂度保证更严格（每块源区只 parse O(1) 次）；B 用全量 lex + 缓存命中换实现简单性，长回复下 lex 本身仍是 O(n)，但有快路径和节流兜底。</blockquote>
+  </div>
+
+  <div class="mech">
+    <h3>2. 流式中「未闭合语法」的处理哲学 <span class="badge a-only">A 保守</span> <span class="badge b-only">B 激进</span></h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>场景</th><th class="h-a">A · deepseek-harness</th><th class="h-b">B · opencode-dev</th></tr></thead>
+        <tbody>
+          <tr><td class="dim">未闭合代码围栏</td><td class="col-a">流式期间渲染<b>纯文本</b>，turn 结束 finalize 时一次性换成高亮 CodeBlock</td><td class="col-b">当作 live code block <b>立即流式高亮</b></td></tr>
+          <tr><td class="dim">引用式链接 / 脚注</td><td class="col-a"><b>已知偏差</b>：定义落在冻结边界另一侧时字面渲染，定稿全量解析 self-heal（注释中明确文档化）</td><td class="col-b"><code>remend</code> 库主动 heal 尾部（linkMode: text-only），流式期尽量正常显示</td></tr>
+          <tr><td class="dim">数学公式 (KaTeX)</td><td class="col-a">finalize 才渲染</td><td class="col-b">不涉及</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <blockquote>A 选择「保守 + 定稿修正」，换来流式期零闪烁、零布局跳动；B 选择「激进即时」，视觉反馈更快但依赖 remend 的 heal 质量。</blockquote>
+  </div>
+
+  <div class="mech">
+    <h3>3. 输出节奏控制（打字机效果）<span class="badge b-only">B 独有 · 性价比之王</span></h3>
+    <div class="cols">
+      <div class="col ca">
+        <h4>A</h4>
+        <p>没有节奏层，chunk 到达即渲染，依赖增量解析保证单次成本低。</p>
+      </div>
+      <div class="col cb">
+        <h4>B · PacedMarkdown / createPacedValue</h4>
+<pre><code><span class="cm">// message-part.tsx 252–344 行</span>
+<span class="kw">TEXT_RENDER_PACE_MS</span>   = 24     <span class="cm">// 每 24ms 一拍 ≈42fps</span>
+<span class="kw">TEXT_RENDER_IMMEDIATE</span> = 512    <span class="cm">// 落后≤512字符直通</span>
+<span class="fn">step</span>(size)                     <span class="cm">// 步长自适应:</span>
+                               <span class="cm">// ≤12→2字, ≤48→4字,</span>
+                               <span class="cm">// ≤96→8字, 否则 size/4 上限256</span>
+<span class="kw">TEXT_RENDER_SNAP</span>               <span class="cm">// 追加终点吸附空白/标点,</span>
+                               <span class="cm">// 避免单词被劈开</span></code></pre>
+      </div>
+    </div>
+    <blockquote>积压小（≤512 字符）零延迟直出；积压大时匀速放出削平渲染尖峰。这层与渲染引擎完全解耦，约 40 行代码，是对「感知流畅度」性价比最高的组件。</blockquote>
+  </div>
+
+  <div class="mech">
+    <h3>4. 代码块流式高亮 <span class="badge b-only">B 独有 · 工程量大头</span></h3>
+    <div class="cols">
+      <div class="col ca">
+        <h4>A</h4>
+        <p>finalize 时一次性挂载 <code>CodeBlock</code>（highlight.ts），流式期间只有纯文本。<b>流式期零高亮开销</b>，实现成本低一个数量级。</p>
+      </div>
+      <div class="col cb">
+        <h4>B · Shiki Worker 全家桶</h4>
+        <ul>
+          <li><b>Web Worker</b> 内跑 <code>ShikiStreamTokenizer</code>（@shikijs/stream），主线程零阻塞</li>
+          <li>token 分 <b>stable / unstable</b> 两段输出；队列带 supersede（新请求作废旧请求）、dispose、unavailable 三级降级</li>
+          <li>DOM 侧 <code>updateCodeBlock</code> 做 <b>span 级增量更新</b>：算公共前缀 keep 数，只删/追尾差 spans</li>
+          <li>完成后用整段 <code>codeToTokens</code> 重置一次保证终态精确</li>
+          <li>附带 copy 按钮（morphdom 保护）、shell 语言识别、inline code 自动链接化</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="mech">
+    <h3>5. 流式期间的视觉指示 <span class="badge a-only">A 有 shimmer</span> <span class="badge both">均无光标</span></h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>维度</th><th class="h-a">A · deepseek-harness</th><th class="h-b">B · opencode-dev</th></tr></thead>
+        <tbody>
+          <tr><td class="dim">进行中指示</td><td class="col-a"><code>.turnStatus</code> <b>shimmer 文字渐变动画</b>（1.8s linear infinite，background-clip:text）+ tabular-nums 计时器；<code>prefers-reduced-motion</code> 下完全关闭</td><td class="col-b">无光标、无 shimmer；靠文字滚动本身传达进行中状态</td></tr>
+          <tr><td class="dim">推理过程</td><td class="col-a"><code>ReasoningRow</code>："Think" 折叠摘要行，展开为缩进灰字，running 态绑定最后一个 block</td><td class="col-b">reasoning part 与正文一样走 PacedMarkdown 流式</td></tr>
+          <tr><td class="dim">中断态</td><td class="col-a"><code>interrupted</code> prop → 追加 "stopped" 标记</td><td class="col-b"><code>data-interrupted</code> 属性 + copy 包装</td></tr>
+          <tr><td class="dim">打字光标</td><td class="col-a" colspan="2" style="border-left:none">两边都没有 caret / blink 类装饰</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mech">
+    <h3>6. DOM 更新方式 与 安全降级 <span class="badge both">路线迥异</span></h3>
+    <div class="cols">
+      <div class="col ca">
+        <h4>A · 全交 React diff</h4>
+        <p>优化点是 frozen elements 缓存 + 稳定 key，让 diff 面积只剩 tail。</p>
+        <h4 style="margin-top:14px">安全</h4>
+        <ul>
+          <li>管线内建：禁 raw HTML、相对链接、unsafe 协议；仅放行绝对 HTTP(S) 图片</li>
+          <li><code>fileMentions</code> 仅在<b>定稿渲染</b>启用——避免流式词汇未定型时烘焙过期 handler（细节值得学习）</li>
+        </ul>
+      </div>
+      <div class="col cb">
+        <h4>B · 三层手段并用</h4>
+        <ul>
+          <li>block 级：<code>data-markdown-key/hash</code> 相同 → 直接 return 零操作</li>
+          <li>普通块变化：<code>morphdom</code> 最小补丁，回调保护 copy-button、跳过 isEqualNode 节点</li>
+          <li>code block：绕过 morphdom，自己的 span 增量算法</li>
+        </ul>
+        <h4 style="margin-top:14px">降级</h4>
+        <p><code>sanitizeMarkdown</code> 清洗；fallback 为转义 + <code>&lt;br&gt;</code>；SSR 分支、worker 不可用降级、initialValue 同步首帧全覆盖。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 性能画像 ================= -->
+<section id="perf">
+  <h2>三、性能画像</h2>
+  <p class="lead">按典型流式场景逐项对照。</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>场景</th><th class="h-a">A · deepseek-harness</th><th class="h-b">B · opencode-dev</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">每 chunk 主线程成本</td><td class="col-a"><b>O(尾部重解析)</b> + frozen 引用收集，理论最优</td><td class="col-b"><b>O(n) 全量 lex</b>（含 fence 快路径）+ 缓存命中复用 HTML</td></tr>
+        <tr><td class="dim">高亮开销位置</td><td class="col-a">流式期<b>零开销</b>（纯文本），finalize 一次付清</td><td class="col-b">持续但<b>移入 Worker</b>，主线程近零</td></tr>
+        <tr><td class="dim">长回复尾部增长</td><td class="col-a">冻结窗口固定 2 块，恒定</td><td class="col-b">live 区固定最后 1 token，近似恒定</td></tr>
+        <tr><td class="dim">大积压突发</td><td class="col-a">无缓冲，可能一帧内多次渲染</td><td class="col-b">PacedMarkdown 24ms 匀速放出，<b>天然削峰</b></td></tr>
+        <tr><td class="dim">内存</td><td class="col-a">frozenElements ReactNode 数组</td><td class="col-b">LRU html 缓存 + completedCode Map + WeakMap 状态表</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 借鉴清单 ================= -->
+<section id="rec">
+  <h2>四、给天枢的借鉴清单（按性价比排序）</h2>
+  <p class="lead">前两项加起来不到一天工作量，感知提升立竿见影；后面按需投入。</p>
+  <ol class="rec">
+    <li><strong>节奏层</strong> —— 24ms 一拍 + ≤512 字符直通 + 步长自适应 + 标点吸附。<span class="src from-b">← 抄 B</span><br>约 40 行、与渲染引擎无关，「样式优化」最直接的抓手。</li>
+    <li><strong>turn-status shimmer</strong> —— 状态行文字渐变 + prefers-reduced-motion 降级。<span class="src from-a">← 抄 A</span><br>纯 CSS 几行搞定「正在生成」氛围感。</li>
+    <li><strong>未闭合 fence 快速通道</strong> —— 检测到尾部是不完整代码块时，新字符直接追加进 pre/code，跳过整段重渲染。<span class="src from-b">← 抄 B 思路</span><br>这是流式卡顿的最大单点来源。</li>
+    <li><strong>代码块流式高亮</strong> —— Shiki stream + Worker + stable/unstable 增量 span。<span class="src from-b">← 抄 B · 工程量大</span><br>仅当天枢代码块占比高再投入；否则退用 A 方案（流式纯文本、定稿高亮），成本低一个数量级。</li>
+    <li><strong>块级缓存 + 稳定 key</strong> —— 冻结块复用渲染结果，key 取源偏移或 key:index:mode。<span class="src from-a">两家共识</span><br>保证越写越长时前面内容零重排。</li>
+    <li><strong>remend 式尾部 heal</strong>（可选）—— 让链接/列表流式期就正常成形。<span class="src from-b">← 抄 B</span><br>接受「定稿才修正」的话可以不做。</li>
+    <li><strong>中断标记 & reduced-motion</strong> —— abort 后的 stopped 标记和无障碍降级。<span class="src from-a">← 抄 A</span><br>完整性细节。</li>
+  </ol>
+</section>
+
+<!-- ================= 文件索引 ================= -->
+<section id="files">
+  <h2>五、关键文件索引</h2>
+  <p class="lead">想深入某个机制时从这些文件入手。</p>
+  <div class="files">
+    <div class="card a filelist a">
+      <span class="pkg">A · deepseek-harness</span>
+      <div title="packages/client/ui-primitives/src/markdown/MarkdownText.tsx">…/ui-primitives/src/markdown/<b>MarkdownText.tsx</b> <em>— 流式门面 + StreamingRenderer</em></div>
+      <div title="packages/client/ui-primitives/src/markdown/incremental.ts">…/markdown/<b>incremental.ts</b> <em>— 冻结式增量解析器（TAIL=2）</em></div>
+      <div title="packages/client/ui-primitives/src/markdown/render.tsx / parse.ts">…/markdown/<b>render.tsx · parse.ts</b> <em>— 语义渲染 / GFM+数学文法</em></div>
+      <div title="packages/client/ui-conversation/src/client/chat/AssistantMarkdown.tsx">…/ui-conversation/…/chat/<b>AssistantMarkdown.tsx</b> <em>— block 序列装配</em></div>
+      <div title="packages/client/ui-conversation/src/client/chat/ChatView.module.css L80–115">…/chat/<b>ChatView.module.css</b> <em>— turnStatus shimmer（L80–115）</em></div>
+    </div>
+    <div class="card b filelist b">
+      <span class="pkg">B · opencode-dev</span>
+      <div title="packages/session-ui/src/components/markdown.tsx">…/session-ui/src/components/<b>markdown.tsx</b> <em>— Markdown 组件（morphdom、token 增量）</em></div>
+      <div title="packages/session-ui/src/components/markdown-stream.ts">…/components/<b>markdown-stream.ts</b> <em>— marked 投影 + fence 快路径</em></div>
+      <div title="packages/session-ui/src/components/message-part.tsx L252–344">…/components/<b>message-part.tsx</b> <em>— PacedMarkdown 节奏层（L252–344）</em></div>
+      <div title="packages/session-ui/src/components/markdown-shiki.worker.ts + markdown-worker*.ts + markdown-code-state.ts">…/components/<b>markdown-shiki.worker.ts</b> 等 <em>— Worker 高亮 + span 增量</em></div>
+      <div title="packages/session-ui/src/components/markdown.css">…/components/<b>markdown.css</b> <em>— 排版样式（14px / 160% 行高，CSS 变量主题化）</em></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  天枢 · 会话界面流式输出样式选型调研 · 基于 codegraph 源码分析生成
+</footer>
+
+</body>
+</html>

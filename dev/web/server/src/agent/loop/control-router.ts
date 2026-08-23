@@ -443,6 +443,14 @@ export async function handleTaskComplete(input: {
   })
   const submitCall = result.toolCalls?.find(tc => tc.function.name === 'submit_result')
   const toolCallId = submitCall?.id || `complete_${Date.now()}`
+  // inner.ts no longer emits tool.started for submit_result (it is a control
+  // action, not a real tool), so the loop owns its tool lifecycle here: announce
+  // it so the client renders a submit card with a consistent running→completed
+  // transition instead of a leftover "running"/error state.
+  stream?.emit('tool.started', {
+    session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
+    tool_name: 'submit_result', tool_input: JSON.stringify({ call_id: toolCallId }),
+  })
   if (!check.accepted) {
     const rejected = `submit_result 被拒绝：\n${check.unmet.map(u => `- ${u}`).join('\n')}\n\n请继续执行并重新提交结果。`
     const toolMessage: LLMMessage = { role: 'tool', content: JSON.stringify({ error: rejected }), tool_call_id: toolCallId }
@@ -482,6 +490,14 @@ export async function handleTaskComplete(input: {
       }
     }
   }
+  // Surface the submission as a completed tool card (success) so the client
+  // shows the result summary instead of a leftover "running"/error state.
+  stream?.emit('tool.completed', {
+    session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
+    tool_name: 'submit_result', tool_output: summaryOutput || '结果已提交',
+    tool_status: 'success', duration_ms: 0,
+  })
+
   messages.push({
     role: 'tool',
     content: JSON.stringify({ output: summaryOutput }),

@@ -93,9 +93,10 @@ export function evaluateSubmission(input: SubmissionCheckInput): SubmissionCheck
     }
   }
   if (input.mode === 'goal') {
-    if (input.evidence.length === 0) {
-      unmet.push('缺少结果证据；evidence 必须包含支撑结论的文件路径或工具输出')
-    }
+    // Evidence is encouraged but optional: many goal completions (analysis,
+    // summarization) have no file-path artifacts, and hard-rejecting for a
+    // missing evidence array made submit_result reject-then-resubmit in a loop.
+    // Summary remains mandatory so a submission still records what was done.
     if (!input.summary.trim()) {
       unmet.push(`缺少结果摘要；必须对照验证标准总结结果: ${input.goalVerification || '未定义验证标准'}`)
     }

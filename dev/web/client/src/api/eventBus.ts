@@ -207,7 +207,7 @@ export const ALL_KNOWN_EVENTS = [
   'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
   'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
   'run.limit_warning', 'run.grace_started', 'run.continuation_queued', 'run.compacted',
-  'message.delta', 'message.metrics', 'tool.started', 'tool.completed', 'tool.output',
+  'message.delta', 'message.metrics', 'message.created', 'tool.started', 'tool.completed', 'tool.output',
   'approval.requested', 'ask_user', 'usage', 'strategy.updated', 'sub_agent.started',
   'session:new', 'event:status_changed', 'evolution:insight_created', 'workspace.updated',
   'plan.created', 'plan.step.updated', 'goal.created', 'goal.status.changed', 'goal.paused',

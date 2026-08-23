@@ -693,7 +693,12 @@ export async function innerLoop(
   }
 
   // Phase 2: emit started events for allowed tools
-  const allowed = prechecked.filter(p => !p.skip)
+  // submit_result is a control action handled by the loop (control-router),
+  // not a real tool. Executing it through the registry would emit a bogus
+  // "Unknown tool: submit_result" card, so exclude it from the normal tool
+  // lifecycle (it stays in `prechecked` as non-skip, so Phase 3 won't emit a
+  // spurious error card either — control-router owns its tool events).
+  const allowed = prechecked.filter(p => !p.skip && p.name !== 'submit_result')
   for (const p of allowed) {
     stream?.emit('tool.started', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_input: p.argsStr })
   }

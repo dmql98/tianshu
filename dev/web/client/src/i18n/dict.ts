@@ -576,8 +576,8 @@ export const dict: Record<string, DictEntry> = {
   '会话显示偏好与交互设置。': { zh: '会话显示偏好与交互设置。', en: 'Session display preferences and interaction settings.' },
   '紧凑模式': { zh: '紧凑模式', en: 'Compact Mode' },
   '缩小消息间距，显示更多内容': { zh: '缩小消息间距，显示更多内容', en: 'Reduce message spacing to show more content' },
-  '显示推理': { zh: '显示推理', en: 'Show Reasoning' },
-  '展示模型的思考过程': { zh: '展示模型的思考过程', en: 'Display the model\'s thinking process' },
+  '显示推理': { zh: '默认展开推理', en: 'Expand reasoning by default' },
+  '展示模型的思考过程': { zh: '推理默认展开，关闭则折叠（仍可点击展开）', en: 'Reasoning expanded by default; collapsed but expandable when off' },
   '显示消耗': { zh: '显示消耗', en: 'Show Token Usage' },
   '在消息中显示 token 消耗': { zh: '在消息中显示 token 消耗', en: 'Show token usage in messages' },
 

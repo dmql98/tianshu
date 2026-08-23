@@ -113,7 +113,7 @@ echo.
 
 if defined DRYRUN (
   echo [DRY-RUN] 运行服务端测试、桌面端测试和完整构建
-  if not defined RESUME_RELEASE echo [DRY-RUN] 更新 dev\desktop\package.json 和 package-lock.json 到 !NEW_VERSION!
+  if not defined RESUME_RELEASE echo [DRY-RUN] update dev\desktop\package.json and package-lock.json to !NEW_VERSION!
   echo [DRY-RUN] git add -A
   echo [DRY-RUN] git commit -m "chore: prepare v!NEW_VERSION! release"
   if not defined RESUME_RELEASE echo [DRY-RUN] git tag v!NEW_VERSION!

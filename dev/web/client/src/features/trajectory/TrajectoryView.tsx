@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchSessionTrajectory, type SessionTrajectoryData } from '@/api/sessions'
 import { getEventBus } from '@/api/eventBus'
+import { useChatStore } from '@/stores/chatStore'
 import {
   buildTrajectory,
   filterTrajectory,
@@ -29,7 +30,7 @@ const TRAJECTORY_REFRESH_EVENTS = [
   'run.queued', 'run.started', 'run.retrying', 'run.completed', 'run.failed',
   'run.cancelled', 'run.interrupted', 'run.max_turns', 'run.budget_exhausted',
   'run.limit_warning', 'run.grace_started', 'run.continuation_queued', 'run.compacted',
-  'message.metrics', 'tool.started', 'tool.completed',
+  'message.created', 'message.metrics', 'tool.started', 'tool.completed',
   'approval.requested', 'ask_user', 'usage', 'sub_agent.started',
 ] as const
 
@@ -111,6 +112,8 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [compactExpanded, setCompactExpanded] = useState(false)
+  const compactionSummary = useChatStore(s => s.sessions.find(x => x.id === sessionId)?.compaction_summary ?? null)
   const [selection, setSelection] = useState<TrajectorySelection | null>(null)
 
   // 会话切换时重置，再按会话加载整条轨迹。
@@ -198,6 +201,22 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
           onChange={e => setQuery(e.target.value)}
         />
       </div>
+
+      {compactionSummary && (
+        <div className={`tjs-compact-bar${compactExpanded ? ' expanded' : ''}`}>
+          <button
+            type="button"
+            className="tjs-compact-bar-head"
+            onClick={() => setCompactExpanded(v => !v)}
+            aria-expanded={compactExpanded}
+          >
+            <span className="tjs-compact-bar-icon">⚠</span>
+            <span>{t('会话已压缩')}</span>
+            <span className="tjs-compact-bar-caret">{compactExpanded ? '▾' : '▸'}</span>
+          </button>
+          {compactExpanded && <p className="tjs-compact-bar-summary">{compactionSummary}</p>}
+        </div>
+      )}
 
       {loading && <div className="tjs-empty">{t('加载中…')}</div>}
       {error && <div className="tjs-empty tjs-error">{error}</div>}

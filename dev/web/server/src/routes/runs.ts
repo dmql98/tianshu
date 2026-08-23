@@ -216,6 +216,18 @@ router.post('/:id/inputs', async (c) => {
     resumed_from_run_id: run.id,
     trigger: 'user_input',
   })
+  // Surface the user's answer as a durable message event so the conversation
+  // view updates in real time (and survives reconnect replay) instead of
+  // requiring a page refresh to read it back from the DB. Fixes the
+  // "ask_user answer only appears after refresh" bug.
+  if (resumed.userMessageId != null) {
+    publishRunEvent(rawStream, resumedRun.id, 'message.created', {
+      session_id: resumed.session.id,
+      message_id: resumed.userMessageId,
+      role: 'user',
+      content: instruction,
+    })
+  }
   const durableStream = createDurableStream(rawStream, resumedRun.id)
   const runId = resumedRun.id
   enqueueRun(resumed.session.id, resumedRun.id, async signal => {

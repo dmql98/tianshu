@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { fetchGoals, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
 import { getEventBus } from '@/api/eventBus'
 import PlanDialog from './PlanDialog'
@@ -9,6 +9,29 @@ const goalStatusKeys: Record<string, string> = {
   active: '进行中', paused: '已暂停', completed: '已完成', failed: '失败', cancelled: '已取消',
 }
 
+// Cheap structural comparison so a reload that returns identical data does not
+// trigger a re-render — prevents the panel from thrashing on submit_result's
+// burst of plan/goal events.
+function sameGoals(a: Goal[] | null, b: Goal[] | null): boolean {
+  if (a === b) return true
+  if (!a || !b || a.length !== b.length) return false
+  return a.every((g, i) => {
+    const t = b[i]
+    return g.id === t.id && g.status === t.status &&
+      g.used_input_tokens === t.used_input_tokens && g.used_output_tokens === t.used_output_tokens
+  })
+}
+
+function samePlan(a: Plan | null, b: Plan | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return a === b
+  if (a.version !== b.version || a.steps.length !== b.steps.length) return false
+  return a.steps.every((s, i) => {
+    const t = b.steps[i]
+    return s.id === t.id && s.status === t.status && s.evidence === t.evidence
+  })
+}
+
 export default function GoalPanel({ sessionId }: { sessionId: string }) {
   const t = useI18n()
   const [goals, setGoals] = useState<Goal[]>([])
@@ -16,31 +39,41 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
   const [busy, setBusy] = useState(false)
   const [showPlan, setShowPlan] = useState(false)
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     try {
       const [gs, p] = await Promise.all([fetchGoals(sessionId), fetchActivePlan(sessionId)])
-      setGoals(gs)
-      setPlan(p)
+      // Only commit state when the data actually changed, so we don't thrash
+      // the panel on every plan/goal event emitted during submit_result.
+      setGoals(prev => sameGoals(prev, gs) ? prev : gs)
+      setPlan(prev => samePlan(prev, p) ? prev : p)
     } catch { /* server may be down */ }
-  }
+  }, [sessionId])
 
   useEffect(() => {
     setShowPlan(false)
     void reload()
-  }, [sessionId])
+  }, [sessionId, reload])
 
   useEffect(() => {
     const bus = getEventBus()
-    const onChange = (event: { session_id?: string }) => {
-      if (event.session_id === sessionId) void reload()
+    let timer: ReturnType<typeof setTimeout> | null = null
+    // submit_result fans out several plan/goal events at once; collapse them into
+    // a single reload instead of firing one API round-trip per event.
+    const scheduleReload = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => { timer = null; void reload() }, 80)
     }
-    const offConnect = bus.onConnect(() => { void reload() })
+    const onChange = (event: { session_id?: string }) => {
+      if (event.session_id === sessionId) scheduleReload()
+    }
+    const offConnect = bus.onConnect(() => { scheduleReload() })
     bus.on('plan.created', onChange)
     bus.on('plan.step.updated', onChange)
     bus.on('goal.created', onChange)
     bus.on('goal.status.changed', onChange)
     bus.on('goal.paused', onChange)
     return () => {
+      if (timer) clearTimeout(timer)
       bus.off('plan.created', onChange)
       bus.off('plan.step.updated', onChange)
       bus.off('goal.created', onChange)
@@ -48,7 +81,7 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
       bus.off('goal.paused', onChange)
       offConnect()
     }
-  }, [sessionId])
+  }, [sessionId, reload])
 
   const activeGoal = goals.find(g => g.status === 'active' || g.status === 'paused')
   const completedGoals = goals.filter(g => g.status === 'completed')

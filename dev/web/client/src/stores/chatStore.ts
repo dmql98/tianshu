@@ -86,6 +86,92 @@ function toMessage(message: any): Message {
   }
 }
 
+/**
+ * Insert or update a user message produced by a `message.created` event.
+ * Keyed by the real DB message_id (`m${id}`) so the live stream and a
+ * reconnect replay converge on the same node — no duplicate bubbles.
+ * If an optimistic placeholder with the same content already sits at the
+ * tail (AskUserDialog fast-path), it is upgraded in place instead of
+ * duplicated.
+ */
+function applyMessageCreated(
+  messages: Message[],
+  data: { message_id?: number | null; content?: string; occurred_at?: number },
+): Message[] {
+  const id = `m${data.message_id}`
+  const content = data.content ?? ''
+  const idx = messages.findIndex(m => m.id === id)
+  if (idx >= 0) {
+    const existing = messages[idx]
+    if (existing.role === 'user' && existing.content === content) return messages
+    const next = [...messages]
+    next[idx] = { ...existing, role: 'user', content, timestamp: data.occurred_at ?? existing.timestamp }
+    return next
+  }
+  const last = messages[messages.length - 1]
+  if (last && last.role === 'user' && last.content === content && !last.id.startsWith('m')) {
+    const next = [...messages]
+    next[next.length - 1] = { ...last, id, timestamp: data.occurred_at ?? last.timestamp }
+    return next
+  }
+  return [...messages, { id, role: 'user', content, timestamp: data.occurred_at ?? Date.now() }]
+}
+
+/**
+ * Insert a model question (ask_user) as an assistant message so it stays in
+ * the conversation flow paired with the user's answer. Keyed by the asking
+ * run_id so the live stream and a reconnect replay converge on the same node.
+ * Positioned by occurred_at so it precedes the answer even when replayed after
+ * the answer is already present.
+ */
+function applyAskUserQuestion(
+  messages: Message[],
+  data: { run_id?: string | null; question?: string; occurred_at?: number },
+): Message[] {
+  if (!data.run_id || !data.question) return messages
+  const id = `ask-${data.run_id}`
+  if (messages.some(m => m.id === id)) return messages
+  const msg: Message = {
+    id,
+    role: 'assistant',
+    content: data.question,
+    timestamp: data.occurred_at ?? Date.now(),
+  }
+  const idx = messages.findIndex(m => m.timestamp > msg.timestamp)
+  if (idx < 0) return [...messages, msg]
+  const next = [...messages]
+  next.splice(idx, 0, msg)
+  return next
+}
+
+/**
+ * Insert a conversation-flow compaction divider (virtual marker, not a real
+ * persisted message) when the model compacts context. Keyed by the compacting
+ * run_id so the live stream and a reconnect replay converge on the same node.
+ * Positioned by occurred_at so it sits between the shadowed history and the
+ * new context even when replayed after the surrounding messages are present.
+ */
+function applyCompactMarker(
+  messages: Message[],
+  data: { run_id?: string | null; occurred_at?: number; compaction_summary?: string | null },
+): Message[] {
+  const id = `compact-${data.run_id ?? data.occurred_at ?? 'unknown'}`
+  if (messages.some(m => m.id === id)) return messages
+  const msg: Message = {
+    id,
+    role: 'assistant',
+    content: '',
+    notice: 'compacted',
+    compact_summary: data.compaction_summary ?? null,
+    timestamp: data.occurred_at ?? Date.now(),
+  }
+  const idx = messages.findIndex(m => m.timestamp > msg.timestamp)
+  if (idx < 0) return [...messages, msg]
+  const next = [...messages]
+  next.splice(idx, 0, msg)
+  return next
+}
+
 function loadPersistedDefaults(): Record<string, string | undefined> {
   try {
     const raw = localStorage.getItem(PERSIST_KEY)
@@ -189,6 +275,8 @@ interface ChatState {
 
   // Messages
   sendMessage: (input: string) => Promise<void>
+  /** Insert/update a message in one session's list (used for optimistic inserts). */
+  updateSessionMessage: (sessionId: string, updater: (session: Session) => Session) => void
   editMessage: (messageId: string, content: string) => Promise<void>
   forkFromMessage: (messageId: string) => Promise<Session>
   abortRun: () => void
@@ -651,6 +739,23 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
     })
 
+    // A user answer to an ask_user prompt (or any server-persisted user turn)
+    // surfaces here. Keyed by the real DB message_id so the live stream and a
+    // reconnect replay converge on the same node — this is the authoritative
+    // fix for "ask_user answer only appears after a refresh".
+    bus.off('message.created')
+    bus.on('message.created', (data: RunEvent) => {
+      if (!data.session_id || data.message_id == null || data.role !== 'user') return
+      updateSessionMessage(data.session_id, sess => {
+        const next = applyMessageCreated(sess.messages, {
+          message_id: data.message_id,
+          content: data.content,
+          occurred_at: data.occurred_at,
+        })
+        return next === sess.messages ? sess : { ...sess, messages: next }
+      })
+    })
+
     bus.off('tool.started')
     bus.on('tool.started', (data: RunEvent) => {
       
@@ -760,9 +865,22 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.on('run.compacted', (data: RunEvent) => {
       set(state => ({
         sessions: state.sessions.map(s =>
-          s.id === data.session_id ? { ...s, compacted: true } : s
+          s.id === data.session_id
+            ? { ...s, compacted: true, compaction_summary: data.compaction_summary ?? s.compaction_summary }
+            : s
         ),
       }))
+      // Surface a divider in the conversation flow so the user can see where
+      // the model stopped seeing earlier history (paired with the answer /
+      // follow-up on either side).
+      updateSessionMessage(data.session_id || '', sess => {
+        const next = applyCompactMarker(sess.messages, {
+          run_id: data.run_id,
+          occurred_at: data.occurred_at,
+          compaction_summary: data.compaction_summary,
+        })
+        return next === sess.messages ? sess : { ...sess, messages: next }
+      })
     })
 
     bus.off('run.failed')
@@ -879,7 +997,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     // ask_user prompts (persisted checkpoint; answered via /runs/:id/inputs).
     bus.off('ask_user')
-    bus.on('ask_user', (data: { session_id?: string; run_id?: string; question?: string }) => {
+    bus.on('ask_user', (data: RunEvent) => {
       if (!data.run_id || !data.question) return
       if (data.session_id && data.session_id !== get().activeSessionId) return
       set({
@@ -888,6 +1006,16 @@ export const useChatStore = create<ChatState>((set, get) => {
           session_id: data.session_id || '',
           question: data.question,
         },
+      })
+      // Also surface the question in the conversation flow (paired with the
+      // user's answer from message.created) so the Q&A is visible on refresh.
+      updateSessionMessage(data.session_id || '', sess => {
+        const next = applyAskUserQuestion(sess.messages, {
+          run_id: data.run_id,
+          question: data.question,
+          occurred_at: data.occurred_at,
+        })
+        return next === sess.messages ? sess : { ...sess, messages: next }
       })
     })
   }
@@ -1058,7 +1186,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     const pendingApprovalEvent = approvalResolved ? undefined : approvalCandidate
     const askUserEvent = events.find(e => e.type === 'ask_user')
     updateSessionMessage(sessionId, sess => {
-      const messages = [...sess.messages]
+      let messages = [...sess.messages]
+      let compacted = sess.compacted ?? false
       for (const e of events) {
         if (e.type === 'message.delta') {
           const last = messages[messages.length - 1]
@@ -1086,6 +1215,15 @@ export const useChatStore = create<ChatState>((set, get) => {
               token_speed_estimated: e.token_speed_estimated,
             }
             break
+          }
+        } else if (e.type === 'message.created') {
+          if (e.role === 'user' && e.message_id != null) {
+            const next = applyMessageCreated(messages, {
+              message_id: e.message_id,
+              content: e.content,
+              occurred_at: e.occurred_at,
+            })
+            if (next !== messages) messages = next
           }
         } else if (e.type === 'tool.started') {
           messages.push({
@@ -1117,12 +1255,16 @@ export const useChatStore = create<ChatState>((set, get) => {
             content: `Error: ${e.error || 'Unknown'}`,
             timestamp: Date.now(),
           })
+        } else if (e.type === 'run.compacted') {
+          const next = applyCompactMarker(messages, { run_id: e.run_id, occurred_at: e.occurred_at, compaction_summary: e.compaction_summary })
+          if (next !== messages) messages = next
+          compacted = true
         } else if (TERMINAL_EVENT_TYPES.has(e.type || '')) {
           const last = messages[messages.length - 1]
           if (last?.is_streaming) messages[messages.length - 1] = { ...last, is_streaming: false }
         }
       }
-      return { ...sess, messages }
+      return { ...sess, messages, compacted: compacted || sess.compacted }
     })
     if (pendingApprovalEvent?.tool_call_id) {
       const pending = pendingApprovalFromEvent({ ...pendingApprovalEvent, session_id: sessionId })
@@ -1138,6 +1280,16 @@ export const useChatStore = create<ChatState>((set, get) => {
           session_id: sessionId,
           question: askUserEvent.question,
         },
+      })
+      // Surface the question in the flow too (paired with the answer) so a
+      // refresh/reconnect still shows the full Q&A pair.
+      updateSessionMessage(sessionId, sess => {
+        const next = applyAskUserQuestion(sess.messages, {
+          run_id: askUserEvent.run_id,
+          question: askUserEvent.question,
+          occurred_at: askUserEvent.occurred_at,
+        })
+        return next === sess.messages ? sess : { ...sess, messages: next }
       })
     }
     if (lastType) {
@@ -1306,24 +1458,45 @@ export const useChatStore = create<ChatState>((set, get) => {
       savePersistedDefaults({ activeSessionId: id })
 
       const session = get().sessions.find(s => s.id === id)
-      if (!session || session.messages.length > 0) {
-        // Still evaluate whether this session has a live run so the send/stop
-        // button matches the active session, not the previous one.
+      if (!session) {
+        // No local record (e.g. created elsewhere): let resume handle it.
         get().resumeActiveRun(id)
         return
       }
 
-      try {
-        const data = await sessionsApi.fetchSessionMessages(id)
-        const messages: Message[] = data.messages.map(toMessage)
-        set(state => ({
-          sessions: state.sessions.map(s =>
-            s.id === id ? { ...s, messages } : s
-          ),
-        }))
-        // Resume a run that was in flight when this view was last open.
-        get().resumeActiveRun(id)
-      } catch { /* new session */ }
+      // Don't clobber a session that is actively streaming in this window —
+      // its live output is being written by the global handler, and a snapshot
+      // would truncate the in-flight tail.
+      const tracked = get().sessionRuns[resolveSessionRoot(id)]
+      const streamingLive = tracked?.isStreaming || tracked?.activeRun?.phase === 'running'
+
+      let needLoad = session.messages.length === 0
+      if (!needLoad && !streamingLive) {
+        // Already loaded: silently re-pull only if the server has newer content
+        // (updated_at bumped by a persisted message / compaction while we were
+        // away). Fixes the "switch back still shows stale data" trap.
+        try {
+          const fresh = await sessionsApi.fetchSessions()
+          const server = fresh.find(s => s.id === id)
+          if (server && server.updated_at > (session.updated_at ?? 0)) needLoad = true
+        } catch { /* keep local */ }
+      }
+
+      if (needLoad) {
+        try {
+          const data = await sessionsApi.fetchSessionMessages(id)
+          const messages: Message[] = data.messages.map(toMessage)
+          set(state => ({
+            sessions: state.sessions.map(s =>
+              s.id === id
+                ? { ...s, messages, updated_at: data.session.updated_at ?? s.updated_at }
+                : s,
+            ),
+          }))
+        } catch { /* keep local */ }
+      }
+      // Resume a run that was in flight when this view was last open.
+      get().resumeActiveRun(id)
     },
 
     refreshSession: async (requestedId?: string) => {
@@ -1622,6 +1795,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         }))
       })
     },
+
+    updateSessionMessage,
 
     resumeActiveRun: async (sessionId: string) => {
       // A live run is already being tracked (claim exists in sessionRuns):

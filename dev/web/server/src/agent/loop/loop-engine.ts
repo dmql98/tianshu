@@ -283,7 +283,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
           compaction_summary: compact.summary!,
           compaction_until_id: compact.compactedUntilId || null,
         })
-        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted before request to avoid overflow' })
+        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted before request to avoid overflow', compaction_summary: compact.summary!, compaction_until_id: compact.compactedUntilId || null })
         // 前缀已变：用与首帧一致的动态上下文重算本轮要发送的消息，并让下一次
         // 前缀形状对比按冷启动处理（形状确实变了，避免误报缓存差异）。
         composedMsgs = composeMessages(messages, {
@@ -344,7 +344,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
               compaction_summary: compact.summary!,
               compaction_until_id: compact.compactedUntilId || null,
             })
-            stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context overflow recovered via compaction' })
+            stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context overflow recovered via compaction', compaction_summary: compact.summary!, compaction_until_id: compact.compactedUntilId || null })
             continue
           }
         }
@@ -570,7 +570,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
           compaction_summary: compact.summary!,
           compaction_until_id: compact.compactedUntilId || null,
         })
-        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted to manage token usage' })
+        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted to manage token usage', compaction_summary: compact.summary!, compaction_until_id: compact.compactedUntilId || null })
       }
     }
 

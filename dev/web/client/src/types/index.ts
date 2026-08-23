@@ -60,6 +60,10 @@ export interface Message {
   tool_call_id?: string
   tool_status?: 'running' | 'done' | 'success' | 'error'
   is_streaming?: boolean
+  /** Virtual conversation-flow marker (not persisted as a real message). */
+  notice?: 'compacted'
+  /** Compaction summary shown when a `compacted` divider is expanded. */
+  compact_summary?: string | null
   reasoning?: string
   reasoning_duration?: number
   token_speed?: number
@@ -208,6 +212,8 @@ export interface RunEvent {
   occurred_at?: number
   delta?: string
   reasoning?: string
+  role?: string
+  content?: string
   output?: string
   tool_name?: string
   tool_input?: string
@@ -231,6 +237,9 @@ export interface RunEvent {
   requested_path?: string
   permission_root?: string
   limit_summary?: RunLimitSummary
+  /** Compaction summary emitted alongside run.compacted (for conversation-flow divider + trajectory linkage). */
+  compaction_summary?: string | null
+  compaction_until_id?: number | null
   result?: { limitSummary?: RunLimitSummary; continuationScheduled?: boolean; nextRunId?: string }
   continuationScheduled?: boolean
   next_run_id?: string

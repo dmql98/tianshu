@@ -38,6 +38,10 @@ export default memo(function MessageItem({ message, characterId, sessionId }: Pr
     return <ToolCall message={message} />
   }
 
+  if (message.notice === 'compacted') {
+    return <CompactDivider message={message} />
+  }
+
   const copyMessage = async () => {
     try {
       if (navigator.clipboard?.writeText) {
@@ -165,3 +169,32 @@ export default memo(function MessageItem({ message, characterId, sessionId }: Pr
     </div>
   )
 })
+
+/** Conversation-flow compaction divider. Click to expand the summary when the
+ *  run.compacted event carried one; collapsed otherwise (pure separator). */
+function CompactDivider({ message }: { message: Message }) {
+  const locale = useI18nStore(s => s.locale)
+  const [expanded, setExpanded] = useState(false)
+  const summary = message.compact_summary
+  const canExpand = !!summary
+  return (
+    <div className={`msg-compact-divider${expanded ? ' expanded' : ''}`} role="separator" aria-label="上下文已压缩">
+      <span className="msg-compact-divider-line" />
+      <button
+        type="button"
+        className="msg-compact-divider-label"
+        onClick={() => canExpand && setExpanded(v => !v)}
+        aria-expanded={expanded}
+        disabled={!canExpand}
+        title={canExpand ? (locale === 'en' ? 'Toggle summary' : '展开/收起摘要') : undefined}
+      >
+        {locale === 'en' ? 'Context compacted' : '上下文已压缩'}
+        {canExpand && <span className="msg-compact-divider-caret">{expanded ? '▾' : '▸'}</span>}
+      </button>
+      <span className="msg-compact-divider-line" />
+      {expanded && canExpand && (
+        <p className="msg-compact-divider-summary">{summary}</p>
+      )}
+    </div>
+  )
+}
