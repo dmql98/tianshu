@@ -15,10 +15,16 @@ export default memo(function ThinkingBlock({ content, duration, defaultExpanded 
   const t = useI18n()
 
   return (
-    <div className="thinking-block" onClick={() => setExpanded(!expanded)}>
-      <div className="th-header">
+    <div className="thinking-block">
+      <button
+        type="button"
+        className="th-header"
+        onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
+      >
         ◈ {t('思考中')} {duration ? `· ${(duration / 1000).toFixed(1)}s` : ''}
-      </div>
+        <span className="th-caret">{expanded ? '▾' : '▸'}</span>
+      </button>
       {expanded && <MarkdownContent content={content} streaming={streaming} />}
     </div>
   )

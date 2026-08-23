@@ -290,6 +290,41 @@ export interface PaletteOptions {
   preferSaturatedAccent?: boolean
 }
 
+/** 降低颜色饱和度（amount=0 原色，1 为灰度）。用于去掉提取主色的"脏彩/怪色"。 */
+function desaturate(hex: string, amount: number): string {
+  const { r, g, b } = parseColor(hex)
+  const gray = 0.299 * r + 0.587 * g + 0.114 * b
+  const m = (c: number) => Math.round(c + (gray - c) * Math.min(1, Math.max(0, amount)))
+  return rgbToHex({ r: m(r), g: m(g), b: m(b) })
+}
+
+/** hex → rgba(…, alpha)。 */
+function withAlpha(hex: string, alpha: number): string {
+  const { r, g, b } = parseColor(hex)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+/**
+ * 仅调明度（保留色相）让强调色在背景上达到目标对比度；
+ * 暗背景提亮、亮背景压暗，使强调色块始终醒目而不丢失原色相。
+ */
+function boostAccent(accent: string, canvas: string, dark: boolean, target = 3): string {
+  if (contrastRatio(accent, canvas) >= target) return accent
+  const toward = dark ? 'white' : 'black'
+  let lo = 0
+  let hi = 1
+  let best = accent
+  for (let i = 0; i < 32; i++) {
+    const mid = (lo + hi) / 2
+    const candidate = mixWith(accent, toward, mid)
+    if (contrastRatio(candidate, canvas) >= target) {
+      best = candidate
+      hi = mid
+    } else lo = mid
+  }
+  return best
+}
+
 /** 从候选色生成完整、可读的色板（对比度校正内置）。 */
 export function generatePalette(
   candidates: string[],
@@ -301,11 +336,13 @@ export function generatePalette(
     : (options.appearance ?? appearanceFromColor(base))
   const dark = appearance === 'dark'
 
-  // 主背景：保持外观方向——深色主题画布偏暗、浅色主题画布偏亮，
-  // 不做"与纯白/纯黑对比"的反向提亮；对比度校正发生在文字色上。
+  // 主背景：先降低主色饱和度（去掉"脏彩/怪色"），再大幅向黑/白混合，
+  // 得到接近中性的干净底色；仅保留极淡色相暗示，避免浅色模式残留刺眼彩色、
+  // 深色模式残留浑浊色调。对比度校正发生在文字色上。
+  const neutralBase = desaturate(base, 0.5)
   const canvas = dark
-    ? mixWith(base, 'black', 0.7)
-    : mixWith(base, 'white', 0.72)
+    ? mixWith(neutralBase, 'black', 0.82)
+    : mixWith(neutralBase, 'white', 0.82)
 
   // 面板/输入框：在背景基础上略微偏移
   const surface1 = dark
@@ -321,22 +358,28 @@ export function generatePalette(
     ? mixWith(canvas, 'black', 0.08)
     : mixWith(canvas, 'white', 0.5)
 
-  // 强调色：优先最饱和候选，否则取次候选
-  const accent = pickAccent(candidates, dark)
+  // 强调色：优先最饱和候选，并保证在背景上至少 3:1 可见（保留色相、只调明度）
+  const accent = boostAccent(pickAccent(candidates, dark), canvas, dark, 3)
 
-  // 正文文字：与背景对比度 ≥ 4.5
-  const textPrimary = dark
-    ? adjustToContrast(canvas, '#f2ead9', AA_TEXT_CONTRAST)
-    : adjustToContrast(canvas, '#2c2418', AA_TEXT_CONTRAST)
-  const textSecondary = dark
-    ? adjustToContrast(canvas, mixWith(textPrimary, 'black', 0.25), 4.5)
-    : adjustToContrast(canvas, mixWith(textPrimary, 'white', 0.3), 4.5)
-  const textMuted = dark
-    ? adjustToContrast(canvas, mixWith(textPrimary, 'black', 0.45), 3)
-    : adjustToContrast(canvas, mixWith(textPrimary, 'white', 0.55), 3)
-  const textFaint = dark
-    ? mixWith(canvas, 'white', 0.28)
-    : mixWith(canvas, 'black', 0.28)
+  // 正文文字：用"极端版背景色"（亮化/暗化 canvas）作为目标，色相与背景协调，
+  // 不再使用写死的品牌暖色；各级都强制对比度下限。
+  const textTarget = dark ? mixWith(canvas, 'white', 0.9) : mixWith(canvas, 'black', 0.85)
+  const textPrimary = adjustToContrast(canvas, textTarget, AA_TEXT_CONTRAST)
+  const textSecondary = adjustToContrast(
+    canvas,
+    mixWith(textPrimary, dark ? 'black' : 'white', 0.3),
+    AA_TEXT_CONTRAST,
+  )
+  const textMuted = adjustToContrast(
+    canvas,
+    mixWith(textPrimary, dark ? 'black' : 'white', 0.55),
+    3,
+  )
+  const textFaint = adjustToContrast(
+    canvas,
+    mixWith(textPrimary, dark ? 'black' : 'white', 0.7),
+    dark ? 2.6 : 2.4,
+  )
 
   // on-accent 文字：强调色背景上的高对比文字
   const textOnAccent = contrastRatio('#ffffff', accent) >= 4.5 ? '#ffffff' : '#000000'
@@ -344,12 +387,11 @@ export function generatePalette(
   const link = dark ? mixWith(accent, 'white', 0.08) : accent
   const focusRing = dark ? mixWith(accent, 'white', 0.25) : mixWith(accent, 'black', 0.15)
 
-  const border = dark
-    ? 'rgba(255,235,200,0.12)'
-    : 'rgba(180,160,130,0.15)'
-  const borderSubtle = dark
-    ? 'rgba(255,235,200,0.07)'
-    : 'rgba(180,160,130,0.08)'
+  // 边框 / 强调软色：由背景 / 强调色衍生（同色系、可见），不再写死品牌色
+  const borderLine = dark ? mixWith(canvas, 'white', 0.45) : mixWith(canvas, 'black', 0.45)
+  const border = withAlpha(borderLine, 0.28)
+  const borderSubtle = withAlpha(borderLine, 0.14)
+  const accentSoft = withAlpha(accent, 0.12)
 
   return {
     canvas,
@@ -366,16 +408,16 @@ export function generatePalette(
     textOnAccent,
     accent,
     accentHover,
-    accentSoft: dark ? 'rgba(224,179,65,0.16)' : 'rgba(200,150,10,0.1)',
+    accentSoft,
     link,
     focusRing,
     success: dark ? '#4caf7d' : '#2a9d5c',
     warning: dark ? '#e8933c' : '#d97706',
     danger: dark ? '#e0735a' : '#c45c3c',
     info: dark ? '#6b9ff3' : '#2563eb',
-    shadowColor: dark ? 'rgba(0,0,0,0.5)' : 'rgba(44,36,24,0.2)',
+    shadowColor: dark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.16)',
     codeBg: input,
-    scrollbar: dark ? mixWith(canvas, 'white', 0.2) : mixWith(canvas, 'black', 0.2),
+    scrollbar: dark ? mixWith(canvas, 'white', 0.3) : mixWith(canvas, 'black', 0.3),
   }
 }
 

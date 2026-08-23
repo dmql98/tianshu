@@ -215,3 +215,35 @@ describe('colorExtraction: 色板生成（对比度保证）', () => {
     expect(contrastRatio(palette.textOnAccent, palette.accent)).toBeGreaterThanOrEqual(3)
   })
 })
+
+describe('colorExtraction: 两种外观都保证可见（回归）', () => {
+  const bases = ['#3a7bd5', '#2bb6a8', '#e5719b', '#f0b429', '#eaeaea', '#9aa68f']
+  for (const appearance of ['light', 'dark'] as const) {
+    for (const base of bases) {
+      it(`${appearance} 主色 ${base}：文字层级与强调色均可见`, () => {
+        const palette = generatePalette([base], { appearance })
+        expect(contrastRatio(palette.textPrimary, palette.canvas)).toBeGreaterThanOrEqual(4.5)
+        expect(contrastRatio(palette.textSecondary, palette.canvas)).toBeGreaterThanOrEqual(4.5)
+        expect(contrastRatio(palette.textMuted, palette.canvas)).toBeGreaterThanOrEqual(3)
+        const faintMin = appearance === 'light' ? 2.4 : 2.6
+        expect(contrastRatio(palette.textFaint, palette.canvas)).toBeGreaterThanOrEqual(faintMin)
+        // 强调色在背景上至少 3:1，避免"强调色看不见"
+        expect(contrastRatio(palette.accent, palette.canvas)).toBeGreaterThanOrEqual(3)
+      })
+    }
+  }
+
+  it('边框由背景衍生（同色系、可见），不再是固定品牌色', () => {
+    const light = generatePalette(['#3a7bd5'], { appearance: 'light' })
+    const dark = generatePalette(['#3a7bd5'], { appearance: 'dark' })
+    expect(light.border).toMatch(/^rgba\(/)
+    expect(dark.border).toMatch(/^rgba\(/)
+    expect(light.border).not.toBe('rgba(180,160,130,0.15)')
+    expect(dark.border).not.toBe('rgba(255,235,200,0.12)')
+  })
+
+  it('accentSoft 由强调色衍生，同色系', () => {
+    const light = generatePalette(['#3a7bd5'], { appearance: 'light' })
+    expect(light.accentSoft).toMatch(/^rgba\(58,123,213,/)
+  })
+})

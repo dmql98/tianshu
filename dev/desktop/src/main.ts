@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { appendFileSync, existsSync, mkdirSync } from 'fs'
+import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { ServerManager } from './server-manager.js'
 import { bundledNodePath, verifyBundledNode } from './runtime-paths.js'
@@ -195,10 +195,11 @@ function registerIpc(manager: ServerManager): void {
   })
 
   ipcMain.handle('desktop:open-path', async (_event, path: string) => {
-    // 打开（定位）指定目录到系统文件管理器；路径非法或不存在时安全返回 false。
-    if (typeof path !== 'string' || path.length === 0 || !existsSync(path)) return false
-    await shell.openPath(path)
-    return true
+    // 直接交给系统打开；shell.openPath 成功返回空串、失败返回错误串，用它判断即可，
+    // 避免主进程同步 existsSync 在慢路径（网络盘/断连映射盘）上冻结 UI。
+    if (typeof path !== 'string' || path.length == 0) return false
+    const err = await shell.openPath(path)
+    return err === ''
   })
 
   // ── Transport-neutral event channel (renderer ↔ server child) ──
