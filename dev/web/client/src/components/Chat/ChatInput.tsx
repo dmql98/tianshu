@@ -47,6 +47,8 @@ export default function ChatInput() {
   const compactNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragCounter = useRef(0)
+  const [isDragging, setIsDragging] = useState(false)
   const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, setStrategy, tokenUsage } = useChatStore()
   const { providers } = useProvidersStore()
   const t = useI18n()
@@ -117,10 +119,14 @@ export default function ChatInput() {
     }
   }
 
-  function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-    for (const file of Array.from(files)) {
+  // Shared entry point: turn picked/dropped/pasted files into attachments.
+  // Images are stored as a data URL (preview + payload); everything else as
+  // base64. This is the single place that knows how to decode a File, so the
+  // file picker, drag-drop and paste paths all go through it.
+  function handleFiles(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (list.length === 0) return
+    for (const file of list) {
       const mime = file.type || mimeFromExt(file.name) || 'application/octet-stream'
       if (mime.startsWith('image/')) {
         const reader = new FileReader()
@@ -139,7 +145,58 @@ export default function ChatInput() {
         reader.readAsArrayBuffer(file)
       }
     }
+  }
+
+  function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files) handleFiles(e.target.files)
     e.target.value = ''
+  }
+
+  // ── Drag & drop onto the input box ──
+  // dragCounter guards against the spurious dragleave events fired when the
+  // pointer moves across child elements; the box only leaves "dragging" state
+  // once every enter has been balanced by a leave.
+  function onDragEnter(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    dragCounter.current += 1
+    setIsDragging(true)
+  }
+
+  function onDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  }
+
+  function onDragLeave() {
+    dragCounter.current -= 1
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0
+      setIsDragging(false)
+    }
+  }
+
+  function onDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    dragCounter.current = 0
+    setIsDragging(false)
+    if (e.dataTransfer?.files) handleFiles(e.dataTransfer.files)
+  }
+
+  // ── Paste images (and other files) from the clipboard ──
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const files: File[] = []
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile()
+        if (file) files.push(file)
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault()
+      handleFiles(files)
+    }
   }
 
   const starName = character?.name || '天枢'
@@ -256,7 +313,13 @@ export default function ChatInput() {
             />
           </div>
         </div>
-        <div className="input-box">
+        <div
+          className={`input-box${isDragging ? ' drag-over' : ''}`}
+          onDragEnter={onDragEnter}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+        >
           {/* Attachment previews */}
           {attachments.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 10px 0' }}>
@@ -291,6 +354,7 @@ export default function ChatInput() {
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
           />
           <div className="input-bottom">
             <button className="tool-btn" title={t('附件')} onClick={() => fileInputRef.current?.click()}>+ {t('附件')}</button>
@@ -326,6 +390,19 @@ export default function ChatInput() {
               }}
             >
               {limitNotice.text}
+            </div>
+          )}
+          {isDragging && (
+            <div
+              style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                borderRadius: 12, background: 'rgba(42,157,92,0.08)',
+                border: '2px dashed var(--jade)', color: 'var(--jade)',
+                fontSize: 'calc(13px * var(--ui-font-scale))',
+              }}
+            >
+              {t('松开以添加附件')}
             </div>
           )}
         </div>

@@ -6,6 +6,7 @@ import { withTransaction } from '../db/sqlite-db.js'
 import { providerStore, resolveProviderApiStyle } from '../db/providerStore.js'
 import { characterMetaStore } from '../db/characterStore.js'
 import { characterContentStore } from '../character/store.js'
+import { getDataDir } from '../config.js'
 import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-title.js'
 import { characterPresenceProjector } from '../character/presence-projector.js'
 import { runCoordinator } from '../agent/runtime/run-coordinator.js'
@@ -188,6 +189,7 @@ router.post('/:id/compact', async (c) => {
   const charMeta = characterMetaStore.getById(session.character_id)
   if (!charMeta) return c.json({ error: 'Character not found' }, 404)
   const charContent = characterContentStore.get(session.character_id)
+  const dataspace = resolveDataspace(session.dataspace) ?? getDataDir()
 
   const effProvider = {
     ...provider,
@@ -204,7 +206,7 @@ router.post('/:id/compact', async (c) => {
     charContent,
     toolDefs,
     resolveWorkspace(session.workspace),
-    resolveDataspace(session.dataspace),
+    dataspace,
     { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' },
   )
   const messages = await buildInitialMessages({

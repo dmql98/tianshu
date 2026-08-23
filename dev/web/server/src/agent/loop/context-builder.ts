@@ -92,7 +92,7 @@ export function assembleStaticPrompt(
   }
 
   if (dataspace) {
-    parts.push(`## Data Space\nSystem configuration and data root: ${dataspace}`)
+    parts.push(`## Data Directory\nSystem config & data root: ${dataspace}  (即 <dataDir>：天枢所有配置与数据的根目录，角色/技能/模型服务/MCP 等均位于其下)`)
   }
   parts.push(`## Workspace\nProject workspace: ${workspace}\nCreate it if it does not exist.`)
 

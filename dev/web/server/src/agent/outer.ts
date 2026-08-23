@@ -199,14 +199,14 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     charContent.user,
     toolsListingVariant,
     resolveWorkspace(session.workspace),
-    resolveDataspace(session.dataspace),
+    dataspace,
   )
   let systemPrompt = getCached(key)
   if (!systemPrompt) {
     const comp = extractComponents(charMeta.id, normalizeTools(toolDefs), charMeta.skills, charContent.soul, charContent.user)
     const reasons = diagnoseMiss(charMeta.id, comp)
     console.log(`[system-cache] miss ${key}: ${reasons.join(', ')} (${toolDefs.length} tools, ${(charMeta.skills || []).length} skills)`)
-    systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), resolveDataspace(session.dataspace), { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' })
+    systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), dataspace, { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' })
     setCached(key, systemPrompt)
   }
 
