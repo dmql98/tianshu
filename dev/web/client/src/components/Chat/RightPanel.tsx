@@ -45,13 +45,11 @@ export default function RightPanel() {
     if (api?.openDirectoryDialog) {
       try {
         const dir = await api.openDirectoryDialog(session?.workspace ?? undefined, t('选择授权工作区目录'))
-        if (dir) {
-          addWorkspace(dir)
-          return
-        }
+        if (dir) addWorkspace(dir)
       } catch {
-        // fall through to the in-app picker
+        // 原生框异常时静默失败；桌面端不回退到 in-app 选择器
       }
+      return
     }
     setShowFolderPicker(true)
   }
