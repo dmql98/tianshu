@@ -18,7 +18,6 @@ export interface SessionSummary {
   provider_id: string | null
   workspace: string | null
   workspaces: string | null
-  dataspace: string | null
   parent_id: string | null
   active_group: string | null
   session_type?: 'chat' | 'event'

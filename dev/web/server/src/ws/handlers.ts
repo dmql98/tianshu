@@ -92,7 +92,6 @@ export async function handleChatRun(
       provider_id: (data.provider_id as string) || undefined,
       workspace: (data.workspace as string) || undefined,
       workspaces: workspacesArr ? JSON.stringify(workspacesArr) : undefined,
-      dataspace: (data.dataspace as string) || undefined,
       active_group: (data.active_group as string) || undefined,
       session_type: (data.session_type as 'chat' | 'event') || undefined,
       event_id: (data.event_id as string) || undefined,
@@ -103,7 +102,6 @@ export async function handleChatRun(
     if (data.model) patch.model = data.model
     if (data.workspace) patch.workspace = data.workspace
     if (data.workspaces) patch.workspaces = JSON.stringify(data.workspaces)
-    if (data.dataspace) patch.dataspace = data.dataspace
     if (data.character_id) patch.character_id = data.character_id
     if (data.active_group) patch.active_group = data.active_group
     if (data.event_id) patch.event_id = data.event_id

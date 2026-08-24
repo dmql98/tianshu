@@ -13,7 +13,7 @@ import type { LLMMessage } from '../../llm/client.js'
 import type { MessageRow } from '../../db/messageStore.js'
 
 /**
- * Context builder: resolves workspace/dataspace, assembles the system prompt
+ * Context builder: resolves workspace/dataDir, assembles the system prompt
  * and converts persisted messages into provider messages. Migrated from
  * agent/outer.ts.
  */
@@ -32,10 +32,6 @@ export function resolveWorkspaces(session: { workspace?: string | null; workspac
     catch { /* fall through */ }
   }
   return [resolveWorkspace(session.workspace)]
-}
-
-export function resolveDataspace(ds: string | null | undefined): string | undefined {
-  return ds || undefined
 }
 
 export function loadPromptTemplate(charId: string): string {
@@ -63,7 +59,7 @@ export function assembleStaticPrompt(
   charContent: { soul: string; user: string },
   toolDefs: any[],
   workspace: string,
-  dataspace?: string,
+  dataDir?: string,
   opts?: StaticPromptOptions,
 ): string {
   const parts: string[] = []
@@ -91,9 +87,9 @@ export function assembleStaticPrompt(
     parts.push(`## Available Skill Packages\n${skillList}\nUse \`skill_manager\` action="describe_package" to inspect a package and action="activate" to load only the child skill needed for this task. Do not replace the character's full skill list.`)
   }
 
-  if (dataspace) {
-    parts.push(`## Data Directory\nSystem config & data root: ${dataspace}  (即 <dataDir>：天枢所有配置与数据的根目录，角色/技能/模型服务/MCP 等均位于其下)`)
-  }
+    if (dataDir) {
+      parts.push(`## Data Directory\nSystem config & data root: ${dataDir}  (即 <dataDir>：天枢所有配置与数据的根目录，角色/技能/模型服务/MCP 等均位于其下)`)
+    }
   parts.push(`## Workspace\nProject workspace: ${workspace}\nCreate it if it does not exist.`)
 
   return parts.join('\n\n')

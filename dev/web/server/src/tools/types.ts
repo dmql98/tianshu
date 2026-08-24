@@ -39,7 +39,6 @@ export interface ToolContext {
   sessionId?: string
   workspace: string
   workspaces?: string[]
-  dataspace?: string
   signal?: AbortSignal
   allowedRoots?: string[]
   onOutput?: (chunk: string) => void

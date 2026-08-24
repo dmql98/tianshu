@@ -256,7 +256,6 @@ export async function innerLoop(
   mcpClients?: Map<string, MCPClient>,
   workspaces?: string[],
   cap?: ProviderCapability,
-  dataspace?: string,
 ): Promise<InnerResult> {
   let totalInputTokens = 0
   let totalOutputTokens = 0
@@ -763,7 +762,7 @@ export async function innerLoop(
 
     async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
       try {
-        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, dataspace, sessionId)
+        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, sessionId)
       } catch (err: any) {
         return { output: '', error: `${p.name}: ${err.message || String(err)}` }
       }

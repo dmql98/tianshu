@@ -27,7 +27,7 @@ import {
   resolveCompactPolicy, shouldCompact, type CompactPolicy,
 } from './loop/loop-policy.js'
 import {
-  resolveWorkspace, resolveWorkspaces, resolveDataspace,
+  resolveWorkspace, resolveWorkspaces,
   assembleStaticPrompt, buildInitialMessages,
 } from './loop/context-builder.js'
 import { compactWithRetries } from './loop/context-compactor.js'
@@ -96,10 +96,6 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
 
   const workspaces = resolveWorkspaces(session)
   const workspace = resolveWorkspace(session.workspace)
-  // Data Space shown to the model must reflect the authoritative configured
-  // data dir; fall back to getDataDir() when the session carries no explicit
-  // dataspace (client-side hardcoded legacy defaults are no longer trusted).
-  const dataspace = resolveDataspace(session.dataspace) ?? getDataDir()
 
   // Run policy is frozen at Run creation (RUN_LIMIT_POLICY_PLAN §5.2). The
   // persisted snapshot is the source of truth; fall back to a fresh resolution
@@ -198,15 +194,14 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     charContent.soul,
     charContent.user,
     toolsListingVariant,
-    resolveWorkspace(session.workspace),
-    dataspace,
-  )
+      resolveWorkspace(session.workspace),
+    )
   let systemPrompt = getCached(key)
   if (!systemPrompt) {
     const comp = extractComponents(charMeta.id, normalizeTools(toolDefs), charMeta.skills, charContent.soul, charContent.user)
     const reasons = diagnoseMiss(charMeta.id, comp)
     console.log(`[system-cache] miss ${key}: ${reasons.join(', ')} (${toolDefs.length} tools, ${(charMeta.skills || []).length} skills)`)
-    systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), dataspace, { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' })
+      systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), getDataDir(), { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' })
     setCached(key, systemPrompt)
   }
 
@@ -286,7 +281,6 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     characterId: session.character_id,
     workspace,
     workspaces,
-    dataspace,
     cap,
     tools,
     mcpClients,

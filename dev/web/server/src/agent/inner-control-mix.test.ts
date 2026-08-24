@@ -56,7 +56,6 @@ function makeArgs(stream: TransportBroadcaster | undefined): Parameters<typeof i
     undefined, // mcpClients
     undefined, // workspaces
     undefined, // cap
-    undefined, // dataspace
   ]
 }
 

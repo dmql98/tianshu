@@ -15,7 +15,7 @@ import { runStore } from '../agent/runtime/run-store.js'
 import { planStore, goalStore } from '../agent/plan/plan-store.js'
 import { runEventStore, flushAllPending } from '../agent/runtime/run-event-store.js'
 import {
-  resolveWorkspace, resolveDataspace,
+  resolveWorkspace,
   assembleStaticPrompt, buildInitialMessages,
 } from '../agent/loop/context-builder.js'
 import { selectAndSummarize } from '../agent/loop/context-compactor.js'
@@ -132,7 +132,6 @@ router.post('/:id/fork', async (c) => {
       provider_id: source.provider_id,
       workspace: source.workspace,
       workspaces: source.workspaces,
-      dataspace: source.dataspace,
       parent_id: null,
       character_binding_mode: source.character_binding_mode,
       pinned_character_revision_id: source.pinned_character_revision_id,
@@ -189,7 +188,6 @@ router.post('/:id/compact', async (c) => {
   const charMeta = characterMetaStore.getById(session.character_id)
   if (!charMeta) return c.json({ error: 'Character not found' }, 404)
   const charContent = characterContentStore.get(session.character_id)
-  const dataspace = resolveDataspace(session.dataspace) ?? getDataDir()
 
   const effProvider = {
     ...provider,
@@ -206,7 +204,7 @@ router.post('/:id/compact', async (c) => {
     charContent,
     toolDefs,
     resolveWorkspace(session.workspace),
-    dataspace,
+    getDataDir(),
     { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' },
   )
   const messages = await buildInitialMessages({

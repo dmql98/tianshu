@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
 import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
-import { fetchDataspace, saveDataspace, reloadDataspace, reimportBuiltin, fetchRtk, saveRtk, installRtk, updateRtk } from '@/api/config'
+import { fetchDataDir, saveDataDir, reloadDataDir, reimportBuiltin, fetchRtk, saveRtk, installRtk, updateRtk } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
 import type { Provider, Character } from '@/types'
@@ -145,8 +145,8 @@ export default function SettingsPage() {
     if (dir) {
       setWorkspace(dir)
       saveLs('defaultWorkspace', dir)
-      await saveDataspace(dir)
-        .then(() => { window.dispatchEvent(new Event('dataspace-configured')) })
+      await saveDataDir(dir)
+        .then(() => { window.dispatchEvent(new Event('datadir-configured')) })
         .catch(() => {})
       showToast(t('已选择数据目录'))
     }
@@ -172,7 +172,7 @@ export default function SettingsPage() {
     fetchEvolutionConfig().then(setEvo).catch(() => {})
     fetchCharacters().then(setCharacters).catch(() => {})
     // 从后端加载配置路径
-    fetchDataspace().then(res => { setWorkspace(res.dataDir); saveLs('defaultWorkspace', res.dataDir) }).catch(() => {})
+    fetchDataDir().then(res => { setWorkspace(res.dataDir); saveLs('defaultWorkspace', res.dataDir) }).catch(() => {})
     // 从后端加载 RTK 集成配置与服务端可用性
     fetchRtk().then(res => {
       setRtkEnabled(res.config.enabled)
@@ -246,14 +246,14 @@ export default function SettingsPage() {
     }
   }
 
-  const handleReloadDataspace = async () => {
+  const handleReloadDataDir = async () => {
     setReloading(true)
     try {
-      await saveDataspace(workspace)
-      await reloadDataspace()
+      await saveDataDir(workspace)
+      await reloadDataDir()
       // 重新拉取所有后端数据，使新配置路径立即生效
       saveLs('defaultWorkspace', workspace)
-      window.dispatchEvent(new Event('dataspace-configured'))
+      window.dispatchEvent(new Event('datadir-configured'))
       await Promise.allSettled([
         load(),
         fetchDefaultPrompt().then(setDefaultPrompt),
@@ -611,9 +611,9 @@ export default function SettingsPage() {
             <div className="setting-row setting-row-stacked">
               <div className="setting-info"><span className="setting-label">{t('配置路径')}</span><span className="setting-hint">{t('天枢系统配置与数据的根目录')}</span></div>
               <div className="setting-control">
-                <input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataspace(e.target.value).then(() => { window.dispatchEvent(new Event('dataspace-configured')) }).catch(() => {}) }} style={{width:280}}/>
+                <input type="text" value={workspace} onChange={e => { setWorkspace(e.target.value); saveLs('defaultWorkspace', e.target.value); saveDataDir(e.target.value).then(() => { window.dispatchEvent(new Event('datadir-configured')) }).catch(() => {}) }} style={{width:280}}/>
                 <button className="btn" onClick={handleChooseDir} style={{marginLeft:8}}>{t('选择目录')}</button>
-                <button className="btn" onClick={handleReloadDataspace} disabled={reloading} style={{marginLeft:8}}>
+                <button className="btn" onClick={handleReloadDataDir} disabled={reloading} style={{marginLeft:8}}>
                   {reloading ? t('加载中…') : t('刷新')}
                 </button>
                 <button className="btn" onClick={handleOpenConfigFolder} style={{marginLeft:8}}>{t('打开配置文件夹')}</button>

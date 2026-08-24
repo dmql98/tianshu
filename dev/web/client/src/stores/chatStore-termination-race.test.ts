@@ -335,7 +335,7 @@ describe('stop-then-resend race: stale terminal must not double-append the new r
     // refreshSession 内部会先 loadSessions：保持会话存在，模拟服务端正常返回列表
     fetchSessions.mockResolvedValueOnce([{
       id: SID, character_id: 'c1', session_type: 'chat', title: '', model: null,
-      provider_id: null, workspace: null, workspaces: null, dataspace: null,
+      provider_id: null, workspace: null, workspaces: null,
       parent_id: null, active_group: null, event_id: null,
       current_strategy: 'Ask Risky', messages: [], created_at: Date.now(), updated_at: Date.now(),
     }])

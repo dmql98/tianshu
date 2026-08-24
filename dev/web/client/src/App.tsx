@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { fetchEventDefinitions } from './api/eventDefinitions'
-import { fetchDataspace } from './api/config'
+import { fetchDataDir } from './api/config'
 import CharacterDetailPage from './pages/CharacterDetailPage'
 import CharactersPage from './pages/CharactersPage'
 import SkinsPage from './pages/SkinsPage'
@@ -53,9 +53,9 @@ export default function App() {
   const backdropStrength: 'home' | 'task' =
     location.pathname === '/' || location.pathname === '/home' ? 'home' : 'task'
 
-  // Startup check: is dataspace configured?
+  // Startup check: is dataDir configured?
   useEffect(() => {
-    fetchDataspace()
+    fetchDataDir()
       .then(res => {
         if (!res.configured) {
           setSetupDone(false)
@@ -65,8 +65,8 @@ export default function App() {
       .catch(() => {}) // server unreachable, let user proceed
 
     function onConfigured() { setSetupDone(true) }
-    window.addEventListener('dataspace-configured', onConfigured)
-    return () => window.removeEventListener('dataspace-configured', onConfigured)
+    window.addEventListener('datadir-configured', onConfigured)
+    return () => window.removeEventListener('datadir-configured', onConfigured)
   }, [])
 
   useEffect(() => {

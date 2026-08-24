@@ -35,7 +35,6 @@ export function stableKey(
   user: string,
   variant = '',
   workspace?: string,
-  dataspace?: string,
 ): string {
   const t = normalizeTools(tools)
   const tStr = t.map(x => x.function.name).join(',')
@@ -47,12 +46,12 @@ export function stableKey(
     'so:', shortHash(soul || ''),
     'u:', shortHash(user || ''),
     ...(variant ? ['v:', variant] : []),
-    // Workspace/dataspace are interpolated into the cached prompt body, so
+    // Workspace/dataDir are interpolated into the cached prompt body, so
     // they MUST be part of the key — otherwise a session that switched
     // workspace would receive another session's stale prompt (cross-session
     // cache pollution).
     'w:', shortHash(workspace || ''),
-    'd:', shortHash(dataspace || ''),
+    'd:', shortHash(getDataDir()),
   ].join('|')
   return shortHash(raw)
 }

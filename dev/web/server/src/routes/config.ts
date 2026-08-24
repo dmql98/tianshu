@@ -13,18 +13,18 @@ import { charactersRoot, skillsRoot, iconPacksRoot, providersRoot } from '../dat
 
 const router = new Hono()
 
-router.get('/dataspace', (c) => {
+router.get('/datadir', (c) => {
   // 前端启动必调此接口：顺带做一次 builtin 物化兜底（幂等），确保任何启动
   // 路径（含初次安装默认 dataDir、切换后）用户层副本始终存在。
   const result = materializeAllBuiltinContent()
   if (result.failed.length > 0) {
-    console.warn(`[config] dataspace materialize failed for ${result.failed.length} item(s): ` +
+    console.warn(`[config] dataDir materialize failed for ${result.failed.length} item(s): ` +
       result.failed.map(f => `${f.id}: ${f.error}`).join('; '))
   }
   return c.json({ dataDir: getDataDir(), configured: isConfigured() })
 })
 
-router.put('/dataspace', async (c) => {
+router.put('/datadir', async (c) => {
   const body = await c.req.json()
   const path = body.dataDir
   if (!path || typeof path !== 'string') {

@@ -50,7 +50,6 @@ export function getDb(): TianshuDatabase {
   try { db.exec('ALTER TABLE events ADD COLUMN workspace TEXT') } catch { }
   try { db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT') } catch { }
   try { db.exec('ALTER TABLE messages ADD COLUMN token_speed REAL') } catch { }
-  try { db.exec("ALTER TABLE sessions ADD COLUMN dataspace TEXT") } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN context_usage INTEGER') } catch { }
   try { db.exec('ALTER TABLE messages ADD COLUMN is_error INTEGER') } catch { }
   db.exec(`
@@ -62,7 +61,6 @@ export function getDb(): TianshuDatabase {
       provider_id TEXT,
       workspace TEXT,
       workspaces TEXT,
-      dataspace TEXT,
       parent_id TEXT,
       active_group TEXT,
       session_type TEXT DEFAULT 'chat',
@@ -146,6 +144,8 @@ export function getDb(): TianshuDatabase {
     CREATE INDEX IF NOT EXISTS idx_session_skill_activations_active
       ON session_skill_activations(session_id, status);
   `)
+  // 归一 dataDir：移除已废弃的 per-session dataspace 列（该列恒为空；try/catch 兼容旧库与不支持 DROP COLUMN 的引擎）。
+  try { db.exec('ALTER TABLE sessions DROP COLUMN dataspace') } catch { }
   // Run/character architecture. Development data is upgraded in place so an
   // existing desktop profile can keep its conversations while the new domain
   // tables become the source of truth.

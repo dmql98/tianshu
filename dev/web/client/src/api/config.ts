@@ -1,14 +1,14 @@
 import { apiGet, apiPut, apiPost } from './client'
 
-export async function fetchDataspace(): Promise<{ dataDir: string; configured: boolean }> {
-  return apiGet<{ dataDir: string; configured: boolean }>('/api/config/dataspace')
+export async function fetchDataDir(): Promise<{ dataDir: string; configured: boolean }> {
+  return apiGet<{ dataDir: string; configured: boolean }>('/api/config/datadir')
 }
 
-export async function saveDataspace(dataDir: string): Promise<void> {
-  await apiPut('/api/config/dataspace', { dataDir })
+export async function saveDataDir(dataDir: string): Promise<void> {
+  await apiPut('/api/config/datadir', { dataDir })
 }
 
-export async function reloadDataspace(): Promise<{ dataDir: string }> {
+export async function reloadDataDir(): Promise<{ dataDir: string }> {
   return apiPost<{ dataDir: string }>('/api/config/reload')
 }
 

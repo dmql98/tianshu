@@ -2,6 +2,7 @@ import { execute as registryExecute } from './registry.js'
 import { PathEscapeError } from './utils.js'
 import type { ToolResult, ToolArgs } from './types.js'
 import type { MCPClient } from './mcp-client.js'
+import { getDataDir } from '../config.js'
 
 function parseMCPToolName(name: string): { serverName: string; toolName: string } | null {
   const m = name.match(/^mcp__(.+?)__(.+)$/)
@@ -9,7 +10,7 @@ function parseMCPToolName(name: string): { serverName: string; toolName: string 
   return { serverName: m[1], toolName: m[2] }
 }
 
-export async function executeTool(name: string, args: ToolArgs, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void, workspaces?: string[], dataspace?: string, sessionId?: string): Promise<ToolResult> {
+export async function executeTool(name: string, args: ToolArgs, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void,     workspaces?: string[], sessionId?: string): Promise<ToolResult> {
   if (name.startsWith('mcp__') && mcpClients) {
     const parsed = parseMCPToolName(name)
     if (!parsed) return { output: '', error: `Invalid MCP tool name: ${name}` }
@@ -19,11 +20,9 @@ export async function executeTool(name: string, args: ToolArgs, workspace: strin
   }
 
   try {
-    // Merge dataspace into workspaces so all tools can access it
-    const mergedWorkspaces = dataspace
-      ? [...(workspaces || []), dataspace].filter((v, i, a) => a.indexOf(v) === i)
-      : workspaces
-    return await registryExecute(name, args, { sessionId, workspace, workspaces: mergedWorkspaces, dataspace, signal, allowedRoots, onOutput })
+    // 合并全局 dataDir 到工作区，使所有工具可访问角色/技能/MCP 等配置
+    const mergedWorkspaces = [...(workspaces || []), getDataDir()].filter((v, i, a) => a.indexOf(v) === i)
+    return await registryExecute(name, args, { sessionId, workspace, workspaces: mergedWorkspaces, signal, allowedRoots, onOutput })
   } catch (err: any) {
     if (err instanceof PathEscapeError) {
       return { output: '', error: err.message, escaped: true }
