@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yuxi 0.7.1 知识库设计借鉴分析</title>
+<style>
+:root{
+  --bg:#f6f7f9; --page:#ffffff; --ink:#1f2328; --muted:#57606a; --line:#d8dee4;
+  --brand:#2563eb; --brand-soft:#eaf1ff; --code-bg:#0f172a; --code-ink:#e2e8f0;
+  --quote-bg:#f3f6fb; --quote-line:#2563eb; --th:#f0f3f7; --alt:#fafbfc;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  line-height:1.75; font-size:16px;
+}
+.page{max-width:980px; margin:32px auto; background:var(--page); border:1px solid var(--line);
+  border-radius:12px; padding:48px 56px 64px; box-shadow:0 1px 3px rgba(0,0,0,.05);}
+h1{font-size:30px; line-height:1.3; margin:0 0 8px; padding-bottom:14px; border-bottom:3px solid var(--brand);}
+h2{font-size:23px; margin:40px 0 14px; padding-left:12px; border-left:5px solid var(--brand);}
+h3{font-size:18px; margin:26px 0 10px; color:#0f172a;}
+h2 a, h3 a{color:inherit; text-decoration:none;}
+a{color:var(--brand); text-decoration:none;}
+a:hover{text-decoration:underline;}
+p{margin:10px 0;}
+blockquote{
+  margin:18px 0; padding:12px 18px; background:var(--quote-bg);
+  border-left:5px solid var(--quote-line); border-radius:0 8px 8px 0; color:#334155;
+}
+blockquote p{margin:4px 0;}
+ul,ol{padding-left:26px;}
+li{margin:5px 0;}
+table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px;
+  overflow:hidden; border:1px solid var(--line); border-radius:8px;}
+th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top;}
+th{background:var(--th); font-weight:600; color:#0f172a;}
+tbody tr:nth-child(even){background:var(--alt);}
+code{background:#eef1f5; color:#b4174c; padding:2px 6px; border-radius:5px;
+  font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size:13.5px;}
+pre{background:var(--code-bg); color:var(--code-ink); padding:16px 18px; border-radius:10px;
+  overflow-x:auto; margin:16px 0; line-height:1.6;}
+pre code{background:transparent; color:inherit; padding:0; font-size:13.5px; white-space:pre;}
+.toc{background:var(--brand-soft); border:1px solid #c7dbff; border-radius:10px;
+  padding:16px 22px; margin:22px 0 8px;}
+.toc > :first-child{margin:0 0 8px; font-weight:700; color:#14306b;}
+.toc ul{list-style:none; padding-left:0; margin:0;}
+.toc li{margin:3px 0;}
+.toc ul ul{padding-left:18px;}
+.toc a{color:#14306b;}
+hr{border:none; border-top:1px solid var(--line); margin:30px 0;}
+.footer{margin-top:40px; padding-top:16px; border-top:1px solid var(--line);
+  color:var(--muted); font-size:13px;}
+.top-link{display:inline-block; margin-bottom:6px; font-size:13px;}
+@media (max-width:700px){.page{padding:24px 18px; margin:0; border-radius:0;}}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="toc"><span class="toctitle">目录</span><ul>
+<li><a href="#yuxi-071">Yuxi 0.7.1 知识库设计借鉴分析</a><ul>
+<li><a href="#1">1. 执行摘要</a></li>
+<li><a href="#2-yuxi">2. Yuxi 知识库架构速览</a><ul>
+<li><a href="#21-architecturemd">2.1 后端分层（来自 ARCHITECTURE.md + 代码）</a></li>
+<li><a href="#22-milvuspy-aquery">2.2 检索核心（milvus.py 中 aquery）</a></li>
+<li><a href="#23-websrc">2.3 前端结构（web/src）</a></li>
+</ul>
+</li>
+<li><a href="#3">3. 后端可借鉴点（含代码定位）</a><ul>
+<li><a href="#31">3.1 可插拔知识库抽象（高价值，天枢应吸收其「接口契约」）</a></li>
+<li><a href="#32-ui-02">3.2 检索配置驱动 UI（最高价值，对应天枢 02「检索调试器」）</a></li>
+<li><a href="#33-02-8">3.3 检索融合与降级（对齐天枢 02 §8）</a></li>
+<li><a href="#34">3.4 解析层可插拔（补天枢二期格式支持）</a></li>
+<li><a href="#35">3.5 分块预设机制（补天枢单一种类）</a></li>
+<li><a href="#36">3.6 文件状态机 + 乐观锁（并发安全）</a></li>
+<li><a href="#37">3.7 一致性检测（运维保障）</a></li>
+</ul>
+</li>
+<li><a href="#4">4. 前端可借鉴点（重点：天枢知识库前端目前是占位）</a><ul>
+<li><a href="#41-02-11">4.1 检索调试器（天枢 02 §11 直接对应）</a></li>
+<li><a href="#42-ui">4.2 分块策略配置 UI</a></li>
+<li><a href="#43-chunk">4.3 chunk 详情与来源定位</a></li>
+<li><a href="#44">4.4 对话内引用/知识结果卡片（高价值）</a></li>
+<li><a href="#45">4.5 知识库管理 &amp; 共享权限</a></li>
+<li><a href="#46">4.6 图谱/思维导图可视化（可选能力）</a></li>
+</ul>
+</li>
+<li><a href="#5">5. 知识图谱设计（边界务必厘清）</a></li>
+<li><a href="#6-03-8">6. 评测设计（对齐天枢 03 §8）</a></li>
+<li><a href="#7-0003">7. 对照天枢 00~03 逐点比对</a></li>
+<li><a href="#8">8. 差异与风险提示</a></li>
+<li><a href="#9">9. 轻量替代架构（FTS5 优先，不引入重服务）</a></li>
+<li><a href="#10">10. 落地建议（按优先级，轻量优先）</a></li>
+<li><a href="#11">11. 参考文件清单（已核实）</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<a class="top-link" href="#">↑ 返回顶部</a><h1 id="yuxi-071"><a class="toclink" href="#yuxi-071">Yuxi 0.7.1 知识库设计借鉴分析</a></h1>
+<blockquote>
+<p>分析对象：<code>C:\Users\dmql\Downloads\Yuxi-0.7.1\Yuxi-0.7.1</code>（语析 Yuxi，多租户 Harness + 企业知识库，RAG + Milvus 图谱 + LangGraph 多智能体）
+对照对象：天枢「知识体系构建」<code>00-03</code>（角色记忆 + 独立文件知识库 + 权限治理）
+目的：提炼可借鉴/可复用的架构、分块/解析、检索融合、前端交互与评测思路，并标注差异与风险。
+结论先行：<strong>天枢已有的「记忆/知识/代码图 三域严格分离」方向比 Yuxi 更清晰，不应照搬其耦合方式</strong>；但 Yuxi 在「检索配置驱动 UI、分块预设、可插拔解析、状态机并发控制、图谱 PPR 增强检索、评测套件、对话内引用展示」上已有成熟实现，可直接借鉴其思路与交互。</p>
+</blockquote>
+<hr />
+<h2 id="1"><a class="toclink" href="#1">1. 执行摘要</a></h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Yuxi 现状（可借鉴性）</th>
+<th>对天枢二期的建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>知识库抽象</td>
+<td><code>KnowledgeBaseFactory</code> + <code>KnowledgeBase(ABC)</code> + 多实现（Milvus/Dify/Notion），Manager 按 <code>kb_type</code> 分发</td>
+<td><strong>借鉴</strong>：用工厂+抽象基类做可插拔向量库，便于后续替换/新增实现</td>
+</tr>
+<tr>
+<td>检索配置</td>
+<td><code>MilvusRetrievalConfig</code>（dataclass 字段带 UI 元数据）+ 后端 <code>_retrieval_config_options()</code> 暴露 + 前端 <code>SearchConfigPanel</code> <strong>动态渲染</strong></td>
+<td><strong>强烈借鉴</strong>：检索参数由后端声明、前端自动生成表单，是「检索调试器」最低成本实现</td>
+</tr>
+<tr>
+<td>检索融合</td>
+<td>vector / keyword(BM25 in Milvus) / hybrid(<code>WeightedRanker</code>) + reranker + 图谱 RRF 融合</td>
+<td><strong>对齐</strong>：与天枢 02 的 BM25+向量+RRF 一致；可参考其 <code>WeightedRanker</code>/RRF 实现</td>
+</tr>
+<tr>
+<td>解析</td>
+<td><code>DocumentProcessorFactory</code> + 7 种处理器注册表 + <code>Parser.aparse</code> 统一入口 + docling 转 Office</td>
+<td><strong>借鉴</strong>：可插拔解析层正好补天枢二期 docx/xlsx/pptx/pdf 支持</td>
+</tr>
+<tr>
+<td>分块</td>
+<td>6 类预设（general/qa/book/laws/semantic/separator）+ 三级参数合并（KB/文件/请求）</td>
+<td><strong>借鉴</strong>：天枢现设计仅「Markdown 标题层级」一种，应引入预设机制</td>
+</tr>
+<tr>
+<td>状态机</td>
+<td><code>uploaded→parsed→indexing→indexed/error</code>，<code>update_fields_if_status</code> 乐观锁 claim</td>
+<td><strong>借鉴</strong>：并发安全，避免重复解析/索引</td>
+</tr>
+<tr>
+<td>图谱</td>
+<td>Milvus 向量 + Neo4j 存储，<strong>实体/三元组抽取 + PPR 增强检索</strong>，与向量结果 RRF 融合</td>
+<td><strong>注意边界</strong>：这是「文档知识图谱」，与天枢 CodeGraph/Graphify（代码图）<strong>不是一回事</strong>；可作为 KB 内<strong>可选</strong>能力，但绝不并入代码图</td>
+</tr>
+<tr>
+<td>评测</td>
+<td><code>Recall@K</code>/<code>F1@K</code>、LLM Judge、benchmark 生成、RAG 评测 Tab</td>
+<td><strong>借鉴</strong>：天枢 03 只提指标未实现，Yuxi 有可直接参考的度量与 UI</td>
+</tr>
+<tr>
+<td>前端对话内引用</td>
+<td><code>QueryKbTool</code> 卡片展示 chunks + 图谱实体/关系 + 引用链接</td>
+<td><strong>借鉴</strong>：天枢引用展示可直接复用该交互</td>
+</tr>
+<tr>
+<td>前端检索调试</td>
+<td><code>QuerySection</code> 原始/格式化切换、分数、来源/文件ID/块索引、示例问题生成</td>
+<td><strong>借鉴</strong>：对应天枢 02 的「检索调试器」要求</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>轻量路线提示</strong>：上表「知识库抽象 / 检索融合」中 Yuxi 的 Milvus/向量默认路径，对天枢应降级为<strong>可选增强</strong>——详见第 9 节「轻量替代架构」：FTS5(BM25) 常驻主力 + 本地向量可关 + LLM wiki/导图导航层，不引入 Milvus/Neo4j。</p>
+</blockquote>
+<hr />
+<h2 id="2-yuxi"><a class="toclink" href="#2-yuxi">2. Yuxi 知识库架构速览</a></h2>
+<h3 id="21-architecturemd"><a class="toclink" href="#21-architecturemd">2.1 后端分层（来自 <code>ARCHITECTURE.md</code> + 代码）</a></h3>
+<pre><code>server/routers        → HTTP 薄层，/api 挂载（LITE 模式下不注册 kb/graph/eval 路由）
+yuxi/knowledge/        → 知识库领域
+  ├─ manager.py        → KnowledgeBaseManager：多类型分发、权限、一致性检测
+  ├─ factory.py        → KnowledgeBaseFactory：按 kb_type 创建实例
+  ├─ base.py           → KnowledgeBase(ABC)：文件状态机、markdown/MinIO、检索裁剪
+  ├─ schemas.py        → SearchInput/Find/Open 的 Pydantic Schema
+  ├─ runtime.py        → 单例装配：注册实现 + 实例化 Manager
+  ├─ implementations/  → milvus.py / dify.py / notion.py / read_only_connectors.py
+  ├─ chunking/ragflow_like/ → presets(dispatcher/parsers: general/qa/book/laws/semantic/separator)
+  ├─ parser/           → factory/registry/unified + 7 种处理器
+  ├─ graphs/           → milvus_graph_service(PPR) + milvus_graph_vector_store + extractors
+  └─ eval/             → metrics / evaluator / service / benchmark_generation
+</code></pre>
+<p>关键事实（已在代码中核实）：
+- <code>KnowledgeBaseManager</code> 直接走 <code>Repository</code>（Postgres），<strong>不维护冗余缓存</strong>，只缓存「已加载的 KB 实例」。
+- <code>runtime.py</code> 在 <code>LITE_MODE</code> 下<strong>不注册 MilvusKB</strong>，仅注册 Dify/Notion——这是避免重依赖的清晰边界，天枢可借鉴「轻量模式跳过重依赖」。
+- 权限用 <code>share_config = {access_level: global|department|user, department_ids, user_uids}</code>，<code>_database_info_accessible()</code> 在 Manager 层做最终过滤。</p>
+<h3 id="22-milvuspy-aquery"><a class="toclink" href="#22-milvuspy-aquery">2.2 检索核心（<code>milvus.py</code> 中 <code>aquery</code>）</a></h3>
+<pre><code>search_mode:
+  vector  → embedding 相似度
+  keyword → Milvus BM25 稀疏检索
+  hybrid  → AnnSearchRequest ×2 + WeightedRanker(vector_weight, bm25_weight)
+if use_reranker: 候选召回 recall_top_k → reranker 精排 → final_top_k
+if use_graph_retrieval: 图谱 PPR 召回 → _fuse_chunk_rankings() 用 RRF(k=60) 融合
+返回 retrieved_chunks[:final_top_k]，含 score / rerank_score / graph_score / source / chunk_id / file_id / chunk_index
+</code></pre>
+<p><code>MilvusRetrievalConfig</code>（<code>milvus.py:83-262</code>）把每个检索参数定义为 dataclass 字段，并带 <code>metadata={label,type,options,min,max,step,description,depend_on}</code>；<code>_retrieval_config_options()</code>（<code>milvus.py:264</code>）把这些字段序列化成「前端可直接渲染的表单描述」。这是<strong>配置驱动 UI</strong> 的核心，详见第 4 节。</p>
+<h3 id="23-websrc"><a class="toclink" href="#23-websrc">2.3 前端结构（<code>web/src</code>）</a></h3>
+<pre><code>views/DataBaseView.vue        → 知识库列表/创建/共享权限(access_level)
+views/DataBaseInfoView.vue    → 详情：文件树、待解析/待索引计数、chunk 预设编辑、删除
+components/SearchConfigModal.vue → 检索配置弹窗，内嵌 SearchConfigPanel
+components/SearchConfigPanel.vue → 依据后端 options 动态渲染检索参数表单（含 depend_on 联动）
+components/QuerySection.vue     → 检索调试：原始/格式化切换、分数、来源/文件ID/块索引、示例问题
+components/ChunkParamsConfig.vue→ 6 类分块策略 + token/重叠/分隔符
+components/sources/KbChunkDetailModal.vue → chunk 详情（相似度 + 行号）
+components/ToolCallingResult/tools/QueryKbTool.vue → 对话内知识库结果卡片（chunks+图谱+引用）
+components/MindMapSection.vue / KnowledgeGraphSection.vue → 图谱/思维导图可视化
+apis/knowledge_api.js          → database/document/graphBuild/mindmap/query/evaluation/file/type 分层
+</code></pre>
+<hr />
+<h2 id="3"><a class="toclink" href="#3">3. 后端可借鉴点（含代码定位）</a></h2>
+<h3 id="31"><a class="toclink" href="#31">3.1 可插拔知识库抽象（高价值，天枢应吸收其「接口契约」）</a></h3>
+<ul>
+<li><code>factory.py</code>：<code>register(cls)</code>/<code>create(kb_type,...)</code>/<code>get_available_types()</code>，通过类属性 <code>kb_type/kb_class.name/requires_embedding_model/supports_documents/get_create_params_config()</code> 自描述。</li>
+<li><code>base.py</code>：<code>KnowledgeBase(ABC)</code> 定义统一生命周期（<code>create_database/add_file_record/parse_file/index_file/aquery/delete_file/get_database_info...</code>）。</li>
+<li>借鉴点：天枢二期若考虑「可替换向量库（本地 SQLite-FTS / 外接 Milvus 等）」，可沿用此工厂+ABC 模式，避免把向量库选型写死。</li>
+</ul>
+<h3 id="32-ui-02"><a class="toclink" href="#32-ui-02">3.2 检索配置驱动 UI（最高价值，对应天枢 02「检索调试器」）</a></h3>
+<ul>
+<li>后端：<code>MilvusRetrievalConfig</code>（<code>milvus.py:83</code>）每个字段带 UI 元数据；<code>_retrieval_config_options()</code> 生成 <code>{key,label,type,options,min,max,step,description,depend_on}</code> 列表。</li>
+<li>前端：<code>SearchConfigPanel.vue</code> 用 <code>a-form</code> 按 <code>param.type</code>（select/boolean/number/input）+ <code>depend_on</code> 联动<strong>全自动渲染</strong>，并支持 localStorage 草稿、重置默认。</li>
+<li>借鉴点：<strong>天枢不必为每种检索参数手写表单</strong>。定义一份「检索参数 Schema（含类型/范围/依赖/描述）」→ 后端 <code>/query_params</code> 暴露 → 前端通用渲染器。这同时服务「配置页」和「调试器」，与天枢 02 §11 完全吻合。</li>
+</ul>
+<h3 id="33-02-8"><a class="toclink" href="#33-02-8">3.3 检索融合与降级（对齐天枢 02 §8）</a></h3>
+<ul>
+<li><code>aquery</code>（<code>milvus.py:894</code>）：vector/keyword/hybrid 三模式 + <code>WeightedRanker</code> 权重融合 + 可选 reranker。</li>
+<li>图谱召回与向量召回用 <strong>RRF（k=60）</strong> 融合（<code>_fuse_chunk_rankings</code>，<code>milvus.py:1193</code>）。</li>
+<li>借鉴点：与天枢「BM25 + 向量 + RRF、Provider 故障走 lexical-only」一致。Yuxi 的实现确认该路线可行；天枢可参考其 <code>WeightedRanker</code>/RRF 代码，并注意其 <code>similarity_threshold</code> 在向量与混合模式下都生效的过滤方式。<strong>注意</strong>：天枢应把向量检索视为<strong>可关增强</strong>（第 9 节）——默认纯 FTS5，仅在启用本地向量时走混合/RRF，避免默认引入独立向量服务。</li>
+</ul>
+<h3 id="34"><a class="toclink" href="#34">3.4 解析层可插拔（补天枢二期格式支持）</a></h3>
+<ul>
+<li><code>parser/registry.py</code>：<code>PROCESSOR_TYPES</code> 注册 7 种处理器（rapid_ocr/mineru/mineru_official/pp_structure_v3/deepseek_ocr/paddleocr_vl_1_6/paddleocr_pp_ocrv6）。</li>
+<li><code>parser/factory.py</code>：<code>DocumentProcessorFactory</code> 单例缓存 + <code>BaseDocumentProcessor(ABC)</code>（<code>process_file/check_health/supports_file_type</code>）。</li>
+<li><code>parser/unified.py</code>：<code>Parser.aparse(source, params)</code> 统一入口 + docling 转 docx/csv，按扩展名路由；图片落 MinIO。</li>
+<li>借鉴点：天枢二期 §3 要支持 docx/xlsx/pptx/pdf/html/csv，应建立同类「解析器注册表 + 统一入口 + 健康检查」，而非在单点写 if-else。扫描 PDF/OCR 走 <code>unsupported_ocr</code> 明确报错（对齐天枢 §3「不能产生空白知识源」）。</li>
+</ul>
+<h3 id="35"><a class="toclink" href="#35">3.5 分块预设机制（补天枢单一种类）</a></h3>
+<ul>
+<li><code>chunking/ragflow_like/presets.py</code>：6 类预设（general/qa/book/laws/semantic/separator），各自有 label/description。</li>
+<li><code>resolve_chunk_processing_params()</code>（<code>presets.py:91</code>）：<strong>三级合并</strong>（KB 默认 → 文件级 → 请求级，<code>deep_merge</code>），最终产出 <code>{chunk_preset_id, chunk_parser_config, chunk_engine_version}</code>。</li>
+<li><code>dispatcher.py</code>：按 preset 分派到对应 parser，<code>_build_chunk_records</code> 记录 <code>start_char_pos/end_char_pos/chunk_id</code>。</li>
+<li>借鉴点：天枢 02 §7 仅「Markdown 标题层级」，可扩展为预设体系；并保留 <code>chunk_engine_version</code> 以支持分块引擎升级时「Chunk ID 稳定」的约束（对齐天枢 §7「Chunk ID 从首版稳定」）。</li>
+</ul>
+<h3 id="36"><a class="toclink" href="#36">3.6 文件状态机 + 乐观锁（并发安全）</a></h3>
+<ul>
+<li><code>base.py</code> <code>FileStatus</code>：<code>uploaded→parsed→indexing→indexed/error_indexing</code>。</li>
+<li><code>index_file</code>（<code>milvus.py:647</code>）：调用 <code>update_fields_if_status(allowed_statuses, data)</code> <strong>先 claim <code>INDEXING</code> 再处理</strong>，失败回写 <code>ERROR_INDEXING</code>。<code>update_content</code> 同理。</li>
+<li>借鉴点：天枢二期异步转换/索引应复用「状态前置校验 + 乐观 claim」，避免 worker 重复处理同一文件。</li>
+</ul>
+<h3 id="37"><a class="toclink" href="#37">3.7 一致性检测（运维保障）</a></h3>
+<ul>
+<li><code>manager.detect_data_inconsistencies()</code>（<code>manager.py:883</code>）：比对 Milvus 集合与 Postgres 元数据，找出孤儿集合/文件。</li>
+<li>借鉴点：天枢二期应提供「向量库 vs 元数据」一致性巡检与修复（对齐天枢 03 §6 删除物理清理 + 报告）。</li>
+</ul>
+<hr />
+<h2 id="4"><a class="toclink" href="#4">4. 前端可借鉴点（重点：天枢知识库前端目前是占位）</a></h2>
+<h3 id="41-02-11"><a class="toclink" href="#41-02-11">4.1 检索调试器（天枢 02 §11 直接对应）</a></h3>
+<p><code>QuerySection.vue</code> + <code>SearchConfigPanel.vue</code> 已完整实现天枢要的「BM25、向量、RRF、过滤、最终引用」：
+- 查询框 + Enter 触发；结果「<strong>原始 JSON / 格式化</strong>」一键切换，便于排查。
+- 每条结果展示 <code>score</code>（相似度%）、<code>rerank_score</code>、来源/文件ID/块索引/距离。
+- <code>SearchConfigModal</code> 弹窗内嵌 <code>SearchConfigPanel</code>，<strong>后端字段自动成表单</strong>（含 <code>search_mode</code> 切换、<code>vector_weight</code>/<code>bm25_weight</code> 滑块、<code>use_reranker</code>/<code>use_graph_retrieval</code> 开关及其 <code>depend_on</code> 子项）。
+- <strong>示例问题生成</strong>（<code>generateSampleQuestions</code>）：用 LLM 基于知识库生成测试查询，闭环评测前用。
+- 落地建议：天枢直接照此实现「调试器组件 + 配置面板」，把第 3.2 节的检索参数 Schema 渲染出来。</p>
+<h3 id="42-ui"><a class="toclink" href="#42-ui">4.2 分块策略配置 UI</a></h3>
+<p><code>ChunkParamsConfig.vue</code>：分块策略下拉（复用后端 <code>getChunkPresets</code>）+ 最大 Token 数 + 重叠比例% + 分隔符（仅 QA 显示），每项带 tooltip 说明。对应天枢 02 §7，可直接复用交互。</p>
+<h3 id="43-chunk"><a class="toclink" href="#43-chunk">4.3 chunk 详情与来源定位</a></h3>
+<p><code>KbChunkDetailModal.vue</code>：弹窗展示 chunk 内容（Markdown 渲染）+ 相似度 + <code>chunk_id</code> + <strong>行号区间</strong>（来自 <code>metadata.start_line/end_line</code>）。这正好对应天枢 02 §6「每个 Chunk 携带 sourceAnchor，引用展示为文件名+原文件位置」。</p>
+<h3 id="44"><a class="toclink" href="#44">4.4 对话内引用/知识结果卡片（高价值）</a></h3>
+<p><code>QueryKbTool.vue</code>：Agent 调用知识库后，前端把工具结果渲染为结构化卡片：
+- chunks 列表（复用 <code>KbResultGroupedList</code>）；
+- 图谱卡片：实体（名称+类型+描述）、关系（<code>src → tgt : keywords</code>）、引用链接；
+- 解析容错：<code>normalizeChunks</code> 兼容 <code>results/chunks</code> 两种字段，重复解析做 <code>lastResultContent</code> 缓存。
+- 落地建议：天枢的角色对话引用展示直接复用「chunk 卡片 + 引用链接 + 可选图谱块」模式，且把「图谱结果」作为<strong>可选折叠区</strong>，避免污染主回答。</p>
+<h3 id="45"><a class="toclink" href="#45">4.5 知识库管理 &amp; 共享权限</a></h3>
+<ul>
+<li><code>DataBaseView.vue</code>：列表 + 创建弹窗 + <code>shareConfig</code>（access_level=global/department/user + department_ids/user_uids）。</li>
+<li><code>DataBaseInfoView.vue</code>：文件树、<code>pendingParseCount</code>/<code>pendingIndexCount</code> 待处理计数、chunk 预设编辑、删除确认。</li>
+<li>注意：Yuxi 的共享是「资源级 access_level」，而天枢是「角色 Binding + Repository 层过滤」（更细、跨会话稳定）。<strong>两者不冲突</strong>：天枢可保留角色 Binding 作为功能级授权，同时借鉴 Yuxi 的「知识库级共享开关」做管理员视图共享。但天枢 00 已明确「不默认注入、权限过滤在 Repository/Retrieval 层」——Yuxi 的 <code>check_accessible</code> 也落在后端，方向一致。</li>
+</ul>
+<h3 id="46"><a class="toclink" href="#46">4.6 图谱/思维导图可视化（可选能力）</a></h3>
+<ul>
+<li><code>KnowledgeGraphSection.vue</code>：知识库类型不支持时显式提示「当前知识库类型不支持知识图谱」。</li>
+<li><code>MindMapSection.vue</code>：从 KB 生成结构化思维导图，支持<strong>增量更新 + diff 清理已删除文件</strong>。</li>
+<li>借鉴点：思维导图是 KB 的轻量增值能力；天枢二期若有余力可后置，但「类型不支持时明确降级」的 UX 值得学。</li>
+</ul>
+<hr />
+<h2 id="5"><a class="toclink" href="#5">5. 知识图谱设计（边界务必厘清）</a></h2>
+<p>Yuxi 的图谱是<strong>「文档知识图谱」</strong>：从 chunk 抽取实体/三元组 → 存 Neo4j（关系）+ Milvus（向量实体/三元组）→ 查询时：
+1. query 召回 top-k 实体 + top-k 三元组（<code>search_entities</code>/<code>search_triples</code>）；
+2. 用 base 命中 chunk 的 <code>ent_ids</code> 一起构造 <code>seed_weights</code>（归一化）；
+3. 在 2-hop 子图上跑 <strong>Personalized PageRank</strong>（阻尼系数可配）→ 给 chunk 打分；
+4. 与向量结果用 <strong>RRF</strong> 融合（<code>graph_weight</code> 可调）。</p>
+<p><strong>与天枢的关系（关键边界）</strong>：
+- 天枢 <code>00 §10</code> 明确：<strong>CodeGraph / Graphify 是代码结构与调用图</strong>，知识库是文件资料，二者不互相导入、不重复建索引。
+- Yuxi 的图谱是从<strong>文档</strong>抽取的，本质是 KB 内部的「文档语义图」，与代码图无关。
+- 结论：天枢<strong>不应</strong>把 Yuxi 的图谱并入 Graphify/CodeGraph。若未来要增强 KB 检索，可把「文档知识图谱 + PPR」作为<strong>知识库 bounded context 内的可选能力</strong>独立建设，且其检索结果仍通过 <code>knowledge_search</code> 工具返回，不污染代码图。当前二期可<strong>暂不做图谱</strong>，仅预留 <code>graph_build_config</code> 锁定位（Yuxi 的「图谱配置锁定后需走重置接口」是好的护栏）。</p>
+<p>参考代码：<code>graphs/milvus_graph_service.py:637</code> <code>query_and_rank_chunks_by_ppr</code> → <code>rank_chunks_by_ppr</code>（<code>personalized_pagerank</code>），<code>graphs/milvus_graph_vector_store.py</code>，<code>graphs/extractors/llm.py</code>。</p>
+<hr />
+<h2 id="6-03-8"><a class="toclink" href="#6-03-8">6. 评测设计（对齐天枢 03 §8）</a></h2>
+<p>Yuxi 已实现天枢 03 只描述未落地的指标：
+- <code>eval/metrics.py</code>：<code>RetrievalMetrics.precision_at_k/recall_at_k/f1_score_at_k</code>；<code>AnswerMetrics.judge_correctness</code>（LLM Judge，1/0）。
+- <code>eval/evaluator.py</code>：<code>evaluate_question</code>/<code>aggregate_metrics</code>，配合 <code>benchmark_generation.py</code> 用 LLM 生成 (query, gold_answer, relevant_ids) 数据集。
+- 前端：<code>RAGEvaluationTab.vue</code>、<code>EvaluationBenchmarks.vue</code>、<code>evaluationApi.uploadDataset/listDatasets</code>。
+- 借鉴点：天枢 03 §8 要求 Recall@K、MRR、引用正确率、lexical-only/向量/RRF 对比、Provider 故障演练——直接参考 Yuxi 的度量函数与「benchmark 自动生成 + 上传数据集」闭环，无需从零设计。</p>
+<hr />
+<h2 id="7-0003"><a class="toclink" href="#7-0003">7. 对照天枢 00~03 逐点比对</a></h2>
+<table>
+<thead>
+<tr>
+<th>天枢设计点（00~03）</th>
+<th>与 Yuxi 比对</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>记忆/知识/代码图 三域分离（00 §3、§10）</td>
+<td>Yuxi 把「文档图谱」并入 KB，未区分代码图</td>
+<td><strong>天枢更优，保持</strong>。Yuxi 图谱仅作 KB 内可选能力参考</td>
+</tr>
+<tr>
+<td>知识库独立 Schema、不共用 Memory 表（02 §2、§10）</td>
+<td>Yuxi 的 KB 也独立（<code>knowledge_base_repository</code>/<code>knowledge_file_repository</code>/<code>knowledge_chunk_repository</code>）</td>
+<td>对齐，可放心采用其 Repository 分层</td>
+</tr>
+<tr>
+<td>文件生命周期：原件不可变→版本化 Markdown→分块→FTS+向量（02 §4）</td>
+<td>Yuxi：<code>parse_file→markdown(MinIO)→index_file→chunk+embed(Milvus)</code>，状态机完整</td>
+<td>对齐，吸收其状态机+乐观锁</td>
+</tr>
+<tr>
+<td>分块：Markdown 标题层级、500–900 token、重叠（02 §7）</td>
+<td>Yuxi：6 类预设 + token/重叠/分隔符 + <code>chunk_engine_version</code></td>
+<td><strong>借鉴预设机制</strong>扩展天枢单一种类</td>
+</tr>
+<tr>
+<td>检索：BM25+向量+RRF、lexical-only 降级（02 §8）</td>
+<td>Yuxi：vector/keyword/hybrid + <code>WeightedRanker</code> + 图谱 RRF</td>
+<td>对齐，参考其实现</td>
+</tr>
+<tr>
+<td>引用：sourceAnchor 回原文件位置（02 §6）</td>
+<td>Yuxi：<code>chunk_id</code>+<code>start_char_pos/end_char_pos</code>+<code>file_id</code>；前端显示行号/来源</td>
+<td>对齐，复用前端引用卡</td>
+</tr>
+<tr>
+<td>权限：Binding + Repository 层过滤（03 §3）</td>
+<td>Yuxi：<code>share_config(access_level)</code> + <code>check_accessible</code> 后端过滤</td>
+<td>方向一致；天枢 Binding 更细，可叠加「库级共享开关」</td>
+</tr>
+<tr>
+<td>删除覆盖文件/FTS/向量/缓存/Binding（03 §6）</td>
+<td>Yuxi：<code>delete_file</code>→删 chunk→删 Milvus→删图→删元数据；<code>detect_data_inconsistencies</code></td>
+<td>对齐，吸收一致性检测</td>
+</tr>
+<tr>
+<td>评测：Recall@K/MRR/引用正确率（03 §8）</td>
+<td>Yuxi：已实现 Recall@K/F1/LLM Judge + benchmark</td>
+<td><strong>直接复用</strong>其度量与 UI</td>
+</tr>
+<tr>
+<td>前端：拖拽上传/版本/检索调试/引用预览（02 §11）</td>
+<td>Yuxi：完整实现（详见第 4 节）</td>
+<td>天枢前端为占位，<strong>高优先借鉴</strong></td>
+</tr>
+<tr>
+<td>不默认注入、动态工具结果在固定前缀之后（00 §11）</td>
+<td>Yuxi：知识库经 middleware 挂为工具，结果进 Tool Message</td>
+<td>对齐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8"><a class="toclink" href="#8">8. 差异与风险提示</a></h2>
+<ol>
+<li><strong>重依赖差异</strong>：Yuxi 依赖 Milvus + Neo4j + MinIO + Redis + Postgres，对天枢「Windows 安装包/轻量部署」偏重。天枢 02 倾向 FTS5/BM25 + 向量 + SQLite 兜底。<strong>不要直接引入 Milvus</strong>；借鉴其「LITE 模式跳过重依赖」「lexical-only 降级」的设计哲学，而非具体组件。具体轻量替代方案见第 9 节。</li>
+<li><strong>共享模型不同</strong>：Yuxi 是「资源 access_level 共享」；天枢是「角色 Binding + 跨会话稳定」。天枢勿退化为单纯全局共享，保持现有权限语义（可加库级共享作为管理员便利）。</li>
+<li><strong>图谱语义不同</strong>：Yuxi 图谱=文档语义图；天枢 Graphify/CodeGraph=代码图。见第 5 节，<strong>禁止并入代码图</strong>。</li>
+<li><strong>Agent 运行时耦合</strong>：Yuxi 知识库经 LangGraph middleware 挂载工具。天枢有独立 Agent Loop，应只复用「知识工具返回结构（chunk+引用）」，不照搬其 LangGraph 装配。</li>
+<li><strong>多租户 vs 单用户/组</strong>：Yuxi 是企业多租户（department/user 维度）。天枢当前是角色/组模型，吸收其 <code>share_config</code> 思路即可，不必引入完整租户体系。</li>
+</ol>
+<hr />
+<h2 id="9"><a class="toclink" href="#9">9. 轻量替代架构（FTS5 优先，不引入重服务）</a></h2>
+<p>针对「向量库是否过重」的疑问，给出明确结论与可落地替代。</p>
+<p><strong>核心判断</strong>：对天枢「Windows 桌面 / 单用户 / 可能离线 / 中小语料」的现状，常驻 Milvus + Neo4j 是过度工程。向量检索的真正价值仅在「语义 / 改写 / 跨语言召回」场景；而手册、规格、FAQ、代码这类关键词明确、结构清晰的知识，FTS5/BM25 往往已足够，且更快、更透明、更便宜、天然离线。</p>
+<p><strong>推荐三层栈（均零独立服务）</strong></p>
+<ol>
+<li><strong>FTS5(BM25) 常驻主力</strong>：SQLite 内置全文索引，作为 02 设计里「Provider 故障走 lexical-only」的<strong>默认常驻</strong>检索，而非兜底。负责精确匹配、规格、代码、文件名等。</li>
+<li><strong>本地向量作可关增强</strong>：仅在需要语义召回时启用——用本地小模型 embedding（如 bge-small）在 SQLite 内存储向量（sqlite-vec / 原生 blob），不单独起向量服务；关闭即纯 FTS5。对应 02 的「可配置 Embedding 向量召回」。</li>
+<li><strong>LLM wiki/导图作导航层</strong>：用 LLM 把资料抽取成结构化 wiki 页 / 摘要 / 思维导图（类似 Yuxi MindMap），让 Agent 能「按结构导航」，减少暴力检索——它是<strong>索引 / 导航层，不是检索替代</strong>；大语料下仍由 FTS5/向量兜底。</li>
+</ol>
+<p><strong>明确不做</strong></p>
+<ul>
+<li>不默认引入 Milvus / Qdrant / Weaviate 等独立向量服务。</li>
+<li>不引入 Neo4j 图数据库；文档图谱（若二期之后要做 PPR 增强）用 SQLite 存三元组即可。</li>
+<li>不把「llmwiki 思路」当成唯一检索手段（纯 in-context 仅适合极小语料；纯 LLM 整理会丢失语义召回）。</li>
+</ul>
+<p><strong>与 Yuxi 的差异总结</strong>：Yuxi 用 Milvus+Neo4j 解决「企业多租户大规模 RAG」；天枢应取其「配置驱动 UI、状态机、分块预设、引用卡片、评测」等<strong>思路与交互</strong>，而把其<strong>重依赖组件替换为 SQLite+FTS5+本地向量的轻量等价物</strong>。落地优先级见第 10 节。</p>
+<hr />
+<h2 id="10"><a class="toclink" href="#10">10. 落地建议（按优先级，轻量优先）</a></h2>
+<p><strong>P0（二期必做，轻量基线 + 借鉴交互/结构）</strong>
+- <strong>FTS5(BM25) 常驻检索为默认</strong>：SQLite 内置全文索引，零基建、可离线、适配 Windows 安装包；作为主力而非兜底（第 9 节）。
+- 检索参数 Schema + 配置驱动 UI（第 3.2 节）：后端声明 <code>query_params</code> 元数据 → <code>/query_params</code> 暴露 → 前端通用渲染；默认模式即 FTS5-only。
+- 文件状态机 + 乐观锁 claim（第 3.6 节）用于异步 parse/index。
+- 前端：检索调试器（QuerySection，默认 FTS5-only + 「启用本地向量（可选）」开关）、chunk 详情与行号引用（KbChunkDetailModal）、对话内引用卡片（QueryKbTool）。
+- 解析器注册表 + 统一入口（第 3.4 节），补齐 docx/xlsx/pptx/pdf。</p>
+<p><strong>P1（增强，均为可关开关）</strong>
+- <strong>本地向量检索（可选）</strong>：本地小模型 embedding + SQLite 内向量（sqlite-vec / 原生 blob），不引入独立向量服务；关闭即纯 FTS5（第 9 节）。
+- 分块预设机制（general/qa/book/laws/semantic/separator）+ 三级参数合并 + <code>chunk_engine_version</code>（第 3.5 节）。
+- 检索融合：FTS5 为主，开启本地向量后做 RRF 融合（第 3.3 节思路，对齐 02 §8），reranker 作为可关精排。
+- 知识库级共享开关（access_level）叠加在角色 Binding 之上（第 4.5 节）。
+- LLM wiki/导图导航层（第 4.6 节 MindMap 思路）：建结构化索引辅助导航，不替代检索。</p>
+<p><strong>P2（二期之后可选）</strong>
+- 文档知识图谱 + PPR 增强检索（第 5 节），<strong>仅用 SQLite 存三元组</strong>，不引入 Neo4j。
+- 思维导图生成 + 增量 diff（第 4.6 节）。
+- 评测套件：Recall@K/F1/LLM Judge + benchmark 生成（第 6 节），落地 03 §8；评测需覆盖「纯 FTS5」「FTS5+本地向量」两档。
+- 一致性检测与修复脚本（第 3.7 节）。</p>
+<hr />
+<h2 id="11"><a class="toclink" href="#11">11. 参考文件清单（已核实）</a></h2>
+<p>后端：
+- <code>backend/package/yuxi/knowledge/manager.py</code>（分发/权限/一致性）
+- <code>backend/package/yuxi/knowledge/factory.py</code>、<code>base.py</code>、<code>schemas.py</code>、<code>runtime.py</code>
+- <code>backend/package/yuxi/knowledge/implementations/milvus.py</code>（检索配置 <code>MilvusRetrievalConfig:83</code>、融合 <code>aquery:894</code>、RRF <code>_fuse_chunk_rankings:1193</code>、索引 <code>index_file:647</code>）
+- <code>backend/package/yuxi/knowledge/chunking/ragflow_like/{presets,dispatcher}.py</code>
+- <code>backend/package/yuxi/knowledge/parser/{factory,registry,unified,base}.py</code>
+- <code>backend/package/yuxi/knowledge/graphs/milvus_graph_service.py</code>（PPR <code>:637</code>）
+- <code>backend/package/yuxi/knowledge/eval/{metrics,evaluator}.py</code></p>
+<p>前端：
+- <code>web/src/views/DataBaseView.vue</code>、<code>DataBaseInfoView.vue</code>
+- <code>web/src/components/SearchConfigModal.vue</code>、<code>SearchConfigPanel.vue</code>
+- <code>web/src/components/QuerySection.vue</code>、<code>ChunkParamsConfig.vue</code>
+- <code>web/src/components/sources/KbChunkDetailModal.vue</code>、<code>KbResultGroupedList.vue</code>
+- <code>web/src/components/ToolCallingResult/tools/QueryKbTool.vue</code>
+- <code>web/src/components/MindMapSection.vue</code>、<code>KnowledgeGraphSection.vue</code>
+- <code>web/src/apis/knowledge_api.js</code></p>
+<p>天枢对照：
+- <code>知识体系构建/00-知识体系总体设计.md</code>、<code>01-第一期-角色私有记忆与跨会话机制.md</code>、<code>02-第二期-独立文件知识库.md</code>、<code>03-第三期-权限治理与整体验收.md</code>、<code>README.md</code></p>
+<hr />
+<p><em>备注：本分析为静态代码走读，未运行 Yuxi（需 Docker 全栈）。涉及具体算法参数（权重、top_k、阻尼系数）的建议值以天枢自身评测为准，Yuxi 默认值仅作起点参考。</em></p><div class="footer">本报告由 Markdown 自动转换生成，内容对应 <code>05-Yuxi知识库设计借鉴分析.md</code>。</div>
+</div>
+</body>
+</html>

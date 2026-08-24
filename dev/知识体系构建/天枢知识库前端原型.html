@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>天枢 · 知识中心前端原型（记忆 + 知识库 + 代码图谱）</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
+<style>
+:root{
+  --canvas:#f5f0e8; --surface1:#ede6da; --surface2:#e0d8cc; --surfaceHover:#e0d8cc;
+  --input:#faf8f4; --overlay:rgba(44,36,24,0.4); --border:rgba(180,160,130,0.18);
+  --borderSubtle:rgba(180,160,130,0.10); --textPrimary:#2c2418; --textSecondary:#5c5040;
+  --textMuted:#8a7d68; --textFaint:#b8a890; --textOnAccent:#ffffff; --accent:#c8960a;
+  --accentHover:#b08508; --accentSoft:rgba(200,150,10,0.12); --link:#c8960a;
+  --focusRing:rgba(200,150,10,0.55); --success:#2a9d5c; --warning:#d97706; --danger:#c45c3c;
+  --info:#2563eb; --shadowColor:rgba(44,36,24,0.18); --codeBg:#faf8f4; --scrollbar:#b8a890;
+  --radius:10px;
+}
+[data-theme="dark"]{
+  --canvas:#17130e; --surface1:#201b14; --surface2:#2a2319; --surfaceHover:#32291d;
+  --input:#1c1710; --overlay:rgba(0,0,0,0.55); --border:rgba(255,235,200,0.12);
+  --borderSubtle:rgba(255,235,200,0.07); --textPrimary:#f2ead9; --textSecondary:#c9bda6;
+  --textMuted:#998d78; --textFaint:#6b6253; --textOnAccent:#17130e; --accent:#e0b341;
+  --accentHover:#f0c35c; --accentSoft:rgba(224,179,65,0.16); --link:#e0b341;
+  --focusRing:rgba(224,179,65,0.6); --success:#4caf7d; --warning:#e8933c; --danger:#e0735a;
+  --info:#6b9ff3; --shadowColor:rgba(0,0,0,0.5); --codeBg:#17130e; --scrollbar:#4a4134;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--canvas); color:var(--textPrimary);
+  font-family:"LXGW WenKai","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:14px; line-height:1.7; -webkit-font-smoothing:antialiased;
+}
+.app{display:flex; flex-direction:column; height:100vh; overflow:hidden}
+/* ---------- 顶栏 ---------- */
+.topbar{
+  display:flex; align-items:center; gap:14px; padding:10px 18px;
+  background:var(--surface1); border-bottom:1px solid var(--border);
+}
+.brand{display:flex; align-items:center; gap:9px; font-weight:700; font-size:16px}
+.brand .logo{
+  width:30px; height:30px; border-radius:8px; display:grid; place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--accentHover)); color:#fff; font-weight:800;
+}
+.crumb{color:var(--textMuted); font-size:13px}
+.crumb b{color:var(--textPrimary)}
+.header-search{
+  margin-left:auto; display:flex; align-items:center; gap:6px; background:var(--input);
+  border:1px solid var(--border); border-radius:8px; padding:5px 10px; min-width:220px;
+}
+.header-search input{border:none; background:transparent; outline:none; color:var(--textPrimary); width:100%; font-family:inherit}
+.btn{
+  display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border);
+  background:var(--surface2); color:var(--textPrimary); border-radius:8px; padding:6px 12px;
+  cursor:pointer; font-family:inherit; font-size:13px; transition:.15s;
+}
+.btn:hover{background:var(--surfaceHover)}
+.btn.primary{background:var(--accent); color:var(--textOnAccent); border-color:var(--accent)}
+.btn.primary:hover{background:var(--accentHover)}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+.icon-btn{background:transparent; border:none; color:var(--textMuted); cursor:pointer; padding:5px; border-radius:6px; display:inline-grid; place-items:center}
+.icon-btn:hover{background:var(--surfaceHover); color:var(--textPrimary)}
+/* 三域切换 */
+.domain-switch{display:inline-flex; gap:4px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; padding:3px}
+.domain-switch button{border:none; background:transparent; padding:6px 15px; border-radius:7px; cursor:pointer; font-family:inherit; font-size:13.5px; color:var(--textSecondary); transition:.15s}
+.domain-switch button:hover{color:var(--textPrimary)}
+.domain-switch button.active{background:var(--accent); color:var(--textOnAccent); font-weight:600}
+/* ---------- 主体 ---------- */
+.body{display:flex; flex:1; min-height:0}
+.sidebar{
+  width:264px; flex:none; background:var(--surface1); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:auto;
+}
+.side-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px}
+.side-title{font-weight:700; font-size:14px}
+.kb-list{display:flex; flex-direction:column; gap:6px; padding:4px 10px 16px}
+.kb-card{
+  border:1px solid var(--border); background:var(--surface2); border-radius:10px;
+  padding:10px 12px; cursor:pointer; transition:.15s;
+}
+.kb-card:hover{border-color:var(--accent)}
+.kb-card.active{border-color:var(--accent); box-shadow:0 0 0 2px var(--accentSoft)}
+.kb-name{font-weight:600; display:flex; align-items:center; gap:7px}
+.kb-desc{color:var(--textMuted); font-size:12px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.kb-meta{display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap}
+.kb-manage{display:flex; gap:6px; margin-top:9px; flex-wrap:wrap}
+.badge{font-size:11px; padding:1px 7px; border-radius:999px; border:1px solid var(--border); color:var(--textSecondary); background:var(--input)}
+.badge.global{color:var(--info); border-color:rgba(37,99,235,.3); background:rgba(37,99,235,.08)}
+.badge.department{color:var(--warning); border-color:rgba(217,119,6,.3); background:rgba(217,119,6,.08)}
+.badge.user{color:var(--success); border-color:rgba(42,157,92,.3); background:rgba(42,157,92,.08)}
+.stat-pill{font-size:11px; color:var(--textMuted); display:inline-flex; align-items:center; gap:4px}
+.main{flex:1; min-width:0; display:flex; flex-direction:column; background:var(--canvas)}
+.tabs{display:flex; gap:4px; padding:10px 18px 0; border-bottom:1px solid var(--border); background:var(--surface1); flex-wrap:wrap}
+.tab{
+  padding:9px 16px; cursor:pointer; color:var(--textMuted); border:1px solid transparent;
+  border-bottom:none; border-radius:8px 8px 0 0; font-size:13.5px; transition:.15s;
+}
+.tab:hover{color:var(--textPrimary)}
+.tab.active{color:var(--textPrimary); background:var(--canvas); border-color:var(--border); font-weight:600}
+.tab-body{flex:1; min-height:0; overflow:auto; padding:18px}
+/* ---------- 文件三栏 ---------- */
+.files-wrap{display:grid; grid-template-columns:200px 1fr 360px; gap:14px; height:100%}
+.panel{background:var(--surface1); border:1px solid var(--border); border-radius:var(--radius); display:flex; flex-direction:column; min-height:0; overflow:hidden}
+.panel-head{padding:11px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; font-weight:600; font-size:13.5px}
+.panel-body{overflow:auto; padding:8px}
+.tree-item{display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:7px; cursor:pointer; color:var(--textSecondary); font-size:13px}
+.tree-item:hover{background:var(--surfaceHover)}
+.tree-item.active{background:var(--accentSoft); color:var(--textPrimary)}
+.tree-item.child{margin-left:14px; font-size:12.5px}
+.doc-row{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px;
+  border:1px solid transparent; cursor:pointer;
+}
+.doc-row:hover{background:var(--surface2)}
+.doc-row.active{background:var(--accentSoft); border-color:var(--accent)}
+.doc-ic{width:30px; height:30px; border-radius:7px; background:var(--surface2); display:grid; place-items:center; color:var(--accent); flex:none}
+.doc-main{flex:1; min-width:0}
+.doc-name{font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.doc-sub{font-size:11.5px; color:var(--textMuted); display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.tag{font-size:10.5px; padding:0 6px; border-radius:5px; background:var(--surface2); color:var(--textMuted); border:1px solid var(--border)}
+.st{font-size:11px; padding:1px 7px; border-radius:999px; white-space:nowrap}
+.st.indexed{color:var(--success); background:rgba(42,157,92,.10); border:1px solid rgba(42,157,92,.3)}
+.st.parsing,.st.indexing{color:var(--warning); background:rgba(217,119,6,.10); border:1px solid rgba(217,119,6,.3)}
+.st.pending{color:var(--textMuted); background:var(--surface2); border:1px solid var(--border)}
+.st.error{color:var(--danger); background:rgba(196,92,60,.10); border:1px solid rgba(196,92,60,.3)}
+.row-actions{display:flex; gap:4px; opacity:0; transition:.15s}
+.doc-row:hover .row-actions{opacity:1}
+.mini-btn{border:1px solid var(--border); background:var(--input); border-radius:6px; padding:3px 7px; font-size:11.5px; cursor:pointer; color:var(--textSecondary)}
+.mini-btn:hover{background:var(--surfaceHover); color:var(--textPrimary)}
+.mini-btn.danger{color:var(--danger)}
+.mini-btn.on{background:var(--accentSoft); border-color:var(--accent); color:var(--textPrimary)}
+.empty{display:grid; place-items:center; height:100%; color:var(--textFaint); text-align:center; gap:6px; padding:20px}
+.empty .big{font-size:34px; opacity:.5}
+.dropzone{border:1.5px dashed var(--border); border-radius:10px; padding:16px; text-align:center; color:var(--textMuted); background:var(--surface2); margin-bottom:12px; cursor:pointer; transition:.15s}
+.dropzone:hover{border-color:var(--accent); color:var(--textPrimary)}
+/* 预览 */
+.preview-body{padding:14px; overflow:auto}
+.preview-title{font-size:15px; font-weight:700; margin-bottom:4px}
+.preview-anchor{font-size:12px; color:var(--info); margin-bottom:10px}
+.md h1,.md h2,.md h3{margin:.6em 0 .3em; line-height:1.4}
+.md h1{font-size:18px; border-bottom:1px solid var(--border); padding-bottom:4px}
+.md h2{font-size:15.5px}
+.md h3{font-size:14px}
+.md p{margin:.4em 0}
+.md code{background:var(--codeBg); border:1px solid var(--border); padding:1px 5px; border-radius:5px; font-family:"SFMono-Regular",Consolas,monospace; font-size:12.5px; color:var(--danger)}
+.md pre{background:var(--codeBg); border:1px solid var(--border); padding:10px; border-radius:8px; overflow:auto}
+.md ul{margin:.3em 0; padding-left:20px}
+.meta-grid{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:12.5px; color:var(--textSecondary); margin-top:12px; border-top:1px dashed var(--border); padding-top:10px}
+.meta-grid b{color:var(--textPrimary); font-weight:600}
+.chunk-config{margin-top:12px; border:1px solid var(--border); border-radius:8px; padding:10px 12px; background:var(--surface2)}
+.chunk-config .row{display:flex; align-items:center; gap:10px; margin:7px 0}
+.chunk-config label{font-size:12.5px; color:var(--textSecondary); min-width:84px}
+select,input[type=text],input[type=number],textarea{
+  font-family:inherit; font-size:13px; color:var(--textPrimary); background:var(--input);
+  border:1px solid var(--border); border-radius:7px; padding:6px 9px; outline:none;
+}
+select:focus,input:focus,textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accentSoft)}
+/* 分块预设 */
+.preset-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px}
+.preset{border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; background:var(--input); transition:.15s}
+.preset:hover{border-color:var(--accent)}
+.preset.active{border-color:var(--accent); box-shadow:0 0 0 2px var(--accentSoft)}
+.preset .pn{font-weight:600; font-size:13px}
+.preset .pd{font-size:11.5px; color:var(--textMuted); margin-top:2px}
+.merge-note{font-size:11.5px; color:var(--textMuted); margin-top:9px; border-top:1px dashed var(--border); padding-top:9px; line-height:1.6}
+/* 后端 schema 示意 */
+.schema-panel{border:1px solid var(--border); border-radius:9px; background:var(--surface2); padding:10px 12px; margin-top:10px}
+.schema-panel summary{cursor:pointer; font-size:12.5px; color:var(--textSecondary); font-weight:600}
+.schema-json{background:var(--codeBg); border:1px solid var(--border); border-radius:7px; padding:9px; font-family:"SFMono-Regular",Consolas,monospace; font-size:11.5px; white-space:pre; overflow:auto; color:var(--textSecondary); margin-top:8px}
+/* ---------- 检索调试 ---------- */
+.debug-wrap{display:grid; grid-template-columns:320px 1fr; gap:14px; height:100%}
+.cfg{border:1px solid var(--border); border-radius:var(--radius); background:var(--surface1); padding:12px 14px; overflow:auto}
+.cfg h4{margin:2px 0 10px; font-size:13.5px}
+.field{margin:11px 0}
+.field > label{display:block; font-size:12.5px; color:var(--textSecondary); margin-bottom:4px}
+.field .hint{font-size:11px; color:var(--textFaint); margin-top:3px}
+.switch{display:inline-flex; align-items:center; gap:8px; cursor:pointer}
+.switch input{display:none}
+.slider{width:42px; height:22px; border-radius:999px; background:var(--surface2); border:1px solid var(--border); position:relative; transition:.15s}
+.slider::after{content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:var(--textMuted); top:2px; left:2px; transition:.15s}
+.switch input:checked + .slider{background:var(--accentSoft); border-color:var(--accent)}
+.switch input:checked + .slider::after{background:var(--accent); left:22px}
+.range-row{display:flex; align-items:center; gap:8px}
+.range-row input[type=range]{flex:1; accent-color:var(--accent)}
+.range-val{font-size:12px; color:var(--textSecondary); min-width:38px; text-align:right}
+.query-pane{display:flex; flex-direction:column; min-height:0}
+.query-box{background:var(--surface1); border:1px solid var(--border); border-radius:var(--radius); padding:12px}
+.query-box textarea{width:100%; resize:vertical; min-height:64px}
+.qb-actions{display:flex; align-items:center; gap:9px; margin-top:9px}
+.qb-actions .spacer{margin-left:auto}
+.toggle-raw{display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden}
+.toggle-raw button{border:none; background:var(--surface2); padding:5px 12px; cursor:pointer; font-family:inherit; font-size:12.5px; color:var(--textSecondary)}
+.toggle-raw button.active{background:var(--accent); color:var(--textOnAccent)}
+.results{flex:1; overflow:auto; margin-top:12px; display:flex; flex-direction:column; gap:10px}
+.result-card{border:1px solid var(--border); border-radius:9px; background:var(--surface1); padding:11px 13px; cursor:pointer; transition:.15s}
+.result-card:hover{border-color:var(--accent)}
+.rc-head{display:flex; align-items:center; gap:10px; font-size:12px; color:var(--textMuted); margin-bottom:6px; flex-wrap:wrap}
+.rc-idx{font-weight:700; color:var(--accent)}
+.rc-score{color:var(--success); font-weight:600}
+.rc-rerank{color:var(--info)}
+.rc-content{font-size:13.5px; color:var(--textPrimary)}
+.rc-source{color:var(--info); font-size:12px}
+.raw-json{background:var(--codeBg); border:1px solid var(--border); border-radius:9px; padding:12px; font-family:"SFMono-Regular",Consolas,monospace; font-size:12.5px; white-space:pre; overflow:auto; color:var(--textSecondary)}
+.no-res{padding:30px; text-align:center; color:var(--textFaint)}
+/* ---------- 引用预览（对话） ---------- */
+.chat{max-width:780px; margin:0 auto; display:flex; flex-direction:column; gap:14px}
+.msg{display:flex; gap:10px}
+.msg .av{width:30px; height:30px; border-radius:8px; flex:none; display:grid; place-items:center; font-weight:700; font-size:13px}
+.msg.user .av{background:var(--surface2); color:var(--textPrimary)}
+.msg.bot .av{background:linear-gradient(135deg,var(--accent),var(--accentHover)); color:#fff}
+.bubble{background:var(--surface1); border:1px solid var(--border); border-radius:10px; padding:11px 14px; max-width:660px}
+.bubble .who{font-size:11.5px; color:var(--textMuted); margin-bottom:4px}
+.tool-card{border:1px solid var(--border); border-radius:10px; background:var(--surface1); overflow:hidden; margin-top:8px}
+.tool-head{display:flex; align-items:center; gap:8px; padding:9px 12px; background:var(--surface2); font-size:13px; font-weight:600}
+.tool-head .dot{width:8px; height:8px; border-radius:50%; background:var(--accent)}
+.tool-body{padding:11px 13px; display:flex; flex-direction:column; gap:9px}
+.ref-link{color:var(--link); font-size:12.5px; text-decoration:none; display:inline-flex; align-items:center; gap:5px}
+.ref-link:hover{text-decoration:underline}
+.graph-block{border:1px dashed var(--border); border-radius:9px; padding:10px 12px; background:var(--surface2)}
+.graph-block .gt{font-size:12px; font-weight:700; color:var(--textSecondary); margin-bottom:6px}
+.entity{display:inline-flex; align-items:center; gap:6px; background:var(--input); border:1px solid var(--border); border-radius:999px; padding:3px 10px; font-size:12px; margin:3px 4px 0 0}
+.entity .et{font-size:10.5px; color:var(--accent); background:var(--accentSoft); border-radius:5px; padding:0 5px}
+.rel{font-size:12px; color:var(--textSecondary); padding:3px 0}
+.rel .arr{color:var(--muted); margin:0 5px}
+/* ---------- 图谱探索 ---------- */
+.graph-wrap{display:grid; grid-template-columns:1fr 320px; gap:14px; height:100%}
+.graph-canvas{border:1px solid var(--border); border-radius:var(--radius); background:var(--surface1); overflow:auto; padding:16px}
+.gnode{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--border); background:var(--input); border-radius:999px; padding:5px 12px; font-size:12.5px; margin:6px; cursor:pointer; transition:.15s}
+.gnode:hover{border-color:var(--accent)}
+.gnode.active{border-color:var(--accent); box-shadow:0 0 0 2px var(--accentSoft)}
+.gnode .gt{font-size:10px; padding:0 5px; border-radius:4px; background:var(--accentSoft); color:var(--accent)}
+.gedges{border:1px solid var(--border); border-radius:var(--radius); background:var(--surface1); padding:12px; overflow:auto}
+.gedge{font-size:12.5px; color:var(--textSecondary); padding:5px 0; border-bottom:1px dashed var(--borderSubtle)}
+.gedge .arr{color:var(--accent); margin:0 6px}
+.graph-kpis{display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap}
+/* ---------- 评测 ---------- */
+.kpi-row{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px}
+.kpi{border:1px solid var(--border); border-radius:10px; background:var(--surface1); padding:11px 15px; min-width:128px}
+.kpi .kv{font-size:21px; font-weight:700}
+.kpi .kl{font-size:11.5px; color:var(--textMuted)}
+.eval-table{width:100%; border-collapse:collapse; font-size:12.5px}
+.eval-table th,.eval-table td{border:1px solid var(--border); padding:7px 9px; text-align:center}
+.eval-table th{background:var(--surface2); font-weight:600}
+.eval-table td.q{text-align:left}
+.eval-good{color:var(--success); font-weight:600}
+.eval-mid{color:var(--warning); font-weight:600}
+.eval-bad{color:var(--danger); font-weight:600}
+.eval-note{font-size:12px; color:var(--textMuted); margin-top:10px; line-height:1.7}
+/* ---------- 记忆中心 ---------- */
+.mem-list{display:flex; flex-direction:column; gap:10px}
+.mem-item{border:1px solid var(--border); border-radius:10px; background:var(--surface1); padding:11px 13px}
+.mem-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.mem-type{font-size:10.5px; padding:1px 7px; border-radius:5px; background:var(--accentSoft); color:var(--accent)}
+.mem-status{font-size:10.5px; padding:1px 7px; border-radius:999px; border:1px solid var(--border)}
+.mem-status.active{color:var(--success); background:rgba(42,157,92,.10); border-color:rgba(42,157,92,.3)}
+.mem-status.candidate{color:var(--info); background:rgba(37,99,235,.08); border-color:rgba(37,99,235,.3)}
+.mem-status.conflict{color:var(--danger); background:rgba(196,92,60,.10); border-color:rgba(196,92,60,.3)}
+.mem-status.superseded{color:var(--textMuted); background:var(--surface2)}
+.mem-status.expired{color:var(--warning); background:rgba(217,119,6,.08); border-color:rgba(217,119,6,.3)}
+.mem-content{margin:7px 0; font-size:13.5px}
+.mem-meta{font-size:11.5px; color:var(--textMuted); display:flex; gap:12px; flex-wrap:wrap}
+.mem-actions{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap}
+.seg{display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden}
+.seg button{border:none; background:var(--surface2); padding:5px 11px; cursor:pointer; font-family:inherit; font-size:12px; color:var(--textSecondary)}
+.seg button.active{background:var(--accent); color:var(--textOnAccent)}
+/* 权限/装配 */
+.loadout{display:flex; flex-direction:column; gap:8px}
+.loadout-row{display:flex; align-items:center; gap:10px; border:1px solid var(--border); border-radius:9px; padding:10px 12px; background:var(--surface1)}
+.loadout-row .ln{flex:1}
+.loadout-row .ld{font-size:11.5px; color:var(--textMuted)}
+/* 审计 */
+.audit-list{display:flex; flex-direction:column; gap:6px}
+.audit-row{border:1px solid var(--border); border-radius:8px; padding:8px 11px; background:var(--surface1); font-size:12.5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.audit-row .at{color:var(--textMuted); font-size:11.5px; font-family:"SFMono-Regular",Consolas,monospace}
+.audit-row .aa{color:var(--accent); font-weight:600}
+/* 通用 */
+.placeholder{display:grid; place-items:center; height:100%; color:var(--textMuted); text-align:center; gap:10px; padding:30px}
+.placeholder .big{font-size:40px; opacity:.5}
+.note-box{border:1px solid var(--border); border-radius:9px; background:var(--surface2); padding:11px 14px; font-size:12.5px; color:var(--textSecondary); line-height:1.7; margin-bottom:14px}
+.note-box b{color:var(--textPrimary)}
+.section-title{font-weight:700; font-size:14px; margin:0 0 10px; display:flex; align-items:center; gap:8px}
+.sub-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px}
+/* ---------- 弹窗 ---------- */
+.modal-mask{position:fixed; inset:0; background:var(--overlay); display:none; place-items:center; z-index:50}
+.modal-mask.show{display:grid}
+.modal{background:var(--surface1); border:1px solid var(--border); border-radius:14px; width:min(720px,92vw); max-height:84vh; overflow:auto; box-shadow:0 20px 60px var(--shadowColor)}
+.modal-head{display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface1); z-index:1}
+.modal-head .mt{font-weight:700}
+.modal-body{padding:16px 18px}
+.chunk-meta{display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--textMuted); margin-bottom:10px}
+.chunk-meta .score{color:var(--success); font-weight:700}
+.foot-note{padding:10px 18px; color:var(--textFaint); font-size:11.5px; border-top:1px solid var(--border); background:var(--surface1)}
+::-webkit-scrollbar{width:10px; height:10px}
+::-webkit-scrollbar-thumb{background:var(--scrollbar); border-radius:6px; border:2px solid var(--canvas)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo">枢</span> 天枢</div>
+    <div class="domain-switch" id="domainSwitch">
+      <button data-act="domain:mem">角色记忆</button>
+      <button data-act="domain:kb" class="active">文件知识库</button>
+      <button data-act="domain:graph">代码图谱</button>
+    </div>
+    <span class="crumb" id="crumb"></span>
+    <div class="header-search">
+      <span id="ic-search"></span>
+      <input placeholder="搜索文档、知识块、记忆..." />
+    </div>
+    <button class="btn primary" id="uploadBtn" data-act="upload:click"><span id="ic-upload"></span> 上传文档</button>
+    <button class="icon-btn" id="themeBtn" title="切换深浅色" data-act="theme"><span id="ic-theme"></span></button>
+  </header>
+
+  <div class="body">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <nav class="tabs" id="tabs"></nav>
+      <section class="tab-body" id="tabBody"></section>
+    </main>
+  </div>
+</div>
+
+<!-- chunk 详情弹窗 -->
+<div class="modal-mask" id="chunkModal">
+  <div class="modal">
+    <div class="modal-head"><span class="mt" id="chunkModalTitle">文档片段详情</span>
+      <button class="icon-btn" data-act="modal:close"><span id="ic-close"></span></button></div>
+    <div class="modal-body" id="chunkModalBody"></div>
+    <div class="foot-note">来源位置与相似度为原型演示数据；真实实现由 backend 经 knowledge_search 工具返回。</div>
+  </div>
+</div>
+
+<script>
+/* ---------- 图标 ---------- */
+const ICONS = {
+  search:'<circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2"/>',
+  upload:'<path d="M12 16V4M12 4l-4 4M12 4l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 18v1a1 1 0 001 1h14a1 1 0 001-1v-1" fill="none" stroke="currentColor" stroke-width="2"/>',
+  add:'<line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  theme:'<path d="M12 3a9 9 0 109 9 7 7 0 01-9-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+  close:'<line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  folder:'<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  file:'<path d="M6 3h8l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  retry:'<path d="M4 12a8 8 0 018-8 8 8 0 016 2.7M20 12a8 8 0 01-8 8 8 8 0 01-6-2.7" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M18 3v4h-4M6 21v-4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  trash:'<path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  database:'<ellipse cx="12" cy="6" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  settings:'<circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  knowledge:'<path d="M4 5a2 2 0 012-2h5v16H6a2 2 0 01-2-2zM20 5a2 2 0 00-2-2h-5v16h5a2 2 0 002-2z" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  link:'<path d="M9 15l6-6M10 7l1-1a4 4 0 015.7 5.7l-1 1M14 17l-1 1A4 4 0 017.3 12.3l1-1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  robot:'<rect x="5" y="8" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9.5" cy="12.5" r="1.1" fill="currentColor"/><circle cx="14.5" cy="12.5" r="1.1" fill="currentColor"/><path d="M12 4v3M9 4h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  bolt:'<path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="currentColor"/>',
+  memory:'<path d="M3 7h18v10H3z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 11h2M11 11h2M15 11h2M7 14h2M15 14h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  share:'<circle cx="6" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="6" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="18" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6" stroke="currentColor" stroke-width="1.6"/>',
+  download:'<path d="M12 4v10M12 14l-4-4M12 14l4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  graph:'<circle cx="6" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.7 8.6L11 15M16.3 8.6L13 15M8 7h8" stroke="currentColor" stroke-width="1.6"/>',
+  chart:'<path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  shield:'<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  check:'<path d="M5 12l4 4 10-10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  warn:'<path d="M12 4l9 16H3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+};
+function ic(name,size=15){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24">${ICONS[name]||''}</svg>`}
+['ic-search','ic-upload','ic-theme','ic-close'].forEach(id=>{
+  const map={ 'ic-search':'search','ic-upload':'upload','ic-theme':'theme','ic-close':'close' };
+  const el=document.getElementById(id); if(el) el.innerHTML=ic(map[id],id==='ic-theme'?17:15);
+});
+
+/* ---------- 模拟数据 ---------- */
+const KBS = [
+  { id:'kb-product', name:'产品手册库', desc:'产品文档 / FAQ / 退款政策', access:'global', binding:'全部角色',
+    pendingParse:1, pendingIndex:0,
+    docs:[
+      { id:'d1', name:'用户手册 v3.md', type:'md', status:'indexed', chunks:14, tokens:6200, version:'v3',
+        anchor:'用户手册 v3.md · 第 12–14 行',
+        md:'# 用户手册\n\n## 1. 账户与登录\n\n注册后请使用**邮箱**或**手机号**登录。忘记密码可通过「找回密码」邮件重置。\n\n## 2. 退款政策\n\n- 7 天内未使用可**全额退款**；\n- 已使用部分按剩余时长比例退还；\n- 退款将在 `3–5` 个工作日内原路返回。\n\n> 注意：活动特价商品不支持退款。' },
+      { id:'d2', name:'退款政策.pdf', type:'pdf', status:'indexed', chunks:9, tokens:4100, version:'v2',
+        anchor:'退款政策.pdf · 第 2 页',
+        md:'# 退款政策\n\n## 适用商品\n\n仅限标准定价商品，活动特价除外。\n\n## 退款时效\n\n原路退回，预计 `3–5` 个工作日到账。' },
+      { id:'d3', name:'API 参考.docx', type:'docx', status:'parsing', chunks:0, tokens:0, version:'—', anchor:'—', md:'' },
+      { id:'d4', name:'2024 销售报表.xlsx', type:'xlsx', status:'error', chunks:0, tokens:0, version:'—', anchor:'—', md:'', err:'OCR 失败：扫描件不支持，请上传数字文本。' },
+    ]},
+  { id:'kb-research', name:'研究资料库', desc:'论文 / 行业报告', access:'department', binding:'研究组',
+    pendingParse:0, pendingIndex:2,
+    docs:[
+      { id:'r1', name:'行业趋势报告.md', type:'md', status:'indexed', chunks:22, tokens:11800, version:'—', anchor:'行业趋势报告.md · 第 5 章', md:'# 行业趋势\n\n## 关键发现\n\n- 知识库+RAG 成为企业落地 LLM 的主流路径；\n- 混合检索（BM25 + 向量 + RRF）显著优于单一召回。' },
+      { id:'r2', name:'竞品分析.pdf', type:'pdf', status:'indexing', chunks:0, tokens:0, version:'—', anchor:'—', md:'' },
+    ]},
+  { id:'kb-private', name:'我的私人笔记', desc:'个人备忘', access:'user', binding:'仅本人',
+    pendingParse:0, pendingIndex:0,
+    docs:[ { id:'p1', name:'读书笔记.md', type:'md', status:'indexed', chunks:5, tokens:1900, version:'—', anchor:'读书笔记.md · 第 1 行', md:'# 读书笔记\n\n记忆与知识应分离：角色记忆跨会话，知识库按需检索。' } ]},
+];
+
+const CHUNK_POOL = [
+  { id:'d2_chunk_3', fileId:'d2', source:'退款政策.pdf', chunkIndex:3, startLine:20, endLine:34, score:.92,
+    content:'退款将在原路返回的 `3–5` 个工作日内到账。活动特价商品不在退款范围内。适用标准定价商品。' },
+  { id:'d1_chunk_7', fileId:'d1', source:'用户手册 v3.md', chunkIndex:7, startLine:12, endLine:14, score:.88,
+    content:'退款政策：7 天内未使用可全额退款；已使用部分按剩余时长比例退还；退款 `3–5` 个工作日原路返回。' },
+  { id:'d1_chunk_2', fileId:'d1', source:'用户手册 v3.md', chunkIndex:2, startLine:4, endLine:6, score:.81,
+    content:'注册后请使用邮箱或手机号登录。忘记密码可通过「找回密码」邮件重置口令。' },
+  { id:'r1_chunk_5', fileId:'r1', source:'行业趋势报告.md', chunkIndex:5, startLine:30, endLine:40, score:.79,
+    content:'混合检索（BM25 + 向量 + RRF）在召回率与相关性上显著优于单一向量召回，是企业 RAG 的主流选择。' },
+  { id:'p1_chunk_1', fileId:'p1', source:'读书笔记.md', chunkIndex:1, startLine:1, endLine:2, score:.70,
+    content:'记忆与知识应分离：角色记忆跨会话连续，知识库按绑定按需检索，不默认注入。' },
+];
+
+const PRESETS = [
+  {id:'general',label:'General 通用',desc:'按分隔符和长度切分，适合大多数普通文档'},
+  {id:'qa',label:'QA 问答',desc:'优先抽取问题-回答结构，适合 FAQ、题库'},
+  {id:'book',label:'Book 书籍',desc:'强化章节标题识别并层级合并，适合教材手册'},
+  {id:'laws',label:'Laws 法规',desc:'按法条层级组织合并，适合制度规范'},
+  {id:'semantic',label:'Semantic 语义',desc:'嵌入聚类语义切分，自动增强标题上下文'},
+  {id:'separator',label:'Separator 分隔',desc:'命中分隔符即切分，仅超长片段再按长度切'},
+];
+
+/* 后端声明的检索参数 Schema（前端据此通用渲染，对应报告 §3.2） */
+const QUERY_PARAMS_SCHEMA = {
+  search_mode:   { label:'检索模式',     type:'enum',   options:['keyword','hybrid','vector'], def:'keyword' },
+  final_top_k:   { label:'最终返回数 K', type:'int',    min:1, max:50, def:10 },
+  sim_threshold: { label:'相似度阈值',   type:'float',  min:0, max:1, def:0.2 },
+  use_local_vector:{ label:'启用本地向量（可选）', type:'bool', def:false },
+  use_reranker:  { label:'Reranker 精排', type:'bool', def:false },
+  use_graph_ppr: { label:'图谱 PPR 增强', type:'bool', def:false },
+  vec_weight:    { label:'向量权重',     type:'float',  min:0, max:1, def:0.7 },
+  bm25_weight:   { label:'BM25 权重',    type:'float',  min:0, max:1, def:0.3 },
+};
+
+/* ---------- 角色记忆数据（01） ---------- */
+const CHARACTERS = [
+  { id:'char-xiaoshu', name:'小枢', role:'通用助手', mode:'review', snapshotTokenBudget:1200, usedTokens:842,
+    groupDefault:'group', lastSnapshot:'v12 · 2 小时前' },
+  { id:'char-yanjiu', name:'研究员', role:'深度调研', mode:'auto', snapshotTokenBudget:2000, usedTokens:1530,
+    groupDefault:'private', lastSnapshot:'v5 · 昨天' },
+  { id:'char-kefu', name:'客服助手', role:'售后支持', mode:'read_only', snapshotTokenBudget:800, usedTokens:610,
+    groupDefault:'group', lastSnapshot:'v8 · 今天' },
+];
+
+// 角色「小枢」的记忆示例（L1 原子 / L2 主题 / L3 Snapshot）
+const MEMORIES = {
+  'char-xiaoshu': {
+    l1:[
+      { id:'m1', type:'preference', subject:'主题', key:'dark-mode', content:'用户偏好深色界面，但白天办公用浅色。', visibility:'private', status:'active', conf:.9, sens:'low', source:'手动设置', rev:1, ts:'3 天前' },
+      { id:'m2', type:'decision', subject:'交付方式', key:'zip-first', content:'知识库原型优先交付零构建单 HTML，确认后再落地 React 组件。', visibility:'private', status:'active', conf:.95, sens:'low', source:'会话 2024-08-24', rev:1, ts:'今天' },
+      { id:'m3', type:'fact', subject:'技术栈', key:'backend', content:'天枢后端为 Node.js + TypeScript（Hono），非 Python。', visibility:'private', status:'active', conf:1, sens:'low', source:'代码核实', rev:1, ts:'2 天前' },
+      { id:'m4', type:'constraint', subject:'依赖', key:'no-heavy-vec', content:'知识库不默认引入 Milvus/Neo4j；向量为可选本地增强。', visibility:'group', status:'active', conf:.95, sens:'low', source:'设计评审', rev:1, ts:'昨天' },
+      { id:'m5', type:'event', subject:'项目', key:'kb-v2', content:'文件知识库二期已开工，覆盖上传/分块/FTS+向量/RRF。', visibility:'group', status:'candidate', conf:.8, sens:'low', source:'提取器', rev:0, ts:'1 小时前' },
+      { id:'m6', type:'experience', subject:'检索', key:'hybrid-better', content:'混合检索（BM25+向量+RRF）优于单一召回，关键词明确场景 BM25 已够。', visibility:'private', status:'conflict', conf:.6, sens:'low', source:'提取器', rev:0, ts:'30 分钟前',
+        conflictWith:'旧结论「向量检索一定更好」' },
+      { id:'m7', type:'preference', subject:'沟通', key:'concise', content:'用户希望直接、务实、最小改动，不啰嗦。', visibility:'private', status:'superseded', conf:.9, sens:'low', source:'早期会话', rev:2, ts:'一周前',
+        note:'已被 v2（含「不臆测、遇歧义提问」）取代' },
+    ],
+    l2:[
+      { id:'l2-1', title:'知识库工程偏好', summary:'轻量优先：FTS5 常驻 + 本地向量可关 + 不引入重服务；单 HTML 原型先行。', related:['m2','m3','m4'], ts:'今天' },
+      { id:'l2-2', title:'协作风格', summary:'直接务实、遇歧义先提问、交付带验证证据。', related:['m7'], ts:'3 天前' },
+    ],
+    l3:{ version:'v12', budget:1200, used:842, blocks:[
+      '用户稳定偏好：白天浅色 / 夜间深色界面。',
+      '当前约束：知识库不引入 Milvus/Neo4j，向量仅本地可选。',
+      '长期约定：原型先行，确认后再落代码。',
+      '活跃项目：文件知识库二期（上传/分块/检索）。',
+    ]},
+  }
+};
+
+/* 角色 Tool Loadout（03 §2） */
+const LOADOUT = {
+  'char-xiaoshu':[
+    { tool:'character_memory_search', desc:'读取自己的长尾记忆', on:true },
+    { tool:'group_memory_search', desc:'读取同组授权共享记忆', on:true },
+    { tool:'knowledge_search', desc:'按绑定搜索文件知识库', on:true },
+    { tool:'knowledge_read', desc:'按 Chunk/Source 有限读取', on:true },
+    { tool:'knowledge_list_sources', desc:'列出可访问知识源', on:true },
+    { tool:'CodeGraph', desc:'现有代码调用图工具', on:true },
+    { tool:'Graphify', desc:'现有图谱查询能力', on:true },
+    { tool:'Skills / MCP', desc:'技能与 MCP 工具', on:true },
+  ],
+};
+
+/* 统一审计（03 §5） */
+const AUDIT = [
+  { ts:'14:02', actor:'用户', action:'批准记忆', target:'m5（知识库二期开工）', detail:'candidate → active' },
+  { ts:'13:50', actor:'提取器', action:'写入候选', target:'m6（检索结论）', detail:'与 m4 冲突，留待用户确认' },
+  { ts:'13:20', actor:'Run#4821', action:'搜索知识块', target:'退款政策.pdf#chunk_3', detail:'KB=产品手册库，命中 3 块' },
+  { ts:'11:10', actor:'研究员', action:'group_memory_search', target:'小枢/m4（依赖约束）', detail:'visibility=group，已授权' },
+  { ts:'09:31', actor:'用户', action:'删除知识源', target:'kb-research/旧竞品.pdf', detail:'软删除，索引与工具立即不可见' },
+  { ts:'昨天', actor:'Provider', action:'外部向量', target:'—', detail:'未启用，无数据外发' },
+];
+
+/* 图谱探索（报告 §4.6，PPR 增强为 P2） */
+const GRAPH = {
+  nodes:[
+    { id:'g1', label:'退款政策', type:'概念' },
+    { id:'g2', label:'全额退款', type:'规则' },
+    { id:'g3', label:'原路返回', type:'规则' },
+    { id:'g4', label:'活动特价', type:'例外' },
+    { id:'g5', label:'用户手册', type:'文档' },
+    { id:'g6', label:'登录方式', type:'概念' },
+  ],
+  edges:[
+    { from:'g1', to:'g2', rel:'包含' },
+    { from:'g1', to:'g3', rel:'时效' },
+    { from:'g1', to:'g4', rel:'排除' },
+    { from:'g5', to:'g6', rel:'描述' },
+    { from:'g5', to:'g1', rel:'引用' },
+  ],
+};
+
+/* 评测（03 §8 / 报告 §6） */
+const EVAL = {
+  queries:[
+    { q:'退款多久到账', lexical:{recall:1.0, mrr:1.0, cite:1.0}, vector:{recall:.67, mrr:.67, cite:1.0}, rrf:{recall:1.0, mrr:1.0, cite:1.0} },
+    { q:'怎么登录账号', lexical:{recall:1.0, mrr:1.0, cite:1.0}, vector:{recall:1.0, mrr:.5, cite:1.0}, rrf:{recall:1.0, mrr:1.0, cite:1.0} },
+    { q:'混合检索为什么更好', lexical:{recall:.5, mrr:.5, cite:.5}, vector:{recall:1.0, mrr:1.0, cite:1.0}, rrf:{recall:1.0, mrr:1.0, cite:1.0} },
+    { q:'活动商品能退吗', lexical:{recall:1.0, mrr:1.0, cite:.5}, vector:{recall:0, mrr:0, cite:0}, rrf:{recall:1.0, mrr:1.0, cite:.5} },
+    { q:'知识库用什么数据库', lexical:{recall:1.0, mrr:1.0, cite:.5}, vector:{recall:.5, mrr:.5, cite:.5}, rrf:{recall:1.0, mrr:1.0, cite:.5} },
+  ]
+};
+
+/* ---------- 状态 ---------- */
+const state = {
+  domain:'kb', kbId:'kb-product', tab:'files', docId:'d1', showRaw:false,
+  cfg:{ searchMode:'keyword', useLocalVector:false, useReranker:false, useGraphPpr:false,
+        finalTopK:10, simThreshold:0.2, vecWeight:0.7, bm25Weight:0.3 },
+  preset:'general', chunkEngineVersion:'3',
+  memChar:'char-xiaoshu', memTab:'overview', memFilter:'all',
+  graphNode:null,
+  results:null,
+};
+
+/* ---------- 工具 ---------- */
+const $ = id => document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function curKb(){return KBS.find(k=>k.id===state.kbId);}
+function curDocs(){return curKb().docs;}
+function statusText(s){return {indexed:'已索引',parsing:'解析中',indexing:'索引中',pending:'待处理',error:'失败'}[s]||s;}
+function cls(s){return {indexed:'st indexed',parsing:'st parsing',indexing:'st indexing',pending:'st pending',error:'st error'}[s]||'st';}
+function accessBadge(a){return `<span class="badge ${a}">${a==='global'?'全局':a==='department'?'部门':'个人'}</span>`;}
+
+/* ---------- 渲染：外壳 ---------- */
+function renderCrumb(){
+  if(state.domain==='kb') $('crumb').innerHTML = `/ 知识中心 / 文件知识库 / <b>${esc(curKb().name)}</b>`;
+  else if(state.domain==='mem'){ const c=CHARACTERS.find(c=>c.id===state.memChar); $('crumb').innerHTML = `/ 知识中心 / 角色记忆 / <b>${esc(c.name)}</b>`; }
+  else $('crumb').innerHTML = `/ 知识中心 / <b>代码图谱</b>`;
+  $('uploadBtn').style.display = state.domain==='kb' ? '' : 'none';
+  document.querySelectorAll('#domainSwitch button').forEach(b=>b.classList.toggle('active', b.dataset.act===`domain:${state.domain}`));
+}
+function renderSidebar(){
+  const sb = $('sidebar');
+  if(state.domain==='kb'){
+    sb.innerHTML = `<div class="side-head"><span class="side-title">知识库</span><button class="icon-btn" data-act="kb:create" title="新建知识库"><span id="ic-add2"></span></button></div>
+      <div class="kb-list">${KBS.map(k=>`
+        <div class="kb-card ${k.id===state.kbId?'active':''}" data-act="kb:select:${k.id}">
+          <div class="kb-name">${ic('database',15)} ${esc(k.name)}</div>
+          <div class="kb-desc">${esc(k.desc)}</div>
+          <div class="kb-meta">${accessBadge(k.access)}<span class="stat-pill">${ic('file',12)} ${k.docs.length} 文档</span>
+            ${k.pendingParse?`<span class="stat-pill" style="color:var(--warning)">${k.pendingParse} 待解析</span>`:''}
+            ${k.pendingIndex?`<span class="stat-pill" style="color:var(--info)">${k.pendingIndex} 待索引</span>`:''}</div>
+          <div class="kb-manage">
+            <button class="mini-btn" data-act="kb:bind:${k.id}">${ic('share',12)} 绑定/共享</button>
+            <button class="mini-btn" data-act="doc:none">下载原件</button>
+          </div>
+        </div>`).join('')}</div>`;
+    const a=$('ic-add2'); if(a) a.innerHTML=ic('add',15);
+  } else if(state.domain==='mem'){
+    sb.innerHTML = `<div class="side-head"><span class="side-title">角色</span></div>
+      <div class="kb-list">${CHARACTERS.map(c=>`
+        <div class="kb-card ${c.id===state.memChar?'active':''}" data-act="mem:char:${c.id}">
+          <div class="kb-name">${ic('memory',15)} ${esc(c.name)}</div>
+          <div class="kb-desc">${esc(c.role)} · ${c.mode}</div>
+          <div class="kb-meta"><span class="stat-pill">快照 ${esc(c.lastSnapshot)}</span></div>
+        </div>`).join('')}</div>`;
+  } else {
+    sb.innerHTML = `<div class="side-head"><span class="side-title">代码图谱</span></div>
+      <div class="kb-list"><div class="note-box" style="margin:8px">沿用现有 CodeGraph / Graphify 工具，<b>不在知识库内重复建设</b>。知识库通过工具路由结果展示，不合并事实存储。</div></div>`;
+  }
+}
+function renderTabs(){
+  const t = $('tabs');
+  const defs = state.domain==='kb'
+    ? [['files','文件'],['debug','检索调试'],['cite','引用预览'],['graph','图谱探索'],['eval','评测']]
+    : state.domain==='mem'
+    ? [['overview','概览'],['browser','记忆浏览器'],['binding','绑定与权限'],['audit','审计']]
+    : [['placeholder','说明']];
+  t.innerHTML = defs.map(([k,l])=>`<div class="tab ${k===curTab()?'active':''}" data-act="tab:${k}">${l}</div>`).join('');
+}
+function curTab(){
+  if(state.domain==='kb') return state.tab;
+  if(state.domain==='mem') return state.memTab;
+  return 'placeholder';
+}
+function renderBody(){
+  const b = $('tabBody');
+  if(state.domain==='kb'){
+    if(state.tab==='files') b.innerHTML = renderFiles();
+    else if(state.tab==='debug') b.innerHTML = renderDebug();
+    else if(state.tab==='cite') b.innerHTML = renderCite();
+    else if(state.tab==='graph') b.innerHTML = renderGraph();
+    else if(state.tab==='eval') b.innerHTML = renderEval();
+  } else if(state.domain==='mem'){
+    if(state.memTab==='overview') b.innerHTML = renderMemOverview();
+    else if(state.memTab==='browser') b.innerHTML = renderMemBrowser();
+    else if(state.memTab==='binding') b.innerHTML = renderMemBinding();
+    else if(state.memTab==='audit') b.innerHTML = renderMemAudit();
+  } else {
+    b.innerHTML = renderCodeGraph();
+  }
+}
+function render(){
+  renderCrumb(); renderSidebar(); renderTabs(); renderBody();
+}
+
+/* ---------- 文件知识库 ---------- */
+function renderFiles(){
+  const docs = curDocs();
+  const tree = `<div class="panel"><div class="panel-head">${ic('folder',15)} 目录</div><div class="panel-body">
+    ${docs.map(d=>`<div class="tree-item ${d.id===state.docId?'active':''}" data-act="doc:select:${d.id}">${ic('file',13)} ${esc(d.name)}</div>`).join('')}
+  </div></div>`;
+  const list = `<div class="panel"><div class="panel-head">${ic('file',15)} 文档（${docs.length}）
+      <button class="mini-btn" data-act="upload:click">${ic('upload',12)} 上传</button></div>
+    <div class="panel-body">
+      <div class="dropzone" data-act="upload:click">${ic('upload',18)} 拖拽或点击上传（md / pdf / docx / xlsx / pptx）</div>
+      ${docs.map(d=>`
+        <div class="doc-row ${d.id===state.docId?'active':''}" data-act="doc:select:${d.id}">
+          <div class="doc-ic">${ic('file',16)}</div>
+          <div class="doc-main">
+            <div class="doc-name">${esc(d.name)}</div>
+            <div class="doc-sub"><span class="${cls(d.status)}">${statusText(d.status)}</span>
+              <span class="tag">${d.type}</span>${d.chunks?`<span>${d.chunks} 块</span>`:''}${d.version&&d.version!=='—'?`<span class="tag">v${d.version}</span>`:''}
+              ${d.status==='error'?`<span style="color:var(--danger)">${esc(d.err)}</span>`:''}</div>
+          </div>
+          <div class="row-actions">
+            <button class="mini-btn" data-act="doc:none" title="下载原文件">${ic('download',12)}</button>
+            ${(d.status==='parsing'||d.status==='error')?`<button class="mini-btn" data-act="doc:none" title="重试">${ic('retry',12)}</button>`:''}
+            <button class="mini-btn danger" data-act="doc:none" title="删除">${ic('trash',12)}</button>
+          </div>
+        </div>`).join('')}
+    </div></div>`;
+  const doc = docs.find(d=>d.id===state.docId) || docs[0];
+  const preview = `<div class="panel"><div class="panel-head">${ic('knowledge',15)} 预览与来源</div><div class="panel-body preview-body">
+      <div class="preview-title">${esc(doc.name)}</div>
+      <div class="preview-anchor">${ic('link',13)} ${esc(doc.anchor)}</div>
+      <div class="md">${doc.md?esc(doc.md).replace(/\n/g,'<br>').replace(/#{1,3} /g,m=>m):'<span class="empty">该文档尚未解析完成，无预览。</span>'}</div>
+      <div class="meta-grid">
+        <b>类型</b><span>${doc.type}</span>
+        <b>状态</b><span class="${cls(doc.status)}">${statusText(doc.status)}</span>
+        <b>版本</b><span>${doc.version||'—'}</span>
+        <b>分块</b><span>${doc.chunks||0} 块 / ${doc.tokens||0} tokens</span>
+        <b>来源锚点</b><span>${esc(doc.anchor)}</span>
+      </div>
+      <div class="chunk-config">
+        <div class="section-title">${ic('settings',14)} 分块配置（chunk_engine_version=${state.chunkEngineVersion}）</div>
+        <div class="preset-grid">
+          ${PRESETS.map(p=>`<div class="preset ${p.id===state.preset?'active':''}" data-act="preset:${p.id}">
+            <div class="pn">${p.label}</div><div class="pd">${p.desc}</div></div>`).join('')}
+        </div>
+        <div class="row"><label>块大小</label><input type="number" value="700" min="200" max="1500" style="width:90px"> <span class="tag">tokens</span>
+          <label style="min-width:60px;margin-left:8px">重叠</label><input type="number" value="100" min="0" max="300" style="width:80px"><span class="tag">tokens</span></div>
+        <div class="merge-note">三级参数合并：<b>KB 级默认</b> → <b>角色/绑定级</b> → <b>请求级</b>。变更 chunk_engine_version 后旧块不重建，仅新上传生效（对应 02 §7 / 报告 §3.5）。</div>
+      </div>
+    </div></div>`;
+  return `<div class="files-wrap">${tree}${list}${preview}</div>`;
+}
+function renderDebug(){
+  const sc = QUERY_PARAMS_SCHEMA;
+  const cfgHtml = `<div class="cfg">
+    <h4>${ic('settings',14)} 检索配置</h4>
+    <div class="field"><label>检索模式</label>
+      <select data-cfg="searchMode">${['keyword','hybrid','vector'].map(o=>`<option ${state.cfg.searchMode===o?'selected':''}>${o}</option>`).join('')}</select>
+      <div class="hint">${state.cfg.searchMode==='keyword'?'FTS5/BM25 常驻主力（默认，零基建）':'混合/向量需启用本地向量'}</div></div>
+    <div class="field"><label class="switch"><input type="checkbox" data-cfg="useLocalVector" ${state.cfg.useLocalVector?'checked':''}><span class="slider"></span></label> 启用本地向量（可选）</div>
+    <div class="field"><label>最终返回数 K</label><div class="range-row"><input type="range" min="1" max="50" value="${state.cfg.finalTopK}" data-cfg="finalTopK"><span class="range-val">${state.cfg.finalTopK}</span></div></div>
+    <div class="field"><label>相似度阈值</label><div class="range-row"><input type="range" min="0" max="1" step="0.05" value="${state.cfg.simThreshold}" data-cfg="simThreshold"><span class="range-val">${state.cfg.simThreshold}</span></div></div>
+    <div class="field"><label class="switch"><input type="checkbox" data-cfg="useReranker" ${state.cfg.useReranker?'checked':''}><span class="slider"></span></label> Reranker 精排（可关）</div>
+    <div class="field"><label class="switch"><input type="checkbox" data-cfg="useGraphPpr" ${state.cfg.useGraphPpr?'checked':''}><span class="slider"></span></label> 图谱 PPR 增强（P2）</div>
+    ${state.cfg.useLocalVector?`<div class="field"><label>向量权重</label><div class="range-row"><input type="range" min="0" max="1" step="0.05" value="${state.cfg.vecWeight}" data-cfg="vecWeight"><span class="range-val">${state.cfg.vecWeight}</span></div></div>
+    <div class="field"><label>BM25 权重</label><div class="range-row"><input type="range" min="0" max="1" step="0.05" value="${state.cfg.bm25Weight}" data-cfg="bm25Weight"><span class="range-val">${state.cfg.bm25Weight}</span></div></div>`:''}
+    <details class="schema-panel"><summary>后端 query_params Schema（配置驱动 UI，报告 §3.2）</summary>
+      <div class="schema-json">${esc(JSON.stringify(sc,null,2))}</div>
+      <div class="merge-note">前端不写死表单：<code>/query_params</code> 返回该 Schema，前端通用渲染；默认值即 FTS5-only（use_local_vector=false）。</div>
+    </details>
+  </div>`;
+  const qp = `<div class="query-pane">
+    <div class="query-box">
+      <textarea id="qInput" placeholder="输入查询，如：退款多久到账？">退款多久到账</textarea>
+      <div class="qb-actions">
+        <button class="btn primary" data-act="search:run">${ic('search',14)} 检索</button>
+        <span class="muted" style="font-size:12px">模式：${state.cfg.searchMode}${state.cfg.useLocalVector?' + 本地向量':''}</span>
+        <span class="spacer"></span>
+        <div class="toggle-raw"><button class="${!state.showRaw?'active':''}" data-act="raw:0">格式化</button><button class="${state.showRaw?'active':''}" data-act="raw:1">原始 JSON</button></div>
+      </div>
+    </div>
+    <div class="results" id="results">${renderResults()}</div>
+  </div>`;
+  return `<div class="debug-wrap">${cfgHtml}${qp}</div>`;
+}
+function runSearch(){
+  const q = ($('qInput')?$('qInput').value:'').trim();
+  const pool = CHUNK_POOL.slice();
+  let res;
+  if(!q){ res = pool; }
+  else {
+    const kw = q.toLowerCase();
+    res = pool.filter(c=>c.content.toLowerCase().includes(kw.split(/\s+/)[0]) || c.source.toLowerCase().includes(kw));
+    if(res.length===0) res = pool; // 演示兜底
+  }
+  // 打分（演示）：hybrid/vector 时按向量权重微调
+  res = res.map(c=>({...c, rerank: state.cfg.useReranker ? +(c.score*0.9+0.05).toFixed(2) : null,
+    ppr: state.cfg.useGraphPpr })).sort((a,b)=> (b.rerank??b.score)-(a.rerank??a.score));
+  state.results = res.slice(0, state.cfg.finalTopK);
+}
+function renderResults(){
+  if(!state.results) runSearch();
+  if(state.showRaw){
+    return `<div class="raw-json">${esc(JSON.stringify(state.results,null,2))}</div>`;
+  }
+  if(!state.results.length) return `<div class="no-res">${ic('search',22)} 无命中</div>`;
+  return state.results.map((c,i)=>`
+    <div class="result-card" data-act="chunk:open:${c.id}">
+      <div class="rc-head"><span class="rc-idx">#${i+1}</span><span class="rc-score">score ${c.score}</span>
+        ${c.rerank!=null?`<span class="rc-rerank">rerank ${c.rerank}</span>`:''}${c.ppr?'<span class="rc-rerank">+PPR</span>':''}
+        <span class="rc-source">${esc(c.source)} · chunk ${c.chunkIndex}</span></div>
+      <div class="rc-content">${esc(c.content)}</div>
+    </div>`).join('');
+}
+function renderCite(){
+  const r = state.results||CHUNK_POOL.slice(0,3);
+  const cards = r.map(c=>`
+    <div class="tool-body" style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-top:8px">
+      <div class="rc-head"><span class="rc-idx">${esc(c.source)}</span><span class="rc-score">score ${c.score}</span><span class="rc-source">chunk ${c.chunkIndex} · ${c.startLine}–${c.endLine} 行</span></div>
+      <div class="rc-content">${esc(c.content)}</div>
+      <a class="ref-link" data-act="chunk:open:${c.id}">${ic('link',13)} 查看来源 · ${esc(c.anchor?c.anchor:c.source)}</a>
+    </div>`).join('');
+  return `<div class="chat">
+    <div class="msg user"><div class="av">我</div><div class="bubble"><div class="who">用户</div>退款一般多久能到账？</div></div>
+    <div class="msg bot"><div class="av">枢</div><div class="bubble"><div class="who">小枢 · 调用 knowledge_search</div>
+      退款将在原路返回的 3–5 个工作日内到账；活动特价商品不在退款范围内。依据如下知识块：
+      <div class="tool-card"><div class="tool-head"><span class="dot"></span> knowledge_search · top_k=${state.cfg.finalTopK} · mode=${state.cfg.searchMode}</div>${cards}</div>
+      <div class="graph-block"><div class="gt">${ic('graph',13)} 文档图谱（PPR 增强为 P2 可选）</div>
+        <span class="entity">退款政策<span class="et">概念</span></span><span class="entity">原路返回<span class="et">规则</span></span><span class="entity">活动特价<span class="et">例外</span></span>
+        <div class="rel">退款政策 <span class="arr">→</span> 原路返回 <span style="color:var(--textMuted)">（时效 3–5 日）</span></div>
+        <div class="rel">退款政策 <span class="arr">→</span> 活动特价 <span style="color:var(--textMuted)">（排除）</span></div>
+      </div>
+    </div></div>
+  </div>`;
+}
+function renderGraph(){
+  const active = state.graphNode;
+  const edges = GRAPH.edges.filter(e=>!active || e.from===active || e.to===active);
+  const kpi = `<div class="graph-kpis"><div class="kpi"><div class="kv">${GRAPH.nodes.length}</div><div class="kl">实体</div></div>
+    <div class="kpi"><div class="kv">${GRAPH.edges.length}</div><div class="kl">关系</div></div>
+    <div class="kpi"><div class="kv">${active?edges.length:'—'}</div><div class="kl">当前邻域</div></div></div>`;
+  return `<div class="graph-wrap">
+    <div class="graph-canvas">${kpi}
+      ${GRAPH.nodes.map(n=>`<span class="gnode ${n.id===active?'active':''}" data-act="graph:node:${n.id}">${esc(n.label)}<span class="gt">${n.type}</span></span>`).join('')}
+      <div class="note-box" style="margin-top:14px">点击实体查看邻域关系。文档图谱 + PPR 增强检索为 <b>P2（二期之后可选）</b>，仅用 SQLite 存三元组，不引入 Neo4j（报告 §5 / §4.6）。</div>
+    </div>
+    <div class="gedges"><div class="section-title">${ic('graph',14)} 关系${active?'（邻域）':''}</div>
+      ${edges.length?edges.map(e=>{const f=GRAPH.nodes.find(n=>n.id===e.from),t=GRAPH.nodes.find(n=>n.id===e.to);
+        return `<div class="gedge">${esc(f.label)} <span class="arr">—${e.rel}→</span> ${esc(t.label)}</div>`;}).join(''):'<div class="empty">选择实体查看关系</div>'}</div>
+  </div>`;
+}
+function renderEval(){
+  const modes=['lexical','vector','rrf'];
+  const labels={lexical:'FTS5/BM25',vector:'本地向量',rrf:'RRF 融合'};
+  const agg={};
+  modes.forEach(m=>{ const qs=EVAL.queries; agg[m]={recall:avg(qs.map(q=>q[m].recall)),mrr:avg(qs.map(q=>q[m].mrr)),cite:avg(qs.map(q=>q[m].cite))}; });
+  function cell(v){const c=v>=.9?'eval-good':v>=.6?'eval-mid':'eval-bad';return `<td class="${c}">${v.toFixed(2)}</td>`;}
+  const rows = EVAL.queries.map(q=>`<tr><td class="q">${esc(q.q)}</td>
+    ${cell(q.lexical.recall)}${cell(q.lexical.mrr)}${cell(q.lexical.cite)}
+    ${cell(q.vector.recall)}${cell(q.vector.mrr)}${cell(q.vector.cite)}
+    ${cell(q.rrf.recall)}${cell(q.rrf.mrr)}${cell(q.rrf.cite)}</tr>`).join('');
+  const aggRow = `<tr><td class="q"><b>均值</b></td>
+    ${cell(agg.lexical.recall)}${cell(agg.lexical.mrr)}${cell(agg.lexical.cite)}
+    ${cell(agg.vector.recall)}${cell(agg.vector.mrr)}${cell(agg.vector.cite)}
+    ${cell(agg.rrf.recall)}${cell(agg.rrf.mrr)}${cell(agg.rrf.cite)}</tr>`;
+  return `<div class="section-title">${ic('chart',15)} 检索评测（对齐 03 §8 / 报告 §6）</div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kv">${agg.rrf.recall.toFixed(2)}</div><div class="kl">RRF Recall@5</div></div>
+      <div class="kpi"><div class="kv">${agg.rrf.mrr.toFixed(2)}</div><div class="kl">RRF MRR</div></div>
+      <div class="kpi"><div class="kv">${agg.rrf.cite.toFixed(2)}</div><div class="kl">RRF 引用正确率</div></div>
+    </div>
+    <table class="eval-table"><thead><tr><th rowspan="2">查询</th>
+      <th colspan="3">FTS5/BM25</th><th colspan="3">本地向量</th><th colspan="3">RRF 融合</th></tr>
+      <tr><th>Recall</th><th>MRR</th><th>引用</th><th>Recall</th><th>MRR</th><th>引用</th><th>Recall</th><th>MRR</th><th>引用</th></tr></thead>
+      <tbody>${rows}${aggRow}</tbody></table>
+    <div class="eval-note">结论：关键词明确场景（退款/登录）BM25 即满分；语义/跨语言场景向量补召回；<b>RRF 融合两档均最优</b>。Provider 故障时纯 FTS5 不阻断（对应 02 §8 / 03 §8）。评测需覆盖「纯 FTS5」「FTS5+本地向量」两档。</div>`;
+}
+function avg(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+
+/* ---------- 角色记忆中心 ---------- */
+function renderMemOverview(){
+  const c = CHARACTERS.find(c=>c.id===state.memChar);
+  const modes=[['off','关闭'],['read_only','只读'],['review','审阅'],['auto','自动']];
+  return `<div class="note-box">${ic('memory',14)} 角色记忆为独立 bounded context，与知识库存储/UI/工具/删除路径完全分离（00 §3 / 01 §13）。</div>
+    <div class="sub-grid">
+      <div class="panel" style="height:auto"><div class="panel-head">策略</div><div class="panel-body">
+        <div class="field"><label>Memory 模式</label>
+          <select data-memcfg="mode">${modes.map(m=>`<option ${c.mode===m[0]?'selected':''}>${m[0]}（${m[1]}）</option>`).join('')}</select></div>
+        <div class="field"><label>快照 Token 预算</label><input type="number" value="${c.snapshotTokenBudget}" style="width:100px"><span class="tag">已用 ${c.usedTokens}</span></div>
+        <div class="field"><label>组共享默认</label><select data-memcfg="groupDefault">${['private','group','user'].map(v=>`<option ${c.groupDefault===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div class="merge-note">新会话固定注入 Snapshot；当前会话产生的新记忆不改变已固定前缀（提升缓存命中，01 §7）。</div>
+      </div></div>
+      <div class="panel" style="height:auto"><div class="panel-head">L3 Snapshot</div><div class="panel-body">
+        <div class="mem-meta"><span class="stat-pill">版本 ${c.lastSnapshot}</span><span class="stat-pill">${c.usedTokens}/${c.snapshotTokenBudget} tokens</span></div>
+        <div class="md" style="margin-top:8px">${MEMORIES[c.id].l3.blocks.map(b=>'• '+esc(b)).join('<br>')}</div>
+        <div class="merge-note">「刷新当前会话记忆」会改变上下文前缀，默认建议新建会话（01 §7）。</div>
+      </div></div>
+    </div>`;
+}
+function renderMemBrowser(){
+  const c = CHARACTERS.find(c=>c.id===state.memChar);
+  const m = MEMORIES[c.id];
+  const filters=[['all','全部'],['active','active'],['candidate','candidate'],['conflict','conflict'],['superseded','superseded'],['expired','expired']];
+  const list = m.l1.filter(x=>state.memFilter==='all'||x.status===state.memFilter);
+  const items = list.map(x=>`
+    <div class="mem-item">
+      <div class="mem-top"><span class="mem-type">${x.type}</span><span class="mem-status ${x.status}">${x.status}</span>
+        <span class="badge ${x.visibility}">${x.visibility}</span><b>${esc(x.subject)}</b><span class="doc-sub">conf ${x.conf} · rev ${x.rev}</span></div>
+      <div class="mem-content">${esc(x.content)}</div>
+      ${x.conflictWith?`<div class="merge-note" style="color:var(--danger)">⚠ 与「${esc(x.conflictWith)}」冲突，未进入稳定 Snapshot，待用户确认。</div>`:''}
+      ${x.note?`<div class="merge-note">${esc(x.note)}</div>`:''}
+      <div class="mem-meta"><span>来源：${esc(x.source)}</span><span>${x.ts}</span></div>
+      <div class="mem-actions">
+        ${x.status==='candidate'?`<button class="mini-btn on" data-act="mem:act:approve:${x.id}">${ic('check',12)} 批准</button>`:''}
+        ${x.status==='conflict'?`<button class="mini-btn on" data-act="mem:act:resolve:${x.id}">解决冲突</button>`:''}
+        <button class="mini-btn" data-act="mem:act:edit:${x.id}">编辑</button>
+        <button class="mini-btn" data-act="mem:act:visibility:${x.id}">可见性</button>
+        <button class="mini-btn danger" data-act="mem:act:forget:${x.id}">${ic('trash',12)} 遗忘</button>
+      </div>
+    </div>`).join('');
+  const l2 = m.l2.map(x=>`<div class="mem-item"><div class="mem-top"><span class="mem-type">L2 主题</span><b>${esc(x.title)}</b></div>
+    <div class="mem-content">${esc(x.summary)}</div><div class="mem-meta"><span>指向 L1：${x.related.join(', ')}</span><span>${x.ts}</span></div></div>`).join('');
+  return `<div class="note-box">L1 原子记忆为事实操作基本单位；L2 主题记忆可重建、必须指向 L1 证据（01 §3 / §6）。</div>
+    <div class="seg" style="margin-bottom:12px">${filters.map(f=>`<button class="${state.memFilter===f[0]?'active':''}" data-act="mem:filter:${f[0]}">${f[1]}</button>`).join('')}</div>
+    <div class="section-title">L1 原子记忆</div>
+    <div class="mem-list">${items||'<div class="empty">该状态无记忆</div>'}</div>
+    <div class="section-title" style="margin-top:16px">L2 主题记忆（派生）</div>
+    <div class="mem-list">${l2}</div>`;
+}
+function renderMemBinding(){
+  const c = CHARACTERS.find(c=>c.id===state.memChar);
+  const tools = LOADOUT[c.id]||[];
+  const rows = tools.map(t=>`
+    <div class="loadout-row">
+      <div class="ln"><b>${t.tool}</b><div class="ld">${esc(t.desc)}</div></div>
+      <label class="switch"><input type="checkbox" data-loadout="${t.tool}" ${t.on?'checked':''}><span class="slider"></span></label>
+    </div>`).join('');
+  const bound = KBS.filter(k=>k.access==='global'||k.binding.includes(c.role)||c.id==='char-xiaoshu').map(k=>`<span class="badge ${k.access}">${esc(k.name)}</span>`).join('')||'<span class="muted">无</span>';
+  return `<div class="note-box">${ic('shield',14)} 角色工具按权限装配；禁止把组记忆或知识库正文默认注入系统提示词（03 §2）。权限过滤发生在 Repository/Retrieval 层。</div>
+    <div class="section-title">${ic('robot',14)} Character Tool Loadout</div>
+    <div class="loadout">${rows}</div>
+    <div class="section-title" style="margin-top:16px">${ic('knowledge',14)} 已绑定知识库</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${bound}</div>
+    <div class="note-box" style="margin-top:14px">跨角色越权率为零验收项：B 无权限时无法读取 A 的 private 记忆；B 需经 Binding 才能搜索知识文件（03 §9）。</div>`;
+}
+function renderMemAudit(){
+  return `<div class="note-box">${ic('shield',14)} 统一审计：记录创建/批准/删除、组工具读取、Run 搜索命中、Provider 外发（03 §5）。不保存密钥与完整敏感正文。</div>
+    <div class="section-title">审计日志</div>
+    <div class="audit-list">${AUDIT.map(a=>`
+      <div class="audit-row"><span class="at">${esc(a.ts)}</span><span class="aa">${esc(a.action)}</span>
+        <span><b>${esc(a.actor)}</b> → ${esc(a.target)}</span><span class="doc-sub">${esc(a.detail)}</span></div>`).join('')}</div>`;
+}
+function renderCodeGraph(){
+  return `<div class="placeholder"><div class="big">${ic('graph',40)}</div>
+    <div><b>代码图谱（CodeGraph / Graphify）</b></div>
+    <div style="max-width:520px">沿用现有存储、索引、命令与 Agent 工具，<b>不把代码图谱复制到知识库表</b>，<b>不用文件知识库重新向量化</b>已由代码关系表达的代码。角色 Tool Loadout 可同时拥有 Knowledge、CodeGraph、Graphify 工具（00 §10 / 03 §2）。</div>
+    <div class="note-box" style="max-width:520px;margin-top:8px">若未来需要统一搜索入口，只实现<b>工具路由 / 结果展示</b>，不合并事实存储。</div>
+  </div>`;
+}
+
+/* ---------- 弹窗 ---------- */
+function openChunk(id){
+  const c = CHUNK_POOL.find(x=>x.id===id); if(!c) return;
+  $('chunkModalTitle').textContent = `文档片段 · ${c.source} chunk ${c.chunkIndex}`;
+  $('chunkModalBody').innerHTML = `
+    <div class="chunk-meta"><span>来源：${esc(c.source)}</span><span>chunk ${c.chunkIndex}</span>
+      <span>行 ${c.startLine}–${c.endLine}</span><span class="score">score ${c.score}</span></div>
+    <div class="md">${esc(c.content)}</div>
+    <div class="meta-grid"><b>headingPath</b><span>退款政策 / 退款时效</span><b>tokenCount</b><span>48</span>
+      <b>contentSha256</b><span>9f3c…a1</span><b>sourceAnchor</b><span>${esc(c.source)} · ${c.startLine}–${c.endLine} 行</span></div>`;
+  $('chunkModal').classList.add('show');
+}
+
+/* ---------- 事件 ---------- */
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-act]'); if(!t) return;
+  const [act,...rest] = t.dataset.act.split(':');
+  const arg = rest.join(':');
+  if(act==='domain'){ state.domain=arg; state.graphNode=null; render(); }
+  else if(act==='kb'){
+    if(rest[0]==='select'){ state.kbId=arg; const d=curDocs()[0]; state.docId=d?id:d.id; render(); }
+    else if(rest[0]==='create'){ alert('演示：弹出「新建知识库」对话框（名称 / 描述 / 访问范围 global·department·user）。'); }
+    else if(rest[0]==='bind'){ alert('演示：配置知识库共享开关 access_level 与角色绑定。'); }
+  }
+  else if(act==='tab'){ if(state.domain==='kb') state.tab=arg; else state.memTab=arg; render(); }
+  else if(act==='doc'){ if(rest[0]==='select'){ state.docId=arg; renderBody(); } else alert('演示操作：下载原件 / 重试 / 删除。'); }
+  else if(act==='preset'){ state.preset=arg; renderBody(); }
+  else if(act==='upload'){ const kb=curKb(); kb.docs.unshift({id:'n'+Date.now(),name:'新上传-示例.pdf',type:'pdf',status:'parsing',chunks:0,tokens:0,version:'—',anchor:'—',md:''}); kb.pendingParse++; render(); }
+  else if(act==='search'){ runSearch(); $('results').innerHTML = renderResults(); }
+  else if(act==='raw'){ state.showRaw = arg==='1'; renderBody(); }
+  else if(act==='chunk'){ openChunk(arg); }
+  else if(act==='modal'){ $('chunkModal').classList.remove('show'); }
+  else if(act==='theme'){ const r=document.documentElement; r.dataset.theme = r.dataset.theme==='dark'?'light':'dark'; }
+  else if(act==='mem'){
+    if(rest[0]==='char'){ state.memChar=arg; state.memFilter='all'; render(); }
+    else if(rest[0]==='tab'){ state.memTab=arg; render(); }
+    else if(rest[0]==='filter'){ state.memFilter=arg; renderBody(); }
+    else if(rest[0]==='act'){ const [sub,mid]=rest; alert(`演示：记忆操作 ${sub} → ${mid}`); }
+  }
+  else if(act==='graph'){ state.graphNode = state.graphNode===arg?null:arg; renderBody(); }
+});
+// cfg 输入（搜索配置）
+document.addEventListener('input', e=>{
+  const el = e.target.closest('[data-cfg]'); if(!el) return;
+  const k = el.dataset.cfg;
+  if(el.type==='checkbox') state.cfg[k]=el.checked;
+  else if(el.type==='range'){ state.cfg[k]=+el.value; const v=el.parentElement.querySelector('.range-val'); if(v)v.textContent=el.value; }
+  else state.cfg[k]=el.value;
+  if(k==='searchMode'||k==='useLocalVector'){ renderBody(); } // 模式变化需刷新配置面板
+});
+// 记忆策略输入
+document.addEventListener('change', e=>{
+  const el = e.target.closest('[data-memcfg]'); if(el){ const c=CHARACTERS.find(c=>c.id===state.memChar); c[el.dataset.memcfg]=el.value; return; }
+  const lo = e.target.closest('[data-loadout]'); if(lo){ const row=(LOADOUT[state.memChar]||[]).find(t=>t.tool===lo.dataset.loadout); if(row) row.on=lo.checked; }
+});
+// 弹窗遮罩点击关闭
+$('chunkModal').addEventListener('click', e=>{ if(e.target.id==='chunkModal') $('chunkModal').classList.remove('show'); });
+
+render();
+</script>
+</body>
+</html>
