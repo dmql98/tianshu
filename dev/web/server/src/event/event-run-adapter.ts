@@ -7,7 +7,7 @@ import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
-import { createDurableStream, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { createDurableStream, publishRunEvent, createNoopBroadcastChannel } from '../agent/runtime/run-event-store.js'
 import { enqueueRun } from '../agent/session-runner.js'
 import { sessionLoop } from '../agent/loop.js'
 import { getDb } from '../db/schema.js'
@@ -60,20 +60,6 @@ export function drainQueue(definitionId: string): void {
   if (next) scheduleOccurrence(next.id)
 }
 
-function broadcastChannel(broadcaster: TransportBroadcaster): TransportBroadcaster {
-  return {
-    emit: (type: string, ...args: any[]) => {
-      broadcaster.emit(type, ...args)
-      const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
-      fanOutToSinks(type, payload)
-      return true
-    },
-    on: () => undefined,
-    off: () => undefined,
-    id: 'event-occurrence',
-  } as any
-}
-
 export async function executeOccurrence(occurrenceId: string): Promise<void> {
   const broadcaster = broadcasterRef
   if (!broadcaster) throw new Error('Event runtime is not ready')
@@ -123,7 +109,7 @@ export async function executeOccurrence(occurrenceId: string): Promise<void> {
     SET current_run_id = ?, status = 'running', error = NULL, updated_at = ?
     WHERE id = ?
   `).run(run.id, Date.now(), occurrence.id)
-  const rawStream = broadcastChannel(broadcaster)
+  const rawStream = createNoopBroadcastChannel('event-occurrence')
   publishRunEvent(rawStream, run.id, 'run.queued', {
     session_id: session.id,
     run_id: run.id,

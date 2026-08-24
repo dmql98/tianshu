@@ -282,6 +282,23 @@ export function createDurableStream(stream: TransportBroadcaster, runId: string)
   })
 }
 
+/**
+ * NOOP broadcast channel for run paths that start a run outside the live chat
+ * uplink — ask_user resume (routes/runs.ts), goal resume (routes/goals.ts), and
+ * event occurrences (event/event-run-adapter.ts).
+ *
+ * Client delivery happens exclusively through fanOutToSinks, which BOTH
+ * publishRunEvent (durable events) and createDurableStream (high-volume
+ * message.delta / tool.output) call. This channel's emit MUST stay a no-op:
+ * fanning out here would double — or, once wrapped in another fan-out, triple —
+ * every event, so the client receives each streaming token multiple times
+ * (the "ask_user token triplication" symptom). The live chat path uses the
+ * equivalent NOOP_STREAM in ws/handlers.ts for the same reason.
+ */
+export function createNoopBroadcastChannel(id: string): TransportBroadcaster {
+  return { emit: () => true, on: () => undefined, off: () => undefined, id } as any
+}
+
 export function unwrapDurableStream(stream: TransportBroadcaster): TransportBroadcaster {
   return (stream as TransportBroadcaster & { [RAW_STREAM]?: TransportBroadcaster })[RAW_STREAM] || stream
 }

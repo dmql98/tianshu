@@ -7,8 +7,7 @@ import { abortSession, enqueueRun } from '../agent/session-runner.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
-import { createDurableStream, publishRunEvent, forceCancelRun, flushAllPending } from '../agent/runtime/run-event-store.js'
-import { fanOutToSinks } from '../transport/event-sinks.js'
+import { createDurableStream, publishRunEvent, forceCancelRun, flushAllPending, createNoopBroadcastChannel } from '../agent/runtime/run-event-store.js'
 import { createResumedRun } from '../agent/runtime/run-resume-service.js'
 import { llmCallsForRun, rowToLLMCall } from '../agent/llm-call-store.js'
 import { sessionLoop } from '../agent/loop.js'
@@ -28,20 +27,6 @@ function isNonTerminal(run: { status: string }): boolean {
 
 export function setRunsRuntime(broadcaster: TransportBroadcaster) {
   broadcasterRef = broadcaster
-}
-
-function broadcastChannel(broadcaster: TransportBroadcaster) {
-  return {
-    emit: (type: string, ...args: any[]) => {
-      broadcaster.emit(type, ...args)
-      const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
-      fanOutToSinks(type, payload)
-      return true
-    },
-    on: () => undefined,
-    off: () => undefined,
-    id: 'run-inputs',
-  } as any
 }
 
 router.get('/', (c) => {
@@ -135,7 +120,7 @@ router.post('/:id/cancel', (c) => {
   }
   if (!accepted && !forceEvent) return c.json({ error: 'Run is not active' }, 409)
   if (forceEvent) {
-    publishRunEvent(broadcastChannel(broadcasterRef!), run.id, 'run.cancelled', {
+    publishRunEvent(createNoopBroadcastChannel('run-inputs'), run.id, 'run.cancelled', {
       ...JSON.parse(forceEvent.payload),
     })
   }
@@ -147,7 +132,7 @@ router.post('/:id/cancel', (c) => {
       if (member.status === 'queued' || member.status === 'preparing') {
         if (member.id !== run.id) {
           const ev = runEventStore.append(member.id, 'run.cancelled', { status: 'cancelled', reason: 'chain_cancelled' })
-          if (ev) publishRunEvent(broadcastChannel(broadcasterRef!), member.id, 'run.cancelled', { ...JSON.parse(ev.payload) })
+          if (ev) publishRunEvent(createNoopBroadcastChannel('run-inputs'), member.id, 'run.cancelled', { ...JSON.parse(ev.payload) })
         }
       }
     }
@@ -207,7 +192,7 @@ router.post('/:id/inputs', async (c) => {
   checkpointStore.clearForRun(run.id, 'ask_user')
 
   const resumedRun = resumed.run
-  const rawStream = broadcastChannel(broadcaster)
+  const rawStream = createNoopBroadcastChannel('run-inputs')
   publishRunEvent(rawStream, resumedRun.id, 'run.queued', {
     session_id: resumed.session.id,
     run_id: resumedRun.id,

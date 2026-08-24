@@ -4,7 +4,7 @@ import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
-import { createDurableStream, publishRunEvent } from '../agent/runtime/run-event-store.js'
+import { createDurableStream, publishRunEvent, createNoopBroadcastChannel } from '../agent/runtime/run-event-store.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { enqueueRun } from '../agent/session-runner.js'
 import { sessionLoop } from '../agent/loop.js'
@@ -16,20 +16,6 @@ let broadcasterRef: TransportBroadcaster | null = null
 
 export function setGoalRuntime(broadcaster: TransportBroadcaster) {
   broadcasterRef = broadcaster
-}
-
-function broadcastChannel(broadcaster: TransportBroadcaster) {
-  return {
-    emit: (type: string, ...args: any[]) => {
-      broadcaster.emit(type, ...args)
-      const payload = args[0] && typeof args[0] === 'object' ? args[0] as Record<string, unknown> : { args }
-      fanOutToSinks(type, payload)
-      return true
-    },
-    on: () => undefined,
-    off: () => undefined,
-    id: 'goal-resume',
-  } as any
 }
 
 router.get('/:sessionId', (c) => {
@@ -127,7 +113,7 @@ router.post('/:id/resume', async (c) => {
   turnStore.attachUserMessage(turn.id, userMessage.id)
   goalStore.update(goal.id, { current_run_id: run.id })
 
-  const rawStream = broadcastChannel(broadcaster)
+  const rawStream = createNoopBroadcastChannel('goal-resume')
   publishRunEvent(rawStream, run.id, 'run.queued', {
     session_id: session.id,
     run_id: run.id,

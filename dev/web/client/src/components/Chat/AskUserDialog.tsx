@@ -9,7 +9,7 @@ import { useI18n } from '@/i18n'
  * through POST /runs/:id/inputs, which resumes the run with a fresh Run.
  */
 export default function AskUserDialog() {
-  const { pendingAskUser, clearAskUser, updateSessionMessage } = useChatStore()
+  const { pendingAskUser, clearAskUser } = useChatStore()
   const t = useI18n()
   const [answer, setAnswer] = useState('')
   const [busy, setBusy] = useState(false)
@@ -22,28 +22,17 @@ export default function AskUserDialog() {
     const text = answer.trim()
     setBusy(true)
     setError('')
-    const tempId = `opt-${Date.now()}`
-    // Optimistic insert: surface the answer immediately, before the round-trip.
-    // Dedupe guard: if the authoritative `message.created` event already landed
-    // (it is published server-side before the 202 returns), skip to avoid a
-    // duplicate bubble. The server event later upgrades this temp node in place.
-    updateSessionMessage(pendingAskUser.session_id, sess => {
-      if (sess.messages.some(m => m.role === 'user' && m.content === text)) return sess
-      return {
-        ...sess,
-        messages: [...sess.messages, { id: tempId, role: 'user', content: text, timestamp: Date.now() }],
-      }
-    })
+    // The authoritative answer bubble arrives via the `message.created` event,
+    // which the server publishes before the 202 returns and the store renders
+    // as a single `user` message (content = the full "问题：答案" instruction).
+    // Inserting an optimistic bubble here would duplicate it — the event's
+    // content is the whole instruction, not the raw answer — so we rely on that
+    // event instead of double-rendering.
     try {
       await submitRunInput(pendingAskUser.run_id, text)
       setAnswer('')
       clearAskUser()
     } catch (err: any) {
-      // Roll back the optimistic placeholder on failure.
-      updateSessionMessage(pendingAskUser.session_id, sess => ({
-        ...sess,
-        messages: sess.messages.filter(m => m.id !== tempId),
-      }))
       setError(err.message || t('提交失败'))
     } finally {
       setBusy(false)

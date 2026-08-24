@@ -1,0 +1,384 @@
+['ic-search','ic-upload','ic-theme','ic-close'].forEach(id=>{
+  const map={ 'ic-search':'search','ic-upload':'upload','ic-theme':'theme','ic-close':'close' };
+  const el=document.getElementById(id); if(el) el.innerHTML=ic(map[id],id==='ic-theme'?17:15);
+});
+
+const ICONS = {
+  search:'<circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2"/>',
+  upload:'<path d="M12 16V4M12 4l-4 4M12 4l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 18v1a1 1 0 001 1h14a1 1 0 001-1v-1" fill="none" stroke="currentColor" stroke-width="2"/>',
+  add:'<line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  theme:'<path d="M12 3a9 9 0 109 9 7 7 0 01-9-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+  close:'<line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  folder:'<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  file:'<path d="M6 3h8l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  retry:'<path d="M4 12a8 8 0 018-8 8 8 0 016 2.7M20 12a8 8 0 01-8 8 8 8 0 01-6-2.7" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M18 3v4h-4M6 21v-4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  trash:'<path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  database:'<ellipse cx="12" cy="6" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  settings:'<circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  knowledge:'<path d="M4 5a2 2 0 012-2h5v16H6a2 2 0 01-2-2zM20 5a2 2 0 00-2-2h-5v16h5a2 2 0 002-2z" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  link:'<path d="M9 15l6-6M10 7l1-1a4 4 0 015.7 5.7l-1 1M14 17l-1 1A4 4 0 017.3 12.3l1-1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  robot:'<rect x="5" y="8" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9.5" cy="12.5" r="1.1" fill="currentColor"/><circle cx="14.5" cy="12.5" r="1.1" fill="currentColor"/><path d="M12 4v3M9 4h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  bolt:'<path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="currentColor"/>',
+  memory:'<path d="M3 7h18v10H3z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 11h2M11 11h2M15 11h2M7 14h2M15 14h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  share:'<circle cx="6" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="6" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="18" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6" stroke="currentColor" stroke-width="1.6"/>',
+  download:'<path d="M12 4v10M12 14l-4-4M12 14l4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  graph:'<circle cx="6" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.7 8.6L11 15M16.3 8.6L13 15M8 7h8" stroke="currentColor" stroke-width="1.6"/>',
+  chart:'<path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  shield:'<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  check:'<path d="M5 12l4 4 10-10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  warn:'<path d="M12 4l9 16H3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+}
+function ic(name,size=15){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24">${ICONS[name]||''}</svg>`}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+const $ = id => document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+const KBS = [
+  { id:'kb-product', name:'产品手册库', desc:'产品文档 / FAQ / 退款政策', access:'global', binding:'全部角色',
+    pendingParse:1, pendingIndex:0,
+    docs:[
+      { id:'d1', name:'用户手册 v3.md', type:'md', status:'indexed', chunks:14, tokens:6200, version:'v3',
+        anchor:'用户手册 v3.md · 第 12–14 行',
+        md:'# 用户手册\n\n## 1. 账户与登录\n\n注册后请使用**邮箱**或**手机号**登录。忘记密码可通过「找回密码」邮件重置。\n\n## 2. 退款政策\n\n- 7 天内未使用可**全额退款**；\n- 已使用部分按剩余时长比例退还；\n- 退款将在 `3–5` 个工作日内原路返回。\n\n> 注意：活动特价商品不支持退款。' },
+      { id:'d2', name:'退款政策.pdf', type:'pdf', status:'indexed', chunks:9, tokens:4100, version:'v2',
+        anchor:'退款政策.pdf · 第 2 页',
+        md:'# 退款政策\n\n## 适用商品\n\n仅限标准定价商品，活动特价除外。\n\n## 退款时效\n\n原路退回，预计 `3–5` 个工作日到账。' },
+      { id:'d3', name:'API 参考.docx', type:'docx', status:'parsing', chunks:0, tokens:0, version:'—', anchor:'—', md:'' },
+      { id:'d4', name:'2024 销售报表.xlsx', type:'xlsx', status:'error', chunks:0, tokens:0, version:'—', anchor:'—', md:'', err:'OCR 失败：扫描件不支持，请上传数字文本。' },
+    ]},
+  { id:'kb-research', name:'研究资料库', desc:'论文 / 行业报告', access:'department', binding:'研究组',
+    pendingParse:0, pendingIndex:2,
+    docs:[
+      { id:'r1', name:'行业趋势报告.md', type:'md', status:'indexed', chunks:22, tokens:11800, version:'—', anchor:'行业趋势报告.md · 第 5 章', md:'# 行业趋势\n\n## 关键发现\n\n- 知识库+RAG 成为企业落地 LLM 的主流路径；\n- 混合检索（BM25 + 向量 + RRF）显著优于单一召回。' },
+      { id:'r2', name:'竞品分析.pdf', type:'pdf', status:'indexing', chunks:0, tokens:0, version:'—', anchor:'—', md:'' },
+    ]},
+  { id:'kb-private', name:'我的私人笔记', desc:'个人备忘', access:'user', binding:'仅本人',
+    pendingParse:0, pendingIndex:0,
+    docs:[ { id:'p1', name:'读书笔记.md', type:'md', status:'indexed', chunks:5, tokens:1900, version:'—', anchor:'读书笔记.md · 第 1 行', md:'# 读书笔记\n\n记忆与知识应分离：角色记忆跨会话，知识库按需检索。' } ]},
+]
+const CHUNK_POOL = [
+  { id:'d2_chunk_3', fileId:'d2', source:'退款政策.pdf', chunkIndex:3, startLine:20, endLine:34, score:.92,
+    content:'退款将在原路返回的 `3–5` 个工作日内到账。活动特价商品不在退款范围内。适用标准定价商品。' },
+  { id:'d1_chunk_7', fileId:'d1', source:'用户手册 v3.md', chunkIndex:7, startLine:12, endLine:14, score:.88,
+    content:'退款政策：7 天内未使用可全额退款；已使用部分按剩余时长比例退还；退款 `3–5` 个工作日原路返回。' },
+  { id:'d1_chunk_2', fileId:'d1', source:'用户手册 v3.md', chunkIndex:2, startLine:4, endLine:6, score:.81,
+    content:'注册后请使用邮箱或手机号登录。忘记密码可通过「找回密码」邮件重置口令。' },
+  { id:'r1_chunk_5', fileId:'r1', source:'行业趋势报告.md', chunkIndex:5, startLine:30, endLine:40, score:.79,
+    content:'混合检索（BM25 + 向量 + RRF）在召回率与相关性上显著优于单一向量召回，是企业 RAG 的主流选择。' },
+  { id:'p1_chunk_1', fileId:'p1', source:'读书笔记.md', chunkIndex:1, startLine:1, endLine:2, score:.70,
+    content:'记忆与知识应分离：角色记忆跨会话连续，知识库按绑定按需检索，不默认注入。' },
+]
+const PRESETS = [
+  {id:'general',label:'General 通用',desc:'按分隔符和长度切分，适合大多数普通文档'},
+  {id:'qa',label:'QA 问答',desc:'优先抽取问题-回答结构，适合 FAQ、题库'},
+  {id:'book',label:'Book 书籍',desc:'强化章节标题识别并层级合并，适合教材手册'},
+  {id:'laws',label:'Laws 法规',desc:'按法条层级组织合并，适合制度规范'},
+  {id:'semantic',label:'Semantic 语义',desc:'嵌入聚类语义切分，自动增强标题上下文'},
+  {id:'separator',label:'Separator 分隔',desc:'命中分隔符即切分，仅超长片段再按长度切'},
+]
+const QUERY_PARAMS_SCHEMA = {
+  search_mode:   { label:'检索模式',     type:'enum',   options:['keyword','hybrid','vector'], def:'keyword' },
+  final_top_k:   { label:'最终返回数 K', type:'int',    min:1, max:50, def:10 },
+  sim_threshold: { label:'相似度阈值',   type:'float',  min:0, max:1, def:0.2 },
+  use_local_vector:{ label:'启用本地向量（可选）', type:'bool', def:false },
+  use_reranker:  { label:'Reranker 精排', type:'bool', def:false },
+  use_graph_ppr: { label:'图谱 PPR 增强', type:'bool', def:false },
+  vec_weight:    { label:'向量权重',     type:'float',  min:0, max:1, def:0.7 },
+  bm25_weight:   { label:'BM25 权重',    type:'float',  min:0, max:1, def:0.3 },
+}
+const GRAPH = {
+  nodes:[
+    { id:'g1', label:'退款政策', type:'概念' },
+    { id:'g2', label:'全额退款', type:'规则' },
+    { id:'g3', label:'原路返回', type:'规则' },
+    { id:'g4', label:'活动特价', type:'例外' },
+    { id:'g5', label:'用户手册', type:'文档' },
+    { id:'g6', label:'登录方式', type:'概念' },
+  ],
+  edges:[
+    { from:'g1', to:'g2', rel:'包含' },
+    { from:'g1', to:'g3', rel:'时效' },
+    { from:'g1', to:'g4', rel:'排除' },
+    { from:'g5', to:'g6', rel:'描述' },
+    { from:'g5', to:'g1', rel:'引用' },
+  ],
+}
+const EVAL = {
+  queries:[
+    { q:'退款多久到账', lexical:{recall:1.0, mrr:1.0, cite:1.0}, vector:{recall:.67, mrr:.67, cite:1.0}, rrf:{recall:1.0, mrr:1.0, cite:1.0} },
+    { q:'怎么登录账号', lexical:{recall:1.0, mrr:1.0, cite:1.0}, vector:{recall:1.0, mrr:.5, cite:1.0}, rrf:{recall:1.0, mrr:1.0, cite:1.0} },
+    { q:'混合检索为什么更好', lexical:{recall:.5, mrr:.5, cite:.5}, vector:{recall:1.0, mrr:1.0, cite:1.0}, rrf:{recall:1.0, mrr:1.0, cite:1.0} },
+    { q:'活动商品能退吗', lexical:{recall:1.0, mrr:1.0, cite:.5}, vector:{recall:0, mrr:0, cite:0}, rrf:{recall:1.0, mrr:1.0, cite:.5} },
+    { q:'知识库用什么数据库', lexical:{recall:1.0, mrr:1.0, cite:.5}, vector:{recall:.5, mrr:.5, cite:.5}, rrf:{recall:1.0, mrr:1.0, cite:.5} },
+  ]
+}
+function curKb(){return KBS.find(k=>k.id===state.kbId);}
+function curDocs(){return curKb().docs;}
+function statusText(s){return {indexed:'已索引',parsing:'解析中',indexing:'索引中',pending:'待处理',error:'失败'}[s]||s;}
+function cls(s){return {indexed:'st indexed',parsing:'st parsing',indexing:'st indexing',pending:'st pending',error:'st error'}[s]||'st';}
+function accessBadge(a){return `<span class="badge ${a}">${a==='global'?'全局':a==='department'?'部门':'个人'}</span>`;}
+const state = {
+  kbId: 'kb-product', tab: 'files', docId: 'd1', showRaw: false,
+  cfg: { searchMode: 'keyword', useLocalVector: false, useReranker: false, useGraphPpr: false,
+         finalTopK: 10, simThreshold: 0.2, vecWeight: 0.7, bm25Weight: 0.3 },
+  preset: 'general', chunkEngineVersion: '3',
+  graphNode: null,
+  results: null,
+};
+function renderFiles(){
+  const docs = curDocs();
+  const tree = `<div class="panel"><div class="panel-head">${ic('folder',15)} 目录</div><div class="panel-body">
+    ${docs.map(d=>`<div class="tree-item ${d.id===state.docId?'active':''}" data-act="doc:select:${d.id}">${ic('file',13)} ${esc(d.name)}</div>`).join('')}
+  </div></div>`;
+  const list = `<div class="panel"><div class="panel-head">${ic('file',15)} 文档（${docs.length}）
+      <button class="mini-btn" data-act="upload:click">${ic('upload',12)} 上传</button></div>
+    <div class="panel-body">
+      <div class="dropzone" data-act="upload:click">${ic('upload',18)} 拖拽或点击上传（md / pdf / docx / xlsx / pptx）</div>
+      ${docs.map(d=>`
+        <div class="doc-row ${d.id===state.docId?'active':''}" data-act="doc:select:${d.id}">
+          <div class="doc-ic">${ic('file',16)}</div>
+          <div class="doc-main">
+            <div class="doc-name">${esc(d.name)}</div>
+            <div class="doc-sub"><span class="${cls(d.status)}">${statusText(d.status)}</span>
+              <span class="tag">${d.type}</span>${d.chunks?`<span>${d.chunks} 块</span>`:''}${d.version&&d.version!=='—'?`<span class="tag">v${d.version}</span>`:''}
+              ${d.status==='error'?`<span style="color:var(--danger)">${esc(d.err)}</span>`:''}</div>
+          </div>
+          <div class="row-actions">
+            <button class="mini-btn" data-act="doc:none" title="下载原文件">${ic('download',12)}</button>
+            ${(d.status==='parsing'||d.status==='error')?`<button class="mini-btn" data-act="doc:none" title="重试">${ic('retry',12)}</button>`:''}
+            <button class="mini-btn danger" data-act="doc:none" title="删除">${ic('trash',12)}</button>
+          </div>
+        </div>`).join('')}
+    </div></div>`;
+  const doc = docs.find(d=>d.id===state.docId) || docs[0];
+  const preview = `<div class="panel"><div class="panel-head">${ic('knowledge',15)} 预览与来源</div><div class="panel-body preview-body">
+      <div class="preview-title">${esc(doc.name)}</div>
+      <div class="preview-anchor">${ic('link',13)} ${esc(doc.anchor)}</div>
+      <div class="md">${doc.md?esc(doc.md).replace(/\n/g,'<br>').replace(/#{1,3} /g,m=>m):'<span class="empty">该文档尚未解析完成，无预览。</span>'}</div>
+      <div class="meta-grid">
+        <b>类型</b><span>${doc.type}</span>
+        <b>状态</b><span class="${cls(doc.status)}">${statusText(doc.status)}</span>
+        <b>版本</b><span>${doc.version||'—'}</span>
+        <b>分块</b><span>${doc.chunks||0} 块 / ${doc.tokens||0} tokens</span>
+        <b>来源锚点</b><span>${esc(doc.anchor)}</span>
+      </div>
+      <div class="chunk-config">
+        <div class="section-title">${ic('settings',14)} 分块配置（chunk_engine_version=${state.chunkEngineVersion}）</div>
+        <div class="preset-grid">
+          ${PRESETS.map(p=>`<div class="preset ${p.id===state.preset?'active':''}" data-act="preset:${p.id}">
+            <div class="pn">${p.label}</div><div class="pd">${p.desc}</div></div>`).join('')}
+        </div>
+        <div class="row"><label>块大小</label><input type="number" value="700" min="200" max="1500" style="width:90px"> <span class="tag">tokens</span>
+          <label style="min-width:60px;margin-left:8px">重叠</label><input type="number" value="100" min="0" max="300" style="width:80px"><span class="tag">tokens</span></div>
+        <div class="merge-note">三级参数合并：<b>KB 级默认</b> → <b>角色/绑定级</b> → <b>请求级</b>。变更 chunk_engine_version 后旧块不重建，仅新上传生效（对应 02 §7 / 报告 §3.5）。</div>
+      </div>
+    </div></div>`;
+  return `<div class="files-wrap">${tree}${list}${preview}</div>`;
+}
+function renderDebug(){
+  const sc = QUERY_PARAMS_SCHEMA;
+  const cfgHtml = `<div class="cfg">
+    <h4>${ic('settings',14)} 检索配置</h4>
+    <div class="field"><label>检索模式</label>
+      <select data-cfg="searchMode">${['keyword','hybrid','vector'].map(o=>`<option ${state.cfg.searchMode===o?'selected':''}>${o}</option>`).join('')}</select>
+      <div class="hint">${state.cfg.searchMode==='keyword'?'FTS5/BM25 常驻主力（默认，零基建）':'混合/向量需启用本地向量'}</div></div>
+    <div class="field"><label class="switch"><input type="checkbox" data-cfg="useLocalVector" ${state.cfg.useLocalVector?'checked':''}><span class="slider"></span></label> 启用本地向量（可选）</div>
+    <div class="field"><label>最终返回数 K</label><div class="range-row"><input type="range" min="1" max="50" value="${state.cfg.finalTopK}" data-cfg="finalTopK"><span class="range-val">${state.cfg.finalTopK}</span></div></div>
+    <div class="field"><label>相似度阈值</label><div class="range-row"><input type="range" min="0" max="1" step="0.05" value="${state.cfg.simThreshold}" data-cfg="simThreshold"><span class="range-val">${state.cfg.simThreshold}</span></div></div>
+    <div class="field"><label class="switch"><input type="checkbox" data-cfg="useReranker" ${state.cfg.useReranker?'checked':''}><span class="slider"></span></label> Reranker 精排（可关）</div>
+    <div class="field"><label class="switch"><input type="checkbox" data-cfg="useGraphPpr" ${state.cfg.useGraphPpr?'checked':''}><span class="slider"></span></label> 图谱 PPR 增强（P2）</div>
+    ${state.cfg.useLocalVector?`<div class="field"><label>向量权重</label><div class="range-row"><input type="range" min="0" max="1" step="0.05" value="${state.cfg.vecWeight}" data-cfg="vecWeight"><span class="range-val">${state.cfg.vecWeight}</span></div></div>
+    <div class="field"><label>BM25 权重</label><div class="range-row"><input type="range" min="0" max="1" step="0.05" value="${state.cfg.bm25Weight}" data-cfg="bm25Weight"><span class="range-val">${state.cfg.bm25Weight}</span></div></div>`:''}
+    <details class="schema-panel"><summary>后端 query_params Schema（配置驱动 UI，报告 §3.2）</summary>
+      <div class="schema-json">${esc(JSON.stringify(sc,null,2))}</div>
+      <div class="merge-note">前端不写死表单：<code>/query_params</code> 返回该 Schema，前端通用渲染；默认值即 FTS5-only（use_local_vector=false）。</div>
+    </details>
+  </div>`;
+  const qp = `<div class="query-pane">
+    <div class="query-box">
+      <textarea id="qInput" placeholder="输入查询，如：退款多久到账？">退款多久到账</textarea>
+      <div class="qb-actions">
+        <button class="btn primary" data-act="search:run">${ic('search',14)} 检索</button>
+        <span class="muted" style="font-size:12px">模式：${state.cfg.searchMode}${state.cfg.useLocalVector?' + 本地向量':''}</span>
+        <span class="spacer"></span>
+        <div class="toggle-raw"><button class="${!state.showRaw?'active':''}" data-act="raw:0">格式化</button><button class="${state.showRaw?'active':''}" data-act="raw:1">原始 JSON</button></div>
+      </div>
+    </div>
+    <div class="results" id="results">${renderResults()}</div>
+  </div>`;
+  return `<div class="debug-wrap">${cfgHtml}${qp}</div>`;
+}
+function runSearch(){
+  const q = ($('qInput')?$('qInput').value:'').trim();
+  const pool = CHUNK_POOL.slice();
+  let res;
+  if(!q){ res = pool; }
+  else {
+    const kw = q.toLowerCase();
+    res = pool.filter(c=>c.content.toLowerCase().includes(kw.split(/\s+/)[0]) || c.source.toLowerCase().includes(kw));
+    if(res.length===0) res = pool; // 演示兜底
+  }
+  // 打分（演示）：hybrid/vector 时按向量权重微调
+  res = res.map(c=>({...c, rerank: state.cfg.useReranker ? +(c.score*0.9+0.05).toFixed(2) : null,
+    ppr: state.cfg.useGraphPpr })).sort((a,b)=> (b.rerank??b.score)-(a.rerank??a.score));
+  state.results = res.slice(0, state.cfg.finalTopK);
+}
+function renderResults(){
+  if(!state.results) runSearch();
+  if(state.showRaw){
+    return `<div class="raw-json">${esc(JSON.stringify(state.results,null,2))}</div>`;
+  }
+  if(!state.results.length) return `<div class="no-res">${ic('search',22)} 无命中</div>`;
+  return state.results.map((c,i)=>`
+    <div class="result-card" data-act="chunk:open:${c.id}">
+      <div class="rc-head"><span class="rc-idx">#${i+1}</span><span class="rc-score">score ${c.score}</span>
+        ${c.rerank!=null?`<span class="rc-rerank">rerank ${c.rerank}</span>`:''}${c.ppr?'<span class="rc-rerank">+PPR</span>':''}
+        <span class="rc-source">${esc(c.source)} · chunk ${c.chunkIndex}</span></div>
+      <div class="rc-content">${esc(c.content)}</div>
+    </div>`).join('');
+}
+function renderCite(){
+  const r = state.results||CHUNK_POOL.slice(0,3);
+  const cards = r.map(c=>`
+    <div class="tool-body" style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-top:8px">
+      <div class="rc-head"><span class="rc-idx">${esc(c.source)}</span><span class="rc-score">score ${c.score}</span><span class="rc-source">chunk ${c.chunkIndex} · ${c.startLine}–${c.endLine} 行</span></div>
+      <div class="rc-content">${esc(c.content)}</div>
+      <a class="ref-link" data-act="chunk:open:${c.id}">${ic('link',13)} 查看来源 · ${esc(c.anchor?c.anchor:c.source)}</a>
+    </div>`).join('');
+  return `<div class="chat">
+    <div class="msg user"><div class="av">我</div><div class="bubble"><div class="who">用户</div>退款一般多久能到账？</div></div>
+    <div class="msg bot"><div class="av">枢</div><div class="bubble"><div class="who">小枢 · 调用 knowledge_search</div>
+      退款将在原路返回的 3–5 个工作日内到账；活动特价商品不在退款范围内。依据如下知识块：
+      <div class="tool-card"><div class="tool-head"><span class="dot"></span> knowledge_search · top_k=${state.cfg.finalTopK} · mode=${state.cfg.searchMode}</div>${cards}</div>
+      <div class="graph-block"><div class="gt">${ic('graph',13)} 文档图谱（PPR 增强为 P2 可选）</div>
+        <span class="entity">退款政策<span class="et">概念</span></span><span class="entity">原路返回<span class="et">规则</span></span><span class="entity">活动特价<span class="et">例外</span></span>
+        <div class="rel">退款政策 <span class="arr">→</span> 原路返回 <span style="color:var(--textMuted)">（时效 3–5 日）</span></div>
+        <div class="rel">退款政策 <span class="arr">→</span> 活动特价 <span style="color:var(--textMuted)">（排除）</span></div>
+      </div>
+    </div></div>
+  </div>`;
+}
+function renderGraph(){
+  const active = state.graphNode;
+  const edges = GRAPH.edges.filter(e=>!active || e.from===active || e.to===active);
+  const kpi = `<div class="graph-kpis"><div class="kpi"><div class="kv">${GRAPH.nodes.length}</div><div class="kl">实体</div></div>
+    <div class="kpi"><div class="kv">${GRAPH.edges.length}</div><div class="kl">关系</div></div>
+    <div class="kpi"><div class="kv">${active?edges.length:'—'}</div><div class="kl">当前邻域</div></div></div>`;
+  return `<div class="graph-wrap">
+    <div class="graph-canvas">${kpi}
+      ${GRAPH.nodes.map(n=>`<span class="gnode ${n.id===active?'active':''}" data-act="graph:node:${n.id}">${esc(n.label)}<span class="gt">${n.type}</span></span>`).join('')}
+      <div class="note-box" style="margin-top:14px">点击实体查看邻域关系。文档图谱 + PPR 增强检索为 <b>P2（二期之后可选）</b>，仅用 SQLite 存三元组，不引入 Neo4j（报告 §5 / §4.6）。</div>
+    </div>
+    <div class="gedges"><div class="section-title">${ic('graph',14)} 关系${active?'（邻域）':''}</div>
+      ${edges.length?edges.map(e=>{const f=GRAPH.nodes.find(n=>n.id===e.from),t=GRAPH.nodes.find(n=>n.id===e.to);
+        return `<div class="gedge">${esc(f.label)} <span class="arr">—${e.rel}→</span> ${esc(t.label)}</div>`;}).join(''):'<div class="empty">选择实体查看关系</div>'}</div>
+  </div>`;
+}
+function renderEval(){
+  const modes=['lexical','vector','rrf'];
+  const labels={lexical:'FTS5/BM25',vector:'本地向量',rrf:'RRF 融合'};
+  const agg={};
+  modes.forEach(m=>{ const qs=EVAL.queries; agg[m]={recall:avg(qs.map(q=>q[m].recall)),mrr:avg(qs.map(q=>q[m].mrr)),cite:avg(qs.map(q=>q[m].cite))}; });
+  function cell(v){const c=v>=.9?'eval-good':v>=.6?'eval-mid':'eval-bad';return `<td class="${c}">${v.toFixed(2)}</td>`;}
+  const rows = EVAL.queries.map(q=>`<tr><td class="q">${esc(q.q)}</td>
+    ${cell(q.lexical.recall)}${cell(q.lexical.mrr)}${cell(q.lexical.cite)}
+    ${cell(q.vector.recall)}${cell(q.vector.mrr)}${cell(q.vector.cite)}
+    ${cell(q.rrf.recall)}${cell(q.rrf.mrr)}${cell(q.rrf.cite)}</tr>`).join('');
+  const aggRow = `<tr><td class="q"><b>均值</b></td>
+    ${cell(agg.lexical.recall)}${cell(agg.lexical.mrr)}${cell(agg.lexical.cite)}
+    ${cell(agg.vector.recall)}${cell(agg.vector.mrr)}${cell(agg.vector.cite)}
+    ${cell(agg.rrf.recall)}${cell(agg.rrf.mrr)}${cell(agg.rrf.cite)}</tr>`;
+  return `<div class="section-title">${ic('chart',15)} 检索评测（对齐 03 §8 / 报告 §6）</div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kv">${agg.rrf.recall.toFixed(2)}</div><div class="kl">RRF Recall@5</div></div>
+      <div class="kpi"><div class="kv">${agg.rrf.mrr.toFixed(2)}</div><div class="kl">RRF MRR</div></div>
+      <div class="kpi"><div class="kv">${agg.rrf.cite.toFixed(2)}</div><div class="kl">RRF 引用正确率</div></div>
+    </div>
+    <table class="eval-table"><thead><tr><th rowspan="2">查询</th>
+      <th colspan="3">FTS5/BM25</th><th colspan="3">本地向量</th><th colspan="3">RRF 融合</th></tr>
+      <tr><th>Recall</th><th>MRR</th><th>引用</th><th>Recall</th><th>MRR</th><th>引用</th><th>Recall</th><th>MRR</th><th>引用</th></tr></thead>
+      <tbody>${rows}${aggRow}</tbody></table>
+    <div class="eval-note">结论：关键词明确场景（退款/登录）BM25 即满分；语义/跨语言场景向量补召回；<b>RRF 融合两档均最优</b>。Provider 故障时纯 FTS5 不阻断（对应 02 §8 / 03 §8）。评测需覆盖「纯 FTS5」「FTS5+本地向量」两档。</div>`;
+}
+function avg(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+/* ---------- 文件知识库脚手架（单域：知识库） ---------- */
+function renderCrumb(){
+  $('crumb').innerHTML = `/ 知识中心 / 文件知识库 / <b>${esc(curKb().name)}</b>`;
+}
+function renderSidebar(){
+  const sb = $('sidebar');
+  sb.innerHTML = `<div class="side-head"><span class="side-title">知识库</span><button class="icon-btn" data-act="kb:create" title="新建知识库"><span id="ic-add2"></span></button></div>
+    <div class="kb-list">${KBS.map(k=>`
+      <div class="kb-card ${k.id===state.kbId?'active':''}" data-act="kb:select:${k.id}">
+        <div class="kb-name">${ic('database',15)} ${esc(k.name)}</div>
+        <div class="kb-desc">${esc(k.desc)}</div>
+        <div class="kb-meta">${accessBadge(k.access)}<span class="stat-pill">${ic('file',12)} ${k.docs.length} 文档</span>
+          ${k.pendingParse?`<span class="stat-pill" style="color:var(--warning)">${k.pendingParse} 待解析</span>`:''}
+          ${k.pendingIndex?`<span class="stat-pill" style="color:var(--info)">${k.pendingIndex} 待索引</span>`:''}</div>
+        <div class="kb-manage">
+          <button class="mini-btn" data-act="kb:bind:${k.id}">${ic('share',12)} 绑定/共享</button>
+          <button class="mini-btn" data-act="doc:none">下载原件</button>
+        </div>
+      </div>`).join('')}</div>`;
+  const a=$('ic-add2'); if(a) a.innerHTML=ic('add',15);
+}
+function renderTabs(){
+  const defs = [['files','文件'],['debug','检索调试'],['cite','引用预览'],['graph','图谱探索'],['eval','评测']];
+  $('tabs').innerHTML = defs.map(([k,l])=>`<div class="tab ${k===state.tab?'active':''}" data-act="tab:${k}">${l}</div>`).join('');
+}
+function renderBody(){
+  const b = $('tabBody');
+  if(state.tab==='files') b.innerHTML = renderFiles();
+  else if(state.tab==='debug') b.innerHTML = renderDebug();
+  else if(state.tab==='cite') b.innerHTML = renderCite();
+  else if(state.tab==='graph') b.innerHTML = renderGraph();
+  else if(state.tab==='eval') b.innerHTML = renderEval();
+}
+function render(){
+  renderCrumb(); renderSidebar(); renderTabs(); renderBody();
+}
+
+/* ---------- chunk 详情弹窗 ---------- */
+function openChunk(id){
+  const c = CHUNK_POOL.find(x=>x.id===id); if(!c) return;
+  $('chunkModalTitle').textContent = `文档片段 · ${c.source} chunk ${c.chunkIndex}`;
+  $('chunkModalBody').innerHTML = `
+    <div class="chunk-meta"><span>来源：${esc(c.source)}</span><span>chunk ${c.chunkIndex}</span>
+      <span>行 ${c.startLine}–${c.endLine}</span><span class="score">score ${c.score}</span></div>
+    <div class="md">${esc(c.content)}</div>
+    <div class="meta-grid"><b>headingPath</b><span>退款政策 / 退款时效</span><b>tokenCount</b><span>48</span>
+      <b>contentSha256</b><span>9f3c…a1</span><b>sourceAnchor</b><span>${esc(c.source)} · ${c.startLine}–${c.endLine} 行</span></div>`;
+  $('chunkModal').classList.add('show');
+}
+
+/* ---------- 事件 ---------- */
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-act]'); if(!t) return;
+  const [act,...rest] = t.dataset.act.split(':');
+  const arg = rest.join(':');
+  if(act==='kb'){
+    if(rest[0]==='select'){ state.kbId=arg; const d=curDocs()[0]; state.docId=d?d.id:state.docId; render(); }
+    else if(rest[0]==='create'){ alert('演示：弹出「新建知识库」对话框（名称 / 描述 / 访问范围 global·department·user）。'); }
+    else if(rest[0]==='bind'){ alert('演示：配置知识库共享开关 access_level 与角色绑定。'); }
+  }
+  else if(act==='tab'){ state.tab=arg; render(); }
+  else if(act==='doc'){ if(rest[0]==='select'){ state.docId=arg; renderBody(); } else alert('演示操作：下载原件 / 重试 / 删除。'); }
+  else if(act==='preset'){ state.preset=arg; renderBody(); }
+  else if(act==='upload'){ const kb=curKb(); kb.docs.unshift({id:'n'+Date.now(),name:'新上传-示例.pdf',type:'pdf',status:'parsing',chunks:0,tokens:0,version:'—',anchor:'—',md:''}); kb.pendingParse++; render(); }
+  else if(act==='search'){ runSearch(); $('results').innerHTML = renderResults(); }
+  else if(act==='raw'){ state.showRaw = arg==='1'; renderBody(); }
+  else if(act==='chunk'){ openChunk(arg); }
+  else if(act==='modal'){ $('chunkModal').classList.remove('show'); }
+  else if(act==='theme'){ const r=document.documentElement; r.dataset.theme = r.dataset.theme==='dark'?'light':'dark'; }
+  else if(act==='graph'){ state.graphNode = state.graphNode===arg?null:arg; renderBody(); }
+});
+document.addEventListener('input', e=>{
+  const el = e.target.closest('[data-cfg]'); if(!el) return;
+  const k = el.dataset.cfg;
+  if(el.type==='checkbox') state.cfg[k]=el.checked;
+  else if(el.type==='range'){ state.cfg[k]=+el.value; const v=el.parentElement.querySelector('.range-val'); if(v)v.textContent=el.value; }
+  else state.cfg[k]=el.value;
+  if(k==='searchMode'||k==='useLocalVector'){ renderBody(); }
+});
+$('chunkModal').addEventListener('click', e=>{ if(e.target.id==='chunkModal') $('chunkModal').classList.remove('show'); });
+
+render();

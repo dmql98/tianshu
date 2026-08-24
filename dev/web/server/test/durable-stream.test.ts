@@ -12,7 +12,7 @@ import { getDb, closeDb } from '../src/db/schema.js'
 import { sessionStore } from '../src/db/sessionStore.js'
 import { runStore } from '../src/agent/runtime/run-store.js'
 import {
-  createDurableStream, flushAllPending, publishRunEvent,
+  createDurableStream, flushAllPending, publishRunEvent, createNoopBroadcastChannel,
 } from '../src/agent/runtime/run-event-store.js'
 import { addEventSink, clearEventSinks } from '../src/transport/event-sinks.js'
 import { getDataDir } from '../src/config.js'
@@ -110,5 +110,30 @@ describe('non-durable stream events still reach sinks (R8 regression)', () => {
     flushAllPending()
     const count = (db.prepare('SELECT COUNT(*) AS c FROM run_events WHERE run_id = ?').get(run.id) as { c: number }).c
     expect(count).toBe(1)
+  })
+})
+
+describe('run-resume stream (ask_user resume) does not triple-fan-out (regression)', () => {
+  it('publishRunEvent + durable message.delta each reach sinks exactly once', () => {
+    clearEventSinks()
+    const received: Array<{ type: string }> = []
+    addEventSink({ id: 'resume-sink', emit: (type) => { received.push({ type }) } })
+
+    const session = sessionStore.create({ id: `sess_${randomUUID()}`, character_id: newChar() } as any)
+    const run = runStore.create(session, { id: `run_${randomUUID()}` })
+    makeRunning(run.id)
+
+    // 与 routes/runs.ts POST /:id/inputs 构造一致：noop 广播通道 + durable stream。
+    const rawStream = createNoopBroadcastChannel('run-inputs')
+    publishRunEvent(rawStream, run.id, 'run.queued', {
+      session_id: session.id, run_id: run.id, trigger: 'user_input',
+    })
+    const durable = createDurableStream(rawStream, run.id)
+    durable.emit('message.delta', { session_id: session.id, run_id: run.id, delta: '你', reasoning: '想' })
+
+    // 每个事件只投递一次：修复前 broadcastChannel 会重复 fan-out，使 run.queued 与
+    // message.delta 各被投递 3 次（客户端表现为 token 三倍重复 / ask_user 三连）。
+    expect(received.filter(r => r.type === 'run.queued').length).toBe(1)
+    expect(received.filter(r => r.type === 'message.delta').length).toBe(1)
   })
 })
