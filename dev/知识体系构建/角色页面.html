@@ -356,6 +356,52 @@ select:focus,input:focus,textarea:focus{border-color:var(--accent); box-shadow:0
 .kl{font-size:12px;color:var(--ink-mid);margin-top:2px}
 .toast{position:fixed;left:50%;bottom:36px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--surface);padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:all .2s;z-index:99}
 .toast.show{opacity:.94;transform:translateX(-50%) translateY(0)}
+
+/* === 主题变量别名（修复新组件区引用的旧命名，随主题自动切换） === */
+:root{
+  --ink:var(--textPrimary); --ink-mid:var(--textSecondary); --ink-faint:var(--textMuted);
+  --surface:var(--surface1); --surface-2:var(--surface2);
+  --mono:"SFMono-Regular",Consolas,"Courier New",monospace;
+}
+/* === 角色 · 基础 tab === */
+.basic-grid{display:grid;grid-template-columns:minmax(300px,400px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:1024px){.basic-grid{grid-template-columns:1fr}}
+.basic-side{display:flex;flex-direction:column;gap:16px;min-width:0}
+.form-card{background:var(--surface1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.fc-head{display:flex;align-items:center;gap:8px;padding:12px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:13.5px}
+.fc-head svg{color:var(--accent)}
+.fc-head .fc-sub{margin-left:auto;font-size:11.5px;font-weight:400;color:var(--ink-faint)}
+.fc-body{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.fc-body.single{grid-template-columns:1fr}
+.fc-body .field{min-width:0}
+.field.full{grid-column:1/-1}
+.field label{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.label-hint{font-weight:400;font-size:11px;color:var(--ink-faint)}
+.field textarea{line-height:1.6}
+.field input[readonly]{font-family:var(--mono);font-size:12.5px;color:var(--ink-mid);background:transparent;border-style:dashed;cursor:default}
+.color-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+input[type=color].swatch{-webkit-appearance:none;appearance:none;width:46px;height:34px;padding:0;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);cursor:pointer;transition:.15s}
+input[type=color].swatch:hover{border-color:var(--accent)}
+input[type=color].swatch::-webkit-color-swatch-wrapper{padding:3px}
+input[type=color].swatch::-webkit-color-swatch{border:none;border-radius:6px}
+input[type=color].swatch::-moz-color-swatch{border:none;border-radius:6px}
+.color-hex{font-family:var(--mono);font-size:12.5px;color:var(--ink-mid);background:var(--input);border:1px solid var(--border);border-radius:7px;padding:4px 9px}
+.color-preview{display:inline-flex;align-items:center;gap:8px;margin-left:2px}
+.cp-avatar{width:26px;height:26px;border-radius:8px;display:inline-grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+.cp-tag{font-size:11px;font-family:var(--mono);border-radius:6px;padding:2px 8px;border:1px solid var(--border)}
+.chip{transition:.15s}
+.chip:hover{border-color:var(--accent)}
+.chip button:hover{color:var(--danger)}
+.setting-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px dashed var(--borderSubtle)}
+.setting-row:last-child{border-bottom:none}
+.setting-row .sr-main{flex:1;min-width:0}
+.setting-row .sr-name{font-weight:600;font-size:13px}
+.setting-row .sr-desc{font-size:11.5px;color:var(--ink-faint);margin-top:2px}
+.setting-row input[type=number]{width:110px}
+.form-foot{position:sticky;bottom:0;display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 18px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--canvas) 76%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.form-foot .hint{font-size:12px;color:var(--ink-faint)}
+.form-foot .spacer{flex:1}
+
 </style>
 </head>
 <body>
@@ -492,7 +538,11 @@ function renderMemOverview(){
   return `<div class="note-box">${ic('memory',14)} 角色记忆为独立 bounded context，与知识库存储/UI/工具/删除路径完全分离（00 §3 / 01 §13）。</div>
     <div class="sub-grid">
       <div class="panel" style="height:auto"><div class="panel-head">策略</div><div class="panel-body">
-        <div class="field"><label>Memory 模式</label>
+        <div class="setting-row" style="padding-top:4px"><div class="sr-main"><div class="sr-name">记忆开关</div><div class="sr-desc">关闭后不再写入 / 读取角色记忆</div></div>
+          <label class="switch"><input type="checkbox" data-charfield="memEnabled" ${c.memory&&c.memory.enabled?'checked':''}><span class="slider"></span></label></div>
+        <div class="setting-row" style="border-bottom:none;padding-bottom:0"><div class="sr-main"><div class="sr-name">记忆上限 charLimit</div><div class="sr-desc">memoryContent 的最大字符数</div></div>
+          <input type="number" data-charfield="charLimit" value="${c.memory?c.memory.charLimit:2000}"></div>
+        <div class="field" style="margin-top:10px"><label>Memory 模式</label>
           <select data-memcfg="mode">${modes.map(m=>`<option ${c.mode===m[0]?'selected':''}>${m[0]}（${m[1]}）</option>`).join('')}</select></div>
         <div class="field"><label>快照 Token 预算</label><input type="number" value="${c.snapshotTokenBudget}" style="width:100px"><span class="tag">已用 ${c.usedTokens}</span></div>
         <div class="field"><label>组共享默认</label><select data-memcfg="groupDefault">${['private','group','user'].map(v=>`<option ${c.groupDefault===v?'selected':''}>${v}</option>`).join('')}</select></div>
@@ -702,20 +752,43 @@ function renderCharTab(c){
   return '';
 }
 function renderCharBasic(c){
-  return `<div class="form-grid">
-    <div class="field"><label>名称</label><input type="text" data-charfield="name" value="${esc(c.name)}"></div>
-    <div class="field"><label>角色 ID（创建后不可改）</label><input type="text" value="${esc(c.id)}" disabled style="opacity:.7"></div>
-    <div class="field" style="grid-column:1/-1"><label>描述</label><textarea data-charfield="description">${esc(c.description||'')}</textarea></div>
-    <div class="field"><label>主题色</label><input type="color" data-charfield="color" value="${esc(c.color)}"></div>
-    <div class="field"><label>角色类型</label><select data-charfield="role"><option value="main" ${c.role==='main'?'selected':''}>主 Agent</option><option value="sub" ${c.role==='sub'?'selected':''}>子 Agent</option><option value="both" ${c.role==='both'?'selected':''}>主 / 子 Agent</option></select></div>
-    <div class="field"><label>默认策略</label><select data-charfield="default_strategy"><option ${c.default_strategy==='Off'?'selected':''}>Off</option><option ${c.default_strategy==='Read Only'?'selected':''}>Read Only</option><option ${c.default_strategy==='Review'?'selected':''}>Review</option><option ${c.default_strategy==='Auto Approve'?'selected':''}>Auto Approve</option></select></div>
-    <div class="field" style="grid-column:1/-1"><label>分组</label><div class="chips">${(c.groups||[]).map(g=>`<span class="chip">${esc(g)} <button data-act="char:group:remove:${g}">×</button></span>`).join('')}<input class="chip-input" placeholder="输入后回车" data-act="char:group:add"></div></div>
-    <div class="field" style="grid-column:1/-1"><label>Soul（角色灵魂）</label><textarea data-charfield="soul" style="min-height:88px">${esc(c.soul||'')}</textarea></div>
-    <div class="field" style="grid-column:1/-1"><label>用户画像 userProfile</label><textarea data-charfield="userProfile" style="min-height:64px">${esc(c.userProfile||'')}</textarea></div>
-    <div class="field" style="grid-column:1/-1"><label>记忆内容 memoryContent</label><textarea data-charfield="memoryContent" style="min-height:64px">${esc(c.memoryContent||'')}</textarea></div>
-    <div class="field"><label>记忆开关</label><label class="switch"><input type="checkbox" data-charfield="memEnabled" ${c.memory&&c.memory.enabled?'checked':''}><span class="slider"></span></label></div>
-    <div class="field"><label>记忆上限 charLimit</label><input type="number" data-charfield="charLimit" value="${c.memory?c.memory.charLimit:2000}" style="width:120px"></div>
-    <div class="field" style="grid-column:1/-1"><button class="btn primary" data-act="char:save">保存修改</button><span class="hint" style="margin-left:10px">演示：修改即时写入内存态，刷新页面后还原</span></div>
+  return `<div class="basic-wrap">
+    <div class="basic-grid">
+      <section class="form-card">
+        <div class="fc-head">${ic('robot',14)} 基本信息<span class="fc-sub">身份、归属与协作策略</span></div>
+        <div class="fc-body">
+          <div class="field"><label>名称</label><input type="text" data-charfield="name" value="${esc(c.name)}"></div>
+          <div class="field"><label>角色 ID<span class="label-hint">创建后不可修改</span></label><input type="text" value="${esc(c.id)}" readonly></div>
+          <div class="field full"><label>描述<span class="label-hint">展示在角色列表与选择器中</span></label><textarea data-charfield="description">${esc(c.description||'')}</textarea></div>
+          <div class="field"><label>角色类型</label><select data-charfield="role"><option value="main" ${c.role==='main'?'selected':''}>主 Agent</option><option value="sub" ${c.role==='sub'?'selected':''}>子 Agent</option><option value="both" ${c.role==='both'?'selected':''}>主 / 子 Agent</option></select></div>
+          <div class="field"><label>默认策略<span class="label-hint">被委派任务时的审批模式</span></label><select data-charfield="default_strategy"><option ${c.default_strategy==='Off'?'selected':''}>Off</option><option ${c.default_strategy==='Read Only'?'selected':''}>Read Only</option><option ${c.default_strategy==='Review'?'selected':''}>Review</option><option ${c.default_strategy==='Auto Approve'?'selected':''}>Auto Approve</option></select></div>
+          <div class="field full"><label>主题色<span class="label-hint">用于头像、标识与强调色</span></label>
+            <div class="color-row">
+              <input type="color" class="swatch" data-charfield="color" value="${esc(c.color)}">
+              <span class="color-hex">${esc(c.color)}</span>
+              <span class="color-preview"><span class="cp-avatar" style="background:${esc(c.color)}">${esc(charInitial(c))}</span><span class="cp-tag" style="color:${esc(c.color)};border-color:${esc(c.color)}66;background:${esc(c.color)}14">${esc(c.id)}</span></span>
+            </div>
+          </div>
+          <div class="field full"><label>分组<span class="label-hint">影响记忆共享范围与知识库绑定</span></label>
+            <div class="chips">${(c.groups||[]).map(g=>`<span class="chip">${esc(g)} <button data-act="char:group:remove:${g}">×</button></span>`).join('')}<input class="chip-input" placeholder="输入后回车" data-act="char:group:add"></div>
+          </div>
+        </div>
+      </section>
+      <div class="basic-side">
+        <section class="form-card">
+          <div class="fc-head">${ic('bolt',14)} 人格与提示词<span class="fc-sub">注入系统提示词</span></div>
+          <div class="fc-body single">
+            <div class="field"><label>Soul（角色灵魂）<span class="label-hint">人格与口吻，置于系统提示词最前</span></label><textarea data-charfield="soul" style="min-height:120px">${esc(c.soul||'')}</textarea></div>
+            <div class="field"><label>用户画像 userProfile<span class="label-hint">描述服务对象，影响回复视角</span></label><textarea data-charfield="userProfile" style="min-height:96px">${esc(c.userProfile||'')}</textarea></div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="form-foot">
+      <span class="hint">演示：修改即时写入内存态，刷新页面后还原</span>
+      <span class="spacer"></span>
+      <button class="btn primary" data-act="char:save">${ic('check',13)} 保存修改</button>
+    </div>
   </div>`;
 }
 function renderCharVisual(c){
