@@ -11,7 +11,7 @@ import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-c
 import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults, MAX_OVERFLOW_COMPACTS, type CompactPolicy } from './loop-policy.js'
 import { compactWithRetries, selectAndSummarize } from './context-compactor.js'
 import { isContextOverflowError } from '../../llm/client.js'
-import { handleSubAgentRequest, handleSubAgentMessageRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleCreateGoal, handleGetGoal, handleCompleteGoal } from './control-router.js'
+import { handleSubAgentBatchRequest, handleSubAgentMessageRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleCreateGoal, handleGetGoal, handleCompleteGoal } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
 import type { RunPolicySnapshot } from './run-policy.js'
@@ -386,18 +386,18 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
 
     messages.push(...result.messages)
 
-    if (result.type === 'sub_agent_request' && result.subAgentRequest) {
-      const outcome = await handleSubAgentRequest({
-        req: result.subAgentRequest,
+    if (result.type === 'sub_agent_request' && result.subAgentBatch) {
+      // P5 同步 barrier：同轮所有 delegate 并行拉起，全部完成（成功/失败）后
+      // 父 run 才继续下一轮 LLM（父 LLM 此时看到全部工具结果，输出合并/重试/询问）。
+      const outcome = await handleSubAgentBatchRequest({
+        batch: result.subAgentBatch,
         result,
         session,
         provider,
         model,
-        signal,
         broadcaster,
         stream,
         runId,
-        workspace,
       })
       messages.push(...outcome.messages)
       continue

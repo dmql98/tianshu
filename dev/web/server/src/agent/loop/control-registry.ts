@@ -14,7 +14,11 @@ export interface ControlToolDefinition {
   }
 }
 
-export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'send_message_to_subagent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step', 'create_goal', 'get_goal', 'complete_goal'] as const
+/**
+ * 独占控制动作：必须独占一轮（不能与其他工具并行）。delegate_to_agent 不在其中——
+ * P5 同步 barrier：delegate 可同轮多个并行（各拉起一个子会话），全部完成后父 LLM 才收到结果继续。
+ */
+export const CONTROL_TOOL_NAMES = ['send_message_to_subagent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step', 'create_goal', 'get_goal', 'complete_goal'] as const
 
 export const CONTROL_TOOL_SET: ReadonlySet<string> = new Set<string>(CONTROL_TOOL_NAMES)
 
@@ -120,8 +124,9 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
         description:
           '委托子任务给 targets 中列出的角色（仅顶层会话可调用，子会话无法再委托）。' +
           '适合场景：需要上下文隔离的大范围调研/检索、需要独立视角的验证或评审、或当前会话预算/轮数不足的长任务。' +
-          '子 agent 在独立会话中执行并返回结果，回注结果开头会附其 Sub-session ID，后续可用 send_message_to_subagent 继续追问。' +
-          '每次调用只拉起一个子会话；需要多个并行子任务（如分别搜科技/财经/国际新闻）时，在连续多轮中每轮调用一次本工具，各子会话会同时并行执行。' +
+          '一次模型回合可连续调用多个 delegate_to_agent（同轮并行拉起多个子会话，如分别搜科技/财经/国际新闻）；' +
+          '本轮所有子任务全部完成（成功或失败都算完成）后，模型才会收到各自的结果并继续回复（合并/重试/询问由你判断）。' +
+          '子 agent 在独立会话中执行，回注结果开头附其 Sub-session ID，后续可用 send_message_to_subagent 继续追问。' +
           '若某次委托失败（工具消息标记为 failed），由你自行判断：重新 delegate 重试，或放弃并向用户说明原因（必要时用 ask_user 询问）。' +
           '若描述中未列出可委托目标（targets 为空），说明当前未配置可委托角色，请勿调用。',
         parameters: {
@@ -189,6 +194,9 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
 export function getControlToolDefinitions(): ControlToolDefinition[] {
   return BASE_CONTROL_TOOL_DEFINITIONS.map(d => ({
     ...d,
-    function: { ...d.function, description: d.function.description + EXCLUSIVITY_NOTE },
+    // 独占约束仅对 CONTROL_TOOL_NAMES 中的控制动作可见；delegate_to_agent 可批量并行，不加 note。
+    function: CONTROL_TOOL_SET.has(d.function.name)
+      ? { ...d.function, description: d.function.description + EXCLUSIVITY_NOTE }
+      : { ...d.function },
   }))
 }

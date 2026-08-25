@@ -123,6 +123,12 @@ export interface SubAgentRequestData {
   instances: number
 }
 
+/** P5 同步 barrier：同轮多个 delegate 批量解析结果。 */
+export interface SubAgentBatchItem {
+  toolCallId: string
+  data: SubAgentRequestData
+}
+
 export interface SubAgentMessageRequestData {
   sub_session_id: string
   message: string
@@ -145,6 +151,8 @@ export interface InnerResult {
   toolCallRecords?: ToolCallRecord[]
   subAgentRequest?: SubAgentRequestData
   subAgentMessageRequest?: SubAgentMessageRequestData
+  /** P5 同步 barrier：同轮全部 delegate 的批量解析结果（成功/失败都由 control-router 收集）。 */
+  subAgentBatch?: SubAgentBatchItem[]
   taskCompleteSummary?: string
   evidence?: string[]
   question?: string
@@ -492,19 +500,46 @@ export async function innerLoop(
       })),
     }
   }
-  if (delegateCall) {
-    let args: Record<string, string> = {}
-    try { args = JSON.parse(delegateCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + delegateCall.function.name + '): ' + (err?.message || err)) }
+  const delegateCalls = toolCallsAcc.filter(tc => tc.function.name === 'delegate_to_agent')
+  if (delegateCalls.length > 0) {
+    // P5 同步 barrier：同轮所有 delegate 批量并行拉起，全部完成后父 LLM 才收到结果。
+    // 同轮混入的非 delegate 工具本轮不执行（生成占位结果保持协议配对完整），
+    // 由父 LLM 在下一轮执行。
+    const batch: SubAgentBatchItem[] = []
+    for (const tc of delegateCalls) {
+      let args: Record<string, string> = {}
+      try { args = JSON.parse(tc.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + tc.function.name + '): ' + (err?.message || err)) }
+      batch.push({
+        toolCallId: tc.id,
+        data: {
+          task: args.task || '',
+          target_character_id: args.target_character_id || '',
+          sub_strategy: args.sub_strategy as any,
+          instances: parseInt(args.instances as string) || 1,
+        },
+      })
+    }
+    for (const tc of toolCallsAcc) {
+      if (tc.function.name === 'delegate_to_agent') continue
+      const note = '本轮包含子代理委托（delegate_to_agent），普通工具调用被推迟：请在本轮子任务全部完成后，下一轮再执行该工具。'
+      newMessages.push({ role: 'tool', content: JSON.stringify({ error: note }), tool_call_id: tc.id })
+      if (sessionId) {
+        messageStore.addMessage(sessionId, {
+          role: 'tool', content: JSON.stringify({ error: note }),
+          tool_name: tc.function.name, tool_input: JSON.stringify({ call_id: tc.id, args: tc.function.arguments }),
+          tool_output: note, tool_status: 'error', is_error: 1,
+        })
+      }
+      stream?.emit('tool.completed', {
+        session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id,
+        tool_name: tc.function.name, tool_output: note, tool_status: 'error', duration_ms: 0,
+      })
+    }
     return {
       type: 'sub_agent_request',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      subAgentRequest: {
-        task: args.task || '',
-        target_character_id: args.target_character_id || '',
-        sub_strategy: args.sub_strategy as any,
-        instances: parseInt(args.instances as string) || 1,
-      },
+      subAgentBatch: batch,
     }
   }
 

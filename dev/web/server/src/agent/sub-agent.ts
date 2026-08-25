@@ -352,27 +352,22 @@ export interface SpawnSubAgentsInput {
   broadcaster?: TransportBroadcaster
   stream?: TransportBroadcaster
   runId: string
-  /** P5 批次聚合：子会话创建后立即回调（在子跑完之前），用于注册 pending。 */
-  onSpawned?: (subSessionId: string) => void
 }
 
-/** 单个子任务的执行结果（成功或失败都返回，不 throw——批次聚合需要逐个 settle）。 */
+/** 单个子任务的执行结果（成功或失败都返回，不 throw——barrier 需要逐个 settle）。 */
 export interface SpawnOutcome {
   subResult?: SubResult
   error?: string
 }
 
 /**
- * 委托入口（P5 简化）：每个 delegate_to_agent 恒拉起一个子会话
- * （instances 已从工具 schema 移除，模型不会传；clamp 兜底 1）。
- * 成功/失败都返回 outcome：失败时尽力携带 sub_session_id（若子会话已创建），
- * 供 control-router 按批次计数（失败也算一次完成）。
+ * 委托入口（P5 同步 barrier）：每个 delegate_to_agent 拉起一个子会话，
+ * 成功/失败都返回 outcome；失败时尽力携带 sub_session_id（若子会话已创建）。
  */
 export async function spawnAndRunSubAgents(input: SpawnSubAgentsInput): Promise<SpawnOutcome> {
   const spawned: { id?: string } = {}
   const onSpawned = (sid: string) => {
     spawned.id = sid
-    input.onSpawned?.(sid)
   }
   try {
     const subResult = await spawnAndRunSubAgent(

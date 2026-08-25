@@ -60,27 +60,26 @@ function makeArgs(stream: TransportBroadcaster | undefined): Parameters<typeof i
 }
 
 try {
-  // ---- mixed batch: control + ordinary tool --------------------------------
+  // ---- mixed batch: delegate + ordinary tool --------------------------------
+  // P5 同步 barrier：delegate 不再独占，同轮普通工具被推迟（占位结果保持协议配对），
+  // delegate 批量解析返回给 loop（sub_agent_request / subAgentBatch）。
   {
     globalThis.fetch = (async () => sse(
-      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"read_file","arguments":"{\\"path\\":\\"a.txt\\"}"}}]},"finish_reason":null}]}',
-      'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"call_2","type":"function","function":{"name":"delegate_to_agent","arguments":"{\\"task\\":\\"do x\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"read_file","arguments":"{\\"path\\":\\"a.txt\\"}"}}]},{"finish_reason":null}]}',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"call_2","type":"function","function":{"name":"delegate_to_agent","arguments":"{\\"task\\":\\"do x\\",\\"target_character_id\\":\\"char_b\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}',
     )) as typeof fetch
 
     const { stream, emitted } = makeStream()
     const result = await innerLoop(...makeArgs(stream as any)) as any
+    console.log('DEBUG mixed result type:', result?.type, 'batch:', JSON.stringify(result?.subAgentBatch))
 
-    assert(result.type === 'tool_calls_executed', 'mixed batch returns executed-with-errors, not side effects')
-    assert(result.toolCallRecords.length === 2, 'both calls recorded')
-    assert(result.toolCallRecords.every((r: any) => r.hasError), 'no call produced a real result')
-    assert(result.toolCallRecords.every((r: any) => r.error?.includes('control actions')), 'error explains protocol violation')
-    assert(result.toolCallRecords.every((r: any) => r.error?.includes('Recovery:')), 'error includes the recovery recipe')
-    const rejected = emitted.filter(e => e.type === 'control.rejected')
-    assert(rejected.length === 2, 'control.rejected emitted for every call in the batch')
-    assert(!emitted.some(e => e.type === 'tool.started'), 'no tool.started: no execution began')
-    assert(!emitted.some(e => e.type === 'tool.completed'), 'no tool.completed: no side effects')
-    assert(!emitted.some(e => e.type === 'approval.requested'), 'no approval flow for a rejected batch')
-    console.log('  OK control + ordinary tool mixed batch rejected without side effects')
+    assert(result.type === 'sub_agent_request', 'delegate routes to sub-agent batch')
+    assert(result.subAgentBatch?.length === 1, 'one delegate parsed into batch')
+    assert(result.subAgentBatch?.[0].data.task === 'do x', 'delegate task passed through')
+    // 非 delegate 工具被推迟：协议配对完整（tool 结果消息存在），且本轮未真正执行。
+    assert(result.messages.some((m: any) => m.role === 'tool' && m.tool_call_id === 'call_1'), 'ordinary tool gets a deferred placeholder result')
+    assert(!emitted.some(e => e.type === 'approval.requested'), 'no approval flow for deferred ordinary tool')
+    console.log('  OK delegate + ordinary tool: delegate batched, ordinary tool deferred')
   }
 
   // ---- two control actions in one turn -------------------------------------
@@ -108,11 +107,12 @@ try {
     const { stream, emitted } = makeStream()
     const result = await innerLoop(...makeArgs(stream as any)) as any
 
-    assert(result.type === 'sub_agent_request', 'single control call is a valid protocol turn')
-    assert(result.subAgentRequest?.task === 'summarize', 'task passed through')
-    assert(result.subAgentRequest?.target_character_id === 'char_b', 'target passed through')
-    assert(!emitted.some(e => e.type === 'control.rejected'), 'single control call not rejected')
-    console.log('  OK lone control action remains valid')
+    assert(result.type === 'sub_agent_request', 'single delegate is a valid protocol turn')
+    assert(result.subAgentBatch?.length === 1, 'single delegate parsed into batch')
+    assert(result.subAgentBatch?.[0].data.task === 'summarize', 'task passed through')
+    assert(result.subAgentBatch?.[0].data.target_character_id === 'char_b', 'target passed through')
+    assert(!emitted.some(e => e.type === 'control.rejected'), 'single delegate not rejected')
+    console.log('  OK lone delegate remains valid (sync barrier)')
   }
 
   // ---- lone submit_result routes to the completion path ----------------------
@@ -195,7 +195,7 @@ try {
   }
 } finally {
   globalThis.fetch = originalFetch
-  rmSync(tmpData, { recursive: true, force: true })
+  try { rmSync(tmpData, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }) } catch { /* Windows 偶发文件占用，忽略 */ }
 }
 
 console.log('ALL INNER CONTROL-MIX TESTS PASSED')
