@@ -50,7 +50,7 @@ export interface RunResult {
   totalCacheMissTokens: number
 }
 
-export async function sessionLoop(broadcaster: TransportBroadcaster, stream: TransportBroadcaster, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string } = {}): Promise<RunResult> {
+export async function sessionLoop(broadcaster: TransportBroadcaster, stream: TransportBroadcaster, sessionId: string, signal?: AbortSignal, opts: { thinking?: boolean; reasoning_effort?: string; run_id?: string; systemAlerts?: string[] } = {}): Promise<RunResult> {
   const runId = opts.run_id || `run_${sessionId}_${Date.now()}`
   opts.run_id = runId
   const session = sessionStore.getById(sessionId)
@@ -260,7 +260,7 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     }
   }
 
-  const composeCtx: ComposeContext = { systemAlerts: [] }
+  const composeCtx: ComposeContext = { systemAlerts: [...(opts.systemAlerts || [])] }
 
   const rawMode = (session.execution_mode || 'direct') as 'direct' | 'plan_first' | 'goal'
   // Execution modes: direct (plan/goal 均可选) / plan_first (必须建计划) /

@@ -42,6 +42,8 @@ export default function SessionPanel() {
   const [exportTarget, setExportTarget] = useState<Session | null>(null)
   const [projectMenu, setProjectMenu] = useState<ProjectContextMenu | null>(null)
   const [showFolderPicker, setShowFolderPicker] = useState(false)
+  // 会话树折叠：有子会话的会话默认折叠，点箭头展开；expandedSessions 记录「用户手动展开」的会话（仅 UI 态）。
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set())
   const navigate = useNavigate()
   const menuRef = useRef<HTMLDivElement>(null)
   const {
@@ -223,6 +225,8 @@ export default function SessionPanel() {
     const isActive = session.id === activeSessionId
     const isSelected = selectedSessionIds.has(session.id)
     const children = getChildren(session.id)
+    const hasChildren = children.length > 0
+    const isCollapsed = hasChildren && !expandedSessions.has(session.id)
     const motion = sessionMotions[session.id] || 'idle'
     const motionLabel = t(motionLabelKey(motion))
 
@@ -264,8 +268,23 @@ export default function SessionPanel() {
               )}
             </div>
           </div>
+          {hasChildren && (
+            <span
+              className={`session-arrow ${!isCollapsed ? 'open' : ''}`}
+              title={isCollapsed ? t('展开') : t('折叠')}
+              onClick={e => {
+                e.stopPropagation()
+                setExpandedSessions(prev => {
+                  const next = new Set(prev)
+                  if (next.has(session.id)) next.delete(session.id)
+                  else next.add(session.id)
+                  return next
+                })
+              }}
+            >▶</span>
+          )}
         </div>
-        {children.map(child => renderSessionItem(child, true))}
+        {hasChildren && !isCollapsed && children.map(child => renderSessionItem(child, true))}
       </div>
     )
   }

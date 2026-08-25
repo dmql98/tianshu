@@ -28,6 +28,23 @@ function formatArg(raw: string | undefined): string {
   }
 }
 
+/**
+ * 提取任务摘要（delegate_to_agent → args.task；send_message_to_subagent → args.message），
+ * 显示在卡片头，让多张并行子代理卡片一眼可辨（搜科技 / 搜财经 / 搜国际…）。
+ */
+function taskSummary(raw: string | undefined): string {
+  if (!raw) return ''
+  try {
+    const parsed = JSON.parse(raw) as { args?: { task?: string; message?: string } }
+    const text = parsed?.args?.task || parsed?.args?.message || ''
+    const oneLine = text.replace(/\s+/g, ' ').trim()
+    if (!oneLine) return ''
+    return oneLine.length > 24 ? oneLine.slice(0, 24) + '…' : oneLine
+  } catch {
+    return ''
+  }
+}
+
 function statusLabel(status: string, t: (k: string) => string): string {
   if (status === 'success') return `✓ ${t('成功')}`
   if (status === 'error') return `✗ ${t('失败')}`
@@ -42,6 +59,9 @@ export default memo(function ToolCall({ message }: Props) {
   const inputText = formatArg(message.tool_input)
   const hasInput = inputText.length > 0
   const hasOutput = !!message.tool_output
+  // 子代理卡片显示任务摘要（搜科技新闻…），多张并行卡片可区分
+  const subTask = taskSummary(message.tool_input)
+  const isSubAgentCard = message.tool_name === 'delegate_to_agent' || message.tool_name === 'send_message_to_subagent'
 
   return (
     <div className="msg-group star">
@@ -56,6 +76,9 @@ export default memo(function ToolCall({ message }: Props) {
           <span className="tool-card-name">{message.tool_name}</span>
           <span className="tool-card-dot">·</span>
           <span className={`tool-card-status ${status}`}>{statusLabel(status, t)}</span>
+          {isSubAgentCard && subTask && (
+            <span className="tool-card-subtask" title={subTask}>{subTask}</span>
+          )}
           <span className="tool-card-caret">{expanded ? '▾' : '▸'}</span>
         </button>
 

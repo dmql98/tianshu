@@ -123,8 +123,14 @@ export interface SubAgentRequestData {
   instances: number
 }
 
+export interface SubAgentMessageRequestData {
+  sub_session_id: string
+  message: string
+  sub_strategy?: Strategy
+}
+
 export interface InnerResult {
-  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'submit_result' | 'ask_user' | 'create_plan' | 'update_plan_step' | 'create_goal' | 'get_goal' | 'complete_goal'
+  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'sub_agent_message_request' | 'submit_result' | 'ask_user' | 'create_plan' | 'update_plan_step' | 'create_goal' | 'get_goal' | 'complete_goal'
   messages: LLMMessage[]
   fullText: string
   reasoningText: string
@@ -138,6 +144,7 @@ export interface InnerResult {
   error?: string
   toolCallRecords?: ToolCallRecord[]
   subAgentRequest?: SubAgentRequestData
+  subAgentMessageRequest?: SubAgentMessageRequestData
   taskCompleteSummary?: string
   evidence?: string[]
   question?: string
@@ -497,6 +504,22 @@ export async function innerLoop(
         target_character_id: args.target_character_id || '',
         sub_strategy: args.sub_strategy as any,
         instances: parseInt(args.instances as string) || 1,
+      },
+    }
+  }
+
+  const subMsgCall = toolCallsAcc.find(tc => tc.function.name === 'send_message_to_subagent')
+  if (subMsgCall) {
+    let args: Record<string, string> = {}
+    try { args = JSON.parse(subMsgCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + subMsgCall.function.name + '): ' + (err?.message || err)) }
+    return {
+      type: 'sub_agent_message_request',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
+      subAgentMessageRequest: {
+        sub_session_id: args.sub_session_id || '',
+        message: args.message || '',
+        sub_strategy: args.sub_strategy as any,
       },
     }
   }

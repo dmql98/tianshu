@@ -13,7 +13,7 @@ export type RunStatus =
   | 'completed' | 'failed' | 'cancelled' | 'max_turns'
   | 'budget_exhausted' | 'interrupted'
 export type RunPhase = 'context' | 'model' | 'tools' | 'delegate' | 'verify' | 'finalize'
-export type ResumeTrigger = 'manual' | 'user_input' | 'auto_limit' | null
+export type ResumeTrigger = 'manual' | 'user_input' | 'auto_limit' | 'sub_agent_callback' | null
 
 export interface RunRow {
   id: string

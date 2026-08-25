@@ -14,8 +14,30 @@ import { turnStore } from '../db/turnStore.js'
 import { runStore } from './runtime/run-store.js'
 import { createDurableStream, publishRunEvent, unwrapDurableStream } from './runtime/run-event-store.js'
 import { enqueueRun } from './session-runner.js'
+import { buildInitialMessages, resolveWorkspace } from './loop/context-builder.js'
+import { resolveCapability } from './attachments.js'
+import { sessionSkillStore } from './session-skill-store.js'
 
 const MAX_DEPTH = 1
+export const MAX_INSTANCES = 5
+
+/** P5: instances 参数归一化（1-5 整数，非法回退 1）。 */
+export function clampInstances(raw: unknown): number {
+  const n = Math.floor(Number(raw))
+  if (!Number.isFinite(n) || n < 1) return 1
+  return Math.min(n, MAX_INSTANCES)
+}
+
+/** P5: 子会话 ID 生成（instanceSeq 用于同源并行区分，避免同毫秒撞 ID）。 */
+export function buildSubSessionId(
+  parentSessionId: string,
+  targetCharacterId: string,
+  ts: number,
+  instanceSeq?: number,
+): string {
+  const seq = instanceSeq !== undefined ? `_${instanceSeq}` : ''
+  return `sub_${parentSessionId}_${targetCharacterId}_${ts}${seq}`
+}
 
 export interface SubResult {
   summary: string
@@ -71,6 +93,111 @@ export function summarizeAndMerge(results: SubResult[], maxTokens = 2000): SubSu
   }
 }
 
+/** 子代理系统提示组装（spawn 首轮 / continue 续跑共用）。 */
+function buildSubAgentSystemPrompt(
+  targetChar: CharacterRecord,
+  charContent: { soul: string; user: string; memory: string },
+  taskHeader: string,
+  hasTools: boolean,
+): string {
+  const systemParts: string[] = []
+  if (charContent.soul) systemParts.push(`## Character\n${charContent.soul}`)
+  if (charContent.user) systemParts.push(`## User Info\n${charContent.user}`)
+  if (charContent.memory) systemParts.push(`## Memory\n${charContent.memory}`)
+  systemParts.push(`## Delegated Task\n${taskHeader}`)
+  const subSkillIndex = buildSkillIndex(targetChar)
+  if (subSkillIndex.length > 0) {
+    systemParts.push(`## Available Skills\n${subSkillIndex.map(s => s.listing).join('\n')}`)
+  }
+  if (hasTools) {
+    systemParts.push(
+      "# Tool-use enforcement\n" +
+      "You MUST use your tools to take action \u2014 do not describe what you would do " +
+      "without actually doing it. Execute tool calls immediately.\n" +
+      "# Finishing the job\n" +
+      "Keep working until you have produced the requested result. Report honestly " +
+      "if a tool fails. Never fabricate output.\n" +
+      "# Parallel tool calls\n" +
+      "Batch independent read-only calls together instead of one per turn.\n" +
+      "# Verification\n" +
+      "Before finalizing: verify correctness and back claims with tool output."
+    )
+  }
+  return systemParts.join('\n\n')
+}
+
+/** 子代理 run 执行：入队 + innerLoop 多轮循环（spawn 首轮 / continue 续跑共用）。 */
+function runSubAgentLoop(input: {
+  subSessionId: string
+  childRunId: string
+  taskId: string
+  messages: LLMMessage[]
+  toolDefs: any[]
+  provider: ProviderConfig
+  model: string
+  targetChar: CharacterRecord
+  workspace: string | undefined
+  workspaces: string[] | undefined
+  broadcaster?: TransportBroadcaster
+  childStream: TransportBroadcaster
+}): Promise<InnerResult> {
+  const { subSessionId, childRunId, taskId, messages, toolDefs, provider, model, targetChar, workspace, workspaces, broadcaster, childStream } = input
+  return new Promise<InnerResult>((resolve, reject) => {
+    enqueueRun(subSessionId, childRunId, async childSignal => {
+      try {
+        getDb().prepare("UPDATE agent_tasks SET status = 'running', updated_at = ? WHERE id = ?")
+          .run(Date.now(), taskId)
+        childStream.emit('run.started', {
+          session_id: subSessionId,
+          run_id: childRunId,
+          context_window: 0,
+        })
+        let last: InnerResult | null = null
+        const maxTurns = Math.max(1, targetChar.maxSteps || 50)
+        for (let childTurn = 1; childTurn <= maxTurns && !childSignal.aborted; childTurn++) {
+          last = await innerLoop(
+            messages,
+            toolDefs.length > 0 ? toolDefs : undefined,
+            provider,
+            model,
+            targetChar.id,
+            workspace,
+            broadcaster,
+            childStream,
+            subSessionId,
+            childSignal,
+            { run_id: childRunId },
+            childTurn,
+            undefined,
+            workspaces,
+          )
+          messages.push(...last.messages)
+          if (last.type === 'final_answer' || last.type === 'submit_result' || last.type === 'error' || last.type === 'aborted') break
+          if (last.type === 'sub_agent_request' || last.type === 'sub_agent_message_request') {
+            throw new Error('Child agents cannot delegate another agent')
+          }
+        }
+        if (!last) throw new Error('Child run produced no result')
+        if (last.type === 'error') throw new Error(last.error || 'Child run failed')
+        const terminalStatus = childSignal.aborted ? 'cancelled' : 'completed'
+        childStream.emit('run.completed', {
+          session_id: subSessionId,
+          run_id: childRunId,
+          status: terminalStatus,
+        })
+        resolve(last)
+      } catch (error: any) {
+        childStream.emit('run.failed', {
+          session_id: subSessionId,
+          run_id: childRunId,
+          error: error.message || String(error),
+        })
+        reject(error)
+      }
+    })
+  })
+}
+
 export async function spawnAndRunSubAgent(
   task: string,
   targetCharacterId: string,
@@ -83,6 +210,8 @@ export async function spawnAndRunSubAgent(
   broadcaster?: TransportBroadcaster,
   stream?: TransportBroadcaster,
   runId?: string,
+  instanceSeq?: number,
+  onSpawned?: (subSessionId: string) => void,
 ): Promise<SubResult> {
   if (depth >= MAX_DEPTH) {
     throw new Error(`Sub-agent 递归深度 (${depth}) 超过 MAX_DEPTH (${MAX_DEPTH})`)
@@ -99,7 +228,7 @@ export async function spawnAndRunSubAgent(
     strategyOverride || parentSession.current_strategy || parentSession.approval_mode || targetChar.default_strategy,
   )
 
-  const subSessionId = `sub_${parentSession.id}_${targetCharacterId}_${Date.now()}`
+  const subSessionId = buildSubSessionId(parentSession.id, targetCharacterId, Date.now(), instanceSeq)
   const parentWorkspaces = parentSession.workspaces || (parentSession.workspace ? JSON.stringify([parentSession.workspace]) : null)
   const childSession = sessionStore.create({
     id: subSessionId,
@@ -114,6 +243,9 @@ export async function spawnAndRunSubAgent(
     current_strategy: subStrategy,
     approval_mode: subStrategy,
   })
+  // P5 批次聚合：子会话创建后立即注册 pending（不等待子跑完），
+  // 供 control-router 的「全部完成才唤醒」判断使用。
+  onSpawned?.(subSessionId)
 
   const turn = turnStore.create(subSessionId, 'agent_task')
   const childRun = runStore.create(childSession, {
@@ -154,30 +286,12 @@ export async function spawnAndRunSubAgent(
     .filter(tool => tool.function.name !== 'delegate_to_agent')
   const hasTools = toolDefs.length > 0
 
-  const systemParts: string[] = []
-  if (charContent.soul) systemParts.push(`## Character\n${charContent.soul}`)
-  if (charContent.user) systemParts.push(`## User Info\n${charContent.user}`)
-  if (charContent.memory) systemParts.push(`## Memory\n${charContent.memory}`)
-  systemParts.push(`## Delegated Task\nYou are being delegated a sub-task by a parent agent. Complete the following task and report your findings.\n\nTask: ${task}`)
-  const subSkillIndex = buildSkillIndex(targetChar)
-  if (subSkillIndex.length > 0) {
-    systemParts.push(`## Available Skills\n${subSkillIndex.map(s => s.listing).join('\n')}`)
-  }
-  if (hasTools) {
-    systemParts.push(
-      "# Tool-use enforcement\n" +
-      "You MUST use your tools to take action \u2014 do not describe what you would do " +
-      "without actually doing it. Execute tool calls immediately.\n" +
-      "# Finishing the job\n" +
-      "Keep working until you have produced the requested result. Report honestly " +
-      "if a tool fails. Never fabricate output.\n" +
-      "# Parallel tool calls\n" +
-      "Batch independent read-only calls together instead of one per turn.\n" +
-      "# Verification\n" +
-      "Before finalizing: verify correctness and back claims with tool output."
-    )
-  }
-  const systemPrompt = systemParts.join('\n\n')
+  const systemPrompt = buildSubAgentSystemPrompt(
+    targetChar,
+    charContent,
+    `You are being delegated a sub-task by a parent agent. Complete the following task and report your findings.\n\nTask: ${task}`,
+    hasTools,
+  )
 
   const messages: LLMMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -198,59 +312,19 @@ export async function spawnAndRunSubAgent(
   })
   const childStream = createDurableStream(rawStream, childRun.id)
 
-  const innerResult = await new Promise<InnerResult>((resolve, reject) => {
-    enqueueRun(subSessionId, childRun.id, async childSignal => {
-      try {
-        getDb().prepare("UPDATE agent_tasks SET status = 'running', updated_at = ? WHERE id = ?")
-          .run(Date.now(), taskId)
-        childStream.emit('run.started', {
-          session_id: subSessionId,
-          run_id: childRun.id,
-          context_window: 0,
-        })
-        let last: InnerResult | null = null
-        const maxTurns = Math.max(1, targetChar.maxSteps || 50)
-        for (let childTurn = 1; childTurn <= maxTurns && !childSignal.aborted; childTurn++) {
-          last = await innerLoop(
-            messages,
-            effectiveTools.length > 0 ? effectiveTools : undefined,
-            provider,
-            model,
-            targetCharacterId,
-            parentSession.workspace || undefined,
-            broadcaster,
-            childStream,
-            subSessionId,
-            childSignal,
-            { run_id: childRun.id },
-            childTurn,
-            undefined,
-            subWorkspaces,
-          )
-          messages.push(...last.messages)
-          if (last.type === 'final_answer' || last.type === 'submit_result' || last.type === 'error' || last.type === 'aborted') break
-          if (last.type === 'sub_agent_request') {
-            throw new Error('Child agents cannot delegate another agent')
-          }
-        }
-        if (!last) throw new Error('Child run produced no result')
-        if (last.type === 'error') throw new Error(last.error || 'Child run failed')
-        const terminalStatus = childSignal.aborted ? 'cancelled' : 'completed'
-        childStream.emit('run.completed', {
-          session_id: subSessionId,
-          run_id: childRun.id,
-          status: terminalStatus,
-        })
-        resolve(last)
-      } catch (error: any) {
-        childStream.emit('run.failed', {
-          session_id: subSessionId,
-          run_id: childRun.id,
-          error: error.message || String(error),
-        })
-        reject(error)
-      }
-    })
+  const innerResult = await runSubAgentLoop({
+    subSessionId,
+    childRunId: childRun.id,
+    taskId,
+    messages,
+    toolDefs: effectiveTools,
+    provider,
+    model,
+    targetChar,
+    workspace: parentSession.workspace || undefined,
+    workspaces: subWorkspaces,
+    broadcaster,
+    childStream,
   })
 
   const summary = innerResult.fullText || innerResult.error || 'No output'
@@ -264,6 +338,205 @@ export async function spawnAndRunSubAgent(
     key_files: [],
     conclusions: hasError ? [`Error: ${innerResult.error}`] : [summary],
     agent_id: targetCharacterId,
+    sub_session_id: subSessionId,
+  }
+}
+
+export interface SpawnSubAgentsInput {
+  task: string
+  targetCharacterId: string
+  parentSession: Parameters<typeof spawnAndRunSubAgent>[2]
+  provider: ProviderConfig
+  model: string
+  strategyOverride?: StrategyInput
+  broadcaster?: TransportBroadcaster
+  stream?: TransportBroadcaster
+  runId: string
+  /** P5 批次聚合：子会话创建后立即回调（在子跑完之前），用于注册 pending。 */
+  onSpawned?: (subSessionId: string) => void
+}
+
+/** 单个子任务的执行结果（成功或失败都返回，不 throw——批次聚合需要逐个 settle）。 */
+export interface SpawnOutcome {
+  subResult?: SubResult
+  error?: string
+}
+
+/**
+ * 委托入口（P5 简化）：每个 delegate_to_agent 恒拉起一个子会话
+ * （instances 已从工具 schema 移除，模型不会传；clamp 兜底 1）。
+ * 成功/失败都返回 outcome：失败时尽力携带 sub_session_id（若子会话已创建），
+ * 供 control-router 按批次计数（失败也算一次完成）。
+ */
+export async function spawnAndRunSubAgents(input: SpawnSubAgentsInput): Promise<SpawnOutcome> {
+  const spawned: { id?: string } = {}
+  const onSpawned = (sid: string) => {
+    spawned.id = sid
+    input.onSpawned?.(sid)
+  }
+  try {
+    const subResult = await spawnAndRunSubAgent(
+      input.task,
+      input.targetCharacterId,
+      input.parentSession,
+      input.provider,
+      input.model,
+      input.strategyOverride,
+      undefined,
+      0,
+      input.broadcaster,
+      input.stream,
+      input.runId,
+      undefined,
+      onSpawned,
+    )
+    return { subResult }
+  } catch (err: any) {
+    return {
+      error: err?.message || String(err),
+      subResult: spawned.id
+        ? { summary: '', key_files: [], conclusions: [], agent_id: input.targetCharacterId, sub_session_id: spawned.id }
+        : undefined,
+    }
+  }
+}
+
+/**
+ * P4: 在已有子会话续跑一个新 turn（send_message_to_subagent）。
+ *
+ * 与 spawnAndRunSubAgent 的区别：
+ * - 不新建子会话：沿用 subSessionId 的既有历史（从 DB 重建，含首轮 user/assistant/tool 消息）；
+ * - 追加一条 user 消息（message）作为新指令；
+ * - 新 turn + 新 run（source=agent_task），入队子会话 run-coordinator（自动串行排队）；
+ * - system 提示改用「继续委托会话」模板，首轮 Task 仍在历史中，上下文完整。
+ */
+export async function continueSubAgentWithMessage(input: {
+  subSessionId: string
+  message: string
+  parentRunId: string
+  provider: ProviderConfig
+  model: string
+  strategyOverride?: StrategyInput
+  broadcaster?: TransportBroadcaster
+  stream?: TransportBroadcaster
+}): Promise<SubResult> {
+  const { subSessionId, message, parentRunId, provider, model, strategyOverride, broadcaster, stream } = input
+  if (!subSessionId || !message) throw new Error('Sub-agent message requires sub_session_id and message')
+  if (!parentRunId) throw new Error('Sub-agent message requires a persisted parent Run')
+
+  const subSession = sessionStore.getById(subSessionId)
+  if (!subSession) throw new Error(`Sub-agent session not found: ${subSessionId}`)
+  if (!subSession.parent_id) throw new Error(`Session "${subSessionId}" is not a sub-agent session`)
+
+  const targetChar = characterMetaStore.getById(subSession.character_id)
+  if (!targetChar) throw new Error(`Target character not found: ${subSession.character_id}`)
+  const charContent = characterContentStore.get(subSession.character_id)
+
+  // 子会话同样无 delegate/send_message 能力（层级硬控终点节点）。
+  const toolDefs = getCharacterToolDefinitions(targetChar.tools)
+    .filter(tool => tool.function.name !== 'delegate_to_agent' && tool.function.name !== 'send_message_to_subagent')
+  const hasTools = toolDefs.length > 0
+
+  const subStrategy: Strategy = normalizeStrategy(
+    strategyOverride || subSession.current_strategy || subSession.approval_mode || targetChar.default_strategy,
+  )
+
+  // 新 turn + 新 run（同一子会话续跑）。
+  const turn = turnStore.create(subSessionId, 'agent_task')
+  const childRun = runStore.create(subSession, {
+    parentRunId,
+    turnId: turn.id,
+    source: 'agent_task',
+    maxTurns: targetChar.maxSteps,
+  })
+  const userMessage = messageStore.addMessage(subSessionId, {
+    role: 'user',
+    content: message,
+    turn_id: turn.id,
+    run_id: childRun.id,
+  })
+  turnStore.attachUserMessage(turn.id, userMessage.id)
+
+  const taskId = `atask_${randomUUID()}`
+  const now = Date.now()
+  getDb().prepare(`
+    INSERT INTO agent_tasks (
+      id, parent_run_id, child_session_id, child_run_id, target_character_id,
+      task, expected_output, mode, status, result, error, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, NULL, 'continue', 'queued', NULL, NULL, ?, ?)
+  `).run(taskId, parentRunId, subSessionId, childRun.id, targetChar.id, message, now, now)
+
+  if (stream) {
+    stream.emit('sub_agent.started', {
+      session_id: subSession.parent_id,
+      run_id: parentRunId,
+      sub_session_id: subSessionId,
+      target_character_id: targetChar.id,
+      task: message,
+    })
+  }
+
+  const subWorkspaces = subSession.workspaces ? (() => { try { return JSON.parse(subSession.workspaces) as string[] } catch { return undefined } })() : undefined
+  const rawStream = stream ? unwrapDurableStream(stream) : undefined
+  if (!rawStream) throw new Error('Sub-agent requires an active event channel')
+  publishRunEvent(rawStream, childRun.id, 'run.queued', {
+    session_id: subSessionId,
+    run_id: childRun.id,
+    character_id: targetChar.id,
+    character_revision_id: childRun.character_revision_id,
+    parent_run_id: parentRunId,
+  })
+  const childStream = createDurableStream(rawStream, childRun.id)
+
+  // 从 DB 重建子会话完整上下文（首轮消息全部落库），system 用「继续委托」模板。
+  const cap = resolveCapability(model, undefined)
+  const rows = messageStore.getMessagesAfter(subSessionId, subSession.compaction_until_id || 0, 100000)
+  const systemPrompt = buildSubAgentSystemPrompt(
+    targetChar,
+    charContent,
+    'You are a sub-agent continuing an existing delegated session. Follow the conversation history; the latest user message is your new instruction from the parent agent. Complete it and report your findings.',
+    hasTools,
+  )
+  const messages = await buildInitialMessages({
+    characterId: subSession.character_id,
+    systemPrompt,
+    memory: charContent.memory || null,
+    compactionSummary: subSession.compaction_summary || null,
+    rows,
+    compactionUntilId: subSession.compaction_until_id || 0,
+    trimmedUntilId: subSession.trimmed_until_id || 0,
+    providerBaseUrl: provider.base_url,
+    cap,
+    workspace: resolveWorkspace(subSession.workspace),
+    activeSkills: sessionSkillStore.bodies(subSessionId),
+  })
+
+  const innerResult = await runSubAgentLoop({
+    subSessionId,
+    childRunId: childRun.id,
+    taskId,
+    messages,
+    toolDefs,
+    provider,
+    model,
+    targetChar,
+    workspace: subSession.workspace || undefined,
+    workspaces: subWorkspaces,
+    broadcaster,
+    childStream,
+  })
+
+  const summary = innerResult.fullText || innerResult.error || 'No output'
+  const hasError = !!innerResult.error
+  getDb().prepare(`
+    UPDATE agent_tasks SET status = ?, result = ?, error = ?, updated_at = ? WHERE id = ?
+  `).run(hasError ? 'failed' : 'completed', hasError ? null : summary, innerResult.error || null, Date.now(), taskId)
+
+  return {
+    summary,
+    key_files: [],
+    conclusions: hasError ? [`Error: ${innerResult.error}`] : [summary],
+    agent_id: targetChar.id,
     sub_session_id: subSessionId,
   }
 }

@@ -173,6 +173,21 @@ describe('auto continuation', () => {
     expect(manual.run.continuation_root_run_id).toBeNull()
     expect(manual.run.resume_trigger).toBe('manual')
   })
+
+  it('sub_agent_callback trigger creates a wake run without a fake user turn', () => {
+    const charId = newChar()
+    const session = makeSession(charId)
+    const root = runStore.create(session)
+    const before = db.prepare('SELECT COUNT(*) AS n FROM messages WHERE session_id = ?').get(session.id) as { n: number }
+    const wake = createResumedRun({ previousRunId: root.id, trigger: 'sub_agent_callback', instruction: '', createUserTurn: false })
+    expect(wake.run.resume_trigger).toBe('sub_agent_callback')
+    // 非 manual：继承链根（无链时根为自身）。
+    expect(wake.run.continuation_root_run_id).toBe(root.id)
+    expect(wake.run.status).toBe('queued')
+    // createUserTurn=false 不得伪造用户消息（唤醒提示走 systemAlerts，不落库）。
+    const after = db.prepare('SELECT COUNT(*) AS n FROM messages WHERE session_id = ?').get(session.id) as { n: number }
+    expect(after.n).toBe(before.n)
+  })
 })
 
 describe('policy consistency between snapshot and columns', () => {

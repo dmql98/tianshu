@@ -458,11 +458,28 @@ export const useChatStore = create<ChatState>((set, get) => {
    *  _activeRunId 会在新 run 流式过程中被清零，导致后续每个 message.delta 被临时
    *  监听器与持久监听器各入队一次——每个 chunk 追加两遍，整段回复文本翻倍
    *  （“你好” → “你好你好”）。旧 run 的终态只应作用于它自己，不能改写新 run
-   *  的流式状态；新 run 会有自己的终态事件。 */
+   *  的流式状态；新 run 会有自己的终态事件。
+   *
+   *  P5 并行子会话：sessionRuns 改为「每会话自身一条记录」——子会话事件用子会话
+   *  自己的 activeRunId 判断，父会话事件用父自己的记录，互不干扰（旧实现 root 聚合
+   *  单 activeRunId，3 个并行子 run 互相覆盖，导致子会话流式/后续 delegate 卡片/
+   *  回注补写全部被误拦，只能靠刷新显示）。 */
+  // 追加型事件：跨 run 迟到必须拦截（防双写 / 乱插卡片）
+  const APPEND_EVENTS = new Set(['message.delta', 'tool.output', 'tool.started', 'message.created'])
   function isCurrentTrackedRun(data: RunEvent): boolean {
     if (!data.session_id) return true
+    // 1) 会话自身记录优先（子会话独立 run，与父/其他子会话互不干扰）
+    const own = get().sessionRuns[data.session_id]
+    if (own?.activeRunId) {
+      return !data.run_id || data.run_id === own.activeRunId
+    }
+    // 2) 无自身记录 → 回退根会话记录
     const tracked = get().sessionRuns[resolveSessionRoot(data.session_id)]?.activeRunId
-    return !tracked || !data.run_id || data.run_id === tracked
+    if (!tracked || !data.run_id || data.run_id === tracked) return true
+    // 3) 结构性更新事件（tool.completed / sub_agent.* / message.metrics 等）跨 run
+    //    迟到：更新既有卡片/元数据，不追加流式文本 → 放行（回注补写场景：父 run
+    //    结束后子结果回注的 tool.completed 必须能更新到「执行中」卡片上）。
+    return !APPEND_EVENTS.has(data.type ?? '')
   }
 
   function clearPendingApproval(sessionId: string) {
@@ -949,7 +966,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.off('run.started')
     bus.on('run.started', (data: RunEvent & { context_window?: number }) => {
       if (isAbortingSession(data.session_id)) return
-      const prev = get().sessionRuns[resolveSessionRoot(data.session_id)]?.activeRun
+      const prev = get().sessionRuns[data.session_id]?.activeRun
       updateSessionRun(data.session_id, {
         activeRun: {
           runId: data.run_id || prev?.runId || null,
@@ -1062,7 +1079,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     activeRunId?: string | null
   }): void {
     set(state => {
-      const sid = resolveSessionRoot(sessionId)
+      // P5: 每会话自身一条记录（子会话独立跟踪，多并行互不干扰）。
+      const sid = sessionId
       const prev = state.sessionRuns[sid] ?? { isStreaming: false, activeRun: { ...IDLE_RUN }, activeRunId: null }
       const sessionRuns = {
         ...state.sessionRuns,
@@ -1072,7 +1090,14 @@ export const useChatStore = create<ChatState>((set, get) => {
           activeRunId: patch.activeRunId !== undefined ? patch.activeRunId : prev.activeRunId,
         },
       }
-      const active = sessionRuns[state.activeSessionId ?? ''] ?? { isStreaming: false, activeRun: { ...IDLE_RUN }, activeRunId: null }
+      // 全局流式标志：活动会话自身记录；无则回退其子会话记录
+      // （子 agent 在跑 → 父会话的停止按钮/状态跟随，P5 并行子会话）。
+      const activeId = state.activeSessionId ?? ''
+      let active = sessionRuns[activeId] ?? { isStreaming: false, activeRun: { ...IDLE_RUN }, activeRunId: null }
+      if (!sessionRuns[activeId]) {
+        const child = state.sessions.find(s => s.parent_id === activeId && sessionRuns[s.id])
+        if (child && sessionRuns[child.id]) active = sessionRuns[child.id]!
+      }
       return {
         sessionRuns,
         isStreaming: active.isStreaming,
@@ -1089,7 +1114,7 @@ export const useChatStore = create<ChatState>((set, get) => {
   // successor via `run.continuation_queued` / the next `run.queued`.
   function handleTerminalForContinuation(data: RunEvent) {
     const sessionId = data.session_id
-    const prev = get().sessionRuns[resolveSessionRoot(sessionId)]
+    const prev = get().sessionRuns[sessionId]
     // Only the currently-tracked run's terminal may clear it (§14.3).
     if (!data.run_id || (prev?.activeRunId && data.run_id !== prev.activeRunId)) return
 
@@ -1143,7 +1168,7 @@ export const useChatStore = create<ChatState>((set, get) => {
   function handleContinuationQueued(data: RunEvent) {
     const sessionId = data.session_id
     if (isAbortingSession(sessionId)) return
-    const prev = get().sessionRuns[resolveSessionRoot(sessionId)]
+    const prev = get().sessionRuns[sessionId]
     if (!data.run_id || (prev?.activeRunId && data.run_id !== prev.activeRunId)) return
     if (!data.next_run_id) return
     const queuedRunId: string | null = prev?.activeRunId || data.run_id || null
@@ -1164,7 +1189,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     const sessionId = data.session_id
     if (isAbortingSession(sessionId)) return
     if (data.trigger !== 'auto_limit' && data.trigger !== undefined) return
-    const prev = get().sessionRuns[resolveSessionRoot(sessionId)]
+    const prev = get().sessionRuns[sessionId]
     const pending = prev?.activeRun.nextRunId
     if (!data.run_id || !pending || data.run_id !== pending) return
     const successorId: string = data.run_id
@@ -1481,7 +1506,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       // Don't clobber a session that is actively streaming in this window —
       // its live output is being written by the global handler, and a snapshot
       // would truncate the in-flight tail.
-      const tracked = get().sessionRuns[resolveSessionRoot(id)]
+      const tracked = get().sessionRuns[id]
       const streamingLive = tracked?.isStreaming || tracked?.activeRun?.phase === 'running'
 
       let needLoad = session.messages.length === 0
@@ -1529,14 +1554,14 @@ export const useChatStore = create<ChatState>((set, get) => {
         // created child sessions while the renderer was disconnected.
         await get().loadSessions()
         const data = await sessionsApi.fetchSessionMessages(sessionId)
-        const previousRunId = get().sessionRuns[resolveSessionRoot(sessionId)]?.activeRunId
+        const previousRunId = get().sessionRuns[sessionId]?.activeRunId
         if (previousRunId) runSeqByRunId.delete(previousRunId)
         const messages: Message[] = data.messages.map(toMessage)
         set(state => {
           // 单一写路径：该 run 正在本窗口实时流式写入（全局处理累积文本）。
           // 服务端快照可能比游标晚一拍，用它覆盖 messages 会截断进行中的
           // 流式尾巴（稳妥的做法是只刷新元数据，内容交给全局写路径）。
-          const tracked = state.sessionRuns[resolveSessionRoot(sessionId)]
+          const tracked = state.sessionRuns[sessionId]
           const streamingLive = tracked?.isStreaming || tracked?.activeRun?.phase === 'running'
           return {
             sessions: state.sessions.map(session =>
@@ -1815,7 +1840,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     resumeActiveRun: async (sessionId: string) => {
       // A live run is already being tracked (claim exists in sessionRuns):
       // its events are being written by the global handler, don't re-fetch.
-      const tracked = get().sessionRuns[resolveSessionRoot(sessionId)]?.activeRunId
+      const tracked = get().sessionRuns[sessionId]?.activeRunId
       if (tracked) return
       let runs: import('@/api/runs').RunRow[]
       try {
@@ -1913,7 +1938,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       const bus = getEventBus()
       const state = get()
       const sessionId = state.activeSessionId
-      const record = sessionId ? state.sessionRuns[resolveSessionRoot(sessionId)] : null
+      const record = sessionId ? state.sessionRuns[sessionId] : null
       const runId = record?.activeRunId ?? record?.activeRun.runId ?? state._activeRunId
       if (!sessionId && !runId) return
 
@@ -1968,7 +1993,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         if (sid) {
           // 只清理仍跟踪被中止 run 的会话：用户可能已立刻发了新消息（新 run 正在
           // 流式），此时清空 activeRunId 会让新 run 的每个 delta 被双写翻倍。
-          const tracked = get().sessionRuns[resolveSessionRoot(sid)]?.activeRunId
+          const tracked = get().sessionRuns[sid]?.activeRunId
           if (!tracked || tracked === runId) {
             updateSessionRun(sid, {
               activeRun: { ...IDLE_RUN },

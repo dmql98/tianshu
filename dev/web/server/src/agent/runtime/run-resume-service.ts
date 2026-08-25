@@ -18,7 +18,7 @@ import { resolveCharacterBinding } from '../../character/binding-resolver.js'
  * (continuation root / index / user-turn) stay consistent.
  */
 
-export type ResumeTriggerValue = 'manual' | 'user_input' | 'auto_limit'
+export type ResumeTriggerValue = 'manual' | 'user_input' | 'auto_limit' | 'sub_agent_callback'
 
 export interface ResumeRunRequest {
   previousRunId: string

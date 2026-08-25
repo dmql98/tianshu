@@ -14,7 +14,7 @@ export interface ControlToolDefinition {
   }
 }
 
-export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step', 'create_goal', 'get_goal', 'complete_goal'] as const
+export const CONTROL_TOOL_NAMES = ['delegate_to_agent', 'send_message_to_subagent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step', 'create_goal', 'get_goal', 'complete_goal'] as const
 
 export const CONTROL_TOOL_SET: ReadonlySet<string> = new Set<string>(CONTROL_TOOL_NAMES)
 
@@ -120,7 +120,10 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
         description:
           '委托子任务给 targets 中列出的角色（仅顶层会话可调用，子会话无法再委托）。' +
           '适合场景：需要上下文隔离的大范围调研/检索、需要独立视角的验证或评审、或当前会话预算/轮数不足的长任务。' +
-          '子 agent 在独立会话中执行并返回结果。若描述中未列出可委托目标（targets 为空），说明当前未配置可委托角色，请勿调用。',
+          '子 agent 在独立会话中执行并返回结果，回注结果开头会附其 Sub-session ID，后续可用 send_message_to_subagent 继续追问。' +
+          '每次调用只拉起一个子会话；需要多个并行子任务（如分别搜科技/财经/国际新闻）时，在连续多轮中每轮调用一次本工具，各子会话会同时并行执行。' +
+          '若某次委托失败（工具消息标记为 failed），由你自行判断：重新 delegate 重试，或放弃并向用户说明原因（必要时用 ask_user 询问）。' +
+          '若描述中未列出可委托目标（targets 为空），说明当前未配置可委托角色，请勿调用。',
         parameters: {
           type: 'object',
           properties: {
@@ -129,6 +132,26 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
             sub_strategy: { type: 'string', enum: ['Read Only', 'Ask Every Change', 'Ask Risky', 'Auto in Workspace', 'Auto Approve'], description: '子任务审批模式（可选，默认继承父会话）' },
           },
           required: ['task', 'target_character_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'send_message_to_subagent',
+        description:
+          '给本会话已存在的子 agent 会话续跑一个新 turn（P4 多轮：先 delegate_to_agent 建子会话，之后可用本工具让同一子 agent 继续执行后续任务）。' +
+          '适合：子 agent 首轮结果不完整需要补充调研、需要让同一独立上下文继续深入、或分阶段派活给同一 worker。' +
+          'sub_session_id 直接复用此前子代理回注结果开头 "Sub-session: " 后的完整 ID（原样照抄，不要改写），无需用户提供。' +
+          '子 agent 执行完成后结果会回注到父会话的对应消息并自动汇报。',
+        parameters: {
+          type: 'object',
+          properties: {
+            sub_session_id: { type: 'string', description: '目标子会话 ID（必须是本会话已创建的直接子会话）' },
+            message: { type: 'string', description: '发给子 agent 的新任务/补充指令' },
+            sub_strategy: { type: 'string', enum: ['Read Only', 'Ask Every Change', 'Ask Risky', 'Auto in Workspace', 'Auto Approve'], description: '子任务审批模式（可选，默认继承子会话既有策略）' },
+          },
+          required: ['sub_session_id', 'message'],
         },
       },
     },

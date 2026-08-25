@@ -1,14 +1,20 @@
 import type { TransportBroadcaster } from '../../transport/runtime.js'
 import { messageStore } from '../../db/messageStore.js'
 import { sessionStore } from '../../db/sessionStore.js'
-import { spawnAndRunSubAgent, summarizeAndMerge } from '../sub-agent.js'
+import { spawnAndRunSubAgents, summarizeAndMerge, continueSubAgentWithMessage } from '../sub-agent.js'
 import { disconnectMCPServer } from '../../tools/mcp-client.js'
 import type { MCPClient } from '../../tools/mcp-client.js'
 import type { LLMMessage, ProviderConfig } from '../../llm/client.js'
-import type { InnerResult, SubAgentRequestData } from '../inner.js'
+import type { InnerResult, SubAgentRequestData, SubAgentMessageRequestData } from '../inner.js'
 import { checkpointStore } from '../runtime/checkpoint-store.js'
 import { planStore, goalStore } from '../plan/plan-store.js'
 import { evaluateSubmission, type SubmissionCheckResult } from './completion-evaluator.js'
+import { runStore } from '../runtime/run-store.js'
+import { createResumedRun } from '../runtime/run-resume-service.js'
+import { createDurableStream, createNoopBroadcastChannel, publishRunEvent } from '../runtime/run-event-store.js'
+import { enqueueRun, isUserCancelled } from '../session-runner.js'
+import { sessionLoop } from '../outer.js'
+import { registerPendingSub, completePendingSub, clearPendingSubs } from '../sub-task-registry.js'
 
 /**
  * Control router: handles the protocol-level outcomes of a model turn
@@ -18,6 +24,85 @@ import { evaluateSubmission, type SubmissionCheckResult } from './completion-eva
 export interface SubAgentOutcome {
   kind: 'continue'
   messages: LLMMessage[]
+}
+
+const WAKE_TERMINAL = new Set([
+  'completed', 'failed', 'cancelled', 'max_turns', 'budget_exhausted', 'interrupted',
+])
+
+/**
+ * P3 补充：子代理结果回注后，唤醒父会话续跑一轮，让父 LLM 真正「看到」结果并
+ * 整理成最终回复（对齐 dsh continuable / opencode session.background 的用户体验）。
+ *
+ * 唤醒 run 走 run-coordinator 按会话串行队列：
+ * - 父会话空闲 → 立即执行；
+ * - 父会话正在跑（用户新消息 / 长任务）→ 唤醒 run 自动排队，父 run 结束后
+ *   由 coordinator 自动跟进执行（「子完成 → 排队 → 父跑完自动处理子结果」）。
+ *
+ * 防重复：同会话已有未终态的 sub_agent_callback 续跑（含排队中）则跳过。
+ *
+ * 续跑走 createResumedRun + sessionLoop 标准路径，通过 systemAlerts 注入系统提示
+ * （compose 尾部 user 消息，不污染对话历史）。
+ */
+function wakeParentSession(input: {
+  parentSessionId: string
+  parentRunId: string
+  targetCharacterId: string
+  broadcaster: TransportBroadcaster
+}): void {
+  const { parentSessionId, parentRunId, targetCharacterId, broadcaster } = input
+  try {
+    // 用户已取消父会话（或父被级联取消）→ 不回注后自动唤醒，避免「我停了又把我拉起来」。
+    if (isUserCancelled(parentSessionId)) return
+    const pendingWake = runStore.listForSession(parentSessionId, 10)
+      .find(r => r.resume_trigger === 'sub_agent_callback' && !WAKE_TERMINAL.has(r.status))
+    if (pendingWake) return
+
+    const resumed = createResumedRun({
+      previousRunId: parentRunId,
+      trigger: 'sub_agent_callback',
+      instruction: '',
+      createUserTurn: false,
+    })
+    const rawStream = createNoopBroadcastChannel(`sub-agent-wake-${resumed.run.id}`)
+    publishRunEvent(rawStream, resumed.run.id, 'run.queued', {
+      session_id: resumed.session.id,
+      run_id: resumed.run.id,
+      character_id: resumed.run.character_id,
+      character_revision_id: resumed.run.character_revision_id,
+      resumed_from_run_id: parentRunId,
+      trigger: 'sub_agent_callback',
+    })
+    const durableStream = createDurableStream(rawStream, resumed.run.id)
+    const wakeAlert = `[System] 本会话并行委托的子代理任务已全部结束（成功或失败），结果已分别回注到上方的 delegate_to_agent 工具消息。请逐一查看：\n` +
+      `- 全部成功：合并整理成完整答复（简报/总结/结论）输出给用户。\n` +
+      `- 部分失败（有卡片标记为 failed）：由你判断处理策略——若失败任务重要且可重试，可立即重新 delegate 一个子代理重试；若可接受部分结果或重试无意义，请向用户如实说明哪些成功、哪些失败及原因，必要时用 ask_user 询问用户是否继续。\n` +
+      `不要再输出「等待/稍候」之类的占位内容。`
+    enqueueRun(resumed.session.id, resumed.run.id, async signal => {
+      try {
+        await sessionLoop(broadcaster, durableStream, resumed.session.id, signal, {
+          run_id: resumed.run.id,
+          systemAlerts: [wakeAlert],
+        })
+      } catch (error: any) {
+        publishRunEvent(rawStream, resumed.run.id, 'run.failed', {
+          session_id: resumed.session.id,
+          run_id: resumed.run.id,
+          error: error?.message || String(error),
+        })
+      }
+    }, () => {
+      publishRunEvent(rawStream, resumed.run.id, 'run.cancelled', {
+        session_id: resumed.session.id,
+        run_id: resumed.run.id,
+        status: 'cancelled',
+        reason: 'queue_cleared',
+      })
+    })
+  } catch (err: any) {
+    // 唤醒失败绝不能影响回注本身（回注在调用本函数前已完成）。
+    console.warn(`[sub-agent] wake parent session ${parentSessionId} failed: ${err?.message || err}`)
+  }
 }
 
 export async function handleSubAgentRequest(input: {
@@ -58,6 +143,7 @@ export async function handleSubAgentRequest(input: {
     // P3 后台化：父循环不等待子完成，立即返回「已派发」结果；
     // 子 agent 在独立会话继续执行（signal 传 undefined → 不随父 run 取消），
     // 完成后回注父会话同一条 delegate 消息（updateContent + updateToolOutput + 事件）。
+    // fire-and-forget：子完成/失败后回注父会话。每个 delegate 拉起一个子会话。
     const dispatched = `[Sub-agent "${req.target_character_id}" dispatched] 已在独立会话后台执行。完成后将自动回传结果到本消息。`
     toolMessage = { role: 'tool', content: JSON.stringify({ output: dispatched }), tool_call_id: toolCallId }
     const parentMsg = messageStore.addMessage(session.id, {
@@ -73,41 +159,88 @@ export async function handleSubAgentRequest(input: {
       tool_name: 'delegate_to_agent', tool_input: JSON.stringify({ call_id: toolCallId, args: req }),
     })
 
-    // fire-and-forget：子完成/失败后回注父会话。
-    void spawnAndRunSubAgent(
-      req.task, req.target_character_id,
-      session, provider, model,
-      req.sub_strategy, undefined, 0, broadcaster, stream, runId,
-    ).then(subResult => {
-      const summary = summarizeAndMerge([subResult])
-      const summaryContent = `[Sub-agent "${req.target_character_id}" completed]\n\nSummary: ${summary.summary}\n\nConclusions:\n${summary.conclusions.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
-      // 回注：同一条 delegate 消息从「已派发」更新为完整结果（轨迹/卡片同步）。
+    void spawnAndRunSubAgents({
+      task: req.task,
+      targetCharacterId: req.target_character_id,
+      parentSession: session,
+      provider,
+      model,
+      strategyOverride: req.sub_strategy,
+      broadcaster,
+      stream,
+      runId,
+      onSpawned: subSessionId => registerPendingSub(runId, subSessionId),
+    }).then(outcome => {
+      // 批次聚合：无论成功/失败都算一次完成；最后一个 settle 时唤醒父会话一次，
+      // 父 LLM 此时看到所有 delegate 卡片均已回注（含失败原因）→ 自行判断重试/放弃/询问用户。
+      let batchDone = false
+      let settleId: string
+      if (outcome.subResult?.sub_session_id) {
+        settleId = outcome.subResult.sub_session_id
+        batchDone = completePendingSub(runId, settleId)
+      } else {
+        // 派发级失败（子会话未创建）：注册占位并立即完成，保证批次计数一致。
+        settleId = `spawnfail_${runId}_${toolCallId}`
+        registerPendingSub(runId, settleId)
+        batchDone = completePendingSub(runId, settleId)
+      }
+
+      const ok = !outcome.error && !!outcome.subResult
+      const subResult = outcome.subResult
+      const finalContent = ok && subResult
+        ? (() => {
+            const summary = summarizeAndMerge([subResult])
+            const subSessionLine = subResult.sub_session_id ? `Sub-session: ${subResult.sub_session_id}\n\n` : ''
+            return `[Sub-agent "${req.target_character_id}" completed]\n\n${subSessionLine}Summary: ${summary.summary}\n\nConclusions:\n${summary.conclusions.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
+          })()
+        : `[Sub-agent "${req.target_character_id}" failed]\n\nError: ${outcome.error || 'unknown'}${subResult?.sub_session_id ? `\n\nSub-session: ${subResult.sub_session_id}` : ''}`
+
+      // 回注：同一条 delegate 消息从「已派发」更新为完整结果 / 失败原因（轨迹/卡片同步）。
       if (parentMsg && parentMsg.id != null) {
-        messageStore.updateContent(parentMsg.id, JSON.stringify({ output: summaryContent }))
-        messageStore.updateToolOutput(parentMsg.id, summaryContent)
+        messageStore.updateContent(parentMsg.id, JSON.stringify({ output: finalContent }))
+        messageStore.updateToolOutput(parentMsg.id, finalContent)
+        messageStore.updateToolStatus(parentMsg.id, ok ? 'success' : 'error')
       }
       stream?.emit('tool.completed', {
         session_id: session.id, run_id: runId, tool_call_id: toolCallId,
-        tool_name: 'delegate_to_agent', tool_output: summaryContent,
-        tool_status: 'success', duration_ms: 0,
+        tool_name: 'delegate_to_agent', tool_output: finalContent,
+        tool_status: ok ? 'success' : 'error', duration_ms: 0,
       })
       stream?.emit('sub_agent.completed', {
         session_id: session.id, run_id: runId,
-        sub_session_id: subResult.sub_session_id ?? null,
+        sub_session_id: subResult?.sub_session_id ?? null,
         target_character_id: req.target_character_id,
         task: req.task,
-        summary: summaryContent,
+        summary: finalContent,
       })
+
+      if (batchDone) {
+        wakeParentSession({
+          parentSessionId: session.id,
+          parentRunId: runId,
+          targetCharacterId: req.target_character_id,
+          broadcaster,
+        })
+      }
     }).catch((err: any) => {
+      // 意外错误兜底（回注 DB 异常等）：清空批次并唤醒，避免永不唤醒。
       const errMsg = `Sub-agent delegation failed: ${err?.message || err}`
       if (parentMsg && parentMsg.id != null) {
         messageStore.updateContent(parentMsg.id, JSON.stringify({ error: errMsg }))
         messageStore.updateToolOutput(parentMsg.id, errMsg)
+        messageStore.updateToolStatus(parentMsg.id, 'error')
       }
       stream?.emit('tool.completed', {
         session_id: session.id, run_id: runId, tool_call_id: toolCallId,
         tool_name: 'delegate_to_agent', tool_output: errMsg,
         tool_status: 'error', duration_ms: 0,
+      })
+      clearPendingSubs(runId)
+      wakeParentSession({
+        parentSessionId: session.id,
+        parentRunId: runId,
+        targetCharacterId: req.target_character_id,
+        broadcaster,
       })
     })
   } catch (err: any) {
@@ -121,6 +254,140 @@ export async function handleSubAgentRequest(input: {
     stream?.emit('tool.completed', {
       session_id: session.id, run_id: runId, tool_call_id: toolCallId,
       tool_name: 'delegate_to_agent', tool_output: errMsg,
+      tool_status: 'error', duration_ms: 0,
+    })
+  }
+  return { kind: 'continue', messages: [toolMessage] }
+}
+
+export interface SubAgentMessageOutcome {
+  kind: 'continue'
+  messages: LLMMessage[]
+}
+
+/**
+ * P4: send_message_to_subagent — 给本会话已有的子会话续跑一个新 turn。
+ * 与 delegate 同构的 fire-and-forget：立即回「已派发」，子会话跑完回注到
+ * 本条 send_message 工具消息（同一条消息 running → success/error），
+ * 完成后唤醒父会话整理结果。
+ */
+export async function handleSubAgentMessageRequest(input: {
+  req: SubAgentMessageRequestData
+  result: InnerResult
+  session: { id: string; character_id: string; parent_id?: string | null; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; targets?: string | null; current_strategy?: string | null; approval_mode?: string | null }
+  provider: ProviderConfig
+  model: string
+  broadcaster: TransportBroadcaster
+  stream: TransportBroadcaster
+  runId: string
+}): Promise<SubAgentMessageOutcome> {
+  const { req, result, session, provider, model, broadcaster, stream, runId } = input
+  const toolCallId = (result.toolCalls?.find(tc => tc.function.name === 'send_message_to_subagent')?.id) || `sendmsg_${Date.now()}`
+  let toolMessage: LLMMessage
+
+  // 层级硬控：子会话不能给其他子会话发消息（结构上不可能，防模型伪造）。
+  if (session.parent_id) {
+    const errMsg = 'Child agents cannot send messages to another sub-agent'
+    toolMessage = { role: 'tool', content: JSON.stringify({ error: errMsg }), tool_call_id: toolCallId }
+    messageStore.addMessage(session.id, {
+      role: 'tool', content: JSON.stringify({ error: errMsg }),
+      tool_name: 'send_message_to_subagent', tool_input: JSON.stringify({}),
+      tool_output: errMsg, tool_status: 'error',
+    })
+    stream?.emit('tool.completed', {
+      session_id: session.id, run_id: runId, tool_call_id: toolCallId,
+      tool_name: 'send_message_to_subagent', tool_output: errMsg,
+      tool_status: 'error', duration_ms: 0,
+    })
+    return { kind: 'continue', messages: [toolMessage] }
+  }
+
+  try {
+    const dispatched = `[Sub-agent "${req.sub_session_id}" message dispatched] 新指令已进入该子会话执行队列，完成后将自动回传结果到本消息。`
+    toolMessage = { role: 'tool', content: JSON.stringify({ output: dispatched }), tool_call_id: toolCallId }
+    const parentMsg = messageStore.addMessage(session.id, {
+      role: 'tool',
+      content: JSON.stringify({ output: dispatched }),
+      tool_name: 'send_message_to_subagent',
+      tool_input: JSON.stringify({ call_id: toolCallId, args: req }),
+      tool_output: dispatched,
+      tool_status: 'running',
+    })
+    stream?.emit('tool.started', {
+      session_id: session.id, run_id: runId, tool_call_id: toolCallId,
+      tool_name: 'send_message_to_subagent', tool_input: JSON.stringify({ call_id: toolCallId, args: req }),
+    })
+
+    // fire-and-forget：续跑入队子会话 run-coordinator（自动串行），完成后回注。
+    void continueSubAgentWithMessage({
+      subSessionId: req.sub_session_id,
+      message: req.message,
+      parentRunId: runId,
+      provider,
+      model,
+      strategyOverride: req.sub_strategy,
+      broadcaster,
+      stream,
+    }).then(subResult => {
+      const summary = summarizeAndMerge([subResult])
+      // P4 体验补强：回注内容开头带上子会话 ID（放最前，避免被长结果截断掉），
+      // 父 LLM 之后可凭它直接调 send_message_to_subagent 继续追问，无需用户复制。
+      const subSessionLine = subResult.sub_session_id ? `Sub-session: ${subResult.sub_session_id}\n\n` : ''
+      const summaryContent = `[Sub-agent "${subResult.agent_id}" message completed]\n\n${subSessionLine}Summary: ${summary.summary}\n\nConclusions:\n${summary.conclusions.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
+      if (parentMsg && parentMsg.id != null) {
+        messageStore.updateContent(parentMsg.id, JSON.stringify({ output: summaryContent }))
+        messageStore.updateToolOutput(parentMsg.id, summaryContent)
+        messageStore.updateToolStatus(parentMsg.id, 'success')
+      }
+      stream?.emit('tool.completed', {
+        session_id: session.id, run_id: runId, tool_call_id: toolCallId,
+        tool_name: 'send_message_to_subagent', tool_output: summaryContent,
+        tool_status: 'success', duration_ms: 0,
+      })
+      stream?.emit('sub_agent.completed', {
+        session_id: session.id, run_id: runId,
+        sub_session_id: subResult.sub_session_id ?? null,
+        target_character_id: subResult.agent_id,
+        task: req.message,
+        summary: summaryContent,
+      })
+      // 注入：唤醒父会话续跑，让父 LLM 把续跑结果整理成最终回复。
+      wakeParentSession({
+        parentSessionId: session.id,
+        parentRunId: runId,
+        targetCharacterId: subResult.agent_id,
+        broadcaster,
+      })
+    }).catch((err: any) => {
+      const errMsg = `Sub-agent message failed: ${err?.message || err}`
+      if (parentMsg && parentMsg.id != null) {
+        messageStore.updateContent(parentMsg.id, JSON.stringify({ error: errMsg }))
+        messageStore.updateToolOutput(parentMsg.id, errMsg)
+        messageStore.updateToolStatus(parentMsg.id, 'error')
+      }
+      stream?.emit('tool.completed', {
+        session_id: session.id, run_id: runId, tool_call_id: toolCallId,
+        tool_name: 'send_message_to_subagent', tool_output: errMsg,
+        tool_status: 'error', duration_ms: 0,
+      })
+      wakeParentSession({
+        parentSessionId: session.id,
+        parentRunId: runId,
+        targetCharacterId: req.sub_session_id,
+        broadcaster,
+      })
+    })
+  } catch (err: any) {
+    const errMsg = `Sub-agent message failed: ${err.message || err}`
+    toolMessage = { role: 'tool', content: JSON.stringify({ error: errMsg }), tool_call_id: toolCallId }
+    messageStore.addMessage(session.id, {
+      role: 'tool', content: JSON.stringify({ error: errMsg }),
+      tool_name: 'send_message_to_subagent', tool_input: JSON.stringify({}),
+      tool_output: errMsg, tool_status: 'error',
+    })
+    stream?.emit('tool.completed', {
+      session_id: session.id, run_id: runId, tool_call_id: toolCallId,
+      tool_name: 'send_message_to_subagent', tool_output: errMsg,
       tool_status: 'error', duration_ms: 0,
     })
   }

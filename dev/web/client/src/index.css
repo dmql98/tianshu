@@ -118,6 +118,9 @@ body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink
 .subsession-item{padding-left:32px}
 .subsession-item .session-dot{width:5px;height:5px}
 .subsession-item .session-title{font-size:calc(12px * var(--ui-font-scale))}
+.session-arrow{margin-left:auto;font-size:calc(12px * var(--ui-font-scale));color:var(--ink-faint);transition:transform 0.2s,opacity 0.2s;opacity:0.65;cursor:pointer;padding:5px 7px;border-radius:4px;flex-shrink:0;line-height:1}
+.session-arrow:hover{opacity:1;color:var(--gold);background:var(--gold-mist)}
+.session-arrow.open{transform:rotate(90deg);opacity:1}
 .add-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);cursor:pointer;font-size:calc(12px * var(--ui-font-scale));margin:4px 10px 8px;transition:all 0.15s}
 .add-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-mist)}
 .ctx-divider{height:1px;background:var(--border);margin:8px 10px}
@@ -237,6 +240,8 @@ body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink
 .tool-invoke .tool-card-name{font-weight:500}
 .tool-invoke .tool-card-dot{opacity:.7}
 .tool-invoke .tool-card-status{font-size:calc(11px * var(--ui-font-scale));white-space:nowrap}
+.tool-invoke .tool-card-subtask{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;min-width:0}
+.tool-invoke.expanded .tool-card-subtask{max-width:320px;color:var(--ink-mid)}
 .tool-invoke .tool-card-caret{margin-left:2px;font-size:10px;opacity:.7}
 
 /* 展开态：结构化卡片（参数/结果仅在 expanded 时渲染） */

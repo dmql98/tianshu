@@ -11,7 +11,7 @@ import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-c
 import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults, MAX_OVERFLOW_COMPACTS, type CompactPolicy } from './loop-policy.js'
 import { compactWithRetries, selectAndSummarize } from './context-compactor.js'
 import { isContextOverflowError } from '../../llm/client.js'
-import { handleSubAgentRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleCreateGoal, handleGetGoal, handleCompleteGoal } from './control-router.js'
+import { handleSubAgentRequest, handleSubAgentMessageRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleCreateGoal, handleGetGoal, handleCompleteGoal } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
 import type { RunPolicySnapshot } from './run-policy.js'
@@ -398,6 +398,21 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         stream,
         runId,
         workspace,
+      })
+      messages.push(...outcome.messages)
+      continue
+    }
+
+    if (result.type === 'sub_agent_message_request' && result.subAgentMessageRequest) {
+      const outcome = await handleSubAgentMessageRequest({
+        req: result.subAgentMessageRequest,
+        result,
+        session,
+        provider,
+        model,
+        broadcaster,
+        stream,
+        runId,
       })
       messages.push(...outcome.messages)
       continue

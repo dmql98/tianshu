@@ -18,7 +18,7 @@ import { turnStore } from '../db/turnStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
 import { sessionLoop } from '../agent/loop.js'
 import { setSessionStrategy } from '../agent/session.js'
-import { enqueueRun, abortSession } from '../agent/session-runner.js'
+import { enqueueRun, abortSession, cancelSessionCascade, clearUserCancelled } from '../agent/session-runner.js'
 import { approvalRegistry, type ApprovalChoice } from '../agent/runtime/approval-registry.js'
 import { checkpointStore } from '../agent/runtime/checkpoint-store.js'
 import { createDurableStream, publishRunEvent, forceCancelSessionRuns } from '../agent/runtime/run-event-store.js'
@@ -166,6 +166,8 @@ export async function handleChatRun(
     channel.ack({ error: error.message || String(error), run_id: runId })
     return
   }
+  // 用户重新发消息 = 恢复对该会话的委托意愿，解除「用户已取消」标记（P3 唤醒抑制）。
+  clearUserCancelled(sessionId)
   publishRunEvent(channel.stream , runId, 'run.queued', {
     session_id: sessionId,
     run_id: runId,
@@ -216,21 +218,27 @@ export function handleAbort(
       process.send({ type: 'approval-cleared', sessionId: data.session_id })
     } catch { /* desktop IPC may already be closing */ }
   }
-  const inMemoryAccepted = abortSession(data.session_id)
-  // A stuck run (e.g. awaiting_approval with no live coordinator entry) can't be
-  // aborted in-memory. Force it terminal at the DB level and broadcast the
-  // terminal event so the client leaves the streaming state.
-  for (const { runId, event } of forceCancelSessionRuns(data.session_id)) {
-    const payload = JSON.parse(event.payload)
-    channel.emit(event.type, {
-      ...payload,
-      event_id: event.event_id,
-      session_id: data.session_id,
-      run_id: runId,
-      seq: event.seq,
-      type: event.type,
-      occurred_at: event.created_at,
-    })
+  // 级联取消：父停止 → 所有并行子 worker 一起停（P5）。
+  const cascade = cancelSessionCascade(data.session_id)
+  let inMemoryAccepted = false
+  for (const group of cascade) {
+    if (group.sessionId !== data.session_id) approvalRegistry.cancelSession(group.sessionId)
+    if (group.accepted) inMemoryAccepted = true
+    // A stuck run (e.g. awaiting_approval with no live coordinator entry) can't be
+    // aborted in-memory. Force it terminal at the DB level and broadcast the
+    // terminal event so the client leaves the streaming state.
+    for (const { runId, event } of group.forceEvents) {
+      const payload = JSON.parse(event.payload)
+      channel.emit(event.type, {
+        ...payload,
+        event_id: event.event_id,
+        session_id: group.sessionId,
+        run_id: runId,
+        seq: event.seq,
+        type: event.type,
+        occurred_at: event.created_at,
+      })
+    }
   }
   channel.ack({ status: inMemoryAccepted ? 'ok' : 'no_active_run' })
 }

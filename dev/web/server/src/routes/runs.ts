@@ -3,7 +3,7 @@ import { getDb } from '../db/schema.js'
 import { runStore } from '../agent/runtime/run-store.js'
 import { runEventStore } from '../agent/runtime/run-event-store.js'
 import { checkpointStore } from '../agent/runtime/checkpoint-store.js'
-import { abortSession, enqueueRun } from '../agent/session-runner.js'
+import { abortSession, cancelSessionCascade, enqueueRun } from '../agent/session-runner.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { messageStore } from '../db/messageStore.js'
@@ -110,20 +110,30 @@ router.post('/:id/cancel', (c) => {
   const run = runStore.get(c.req.param('id'))
   if (!run) return c.json({ error: 'Not found' }, 404)
   const chain = c.req.query('chain') === 'true'
-  const accepted = abortSession(run.session_id)
-  // Fallback for orphaned/stuck runs (awaiting_approval with no in-memory
-  // coordinator entry, e.g. after a restart): force the DB to terminal and
-  // broadcast so connected clients leave the streaming state.
-  let forceEvent: ReturnType<typeof forceCancelRun> = null
-  if (!accepted || !isNonTerminal(run)) {
-    forceEvent = forceCancelRun(run.id)
+  // 级联取消：父 run 所在会话 + 所有并行子会话（P5：父停止 → 子 worker 一起停）。
+  const cascade = cancelSessionCascade(run.session_id)
+  let forceBroadcast = false
+  for (const group of cascade) {
+    for (const { runId, event } of group.forceEvents) {
+      publishRunEvent(createNoopBroadcastChannel('run-inputs'), runId, 'run.cancelled', {
+        ...JSON.parse(event.payload),
+      })
+      forceBroadcast = true
+    }
   }
-  if (!accepted && !forceEvent) return c.json({ error: 'Run is not active' }, 409)
-  if (forceEvent) {
-    publishRunEvent(createNoopBroadcastChannel('run-inputs'), run.id, 'run.cancelled', {
-      ...JSON.parse(forceEvent.payload),
-    })
+  const parentGroup = cascade.find(g => g.sessionId === run.session_id)
+  const accepted = parentGroup?.accepted || cascade.some(g => g.accepted)
+  if (!accepted && !forceBroadcast && isNonTerminal(run)) {
+    // 单 run 兜底：内存无 entry 且 DB 非终态（极端场景）强制终态。
+    const forceEvent = forceCancelRun(run.id)
+    if (forceEvent) {
+      publishRunEvent(createNoopBroadcastChannel('run-inputs'), run.id, 'run.cancelled', {
+        ...JSON.parse(forceEvent.payload),
+      })
+      forceBroadcast = true
+    }
   }
+  if (!accepted && !forceBroadcast) return c.json({ error: 'Run is not active' }, 409)
   // Whole-chain cancel: also terminal any queued/preparing auto successors so
   // they never fire after the user cancelled the chain (§11.1).
   if (chain) {

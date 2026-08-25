@@ -54,6 +54,10 @@ export const messageStore = {
   updateToolOutput(id: number, toolOutput: string) {
     getDb().prepare('UPDATE messages SET tool_output = ? WHERE id = ?').run(toolOutput, id)
   },
+  /** P3: 回注后同步 delegate 消息的工具状态，避免 DB 停留在 running（与 tool.completed 事件一致）。 */
+  updateToolStatus(id: number, toolStatus: string) {
+    getDb().prepare('UPDATE messages SET tool_status = ? WHERE id = ?').run(toolStatus, id)
+  },
   /** P2-3: 持久化工具调用修复（移除孤儿调用后回写 tool_input）。 */
   updateToolInput(id: number, toolInput: string) {
     getDb().prepare('UPDATE messages SET tool_input = ? WHERE id = ?').run(toolInput, id)
