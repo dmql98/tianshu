@@ -56,6 +56,8 @@ export interface CharacterRecord {
   default_strategy?: Strategy
   skills?: string[]
   skillBindings?: SkillBinding[]
+  /** 工作帮手：该角色新会话默认可委托的角色白名单（含自己/其他角色/worker）。缺省兜底 ['worker']。 */
+  helpers?: string[]
   /** 绑定的皮肤 id（SKIN_DECOUPLE_PLAN）。null = 未激活，回退展示角色同名的默认皮肤。 */
   skinId?: string | null
   enabled?: boolean
@@ -87,6 +89,7 @@ function normalizeRecord(record: CharacterRecord & { default_strategy?: Strategy
     skills: skillBindings.map(binding => binding.packageId),
     skillBindings,
     runPolicy,
+    helpers: record.helpers ?? ['worker'],
     ...(record.default_strategy
       ? { default_strategy: normalizeStrategy(record.default_strategy, 'Ask Risky') }
       : {}),

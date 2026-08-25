@@ -85,8 +85,8 @@ export interface SessionTrajectoryData {
   llmCalls?: LLMCallTrace[]
 }
 
-export const fetchSessionTrajectory = (id: string) =>
-  apiGet<SessionTrajectoryData>(`/api/sessions/${encodeURIComponent(id)}/trajectory`)
+export const fetchSessionTrajectory = (id: string, includeChildren = false) =>
+  apiGet<SessionTrajectoryData>(`/api/sessions/${encodeURIComponent(id)}/trajectory${includeChildren ? '?includeChildren=1' : ''}`)
 
 /** 手动压缩会话上下文：返回压缩前后的 token 估算，didCompact=false 表示无需压缩。 */
 export interface CompactSessionResult {

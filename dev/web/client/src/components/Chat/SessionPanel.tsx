@@ -50,6 +50,7 @@ export default function SessionPanel() {
     createSession, deleteSession, toggleSessionStar,
     deleteProject,
     isBatchMode, selectedSessionIds, toggleBatchMode, toggleSessionSelection,
+    subAgentNotice,
   } = useChatStore()
 
   // Close context menus on outside click
@@ -228,7 +229,7 @@ export default function SessionPanel() {
     return (
       <div key={session.id}>
         <div
-          className={`session-item ${isActive ? 'active' : ''} ${isChild ? 'subsession-item' : ''}`}
+          className={`session-item ${isActive ? 'active' : ''} ${isChild ? 'subsession-item' : ''} ${subAgentNotice?.sub_session_id === session.id ? 'subagent-new' : ''}`}
           onClick={() => {
             if (isBatchMode) {
               toggleSessionSelection(session.id)

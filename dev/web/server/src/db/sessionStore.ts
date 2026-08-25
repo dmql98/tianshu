@@ -6,7 +6,7 @@ export interface SessionRow {
   id: string; character_id: string; title: string
   model: string | null; provider_id: string | null; workspace: string | null
   workspaces: string | null
-  parent_id: string | null; active_group: string | null
+  parent_id: string | null; active_group: string | null; targets: string | null
   session_type: 'chat' | 'event'; event_id: string | null
   character_binding_mode: 'follow_latest' | 'pinned'
   pinned_character_revision_id: string | null
@@ -24,6 +24,13 @@ export interface SessionRow {
   compaction_summary: string | null; compaction_until_id: number | null
   trimmed_until_id: number | null
   created_at: number; updated_at: number
+}
+
+/** targets 序列化：数组→JSON 字符串；已是字符串→透传（防双重编码）；空→null。 */
+export function normalizeTargets(value: string | string[] | null | undefined): string | null {
+  if (Array.isArray(value)) return JSON.stringify(value)
+  if (typeof value === 'string' && value.trim() !== '') return value
+  return null
 }
 
 /** 最近普通会话摘要（含最后一条 user/assistant 消息的纯文本预览）。 */
@@ -45,9 +52,9 @@ export function cleanMessagePreview(content: string | null | undefined): string 
   return chars.slice(0, RECENT_PREVIEW_MAX).join('')
 }
 
-const INSERT_COLS =       'id, character_id, title, model, provider_id, workspace, workspaces, parent_id, active_group, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, context_usage, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, trimmed_until_id, created_at, updated_at'
-const INSERT_PARAMS =     '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @parent_id, @active_group, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @context_usage, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @trimmed_until_id, @created_at, @updated_at'
-const UPDATE_COLS =       'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, parent_id=@parent_id, active_group=@active_group, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, context_usage=@context_usage, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, trimmed_until_id=@trimmed_until_id, updated_at=@updated_at'
+const INSERT_COLS =       'id, character_id, title, model, provider_id, workspace, workspaces, parent_id, active_group, targets, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, context_usage, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, trimmed_until_id, created_at, updated_at'
+const INSERT_PARAMS =     '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @parent_id, @active_group, @targets, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @context_usage, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @trimmed_until_id, @created_at, @updated_at'
+const UPDATE_COLS =       'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, parent_id=@parent_id, active_group=@active_group, targets=@targets, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, context_usage=@context_usage, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, trimmed_until_id=@trimmed_until_id, updated_at=@updated_at'
 
 export const sessionStore = {
   list(limit = 50): SessionRow[] {
@@ -106,7 +113,7 @@ export const sessionStore = {
       title: data.title || '', model: data.model || null,
       provider_id: data.provider_id || null, workspace: data.workspace || null,
       workspaces,
-      parent_id: data.parent_id || null, active_group: data.active_group || null,
+      parent_id: data.parent_id || null, active_group: data.active_group || null, targets: normalizeTargets(data.targets),
       session_type: data.session_type || 'chat', event_id: data.event_id || null,
       character_binding_mode: data.character_binding_mode || 'follow_latest',
       pinned_character_revision_id: data.pinned_character_revision_id || null,
@@ -134,6 +141,7 @@ export const sessionStore = {
     const existing = this.getById(id)
     if (!existing) return null
     if (patch.current_strategy) patch.current_strategy = normalizeStrategy(patch.current_strategy)
+    if (patch.targets !== undefined) patch.targets = normalizeTargets(patch.targets as never)
     if (patch.workspaces || (patch.workspace && !patch.workspaces)) {
       patch.workspaces = patch.workspaces || JSON.stringify([patch.workspace!])
     }

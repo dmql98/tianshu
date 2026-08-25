@@ -162,13 +162,13 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
 
   // ── #2 delegate_targets → inject into tool schema (not system text) ──
   const allChars = characterMetaStore.getAll()
-  const activeGroup = session.active_group
+  const targets = (() => {
+    if (!session.targets) return ['worker']
+    try { const p = JSON.parse(session.targets); return Array.isArray(p) ? p : ['worker'] } catch { return ['worker'] }
+  })()
   const delegateTargets = allChars.filter(c => {
     if (c.role !== 'sub' && c.role !== 'both') return false
-    if (c.id === session.character_id) return true
-    if (!activeGroup) return false
-    if (!c.groups || c.groups.length === 0) return false
-    return c.groups.includes(activeGroup)
+    return targets.includes(c.id)
   })
   // Control actions (delegate_to_agent / submit_result / ask_user) are always
   // visible to the model, separate from the ordinary tool registry.

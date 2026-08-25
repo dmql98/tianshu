@@ -20,6 +20,8 @@ export interface SessionSummary {
   workspaces: string | null
   parent_id: string | null
   active_group: string | null
+  /** 本会话可委托角色白名单（JSON 字符串，如 ["worker"]）。 */
+  targets?: string | null
   session_type?: 'chat' | 'event'
   event_id?: string | null
   current_strategy?: Strategy
@@ -95,6 +97,8 @@ export interface Character {
   memoryContent?: string
   customPrompt?: string
   memory?: { enabled: boolean; selfEvolution: boolean; charLimit: number }
+  /** 工作帮手：该角色新会话默认可委托角色白名单（缺省 ['worker']）。 */
+  helpers?: string[]
   runPolicy?: CharacterRunPolicyView
   createdAt?: number
   updatedAt?: number
@@ -357,6 +361,12 @@ export interface TrajectoryRunInfo {
 
 /** 会话级轨迹接口（GET /api/sessions/:id/trajectory）的响应。 */
 export interface TrajectoryData {
+  /** 主会话摘要（P2b: includeChildren=1 时用于区分父子会话归属）。 */
+  session?: {
+    id: string
+    title?: string
+    character_id?: string
+  }
   /** run 级轨迹接口：当前 run（会话级接口无此字段）。 */
   run?: {
     id: string

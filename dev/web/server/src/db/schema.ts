@@ -32,7 +32,8 @@ export function getDb(): TianshuDatabase {
   db.exec('PRAGMA foreign_keys = ON')
   try { db.exec('ALTER TABLE messages ADD COLUMN reasoning_content TEXT') } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN parent_id TEXT') } catch { }
-  try { db.exec('ALTER TABLE sessions ADD COLUMN active_group TEXT') } catch { }
+   try { db.exec('ALTER TABLE sessions ADD COLUMN active_group TEXT') } catch { }
+   try { db.exec('ALTER TABLE sessions ADD COLUMN targets TEXT') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN session_type TEXT DEFAULT 'chat'") } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN event_id TEXT') } catch { }
   try { db.exec("ALTER TABLE sessions ADD COLUMN current_strategy TEXT DEFAULT 'Read Only'") } catch { }
@@ -63,6 +64,7 @@ export function getDb(): TianshuDatabase {
       workspaces TEXT,
       parent_id TEXT,
       active_group TEXT,
+      targets TEXT,
       session_type TEXT DEFAULT 'chat',
       event_id TEXT,
       current_strategy TEXT DEFAULT 'Read Only',

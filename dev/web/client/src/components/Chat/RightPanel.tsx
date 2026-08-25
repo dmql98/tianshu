@@ -34,7 +34,7 @@ async function openWorkspaceDir(path: string): Promise<void> {
 }
 
 export default function RightPanel() {
-  const { sessions, activeSessionId, addWorkspace, removeWorkspace } = useChatStore()
+  const { sessions, activeSessionId, addWorkspace, removeWorkspace, updateSessionTargets } = useChatStore()
   const { toggleRightPanel } = useUIStore()
   const t = useI18n()
   const [showFolderPicker, setShowFolderPicker] = useState(false)
@@ -57,7 +57,13 @@ export default function RightPanel() {
   const stats = useSessionStats(activeSessionId)
   const [character, setCharacter] = useState<Character | null>(null)
   const [showPicker, setShowPicker] = useState(false)
+  const [allChars, setAllChars] = useState<Character[]>([])
+  const [showHelperPicker, setShowHelperPicker] = useState(false)
   const charCache = useRef<Map<string, Character>>(new Map())
+
+  useEffect(() => {
+    fetchCharacters().then(setAllChars).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!session?.character_id) { setCharacter(null); return }
@@ -98,6 +104,14 @@ export default function RightPanel() {
   }
   // 授权工作区 = all workspaces except the project area
   const authorizedWorkspaces = workspaces.filter(ws => ws !== session.workspace)
+
+  // 帮手（本会话可委托角色白名单 targets）
+  let targets: string[] = ['worker']
+  if (session.targets) {
+    try { const p = JSON.parse(session.targets); targets = Array.isArray(p) ? p : ['worker'] } catch { targets = ['worker'] }
+  }
+  const targetChars = allChars.filter(c => targets.includes(c.id))
+  const helperCandidates = allChars.filter(c => (c.role === 'sub' || c.role === 'both') && !targets.includes(c.id))
 
   return (
     <aside className="right-panel">
@@ -207,6 +221,50 @@ export default function RightPanel() {
               >✕</button>
             </div>
           ))}
+        </div>
+
+        {/* 帮手：本会话可委托角色（工作帮手） */}
+        <div className="rp-section">
+          <div className="rp-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {t('帮手')}
+            <button
+              style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 'calc(14px * var(--ui-font-scale))', lineHeight: 1 }}
+              title={t('添加帮手')}
+              onClick={() => setShowHelperPicker(v => !v)}
+            >+</button>
+          </div>
+          {targets.length === 0 ? (
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('无帮手，无法拉起子 agent')}</div>
+          ) : (
+            <div className="helper-grid">
+              {targetChars.map(c => (
+                <div key={c.id} className="helper-item" title={c.name}>
+                  <span className="helper-avatar">
+                    <CharacterRenderer characterId={c.id} name={c.name} legacyAvatar={c.avatar} mode="avatar" className="character-renderer-helper" />
+                  </span>
+                  <span className="helper-name">{c.name}</span>
+                  <span
+                    className="helper-del"
+                    onClick={() => updateSessionTargets(session.id, targets.filter(id => id !== c.id))}
+                    title={t('移除')}
+                  >×</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {showHelperPicker && (
+            <div className="helper-pick">
+              {helperCandidates.length === 0 ? (
+                <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('无更多可添加角色')}</span>
+              ) : helperCandidates.map(c => (
+                <span
+                  key={c.id}
+                  className="tag"
+                  onClick={() => updateSessionTargets(session.id, [...targets, c.id])}
+                >{c.name}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Goal / Plan: goal 与 plan 由 Agent 自主创建，实时展示（无需选择执行模式） */}

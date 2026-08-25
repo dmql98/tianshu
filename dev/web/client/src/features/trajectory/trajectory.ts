@@ -31,13 +31,26 @@ export interface TrajectoryRow {
   durationMs: number | null
 }
 
-/** 会话轨迹中的一个 run 元信息（用于 run 边界分隔条）。 */
+/** 会话轨迹中的 run 元信息（用于 run 边界分隔条）。 */
 export interface TrajectoryRunMeta {
   id: string
   status: string
   queuedAt: number
   startedAt: number | null
   finishedAt: number | null
+}
+
+/** 子 agent 执行摘要（P2b：父轨迹内联显示，对齐 opencode formatSubagentToolcalls）。 */
+export interface TrajectorySubagentSummary {
+  sessionId: string
+  targetCharacterId: string
+  task: string
+  status: string
+  rows: TrajectoryRow[]
+  lifecycle: TrajectoryLifecycleItem[]
+  runs: TrajectoryRunMeta[]
+  toolCalls: number
+  result: string
 }
 
 /** 生命周期/审批/询问事件条（run.* / approval.* / ask_user），按 seq 顺序。 */
@@ -70,6 +83,8 @@ export interface TrajectoryModel {
   systemRows: TrajectorySystemRow[]
   runs: TrajectoryRunMeta[]
   retries: number
+  /** 子 agent 执行摘要（父轨迹内联；无子会话时为空数组）。 */
+  subagents: TrajectorySubagentSummary[]
 }
 
 const LIFECYCLE_TYPES = new Set([
@@ -237,9 +252,17 @@ function buildSystemRows(llmCalls: TrajectoryData['llmCalls']): TrajectorySystem
  *   落库，所以用"待定用量"配对，避免不同步导致错位；
  * - 生命周期事件（run.* / approval.* / ask_user）独立成条并按时间顺序排列，真实渲染。
  */
-export function buildTrajectory(data: TrajectoryData): TrajectoryModel {
-  const rows = data.messages.map(toRow)
-  const runs: TrajectoryRunMeta[] = (data.runs ?? []).map(run => ({
+/**
+ * 单会话轨迹构建（buildTrajectory 的内部单元：主会话或一个子会话）。
+ */
+function buildSessionModel(
+  messages: TrajectoryMessage[],
+  runsRaw: TrajectoryData['runs'],
+  events: TrajectoryEvent[],
+  llmCalls: TrajectoryData['llmCalls'],
+): { rows: TrajectoryRow[]; lifecycle: TrajectoryLifecycleItem[]; systemRows: TrajectorySystemRow[]; runs: TrajectoryRunMeta[]; retries: number } {
+  const rows = messages.map(toRow)
+  const runs: TrajectoryRunMeta[] = (runsRaw ?? []).map(run => ({
     id: run.id,
     status: run.status,
     queuedAt: run.queued_at,
@@ -264,7 +287,7 @@ export function buildTrajectory(data: TrajectoryData): TrajectoryModel {
   const lifecycle: TrajectoryLifecycleItem[] = []
   let retries = 0
 
-  for (const ev of data.events) {
+  for (const ev of events) {
     if (ev.type === 'message.metrics') {
       const byId = rows.find(row =>
         row.kind === 'assistant' && row.messageId === Number(ev.message_id))
@@ -322,9 +345,61 @@ export function buildTrajectory(data: TrajectoryData): TrajectoryModel {
   lifecycle.sort((a, b) => a.createdAt - b.createdAt)
 
   // 系统提示注入记录：由每次 LLM 调用的请求快照推导（会话开头注入 + 变化时再注入）。
-  const systemRows = buildSystemRows(data.llmCalls)
+  const systemRows = buildSystemRows(llmCalls)
 
   return { rows, lifecycle, systemRows, runs, retries }
+}
+
+/** 从子会话 id（sub_<父id>_<角色id>_<时间戳>）提取目标角色 id；解析失败返回 null。 */
+function parseSubTargetId(sid: string, parentId: string): string | null {
+  const prefix = `sub_${parentId}_`
+  if (!sid.startsWith(prefix)) return null
+  const rest = sid.slice(prefix.length)
+  const m = /^(.*)_\d+$/.exec(rest)
+  return m ? m[1] : (rest || null)
+}
+
+/**
+ * 从会话轨迹数据构建时间线模型（对标 deepseek-harness trajectory）。
+ * P2b: 数据可包含直接子会话（includeChildren=1），按 session_id 分组——
+ * 主会话走完整轨迹（含 run 边界/系统提示），每个子会话汇总为
+ * TrajectorySubagentSummary（内联显示 toolcalls + 状态 + 结果摘要）。
+ */
+export function buildTrajectory(data: TrajectoryData): TrajectoryModel {
+  const parentId = data.session?.id ?? data.messages[0]?.session_id ?? ''
+  const groups = new Map<string, TrajectoryMessage[]>()
+  for (const m of data.messages) {
+    if (!groups.has(m.session_id)) groups.set(m.session_id, [])
+    groups.get(m.session_id)!.push(m)
+  }
+
+  const parentMsgs = groups.get(parentId) ?? []
+  const parentRuns = (data.runs ?? []).filter(r => r.session_id === parentId)
+  const parentEvents = data.events.filter(e => e.session_id === parentId)
+  const parentLlmCalls = (data.llmCalls ?? []).filter(c => c.sessionId === parentId)
+  const parent = buildSessionModel(parentMsgs, parentRuns, parentEvents, parentLlmCalls)
+
+  const subagents: TrajectorySubagentSummary[] = []
+  for (const [sid, msgs] of groups) {
+    if (sid === parentId) continue
+    const runs = (data.runs ?? []).filter(r => r.session_id === sid)
+    const events = data.events.filter(e => e.session_id === sid)
+    const llmCalls = (data.llmCalls ?? []).filter(c => c.sessionId === sid)
+    const sub = buildSessionModel(msgs, runs, events, llmCalls)
+    subagents.push({
+      sessionId: sid,
+      targetCharacterId: parseSubTargetId(sid, parentId) ?? sid,
+      task: sub.rows.find(r => r.kind === 'user')?.text ?? '',
+      status: runs[runs.length - 1]?.status ?? 'completed',
+      rows: sub.rows,
+      lifecycle: sub.lifecycle,
+      runs: sub.runs,
+      toolCalls: sub.rows.filter(r => r.kind === 'tool').length,
+      result: [...sub.rows].reverse().find(r => (r.kind === 'assistant' || r.kind === 'tool') && r.text)?.text ?? '',
+    })
+  }
+
+  return { ...parent, subagents }
 }
 
 /** 头部汇总：与侧边栏会话统计同口径（本 run 范围）。 */
@@ -390,5 +465,10 @@ export function filterTrajectory(model: TrajectoryModel, query: string): Traject
       || toolNames(system.tools).some(name => name.toLowerCase().includes(q))),
     runs: model.runs,
     retries: model.retries,
+    subagents: model.subagents.map(sub => ({
+      ...sub,
+      rows: sub.rows.filter(rowMatch),
+      lifecycle: sub.lifecycle.filter(lifecycleMatch),
+    })),
   }
 }

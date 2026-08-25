@@ -10,7 +10,7 @@ import { getDataDir } from '../config.js'
 import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-title.js'
 import { characterPresenceProjector } from '../character/presence-projector.js'
 import { runCoordinator } from '../agent/runtime/run-coordinator.js'
-import { llmCallsForSession, rowToLLMCall } from '../agent/llm-call-store.js'
+import { llmCallsForSession, rowToLLMCall, type LLMCallRecord } from '../agent/llm-call-store.js'
 import { runStore } from '../agent/runtime/run-store.js'
 import { planStore, goalStore } from '../agent/plan/plan-store.js'
 import { runEventStore, flushAllPending } from '../agent/runtime/run-event-store.js'
@@ -35,7 +35,13 @@ router.get('/recent', (c) => {
 router.get('/presences', (c) => c.json(characterPresenceProjector.listBySession()))
 router.post('/', async (c) => {
   const body = await c.req.json()
-  const session = sessionStore.create({ id: body.id, ...body })
+  const charId = (body.character_id as string) || 'general'
+  let targets = body.targets
+  if (targets === undefined) {
+    const charMeta = characterMetaStore.getById(charId)
+    targets = charMeta?.helpers?.length ? charMeta.helpers : ['worker']
+  }
+  const session = sessionStore.create({ id: body.id, ...body, targets })
   return c.json(session, 201)
 })
 router.post('/:id/generate-title', async (c) => {
@@ -137,7 +143,7 @@ router.post('/:id/fork', async (c) => {
       pinned_character_revision_id: source.pinned_character_revision_id,
       forked_from_session_id: source.id,
       forked_from_message_id: messages[throughIndex].id,
-      active_group: source.active_group,
+      active_group: source.active_group, targets: source.targets || null,
       session_type: 'chat',
       event_id: null,
       current_strategy: source.current_strategy,
@@ -387,37 +393,65 @@ router.get('/:id/export', (c) => {
  */
 router.get('/:id/trajectory', (c) => {
   const id = c.req.param('id')
+  const includeChildren = c.req.query('includeChildren') === '1'
   const session = sessionStore.getById(id)
   if (!session) return c.json({ error: 'Not found' }, 404)
 
-  const runs = runStore.listForSession(id, 1000).reverse()
-  const messages = messageStore.getMessages(id, 100000)
+  // P2b-1: includeChildren=1 时把该会话的直接子会话（sub_ 会话）的
+  // runs/messages/events/llmCalls 一并聚合，数据自带 session_id，前端可按归属分组。
+  const sessionIds = [id]
+  if (includeChildren) {
+    for (const child of sessionStore.getChildren(id)) sessionIds.push(child.id)
+  }
 
-  const eventRows = getDb().prepare(`
-    SELECT event_id, session_id, run_id, seq, type, payload, created_at
-    FROM run_events
-    WHERE session_id = ? AND type NOT IN ('message.delta', 'tool.output')
-    ORDER BY created_at ASC, seq ASC
-  `).all(id) as Array<{
+  const runs: ReturnType<typeof runStore.listForSession>[number][] = []
+  const messages: ReturnType<typeof messageStore.getMessages>[number][] = []
+  const events: Array<{
     event_id: string
     session_id: string
     run_id: string
     seq: number
     type: string
-    payload: string
-    created_at: number
-  }>
-  const events = eventRows.map(event => ({
-    event_id: event.event_id,
-    session_id: event.session_id,
-    run_id: event.run_id,
-    seq: event.seq,
-    type: event.type,
-    occurred_at: event.created_at,
-    ...JSON.parse(event.payload),
-  }))
+    occurred_at: number
+    [key: string]: unknown
+  }> = []
+  const llmCalls: LLMCallRecord[] = []
 
-  const llmCalls = llmCallsForSession(id).map(row => rowToLLMCall(row))
+  for (const sid of sessionIds) {
+    runs.push(...runStore.listForSession(sid, 1000).reverse())
+    messages.push(...messageStore.getMessages(sid, 100000))
+    llmCalls.push(...llmCallsForSession(sid).map(row => rowToLLMCall(row)))
+    const eventRows = getDb().prepare(`
+      SELECT event_id, session_id, run_id, seq, type, payload, created_at
+      FROM run_events
+      WHERE session_id = ? AND type NOT IN ('message.delta', 'tool.output')
+      ORDER BY created_at ASC, seq ASC
+    `).all(sid) as Array<{
+      event_id: string
+      session_id: string
+      run_id: string
+      seq: number
+      type: string
+      payload: string
+      created_at: number
+    }>
+    for (const event of eventRows) {
+      events.push({
+        event_id: event.event_id,
+        session_id: event.session_id,
+        run_id: event.run_id,
+        seq: event.seq,
+        type: event.type,
+        occurred_at: event.created_at,
+        ...JSON.parse(event.payload),
+      })
+    }
+  }
+
+  // 跨会话合并后按真实时间归并：内容行按 created_at（id 兜底），事件按时间+seq。
+  messages.sort((a, b) => a.created_at - b.created_at || a.id - b.id)
+  events.sort((a, b) => a.occurred_at - b.occurred_at || a.seq - b.seq)
+
   return c.json({
     session: {
       id: session.id,

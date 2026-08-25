@@ -117,7 +117,10 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
       type: 'function',
       function: {
         name: 'delegate_to_agent',
-        description: '委托子任务给同组 sub 角色。只有顶层会话（非子会话）可以调用。',
+        description:
+          '委托子任务给 targets 中列出的角色（仅顶层会话可调用，子会话无法再委托）。' +
+          '适合场景：需要上下文隔离的大范围调研/检索、需要独立视角的验证或评审、或当前会话预算/轮数不足的长任务。' +
+          '子 agent 在独立会话中执行并返回结果。若描述中未列出可委托目标（targets 为空），说明当前未配置可委托角色，请勿调用。',
         parameters: {
           type: 'object',
           properties: {

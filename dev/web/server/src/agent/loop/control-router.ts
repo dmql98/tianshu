@@ -23,7 +23,7 @@ export interface SubAgentOutcome {
 export async function handleSubAgentRequest(input: {
   req: SubAgentRequestData
   result: InnerResult
-  session: { id: string; character_id: string; parent_id?: string | null; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; current_strategy?: string | null; approval_mode?: string | null }
+  session: { id: string; character_id: string; parent_id?: string | null; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; targets?: string | null; current_strategy?: string | null; approval_mode?: string | null }
   provider: ProviderConfig
   model: string
   signal?: AbortSignal
@@ -55,26 +55,60 @@ export async function handleSubAgentRequest(input: {
   }
 
   try {
-    const subResult = await spawnAndRunSubAgent(
-      req.task, req.target_character_id,
-      session, provider, model,
-      req.sub_strategy, signal, 0, broadcaster, stream, runId,
-    )
-    const summary = summarizeAndMerge([subResult])
-    const summaryContent = `[Sub-agent "${req.target_character_id}" completed]\n\nSummary: ${summary.summary}\n\nConclusions:\n${summary.conclusions.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
-    toolMessage = { role: 'tool', content: JSON.stringify({ output: summaryContent }), tool_call_id: toolCallId }
-    messageStore.addMessage(session.id, {
+    // P3 后台化：父循环不等待子完成，立即返回「已派发」结果；
+    // 子 agent 在独立会话继续执行（signal 传 undefined → 不随父 run 取消），
+    // 完成后回注父会话同一条 delegate 消息（updateContent + updateToolOutput + 事件）。
+    const dispatched = `[Sub-agent "${req.target_character_id}" dispatched] 已在独立会话后台执行。完成后将自动回传结果到本消息。`
+    toolMessage = { role: 'tool', content: JSON.stringify({ output: dispatched }), tool_call_id: toolCallId }
+    const parentMsg = messageStore.addMessage(session.id, {
       role: 'tool',
-      content: JSON.stringify({ output: summaryContent }),
+      content: JSON.stringify({ output: dispatched }),
       tool_name: 'delegate_to_agent',
       tool_input: JSON.stringify({ call_id: toolCallId, args: req }),
-      tool_output: summaryContent,
-      tool_status: 'success',
+      tool_output: dispatched,
+      tool_status: 'running',
     })
-    stream?.emit('tool.completed', {
+    stream?.emit('tool.started', {
       session_id: session.id, run_id: runId, tool_call_id: toolCallId,
-      tool_name: 'delegate_to_agent', tool_output: summaryContent,
-      tool_status: 'success', duration_ms: 0,
+      tool_name: 'delegate_to_agent', tool_input: JSON.stringify({ call_id: toolCallId, args: req }),
+    })
+
+    // fire-and-forget：子完成/失败后回注父会话。
+    void spawnAndRunSubAgent(
+      req.task, req.target_character_id,
+      session, provider, model,
+      req.sub_strategy, undefined, 0, broadcaster, stream, runId,
+    ).then(subResult => {
+      const summary = summarizeAndMerge([subResult])
+      const summaryContent = `[Sub-agent "${req.target_character_id}" completed]\n\nSummary: ${summary.summary}\n\nConclusions:\n${summary.conclusions.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
+      // 回注：同一条 delegate 消息从「已派发」更新为完整结果（轨迹/卡片同步）。
+      if (parentMsg && parentMsg.id != null) {
+        messageStore.updateContent(parentMsg.id, JSON.stringify({ output: summaryContent }))
+        messageStore.updateToolOutput(parentMsg.id, summaryContent)
+      }
+      stream?.emit('tool.completed', {
+        session_id: session.id, run_id: runId, tool_call_id: toolCallId,
+        tool_name: 'delegate_to_agent', tool_output: summaryContent,
+        tool_status: 'success', duration_ms: 0,
+      })
+      stream?.emit('sub_agent.completed', {
+        session_id: session.id, run_id: runId,
+        sub_session_id: subResult.sub_session_id ?? null,
+        target_character_id: req.target_character_id,
+        task: req.task,
+        summary: summaryContent,
+      })
+    }).catch((err: any) => {
+      const errMsg = `Sub-agent delegation failed: ${err?.message || err}`
+      if (parentMsg && parentMsg.id != null) {
+        messageStore.updateContent(parentMsg.id, JSON.stringify({ error: errMsg }))
+        messageStore.updateToolOutput(parentMsg.id, errMsg)
+      }
+      stream?.emit('tool.completed', {
+        session_id: session.id, run_id: runId, tool_call_id: toolCallId,
+        tool_name: 'delegate_to_agent', tool_output: errMsg,
+        tool_status: 'error', duration_ms: 0,
+      })
     })
   } catch (err: any) {
     const errMsg = `Sub-agent delegation failed: ${err.message || err}`

@@ -12,6 +12,7 @@
  */
 import type { TransportBroadcaster } from '../transport/runtime.js'
 import { sessionStore } from '../db/sessionStore.js'
+import { characterMetaStore } from '../db/characterStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { turnStore } from '../db/turnStore.js'
 import { runStore } from '../agent/runtime/run-store.js'
@@ -84,15 +85,23 @@ export async function handleChatRun(
   let session = sessionStore.getById(sessionId)
   if (!session) {
     const workspacesArr = data.workspaces as string[] | undefined
+    const charId = (data.character_id as string) || 'general'
+    const charMeta = characterMetaStore.getById(charId)
+    const defaultTargets = charMeta?.helpers?.length ? JSON.stringify(charMeta.helpers) : JSON.stringify(['worker'])
     session = sessionStore.create({
       id: sessionId,
-      character_id: (data.character_id as string) || 'general',
+      character_id: charId,
       title: (data.title as string) || '',
       model: (data.model as string) || undefined,
       provider_id: (data.provider_id as string) || undefined,
       workspace: (data.workspace as string) || undefined,
       workspaces: workspacesArr ? JSON.stringify(workspacesArr) : undefined,
       active_group: (data.active_group as string) || undefined,
+      targets: typeof data.targets === 'string'
+        ? data.targets
+        : Array.isArray(data.targets)
+          ? JSON.stringify(data.targets)
+          : defaultTargets,
       session_type: (data.session_type as 'chat' | 'event') || undefined,
       event_id: (data.event_id as string) || undefined,
     })
@@ -104,6 +113,7 @@ export async function handleChatRun(
     if (data.workspaces) patch.workspaces = JSON.stringify(data.workspaces)
     if (data.character_id) patch.character_id = data.character_id
     if (data.active_group) patch.active_group = data.active_group
+    if (data.targets !== undefined) patch.targets = data.targets
     if (data.event_id) patch.event_id = data.event_id
     if (Object.keys(patch).length > 0) sessionStore.update(sessionId, patch)
   }

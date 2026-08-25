@@ -247,6 +247,8 @@ interface ChatState {
   // Stats
   tokenUsage: { input: number; output: number; total: number }
   evolutionNotification: { session_id: string; insight_type: string; description: string } | null
+  /** 子 agent 拉起提示：sub_agent.started 后短暂显示，点击可跳转子会话。 */
+  subAgentNotice: { sub_session_id: string; target_character_id: string; task: string } | null
 
   // Attachments
   attachments: Attachment[]
@@ -254,6 +256,7 @@ interface ChatState {
   // Cleanup ref (not in state, mutable)
   _activeRunId: string | null
   _notificationTimer: ReturnType<typeof setTimeout> | null
+  _subAgentNoticeTimer: ReturnType<typeof setTimeout> | null
   _loadingSessions: boolean
 
   // ── Actions ──
@@ -263,7 +266,7 @@ interface ChatState {
   createSession: (opts?: {
     character_id?: string; model?: string; provider_id?: string
     workspace?: string; workspaces?: string[]; parent_id?: string
-    active_group?: string; session_type?: 'chat' | 'event'
+    active_group?: string; targets?: string[]; session_type?: 'chat' | 'event'
     event_id?: string | null; title?: string
   }) => Promise<Session>
   switchSession: (id: string) => Promise<void>
@@ -297,6 +300,9 @@ interface ChatState {
   removeWorkspace: (path: string) => void
   toggleWorkspaceCollapse: (workspace: string) => void
 
+  // Delegation targets（本会话可委托角色白名单）
+  updateSessionTargets: (sessionId: string, targets: string[] | null) => void
+
   // Batch ops
   toggleBatchMode: () => void
   toggleSessionSelection: (sessionId: string) => void
@@ -306,6 +312,7 @@ interface ChatState {
   // UI
   toggleAllTools: () => void
   clearEvolutionNotification: () => void
+  clearSubAgentNotice: () => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
@@ -641,10 +648,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         workspaces: parent?.workspaces ?? null,
         parent_id: data.session_id,
         active_group: null,
+        targets: null,
         created_at: Date.now(),
         updated_at: Date.now(),
       }
       set(state => ({ sessions: [...state.sessions, child] }))
+      // 触发主动提示：toast 短暂显示（3s），可点击跳转子会话（P2a）。
+      set({ subAgentNotice: { sub_session_id: data.sub_session_id, target_character_id: data.target_character_id, task: data.task } })
+      if (state._subAgentNoticeTimer) clearTimeout(state._subAgentNoticeTimer)
+      const timer = setTimeout(() => set({ subAgentNotice: null }), 3000)
+      set({ _subAgentNoticeTimer: timer })
     })
 
     bus.off('session:new')
@@ -662,6 +675,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         workspaces: null,
         parent_id: null,
         active_group: null,
+        targets: null,
         session_type: 'event',
         created_at: Date.now(),
         updated_at: Date.now(),
@@ -1318,9 +1332,11 @@ export const useChatStore = create<ChatState>((set, get) => {
     selectedSessionIds: new Set<string>(),
     tokenUsage: { input: 0, output: 0, total: 0 },
     evolutionNotification: null,
+    subAgentNotice: null,
     attachments: [],
     _activeRunId: null,
     _notificationTimer: null,
+    _subAgentNoticeTimer: null,
     _loadingSessions: false,
 
     // ── Session Actions ──
@@ -1395,6 +1411,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         workspaces: opts.workspaces ? JSON.stringify(opts.workspaces) : (opts.workspace || defs.defaultWorkspace) ? JSON.stringify([opts.workspace || defs.defaultWorkspace]) : null,
         parent_id: opts.parent_id || null,
         active_group: opts.active_group || null,
+        targets: opts.targets ? JSON.stringify(opts.targets) : null,
         session_type: opts.session_type,
         event_id: opts.event_id,
         current_strategy: currentStrategy,
@@ -1416,6 +1433,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           workspaces: session.workspaces,
           parent_id: session.parent_id,
           active_group: session.active_group,
+          targets: session.targets || undefined,
           session_type: session.session_type,
           event_id: session.event_id,
           current_strategy: session.current_strategy,
@@ -1768,6 +1786,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         workspace: session.workspace || undefined,
         workspaces: workspaces || undefined,
         active_group: session.active_group || undefined,
+        targets: session.targets || undefined,
         session_type: session.session_type || undefined,
         event_id: session.event_id || undefined,
         thinking: !!session.thinking || !!session.reasoning_effort || undefined,
@@ -2079,6 +2098,16 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
     },
 
+    // ── Delegation Targets（本会话可委托角色白名单）──
+    updateSessionTargets: (sessionId, targets) => {
+      set(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === sessionId ? { ...s, targets: targets ? JSON.stringify(targets) : null } : s
+        ),
+      }))
+      sessionsApi.updateSession(sessionId, { targets: targets ? JSON.stringify(targets) : null }).catch(() => {})
+    },
+
     // ── Batch Actions ──
 
     toggleBatchMode: () => {
@@ -2149,5 +2178,11 @@ export const useChatStore = create<ChatState>((set, get) => {
     toggleAllTools: () => set(state => ({ toolExpandAll: !state.toolExpandAll })),
 
     clearEvolutionNotification: () => set({ evolutionNotification: null }),
+
+    clearSubAgentNotice: () => {
+      const timer = get()._subAgentNoticeTimer
+      if (timer) clearTimeout(timer)
+      set({ subAgentNotice: null })
+    },
   }
 })

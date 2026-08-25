@@ -50,6 +50,10 @@ export const messageStore = {
   updateContent(id: number, content: string) {
     getDb().prepare('UPDATE messages SET content = ? WHERE id = ?').run(content, id)
   },
+  /** P3: 回注子 agent 完成结果到父会话同一条 delegate 消息的 tool_output（轨迹/卡片同步更新）。 */
+  updateToolOutput(id: number, toolOutput: string) {
+    getDb().prepare('UPDATE messages SET tool_output = ? WHERE id = ?').run(toolOutput, id)
+  },
   /** P2-3: 持久化工具调用修复（移除孤儿调用后回写 tool_input）。 */
   updateToolInput(id: number, toolInput: string) {
     getDb().prepare('UPDATE messages SET tool_input = ? WHERE id = ?').run(toolInput, id)

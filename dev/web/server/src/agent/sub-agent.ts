@@ -22,6 +22,8 @@ export interface SubResult {
   key_files: string[]
   conclusions: string[]
   agent_id: string
+  /** 子会话 id（P3 后台化：父需回注/前端跳转子会话）。 */
+  sub_session_id?: string
 }
 
 export interface SubSummary {
@@ -31,7 +33,7 @@ export interface SubSummary {
 }
 
 export function validateSubAgentTarget(
-  activeGroup: string | null | undefined,
+  targetsRaw: string | null | undefined,
   target: CharacterRecord,
   parentCharacterId: string,
 ): void {
@@ -39,12 +41,12 @@ export function validateSubAgentTarget(
     throw new Error(`目标角色 "${target.name}" 不具备 sub 能力 (role=${target.role})`)
   }
   if (target.id === parentCharacterId) return
-  if (activeGroup) {
-    if (!target.groups?.includes(activeGroup)) {
-      throw new Error(`跨组委托被禁止: 目标角色 "${target.name}" 不在组 "${activeGroup}" 中`)
-    }
-  } else {
-    throw new Error(`跨组委托被禁止: 该角色没有组，只能委托给自身`)
+  const allowed = (() => {
+    if (!targetsRaw) return ['worker']
+    try { const p = JSON.parse(targetsRaw); return Array.isArray(p) ? p : ['worker'] } catch { return ['worker'] }
+  })()
+  if (!allowed.includes(target.id)) {
+    throw new Error(`委托被禁止: 目标角色 "${target.name}" 不在可委托列表 targets 中`)
   }
 }
 
@@ -72,7 +74,7 @@ export function summarizeAndMerge(results: SubResult[], maxTokens = 2000): SubSu
 export async function spawnAndRunSubAgent(
   task: string,
   targetCharacterId: string,
-  parentSession: { id: string; character_id: string; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; current_strategy?: string | null; approval_mode?: string | null },
+  parentSession: { id: string; character_id: string; provider_id?: string | null; workspace?: string | null; workspaces?: string | null; active_group?: string | null; targets?: string | null; current_strategy?: string | null; approval_mode?: string | null },
   provider: ProviderConfig,
   model: string,
   strategyOverride?: StrategyInput,
@@ -90,7 +92,7 @@ export async function spawnAndRunSubAgent(
   const targetChar = characterMetaStore.getById(targetCharacterId)
   if (!targetChar) throw new Error(`Target character not found: ${targetCharacterId}`)
 
-  validateSubAgentTarget(parentSession.active_group, targetChar, parentSession.character_id)
+  validateSubAgentTarget(parentSession.targets, targetChar, parentSession.character_id)
 
   const charContent = characterContentStore.get(targetCharacterId)
   const subStrategy: Strategy = normalizeStrategy(
@@ -108,7 +110,7 @@ export async function spawnAndRunSubAgent(
     workspace: parentSession.workspace || undefined,
     workspaces: parentWorkspaces,
     parent_id: parentSession.id,
-    active_group: parentSession.active_group || undefined,
+    targets: parentSession.targets || undefined,
     current_strategy: subStrategy,
     approval_mode: subStrategy,
   })
@@ -262,5 +264,6 @@ export async function spawnAndRunSubAgent(
     key_files: [],
     conclusions: hasError ? [`Error: ${innerResult.error}`] : [summary],
     agent_id: targetCharacterId,
+    sub_session_id: subSessionId,
   }
 }

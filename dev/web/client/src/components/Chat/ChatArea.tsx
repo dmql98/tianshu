@@ -14,6 +14,7 @@ export default function ChatArea() {
   const {
     sessions, activeSessionId, pendingApproval, pendingAskUser,
     streamConnected, isRefreshing, refreshSession, renameSession,
+    subAgentNotice, clearSubAgentNotice,
   } = useChatStore()
   const { toggleSidebar, toggleRightPanel, toggleFilePanel } = useUIStore()
   const t = useI18n()
@@ -78,6 +79,27 @@ export default function ChatArea() {
         <div className="meteor"></div>
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+        {subAgentNotice && (
+          <div
+            className="subagent-toast"
+            onClick={() => {
+              navigate(`/chat/${subAgentNotice.sub_session_id}`)
+              clearSubAgentNotice()
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <span className="subagent-toast-icon">🤖</span>
+            <span className="subagent-toast-text">
+              {t('已拉起子 agent「{id}」', { id: subAgentNotice.target_character_id })}：{subAgentNotice.task.slice(0, 40)}
+            </span>
+            <button
+              className="subagent-toast-close"
+              onClick={e => { e.stopPropagation(); clearSubAgentNotice() }}
+              aria-label={t('关闭')}
+            >×</button>
+          </div>
+        )}
         <div className="input-top-bar">
           <button className="menu-btn" onClick={toggleSidebar} title={t('展开/收起侧栏')}><Icon name="menu" size={16} ariaHidden /></button>
           {editingTitle ? (

@@ -51,6 +51,7 @@ export default function CharacterDetailPage() {
   const [rpMaxAuto, setRpMaxAuto] = useState<string>('')
   const [rpEffective, setRpEffective] = useState<Character['runPolicy'] | undefined>(undefined)
   const [groups, setGroups] = useState<string[]>([])
+  const [helpers, setHelpers] = useState<string[]>(['worker'])
   const [selfEvolution, setSelfEvolution] = useState(false)
 
   // Content fields
@@ -121,6 +122,7 @@ export default function CharacterDetailPage() {
       setRpMaxAuto(rp?.maxAutoContinuations != null ? String(rp.maxAutoContinuations) : '')
       setRpEffective(c.runPolicy)
       setGroups(c.groups ? [...c.groups] : [])
+      setHelpers(c.helpers?.length ? [...c.helpers] : ['worker'])
       setSelfEvolution(c.memory?.selfEvolution ?? false)
       setSoul(c.soul ?? '')
       setUserProfile(c.userProfile ?? '')
@@ -195,6 +197,7 @@ export default function CharacterDetailPage() {
       role,
       default_strategy: strategy,
       groups,
+      helpers,
       memory: { enabled: memoryEnabled, selfEvolution, charLimit },
       soul,
       userProfile,
@@ -264,6 +267,12 @@ export default function CharacterDetailPage() {
     const next = groups.includes(grp) ? groups.filter(g => g !== grp) : [...groups, grp]
     setGroups(next)
     autoSave({ groups: next })
+  }
+
+  function toggleHelper(id: string) {
+    const next = helpers.includes(id) ? helpers.filter(h => h !== id) : [...helpers, id]
+    setHelpers(next)
+    autoSave({ helpers: next })
   }
 
   function addNewGroup() {
@@ -534,6 +543,25 @@ export default function CharacterDetailPage() {
                 ) : (
                   <span className="tag" style={{ borderStyle: 'dashed', borderColor: 'var(--border)' }} onClick={() => setShowNewGroupInput(true)}>+</span>
                 )}
+              </div>
+            </div>
+
+            <div className="detail-section">
+              <div className="detail-section-title">{t('工作帮手')}</div>
+              <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 8 }}>
+                {t('该角色新会话默认可委托的角色（可含自己与 worker）。在会话侧边「帮手栏」可再单独调整。')}
+              </div>
+              <div className="tag-list">
+                {allChars.map(c => (
+                  <span
+                    key={c.id}
+                    className={`tag ${helpers.includes(c.id) ? 'on' : ''}`}
+                    title={c.description}
+                    onClick={() => toggleHelper(c.id)}
+                  >
+                    {c.name}
+                  </span>
+                ))}
               </div>
             </div>
 

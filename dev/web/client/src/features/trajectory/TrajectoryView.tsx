@@ -13,6 +13,7 @@ import {
   type TrajectoryModel,
   type TrajectoryRow,
   type TrajectoryRunMeta,
+  type TrajectorySubagentSummary,
   type TrajectorySystemRow,
 } from '@/features/trajectory/trajectory'
 import { formatDuration, formatTokens } from '@/features/chat/runStats'
@@ -125,7 +126,7 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
     setSelection(null)
     if (!sessionId) return
     setLoading(true)
-    fetchSessionTrajectory(sessionId)
+    fetchSessionTrajectory(sessionId, true)
       .then(result => { if (!cancelled) setData(result) })
       .catch(() => { if (!cancelled) setError(t('加载轨迹失败')) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -137,7 +138,7 @@ export default function TrajectoryView({ sessionId }: { sessionId: string }) {
       if (refetchTimer) return
       refetchTimer = setTimeout(() => {
         refetchTimer = null
-        fetchSessionTrajectory(sessionId)
+        fetchSessionTrajectory(sessionId, true)
           .then(result => { if (!cancelled) setData(result) })
           .catch(() => { /* 实时重拉失败：保留当前快照 */ })
       }, TRAJECTORY_REFRESH_THROTTLE_MS)
@@ -372,6 +373,50 @@ function MergedTimeline({
           />
         )
       })}
+      {model.subagents.map(sub => (
+        <SubagentBlock key={sub.sessionId} sub={sub} />
+      ))}
+    </div>
+  )
+}
+
+/** 子 agent 折叠块（P2b）：父轨迹内联子 agent 执行——toolcalls + 状态 + 结果摘要。 */
+function SubagentBlock({ sub }: { sub: TrajectorySubagentSummary }) {
+  const t = useI18n()
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="tjs-subagent">
+      <button
+        type="button"
+        className={`tjs-subagent-head ${open ? 'open' : ''}`}
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+      >
+        <span className="tjs-subagent-caret">{open ? '▾' : '▸'}</span>
+        <span className="tjs-kind tjs-kind-subagent">子 agent</span>
+        <span className="tjs-subagent-name">{sub.targetCharacterId}</span>
+        <span className={`tjs-status ${runStatusClass(sub.status)}`}>
+          {STATUS_LABEL[sub.status] ?? sub.status}
+        </span>
+        <span className="tjs-subagent-meta">{sub.toolCalls} {t('工具')} · {sub.rows.length} {t('行')}</span>
+        <span className="tjs-time">{hhmmss(sub.rows[0]?.createdAt ?? 0)}</span>
+      </button>
+      {open && (
+        <div className="tjs-subagent-body">
+          {sub.task && <div className="tjs-subagent-task">{t('任务')}: {sub.task}</div>}
+          {sub.runs.map(run => <RunBoundaryBar key={run.id} run={run} />)}
+          {sub.lifecycle.map((lc, i) => <LifecycleBar key={`sublc-${i}`} item={lc} />)}
+          {sub.rows.map(row => (
+            <TrajectoryRowView key={`subrow-${row.messageId}`} row={row} selected={false} onSelect={() => {}} />
+          ))}
+          {sub.result && (
+            <div className="tjs-subagent-result">
+              <span className="tjs-subagent-result-label">{t('结果')}:</span>{' '}
+              <span className="tjs-subagent-result-text">{sub.result.slice(0, 300)}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
