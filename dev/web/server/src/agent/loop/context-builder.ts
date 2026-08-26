@@ -5,7 +5,6 @@ import { characterMetaStore, type CharacterRecord } from '../../db/characterStor
 import { characterContentStore } from '../../character/store.js'
 import { messageStore } from '../../db/messageStore.js'
 import { buildSkillIndex } from '../skill-loader.js'
-import { normalizeTools } from '../system-cache.js'
 import { truncateToolOutput } from '../../tools/truncate.js'
 import { pruneToolResultContent } from './tool-result-pruner.js'
 import { reconstructParts, lowerContentToProvider, textPart, resolveProviderFormat, type ProviderCapability, type ProviderFormat } from '../attachments.js'
@@ -45,23 +44,19 @@ export function loadPromptTemplate(charId: string): string {
   return '## System Prompt\n\n{{GUIDANCE}}'
 }
 
-export interface StaticPromptOptions {
-  /**
-   * 是否在 system prompt 文本里列出可用工具。工具已通过 API `tools` 参数下发，
-   * 默认不在 system 文本重复列出（P2-1，省 token / 保前缀缓存稳定）；仅当通道
-   * 不支持 tools 参数时打开。由 TSS_SYSTEM_TOOLS_LIST=1 控制。
-   */
-  includeToolsListing?: boolean
-}
-
 export function assembleStaticPrompt(
   charMeta: CharacterRecord,
   charContent: { soul: string; user: string },
   toolDefs: any[],
   workspace: string,
   dataDir?: string,
-  opts?: StaticPromptOptions,
-): string {
+): string[] {
+  // 每个 part = 一条独立 system 消息（组装顺序即发送顺序：system0=Character,
+  // system1=User Info, system2=模板块, …）。轨迹页按消息边界逐条展示，
+  // 之后调整组装顺序也能一目了然。字节内容与旧版 join 完全一致
+  // （parts.join('\n\n')），仅消息边界不同 → 不改动稳定前缀的字节稳定性。
+  // 工具清单不进入 system 文本：工具已通过 API `tools` 参数下发（P2-1），
+  // 重复列出既费 token 又会让前缀随工具集变化而失稳。
   const parts: string[] = []
 
   if (charContent.soul) parts.push(`## Character\n${charContent.soul}`)
@@ -69,16 +64,6 @@ export function assembleStaticPrompt(
 
   // Load configurable prompt template
   parts.push(loadPromptTemplate(charMeta.id).trim())
-
-  // List available tools — sorted for deterministic ordering (Reasonix #6).
-  // P2-1: 默认省略（工具已在 tools 参数下发）；仅 TSS_SYSTEM_TOOLS_LIST=1 时列出。
-  if (opts?.includeToolsListing && toolDefs.length > 0) {
-    const sorted = normalizeTools(toolDefs)
-    const toolListings = sorted.map((t: any) =>
-      `- ${t.function.name}: ${t.function.description}`
-    )
-    parts.push(`## Available Tools\n${toolListings.join('\n')}`)
-  }
 
   // Skills: index only (names + descriptions, no bodies — Reasonix #3)
   const skillIndex = buildSkillIndex(charMeta)
@@ -92,7 +77,7 @@ export function assembleStaticPrompt(
     }
   parts.push(`## Workspace\nProject workspace: ${workspace}\nCreate it if it does not exist.`)
 
-  return parts.join('\n\n')
+  return parts
 }
 
 /**
@@ -313,7 +298,8 @@ export function fixOrphanToolCalls(
 
 export interface SessionContextInput {
   characterId: string
-  systemPrompt: string
+  /** 静态系统提示的分块（每个 part 一条 system 消息，按组装顺序）。 */
+  systemPrompt: string[]
   memory: string | null
   compactionSummary: string | null
   rows: MessageRow[]
@@ -329,7 +315,8 @@ export interface SessionContextInput {
 /** Build the initial provider message list from a session. */
 export async function buildInitialMessages(input: SessionContextInput): Promise<LLMMessage[]> {
   const format = resolveProviderFormat(input.providerBaseUrl)
-  const messages: LLMMessage[] = [{ role: 'system', content: input.systemPrompt }]
+  // 静态提示逐块推送为独立 system 消息（组装顺序 = 发送顺序，便于轨迹逐条展示）。
+  const messages: LLMMessage[] = input.systemPrompt.map(content => ({ role: 'system', content }))
   if (input.activeSkills?.length) {
     messages.push({
       role: 'system',

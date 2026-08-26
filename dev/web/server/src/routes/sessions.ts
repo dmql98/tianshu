@@ -212,7 +212,6 @@ router.post('/:id/compact', async (c) => {
     toolDefs,
     resolveWorkspace(session.workspace),
     getDataDir(),
-    { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' },
   )
   const messages = await buildInitialMessages({
     characterId: session.id,

@@ -70,6 +70,8 @@ export interface TrajectorySystemRow {
   callTurn: number
   /** 完整系统提示文本（该次调用实际发送的 system 消息拼接）。 */
   system: string
+  /** 该次调用实际发送的 system 消息快照（按组装顺序：静态拼接/技能/记忆/压缩摘要…）。 */
+  messages: Array<{ role: string; content: unknown }>
   /** 该次调用实际发送的工具定义。 */
   tools: unknown[]
   /** update 时上一次的状态，用于 Diff 分页。 */
@@ -144,22 +146,108 @@ function toRow(message: TrajectoryMessage): TrajectoryRow {
   }
 }
 
-/** 从一次 LLM 调用快照提取系统提示文本（拼接所有 system 消息的 content）。 */
+/** 从一条消息里提取 system 文本（支持 string 与 content parts 数组）。 */
+function systemContentOf(m: unknown): string {
+  const content = (m as any)?.content
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map(block => (block as any)?.type === 'text' ? String((block as any).text ?? '') : '')
+      .join('\n')
+  }
+  return ''
+}
+
+/** 从一次 LLM 调用快照提取系统提示文本（拼接所有 system 消息的 content，用于变化检测）。 */
 function extractSystemText(messages: unknown[]): string {
   return (messages || [])
     .filter(m => (m as any)?.role === 'system')
-    .map(m => {
-      const content = (m as any)?.content
-      if (typeof content === 'string') return content
-      if (Array.isArray(content)) {
-        return content
-          .map(block => (block as any)?.type === 'text' ? String((block as any).text ?? '') : '')
-          .join('\n')
-      }
-      return ''
-    })
+    .map(m => systemContentOf(m))
     .filter(Boolean)
     .join('\n\n')
+}
+
+/** 系统提示的一个分块（与后端组装逻辑对应）。 */
+export interface PromptSection {
+  /** 第几条 system 消息（0 起，= 组装顺序：0=静态提示拼接，1=技能，2=记忆，3=压缩摘要…）。 */
+  systemIndex: number
+  title: string
+  body: string
+}
+
+/**
+ * 从非空行的首行提取块标题：
+ * `## Title` → `Title`；`[Compacted History]` → 原样保留；其余 → 「补充提示」。
+ */
+function blockTitleOf(text: string): string {
+  const first = text.split('\n').map(l => l.trim()).find(Boolean) ?? ''
+  const m = first.match(/^##\s+(.+?)\s*$/)
+  if (m) return m[1].trim()
+  if (/^\[.+\]$/.test(first)) return first
+  return ''
+}
+
+/**
+ * 按后端组装逻辑切分系统提示分块（与 context-builder.ts 一一对应）：
+ * - 每条 system 消息 = 一个组装产物，块上带 systemIndex 序号（0 起），组装顺序一目了然：
+ *   system0=Character / system1=User Info / system2=模板块 / system3=Skill Packages /
+ *   system4=Data Directory / system5=Workspace / system6=Active Session Skills /
+ *   system7=Memory / system8=[Compacted History]；
+ * - 兼容旧数据：拆分前的 llm_calls 快照里第一条仍是整段静态拼接，此时对 system0
+ *   再按 `## ` 反切还原各静态块（同标 system0）。
+ */
+export function extractSystemBlocks(messages: unknown[]): PromptSection[] {
+  const blocks: PromptSection[] = []
+  let sysIdx = 0
+  for (const msg of (messages || []).filter(m => (m as any)?.role === 'system')) {
+    const content = systemContentOf(msg)
+    if (!content) { sysIdx++; continue }
+    if (sysIdx === 0) {
+      // 第一条 = assembleStaticPrompt 的拼接结果，按 `## ` 反切。
+      const parts = splitPromptSections(content)
+      const inner = parts.length > 0 ? parts : [{ title: '', body: content }]
+      for (const p of inner) blocks.push({ systemIndex: 0, ...p })
+    } else {
+      // 后续 = 独立 system 消息，整体一块（标题取首行）。
+      blocks.push({ systemIndex: sysIdx, title: blockTitleOf(content), body: content })
+    }
+    sysIdx++
+  }
+  return blocks
+}
+
+/**
+ * 把系统提示文本按 markdown `## ` 二级标题切分为多个块：
+ * - `## 标题` 到下一个 `## 标题`（或结尾）之间为一个块；
+ * - 首个 `## ` 之前的无标题内容作为前缀块（title 为空）；
+ * - `### ` 等更深层标题不会切分；
+ * - 分块之间按顺序保留，供详情窗口逐块分页展示。
+ */
+export function splitPromptSections(system: string): PromptSection[] {
+  if (!system) return []
+  const sections: PromptSection[] = []
+  let title = ''
+  let body: string[] = []
+  let started = false
+  const flush = (): void => {
+    const text = body.join('\n').replace(/^\n+|\n+$/g, '')
+    if (started || text) sections.push({ systemIndex: 0, title, body: text })
+    title = ''
+    body = []
+    started = false
+  }
+  for (const line of system.split('\n')) {
+    const m = line.match(/^##\s+(.+?)\s*$/)
+    if (m) {
+      flush()
+      title = m[1].trim()
+      started = true
+    } else {
+      body.push(line)
+    }
+  }
+  flush()
+  return sections
 }
 
 /**
@@ -214,6 +302,7 @@ function buildSystemRows(llmCalls: TrajectoryData['llmCalls']): TrajectorySystem
   let lastToolNames: string[] = []
   for (const call of calls) {
     const system = extractSystemText(call.request.messages)
+    const messages = call.request.messages as Array<{ role: string; content: unknown }>
     const tools = call.request.tools ?? []
     const names = toolNames(tools)
     if (rows.length === 0) {
@@ -223,6 +312,7 @@ function buildSystemRows(llmCalls: TrajectoryData['llmCalls']): TrajectorySystem
         runId: call.runId ?? null,
         callTurn: call.turn,
         system,
+        messages,
         tools,
       })
     } else if (system !== lastSystem || names.join(',') !== lastToolNames.join(',')) {
@@ -232,6 +322,7 @@ function buildSystemRows(llmCalls: TrajectoryData['llmCalls']): TrajectorySystem
         runId: call.runId ?? null,
         callTurn: call.turn,
         system,
+        messages,
         tools,
         previous: { system: lastSystem, toolNames: lastToolNames },
       })
