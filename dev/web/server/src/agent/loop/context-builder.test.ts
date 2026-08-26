@@ -139,11 +139,11 @@ const big = 'x'.repeat(9000)
   const charContent = { soul: '测试人格', user: '测试用户' }
   const toolDefs = [{ type: 'function', function: { name: 'read', description: 'Read a file', parameters: {} } }]
   const p = assembleStaticPrompt(charMeta, charContent, toolDefs, '/ws')
-  check('P2-1 默认省略 ## Available Tools', !p.includes('## Available Tools'))
-  check('P2-1 其他 section 保留', p.includes('## Character') && p.includes('## Workspace'))
-  const pOn = assembleStaticPrompt(charMeta, charContent, toolDefs, '/ws', undefined, { includeToolsListing: true })
-  check('P2-1 开启后列出工具', pOn.includes('## Available Tools') && pOn.includes('read'))
-  console.log('  OK P2-1 tools listing toggle')
+  const pText = p.join('\n\n')
+  check('P2-1 工具清单不进 system 文本（工具经 API tools 参数下发）', !pText.includes('## Available Tools') && !pText.includes('read'))
+  check('P2-1 其他 section 保留', pText.includes('## Character') && pText.includes('## Workspace'))
+  check('P2-1 静态提示按组装顺序拆分为独立 system 块', p[0].startsWith('## Character') && p[1].startsWith('## User Info') && p[p.length - 1].startsWith('## Workspace'))
+  console.log('  OK P2-1 tools listing removed')
 }
 
 // ── P2-3: fixOrphanToolCalls 幂等移除孤儿调用 ────────────────────────────────

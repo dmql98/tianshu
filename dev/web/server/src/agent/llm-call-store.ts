@@ -13,11 +13,15 @@ import { getDb } from '../db/schema.js'
  */
 
 function systemPromptFingerprint(messages: unknown[]): string {
-  const sysMsg = (messages || []).find(m => (m as any)?.role === 'system')
-  if (!sysMsg || typeof (sysMsg as any).content !== 'string') return ''
-  const content = (sysMsg as any).content
-  // Only hash first 500 chars — enough to detect agent/tool changes
-  return createHash('sha256').update(content.slice(0, 500)).digest('hex').slice(0, 12)
+  // 静态提示已拆成多条 system 消息，fingerprint 需覆盖全部 system 内容
+  // 前 500 字符的拼接，才能像旧版一样捕获任何组装块的变化。
+  const sysText = (messages || [])
+    .filter(m => (m as any)?.role === 'system')
+    .map(m => (typeof (m as any)?.content === 'string' ? (m as any).content : ''))
+    .join('\n')
+    .slice(0, 500)
+  if (!sysText) return ''
+  return createHash('sha256').update(sysText).digest('hex').slice(0, 12)
 }
 
 // Per-session FIFO queue: logLLMCall is fire-and-forget from the run loop. The

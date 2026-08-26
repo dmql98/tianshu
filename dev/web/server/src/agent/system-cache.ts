@@ -10,7 +10,7 @@ const CACHE_DIR = process.env.SYSTEM_CACHE_DIR
 mkdirSync(CACHE_DIR, { recursive: true })
 
 const MAX_MEMORY = 50
-const memCache = new Map<string, { prompt: string; hash: string; size: number; hitCount: number; createdAt: number }>()
+const memCache = new Map<string, { prompt: string[]; hash: string; size: number; hitCount: number; createdAt: number }>()
 
 function shortHash(v: string): string {
   return createHash('sha256').update(v).digest('hex').slice(0, 16)
@@ -33,7 +33,6 @@ export function stableKey(
   skills: string[] | undefined,
   soul: string,
   user: string,
-  variant = '',
   workspace?: string,
 ): string {
   const t = normalizeTools(tools)
@@ -45,7 +44,6 @@ export function stableKey(
     's:', sStr,
     'so:', shortHash(soul || ''),
     'u:', shortHash(user || ''),
-    ...(variant ? ['v:', variant] : []),
     // Workspace/dataDir are interpolated into the cached prompt body, so
     // they MUST be part of the key — otherwise a session that switched
     // workspace would receive another session's stale prompt (cross-session
@@ -60,7 +58,7 @@ function cachePath(key: string): string {
   return resolve(CACHE_DIR, `${key}.json`)
 }
 
-export function getCached(key: string): string | null {
+export function getCached(key: string): string[] | null {
   const mem = memCache.get(key)
   if (mem) {
     mem.hitCount++
@@ -70,10 +68,13 @@ export function getCached(key: string): string | null {
   if (existsSync(fp)) {
     try {
       const data = JSON.parse(readFileSync(fp, 'utf-8'))
+      // 旧版缓存值是 string（单条拼接）；拆分后为 string[]。读到旧格式直接丢弃，
+      // 触发重组装，避免类型错乱。
+      if (!Array.isArray(data.prompt)) return null
       memCache.set(key, {
         prompt: data.prompt,
-        hash: shortHash(data.prompt),
-        size: data.prompt.length,
+        hash: shortHash(data.prompt.join('\n')),
+        size: data.prompt.join('\n').length,
         hitCount: 0,
         createdAt: data.createdAt ?? Date.now(),
       })
@@ -83,8 +84,9 @@ export function getCached(key: string): string | null {
   return null
 }
 
-export function setCached(key: string, prompt: string): void {
-  const hash = shortHash(prompt)
+export function setCached(key: string, prompt: string[]): void {
+  const joined = prompt.join('\n')
+  const hash = shortHash(joined)
   // Check if cached content already matches — skip write if identical
   const existing = memCache.get(key)
   if (existing && existing.hash === hash) return
@@ -100,7 +102,7 @@ export function setCached(key: string, prompt: string): void {
   memCache.set(key, {
     prompt,
     hash,
-    size: prompt.length,
+    size: joined.length,
     hitCount: 0,
     createdAt: Date.now(),
   })

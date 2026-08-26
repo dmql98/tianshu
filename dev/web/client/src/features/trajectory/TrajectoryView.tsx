@@ -4,11 +4,10 @@ import { getEventBus } from '@/api/eventBus'
 import { useChatStore } from '@/stores/chatStore'
 import {
   buildTrajectory,
+  extractSystemBlocks,
   filterTrajectory,
   summarizeTrajectory,
-  toolDescriptionOf,
   toolNameOf,
-  toolNames,
   type TrajectoryLifecycleItem,
   type TrajectoryModel,
   type TrajectoryRow,
@@ -532,10 +531,9 @@ function DetailsPanel({
 }) {
   const t = useI18n()
   const isSystem = selection.kind === 'system'
+  // 系统提示注入记录固定两页：系统提示（页内分块）/ 工具（每工具一块）。
   const tabs = isSystem
-    ? (selection.row.kind === 'update'
-      ? [t('系统提示'), t('工具'), t('差异')]
-      : [t('系统提示'), t('工具')])
+    ? [t('系统提示'), t('工具')]
     : selection.row.kind === 'assistant'
       ? [t('内容'), t('思考'), t('指标'), t('原始')]
       : selection.row.kind === 'tool'
@@ -612,32 +610,44 @@ function RowDetails({ row, tab }: { row: TrajectoryRow; tab: string }) {
   return <PreBlock value={row.text} />
 }
 
+/** 分块渲染：每个块 = 标题 + 内容，块与块之间用虚线分隔。 */
+function BlockList({ blocks }: { blocks: Array<{ title: string; body: string }> }) {
+  return (
+    <div className="tjs-blocks">
+      {blocks.map((block, i) => (
+        <div className="tjs-block" key={i}>
+          <div className="tjs-block-title">{block.title}</div>
+          <pre className="tjs-pre">{block.body}</pre>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function SystemDetails({ row, tab }: { row: TrajectorySystemRow; tab: string }) {
   const t = useI18n()
-  if (tab === t('系统提示')) {
-    return <PreBlock value={row.system} />
-  }
   if (tab === t('工具')) {
-    const names = (row.tools || [])
-      .map(tool => {
-        const name = toolNameOf(tool)
-        const desc = toolDescriptionOf(tool)
-        return name ? `${name}${desc ? ` — ${desc}` : ''}` : ''
-      })
-      .filter(Boolean)
-    return <PreBlock value={names.join('\n') || (t('（无工具）'))} />
+    const tools = row.tools || []
+    if (tools.length === 0) return <div className="tjs-details-empty">{t('（无工具）')}</div>
+    return (
+      <BlockList
+        blocks={tools.map((tool, i) => ({
+          title: toolNameOf(tool) || `${t('工具')} ${i + 1}`,
+          body: JSON.stringify(tool, null, 2),
+        }))}
+      />
+    )
   }
-  if (tab === t('差异') && row.previous) {
-    const prev = row.previous
-    const prevNames = new Set(prev.toolNames)
-    const curNames = toolNames(row.tools)
-    const added = curNames.filter(name => !prevNames.has(name))
-    const removed = prev.toolNames.filter(name => !curNames.includes(name))
-    const lines: string[] = []
-    if (row.system !== prev.system) lines.push(`[${t('系统提示已变化')}]`)
-    if (added.length > 0) lines.push(`[+ ${t('新增工具')}: ${added.join(', ')}]`)
-    if (removed.length > 0) lines.push(`[- ${t('移除工具')}: ${removed.join(', ')}]`)
-    return <PreBlock value={lines.join('\n') || t('无变化')} />
-  }
-  return <PreBlock value={row.system} />
+  // 系统提示：按组装顺序分块（system0=静态提示拼接，system1=技能，system2=记忆，
+  // system3=压缩摘要…；system0 内部再按 ## 切出 Character/User Info/模板块/…）。
+  const blocks = extractSystemBlocks(row.messages ?? [])
+  if (blocks.length === 0) return <div className="tjs-details-empty">{t('（无系统提示）')}</div>
+  return (
+    <BlockList
+      blocks={blocks.map(b => ({
+        title: `system${b.systemIndex}${b.title ? ` · ${b.title}` : ''}`,
+        body: b.body || t('（无系统提示）'),
+      }))}
+    />
+  )
 }

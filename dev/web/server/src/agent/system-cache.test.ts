@@ -52,10 +52,10 @@ assert(
 
 // ── setCached/getCached round-trip ──
 const testKey = 'test-key-12345'
-const testPrompt = '## Character\nTest\n## Workspace\n...'
+const testPrompt = ['## Character\nTest', '## Workspace\n...']
 setCached(testKey, testPrompt)
 const retrieved = getCached(testKey)
-assert(retrieved === testPrompt, 'setCached/getCached round-trip preserves content')
+assert(JSON.stringify(retrieved) === JSON.stringify(testPrompt), 'setCached/getCached round-trip preserves content')
 rmSync(resolve(cacheStats().cacheDir, `${testKey}.json`), { force: true })
 
 // ── Cache miss returns null ──

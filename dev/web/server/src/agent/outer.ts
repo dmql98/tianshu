@@ -176,7 +176,13 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   if (delegateTargets.length > 0) {
     for (const t of toolDefs) {
       if (t.function.name === 'delegate_to_agent') {
-        const targetStr = delegateTargets.map(c => `${c.id}(${c.name})`).join(', ')
+        // 注入可委托角色目录：id(名称: 角色简介)。简介为空时省略，避免出现空冒号。
+        const targetStr = delegateTargets
+          .map(c => {
+            const bio = c.description?.trim()
+            return bio ? `${c.id}(${c.name}: ${bio})` : `${c.id}(${c.name})`
+          })
+          .join(', ')
         t.function.description += ` | targets: ${targetStr}`
       }
     }
@@ -184,16 +190,15 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
 
   const tools = toolDefs.length > 0 ? toolDefs : undefined
 
-  // Build system prompt — cached by fingerprint. P2-1: 工具清单默认不进 system
-  // 文本；仅 TSS_SYSTEM_TOOLS_LIST=1 时列出（variant 纳入缓存 key 防串缓存）。
-  const toolsListingVariant = process.env.TSS_SYSTEM_TOOLS_LIST === '1' ? 'tools-listed' : 'tools-param'
+  // Build system prompt — cached by fingerprint. P2-1: 工具清单不进 system 文本，
+  // 工具已通过 API `tools` 参数下发；system-cache 的 stableKey 已覆盖
+  // tools/skills/soul/user/workspace/dataDir，工具变化会使 key 变化 → 缓存正确失效。
   const key = stableKey(
     charMeta.id,
     normalizeTools(toolDefs),
     charMeta.skills,
     charContent.soul,
     charContent.user,
-    toolsListingVariant,
       resolveWorkspace(session.workspace),
     )
   let systemPrompt = getCached(key)
@@ -201,7 +206,7 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     const comp = extractComponents(charMeta.id, normalizeTools(toolDefs), charMeta.skills, charContent.soul, charContent.user)
     const reasons = diagnoseMiss(charMeta.id, comp)
     console.log(`[system-cache] miss ${key}: ${reasons.join(', ')} (${toolDefs.length} tools, ${(charMeta.skills || []).length} skills)`)
-      systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), getDataDir(), { includeToolsListing: process.env.TSS_SYSTEM_TOOLS_LIST === '1' })
+      systemPrompt = assembleStaticPrompt(charMeta, charContent, toolDefs, resolveWorkspace(session.workspace), getDataDir())
     setCached(key, systemPrompt)
   }
 

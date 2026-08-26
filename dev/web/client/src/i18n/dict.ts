@@ -186,6 +186,7 @@ export const dict: Record<string, DictEntry> = {
   '无变化': { zh: '无变化', en: 'No changes' },
   '（无工具）': { zh: '（无工具）', en: '(no tools)' },
   '（无系统提示）': { zh: '（无系统提示）', en: '(no system prompt)' },
+  '前缀': { zh: '前缀', en: 'Prefix' },
   '用户消息': { zh: '用户消息', en: 'User message' },
   '助手回复': { zh: '助手回复', en: 'Assistant reply' },
   '内容': { zh: '内容', en: 'Content' },

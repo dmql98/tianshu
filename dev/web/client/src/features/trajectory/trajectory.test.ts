@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrajectoryData } from '@/types'
-import { buildTrajectory, filterTrajectory, summarizeTrajectory, toolNames } from './trajectory'
+import { buildTrajectory, filterTrajectory, splitPromptSections, summarizeTrajectory, toolNames } from './trajectory'
 
 const data: TrajectoryData = {
   run: {
@@ -273,5 +273,39 @@ describe('tool name extraction (OpenAI-format tool defs)', () => {
     expect(model.systemRows[0].kind).toBe('initial')
     expect(model.systemRows[1].kind).toBe('update')
     expect(model.systemRows[1].previous?.toolNames).toEqual(['bash'])
+  })
+})
+
+// ── 系统提示分块解析（详情窗口「每块一个分页」）──
+describe('splitPromptSections', () => {
+  it('splits on markdown ## headings, keeping order', () => {
+    const system = '## Character\n码仔\n\n## Workspace\n项目目录：/x\n\n## 工作方式\n先读代码'
+    const sections = splitPromptSections(system)
+    expect(sections.map(s => s.title)).toEqual(['Character', 'Workspace', '工作方式'])
+    expect(sections[0].body).toBe('码仔')
+    expect(sections[2].body).toBe('先读代码')
+  })
+
+  it('treats content before the first heading as a prefix block (empty title)', () => {
+    const sections = splitPromptSections('开头没有标题\n\n## Character\n码仔')
+    expect(sections).toHaveLength(2)
+    expect(sections[0].title).toBe('')
+    expect(sections[0].body).toBe('开头没有标题')
+    expect(sections[1].title).toBe('Character')
+  })
+
+  it('does not split on ### deeper headings', () => {
+    const system = '## Goal\n目标\n### 子节\n内容\n## Progress\n步骤'
+    const sections = splitPromptSections(system)
+    expect(sections.map(s => s.title)).toEqual(['Goal', 'Progress'])
+    expect(sections[0].body).toContain('### 子节')
+  })
+
+  it('returns empty for empty input and one block for plain text', () => {
+    expect(splitPromptSections('')).toEqual([])
+    const plain = splitPromptSections('纯文本，没有任何标题')
+    expect(plain).toHaveLength(1)
+    expect(plain[0].title).toBe('')
+    expect(plain[0].body).toBe('纯文本，没有任何标题')
   })
 })
