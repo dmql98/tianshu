@@ -105,10 +105,10 @@ export default function RightPanel() {
   // 授权工作区 = all workspaces except the project area
   const authorizedWorkspaces = workspaces.filter(ws => ws !== session.workspace)
 
-  // 帮手（本会话可委托角色白名单 targets）
-  let targets: string[] = ['worker']
+  // 帮手（本会话可委托角色白名单 targets；无配置则为空，不默认 worker）
+  let targets: string[] = []
   if (session.targets) {
-    try { const p = JSON.parse(session.targets); targets = Array.isArray(p) ? p : ['worker'] } catch { targets = ['worker'] }
+    try { const p = JSON.parse(session.targets); targets = Array.isArray(p) ? p : [] } catch { targets = [] }
   }
   const targetChars = allChars.filter(c => targets.includes(c.id))
   const helperCandidates = allChars.filter(c => (c.role === 'sub' || c.role === 'both') && !targets.includes(c.id))

@@ -38,8 +38,9 @@ router.post('/', async (c) => {
   const charId = (body.character_id as string) || 'general'
   let targets = body.targets
   if (targets === undefined) {
+    // 帮手白名单缺省策略：完全取消兜底——没配置就是没有（空列表，不默认 worker）。
     const charMeta = characterMetaStore.getById(charId)
-    targets = charMeta?.helpers?.length ? charMeta.helpers : ['worker']
+    targets = charMeta?.helpers ?? []
   }
   const session = sessionStore.create({ id: body.id, ...body, targets })
   return c.json(session, 201)

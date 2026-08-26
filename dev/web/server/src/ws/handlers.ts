@@ -87,7 +87,7 @@ export async function handleChatRun(
     const workspacesArr = data.workspaces as string[] | undefined
     const charId = (data.character_id as string) || 'general'
     const charMeta = characterMetaStore.getById(charId)
-    const defaultTargets = charMeta?.helpers?.length ? JSON.stringify(charMeta.helpers) : JSON.stringify(['worker'])
+    const defaultTargets = JSON.stringify(charMeta?.helpers ?? [])
     session = sessionStore.create({
       id: sessionId,
       character_id: charId,

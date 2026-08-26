@@ -53,10 +53,16 @@ export default function CharacterPicker({ sessionId, onSelect, onClose }: Props)
 
   function handleSelect(c: Character) {
     if (c.role === 'sub') return // sub agents can't be primary
-    updateSession(sessionId, { character_id: c.id }).catch(() => {})
+    // 切换角色时自动带上该角色配置的帮手列表（helpers 未配置 = 空，不默认 worker），
+    // 与会话侧边「帮手栏」的 targets 同步；之后仍可在会话里单独增删。
+    const targets = c.helpers?.length ? [...c.helpers] : []
+    const targetsJson = JSON.stringify(targets)
+    updateSession(sessionId, { character_id: c.id, targets: targetsJson }).catch(() => {})
     useChatStore.setState(state => ({
       sessions: state.sessions.map(s =>
-        s.id === sessionId ? { ...s, character_id: c.id } : s
+        s.id === sessionId
+          ? { ...s, character_id: c.id, targets: targetsJson }
+          : s
       ),
     }))
     onSelect(c)

@@ -51,7 +51,7 @@ export default function CharacterDetailPage() {
   const [rpMaxAuto, setRpMaxAuto] = useState<string>('')
   const [rpEffective, setRpEffective] = useState<Character['runPolicy'] | undefined>(undefined)
   const [groups, setGroups] = useState<string[]>([])
-  const [helpers, setHelpers] = useState<string[]>(['worker'])
+  const [helpers, setHelpers] = useState<string[]>([])
   const [selfEvolution, setSelfEvolution] = useState(false)
 
   // Content fields
@@ -82,27 +82,40 @@ export default function CharacterDetailPage() {
   useEffect(() => { charIdRef.current = charId }, [charId])
 
   // Auto-save for existing characters (stable reference via refs)
+  // 串行化保存：同一角色按调用顺序排队写盘，避免快速连续操作（如连续点帮手 tag）
+  // 产生并发 PUT 乱序落盘，导致旧值覆盖新值（例如 helpers 被上一次的空数组覆盖）。
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve())
   const autoSave = useCallback(async (data: Record<string, unknown>) => {
     const cid = currentIdRef.current
     if (!cid || cid === 'new') return
     const newCharId = charIdRef.current.trim()
-    try {
-      await updateCharacter(cid, data)
-      if (newCharId && newCharId !== cid) {
-        currentIdRef.current = newCharId
-        setCurrentId(newCharId)
-        navigate(`/characters/${newCharId}`, { replace: true })
+    const run = saveChainRef.current.then(async () => {
+      try {
+        await updateCharacter(cid, data)
+        if (newCharId && newCharId !== cid) {
+          currentIdRef.current = newCharId
+          setCurrentId(newCharId)
+          navigate(`/characters/${newCharId}`, { replace: true })
+        }
+      } catch {
+        alert(t('ID 已存在，请换一个'))
       }
-    } catch {
-      alert(t('ID 已存在，请换一个'))
-    }
+    })
+    // 队列中某项失败不阻断后续保存；调用方仍可 await 本次结果。
+    saveChainRef.current = run.catch(() => {})
+    await run
   }, [navigate])
 
   // Load character data (edit mode)
+  // 竞态保护：切换角色（id 变化）时递增序号，过期响应直接丢弃，
+  // 保证帮手列表等表单字段始终反映当前角色的元数据。
+  const loadSeqRef = useRef(0)
   useEffect(() => {
     if (isNew || !id) { setLoading(false); return }
     setLoading(true)
+    const seq = ++loadSeqRef.current
     fetchCharacter(id).then(c => {
+      if (seq !== loadSeqRef.current) return
       setChar(c)
       setCharId(c.id)
       setCurrentId(c.id)
@@ -122,7 +135,8 @@ export default function CharacterDetailPage() {
       setRpMaxAuto(rp?.maxAutoContinuations != null ? String(rp.maxAutoContinuations) : '')
       setRpEffective(c.runPolicy)
       setGroups(c.groups ? [...c.groups] : [])
-      setHelpers(c.helpers?.length ? [...c.helpers] : ['worker'])
+      // helpers 未配置 = 没有帮手（不兜底显示 worker）。
+      setHelpers(c.helpers ? [...c.helpers] : [])
       setSelfEvolution(c.memory?.selfEvolution ?? false)
       setSoul(c.soul ?? '')
       setUserProfile(c.userProfile ?? '')
@@ -135,7 +149,7 @@ export default function CharacterDetailPage() {
       boundToolsRef.current = tools
       setBoundTools(tools)
       setBoundSkills(c.skillBindings?.map(binding => binding.packageId) || c.skills || [])
-    }).catch(() => setChar(null)).finally(() => setLoading(false))
+    }).catch(() => { if (seq === loadSeqRef.current) setChar(null) }).finally(() => { if (seq === loadSeqRef.current) setLoading(false) })
   }, [id, isNew])
 
   // Load stats, tools, skills, characters list
@@ -343,7 +357,6 @@ export default function CharacterDetailPage() {
             />
           </div>
           <div className="detail-actions">
-            {!isNew && <button className="detail-btn primary" onClick={() => navigate('/chat')}>{t('开始对话')}</button>}
             {!isNew && <button className="detail-btn danger" onClick={handleDelete}>{t('删除角色')}</button>}
           </div>
         </div>

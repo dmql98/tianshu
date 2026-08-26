@@ -97,7 +97,7 @@ export interface Character {
   memoryContent?: string
   customPrompt?: string
   memory?: { enabled: boolean; selfEvolution: boolean; charLimit: number }
-  /** 工作帮手：该角色新会话默认可委托角色白名单（缺省 ['worker']）。 */
+  /** 工作帮手：该角色新会话默认可委托角色白名单（未配置 = 空，不默认 worker）。 */
   helpers?: string[]
   runPolicy?: CharacterRunPolicyView
   createdAt?: number

@@ -64,8 +64,8 @@ export function validateSubAgentTarget(
   }
   if (target.id === parentCharacterId) return
   const allowed = (() => {
-    if (!targetsRaw) return ['worker']
-    try { const p = JSON.parse(targetsRaw); return Array.isArray(p) ? p : ['worker'] } catch { return ['worker'] }
+    if (!targetsRaw) return []
+    try { const p = JSON.parse(targetsRaw); return Array.isArray(p) ? p : [] } catch { return [] }
   })()
   if (!allowed.includes(target.id)) {
     throw new Error(`委托被禁止: 目标角色 "${target.name}" 不在可委托列表 targets 中`)

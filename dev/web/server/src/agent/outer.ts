@@ -163,8 +163,8 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   // ── #2 delegate_targets → inject into tool schema (not system text) ──
   const allChars = characterMetaStore.getAll()
   const targets = (() => {
-    if (!session.targets) return ['worker']
-    try { const p = JSON.parse(session.targets); return Array.isArray(p) ? p : ['worker'] } catch { return ['worker'] }
+    if (!session.targets) return []
+    try { const p = JSON.parse(session.targets); return Array.isArray(p) ? p : [] } catch { return [] }
   })()
   const delegateTargets = allChars.filter(c => {
     if (c.role !== 'sub' && c.role !== 'both') return false
