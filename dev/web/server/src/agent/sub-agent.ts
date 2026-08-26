@@ -99,7 +99,8 @@ function buildSubAgentSystemPrompt(
   charContent: { soul: string; user: string; memory: string },
   taskHeader: string,
   hasTools: boolean,
-): string {
+): string[] {
+  // 与主代理组装逻辑一致：每个 part 一条独立 system 消息（组装顺序即发送顺序）。
   const systemParts: string[] = []
   if (charContent.soul) systemParts.push(`## Character\n${charContent.soul}`)
   if (charContent.user) systemParts.push(`## User Info\n${charContent.user}`)
@@ -123,7 +124,7 @@ function buildSubAgentSystemPrompt(
       "Before finalizing: verify correctness and back claims with tool output."
     )
   }
-  return systemParts.join('\n\n')
+  return systemParts
 }
 
 /** 子代理 run 执行：入队 + innerLoop 多轮循环（spawn 首轮 / continue 续跑共用）。 */
@@ -294,7 +295,7 @@ export async function spawnAndRunSubAgent(
   )
 
   const messages: LLMMessage[] = [
-    { role: 'system', content: systemPrompt },
+    ...systemPrompt.map(content => ({ role: 'system' as const, content })),
     { role: 'user', content: task },
   ]
 

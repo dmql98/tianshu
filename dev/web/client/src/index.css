@@ -1649,3 +1649,11 @@ textarea:focus{border-color:var(--gold)}
 .tjs-block-title{font-size:calc(11px * var(--ui-font-scale));font-weight:700;color:var(--ink-deep);padding-bottom:4px}
 .tjs-block + .tjs-block{border-top:1px dashed var(--border-light);padding-top:12px}
 .tjs-block .tjs-pre{margin:0}
+.tjs-blocks-total{margin-top:14px;padding-top:10px;border-top:1px solid var(--border-light);font-size:calc(11px * var(--ui-font-scale));font-weight:600;color:var(--ink-light)}
+.tjs-stats{display:flex;flex-direction:column;gap:10px}
+.tjs-stat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border-light);border-radius:8px;background:var(--bg-card)}
+.tjs-stat-label{font-size:calc(12px * var(--ui-font-scale));font-weight:600;color:var(--ink-deep)}
+.tjs-stat-value{font-size:calc(12px * var(--ui-font-scale));font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+.tjs-stat-total{border-color:var(--gold);background:color-mix(in srgb, var(--gold) 8%, transparent)}
+.tjs-stat-total .tjs-stat-label{font-weight:700}
+.tjs-stat-total .tjs-stat-value{font-size:calc(13px * var(--ui-font-scale))}

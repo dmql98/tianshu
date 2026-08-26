@@ -51,6 +51,10 @@ export interface LLMCallRecord {
     usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null
   }
   error?: string
+  /** system 消息文本的 token 估算（rowToLLMCall 时计算，服务端统一口径）。 */
+  systemTokens?: number
+  /** tools 参数 JSON 序列化的 token 估算。 */
+  toolsTokens?: number
 }
 
 export function logLLMCall(input: {
@@ -137,6 +141,10 @@ export function sessionsWithLLMCalls(): string[] {
 
 /** Decode a stored row back into the structured record shape. */
 export function rowToLLMCall(row: LLMCallRow): LLMCallRecord {
+  let messages: unknown[] = []
+  let tools: unknown[] | undefined
+  try { messages = JSON.parse(row.request_messages || '[]') } catch { messages = [] }
+  try { tools = row.request_tools ? JSON.parse(row.request_tools) : undefined } catch { tools = undefined }
   return {
     sessionId: row.session_id,
     runId: row.run_id,
@@ -145,8 +153,8 @@ export function rowToLLMCall(row: LLMCallRow): LLMCallRecord {
     createdAt: row.created_at,
     request: {
       model: row.request_model || '',
-      messages: JSON.parse(row.request_messages || '[]'),
-      tools: row.request_tools ? JSON.parse(row.request_tools) : undefined,
+      messages,
+      tools,
     },
     response: {
       text: row.response_text || '',
@@ -160,5 +168,43 @@ export function rowToLLMCall(row: LLMCallRow): LLMCallRecord {
       },
     },
     error: row.error || undefined,
+    // 服务端统一口径的估算（与压缩决策同一算法），供轨迹统计分页展示。
+    systemTokens: estimateLLMCallSystemTokens(messages),
+    toolsTokens: estimateLLMCallToolsTokens(tools),
   }
+}
+
+/** 提取一条 LLM 调用快照里所有 system 消息的文本（与前端 trajectory.ts 同口径）。 */
+function extractSystemTexts(messages: unknown[]): string[] {
+  return (messages || [])
+    .filter(m => (m as any)?.role === 'system')
+    .map(m => {
+      const content = (m as any)?.content
+      if (typeof content === 'string') return content
+      if (Array.isArray(content)) {
+        return content
+          .map((block: any) => block?.type === 'text' ? String(block.text ?? '') : '')
+          .join('\n')
+      }
+      return ''
+    })
+    .filter(Boolean)
+}
+
+/** system 消息总 token 估算（CJK 1:1，其余 ~4 字符/token，同 loop-policy.estimateTextTokens）。 */
+export function estimateLLMCallSystemTokens(messages: unknown[]): number {
+  return extractSystemTexts(messages).reduce((sum, text) => sum + estimateTextTokens(text), 0)
+}
+
+/** tools 参数（OpenAI 格式工具定义）JSON 序列化的 token 估算。 */
+export function estimateLLMCallToolsTokens(tools: unknown[] | undefined): number {
+  if (!Array.isArray(tools)) return 0
+  return tools.reduce<number>((sum, tool) => sum + estimateTextTokens(JSON.stringify(tool)), 0)
+}
+
+function estimateTextTokens(text: string): number {
+  if (!text) return 0
+  const cjk = (text.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length
+  const nonCjk = text.length - cjk
+  return cjk + Math.ceil(nonCjk / 4)
 }

@@ -74,6 +74,10 @@ export interface TrajectorySystemRow {
   messages: Array<{ role: string; content: unknown }>
   /** 该次调用实际发送的工具定义。 */
   tools: unknown[]
+  /** system 消息 token 估算（服务端统一口径；缺失时前端本地估算兜底）。 */
+  systemTokens?: number
+  /** tools 参数 token 估算。 */
+  toolsTokens?: number
   /** update 时上一次的状态，用于 Diff 分页。 */
   previous?: { system: string; toolNames: string[] }
 }
@@ -189,12 +193,11 @@ function blockTitleOf(text: string): string {
 
 /**
  * 按后端组装逻辑切分系统提示分块（与 context-builder.ts 一一对应）：
- * - 每条 system 消息 = 一个组装产物，块上带 systemIndex 序号（0 起），组装顺序一目了然：
+ * - 每条 system 消息 = 一个分块，块上带 systemIndex 序号（0 起），组装顺序一目了然：
  *   system0=Character / system1=User Info / system2=模板块 / system3=Skill Packages /
  *   system4=Data Directory / system5=Workspace / system6=Active Session Skills /
  *   system7=Memory / system8=[Compacted History]；
- * - 兼容旧数据：拆分前的 llm_calls 快照里第一条仍是整段静态拼接，此时对 system0
- *   再按 `## ` 反切还原各静态块（同标 system0）。
+ * - 单个块不再做 `## ` 内部分拆（后端已按消息边界组装，逐条展示即可）。
  */
 export function extractSystemBlocks(messages: unknown[]): PromptSection[] {
   const blocks: PromptSection[] = []
@@ -202,52 +205,33 @@ export function extractSystemBlocks(messages: unknown[]): PromptSection[] {
   for (const msg of (messages || []).filter(m => (m as any)?.role === 'system')) {
     const content = systemContentOf(msg)
     if (!content) { sysIdx++; continue }
-    if (sysIdx === 0) {
-      // 第一条 = assembleStaticPrompt 的拼接结果，按 `## ` 反切。
-      const parts = splitPromptSections(content)
-      const inner = parts.length > 0 ? parts : [{ title: '', body: content }]
-      for (const p of inner) blocks.push({ systemIndex: 0, ...p })
-    } else {
-      // 后续 = 独立 system 消息，整体一块（标题取首行）。
-      blocks.push({ systemIndex: sysIdx, title: blockTitleOf(content), body: content })
-    }
+    // 每条 system 消息整体一块：标题取首行（## X / [Compacted History]），内容完整保留。
+    blocks.push({ systemIndex: sysIdx, title: blockTitleOf(content), body: content })
     sysIdx++
   }
   return blocks
 }
 
 /**
- * 把系统提示文本按 markdown `## ` 二级标题切分为多个块：
- * - `## 标题` 到下一个 `## 标题`（或结尾）之间为一个块；
- * - 首个 `## ` 之前的无标题内容作为前缀块（title 为空）；
- * - `### ` 等更深层标题不会切分；
- * - 分块之间按顺序保留，供详情窗口逐块分页展示。
+ * CJK-aware token 估算（与服务端 loop-policy.ts estimateTextTokens 一致）：
+ * CJK 字符按 1 token/字，其余文本约 4 字符/token。
  */
-export function splitPromptSections(system: string): PromptSection[] {
-  if (!system) return []
-  const sections: PromptSection[] = []
-  let title = ''
-  let body: string[] = []
-  let started = false
-  const flush = (): void => {
-    const text = body.join('\n').replace(/^\n+|\n+$/g, '')
-    if (started || text) sections.push({ systemIndex: 0, title, body: text })
-    title = ''
-    body = []
-    started = false
-  }
-  for (const line of system.split('\n')) {
-    const m = line.match(/^##\s+(.+?)\s*$/)
-    if (m) {
-      flush()
-      title = m[1].trim()
-      started = true
-    } else {
-      body.push(line)
-    }
-  }
-  flush()
-  return sections
+export function estimateTextTokens(text: string): number {
+  if (!text) return 0
+  const cjk = (text.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length
+  const nonCjk = text.length - cjk
+  return cjk + Math.ceil(nonCjk / 4)
+}
+
+/** 全部系统提示分块的总 token 估算。 */
+export function estimateSystemTokens(blocks: PromptSection[]): number {
+  return blocks.reduce((sum, b) => sum + estimateTextTokens(b.body), 0)
+}
+
+/** 工具定义数组（OpenAI 格式）JSON 序列化的 token 估算。 */
+export function estimateToolsTokens(tools: unknown[] | undefined): number {
+  if (!Array.isArray(tools)) return 0
+  return tools.reduce<number>((sum, tool) => sum + estimateTextTokens(JSON.stringify(tool)), 0)
 }
 
 /**
@@ -314,6 +298,8 @@ function buildSystemRows(llmCalls: TrajectoryData['llmCalls']): TrajectorySystem
         system,
         messages,
         tools,
+        systemTokens: call.systemTokens,
+        toolsTokens: call.toolsTokens,
       })
     } else if (system !== lastSystem || names.join(',') !== lastToolNames.join(',')) {
       rows.push({
@@ -324,6 +310,8 @@ function buildSystemRows(llmCalls: TrajectoryData['llmCalls']): TrajectorySystem
         system,
         messages,
         tools,
+        systemTokens: call.systemTokens,
+        toolsTokens: call.toolsTokens,
         previous: { system: lastSystem, toolNames: lastToolNames },
       })
     }

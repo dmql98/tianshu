@@ -404,4 +404,8 @@ export interface LLMCallTrace {
     usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number }
   }
   error?: string
+  /** system 消息 token 估算（服务端统一口径，可选；缺失时前端本地估算兜底）。 */
+  systemTokens?: number
+  /** tools 参数 token 估算。 */
+  toolsTokens?: number
 }

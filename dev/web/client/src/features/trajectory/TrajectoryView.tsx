@@ -4,6 +4,9 @@ import { getEventBus } from '@/api/eventBus'
 import { useChatStore } from '@/stores/chatStore'
 import {
   buildTrajectory,
+  estimateSystemTokens,
+  estimateTextTokens,
+  estimateToolsTokens,
   extractSystemBlocks,
   filterTrajectory,
   summarizeTrajectory,
@@ -531,9 +534,9 @@ function DetailsPanel({
 }) {
   const t = useI18n()
   const isSystem = selection.kind === 'system'
-  // 系统提示注入记录固定两页：系统提示（页内分块）/ 工具（每工具一块）。
+  // 系统提示注入记录固定三页：系统提示（页内分块）/ 工具（每工具一块）/ 统计。
   const tabs = isSystem
-    ? [t('系统提示'), t('工具')]
+    ? [t('系统提示'), t('工具'), t('统计')]
     : selection.row.kind === 'assistant'
       ? [t('内容'), t('思考'), t('指标'), t('原始')]
       : selection.row.kind === 'tool'
@@ -632,22 +635,49 @@ function SystemDetails({ row, tab }: { row: TrajectorySystemRow; tab: string }) 
     return (
       <BlockList
         blocks={tools.map((tool, i) => ({
-          title: toolNameOf(tool) || `${t('工具')} ${i + 1}`,
+          title: `${toolNameOf(tool) || `${t('工具')} ${i + 1}`} · ~${estimateTextTokens(JSON.stringify(tool))} tok`,
           body: JSON.stringify(tool, null, 2),
         }))}
       />
     )
   }
-  // 系统提示：按组装顺序分块（system0=静态提示拼接，system1=技能，system2=记忆，
-  // system3=压缩摘要…；system0 内部再按 ## 切出 Character/User Info/模板块/…）。
+  if (tab === t('统计')) {
+    // 优先服务端统一口径（rowToLLMCall 计算），缺失时前端本地估算兜底。
+    const systemTokens = row.systemTokens ?? estimateSystemTokens(extractSystemBlocks(row.messages ?? []))
+    const toolsTokens = row.toolsTokens ?? estimateToolsTokens(row.tools)
+    return (
+      <div className="tjs-stats">
+        <div className="tjs-stat-row">
+          <span className="tjs-stat-label">{t('系统提示词')}</span>
+          <span className="tjs-stat-value">~{systemTokens.toLocaleString()} tokens</span>
+        </div>
+        <div className="tjs-stat-row">
+          <span className="tjs-stat-label">{t('工具')}</span>
+          <span className="tjs-stat-value">~{toolsTokens.toLocaleString()} tokens</span>
+        </div>
+        <div className="tjs-stat-row tjs-stat-total">
+          <span className="tjs-stat-label">{t('合计')}</span>
+          <span className="tjs-stat-value">~{(systemTokens + toolsTokens).toLocaleString()} tokens</span>
+        </div>
+      </div>
+    )
+  }
+  // 系统提示：每条 system 消息一块，按组装顺序标 system0/system1/…，
+  // 标题带首行友好名（Character / User Info / Memory / [Compacted History]…）与 token 估算。
   const blocks = extractSystemBlocks(row.messages ?? [])
   if (blocks.length === 0) return <div className="tjs-details-empty">{t('（无系统提示）')}</div>
+  const totalTokens = estimateSystemTokens(blocks)
   return (
-    <BlockList
-      blocks={blocks.map(b => ({
-        title: `system${b.systemIndex}${b.title ? ` · ${b.title}` : ''}`,
-        body: b.body || t('（无系统提示）'),
-      }))}
-    />
+    <>
+      <BlockList
+        blocks={blocks.map(b => ({
+          title: `system${b.systemIndex}${b.title ? ` · ${b.title}` : ''} · ~${estimateTextTokens(b.body)} tok`,
+          body: b.body || t('（无系统提示）'),
+        }))}
+      />
+      <div className="tjs-blocks-total">
+        {t('系统提示合计')}: ~{totalTokens.toLocaleString()} tokens
+      </div>
+    </>
   )
 }

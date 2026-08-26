@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrajectoryData } from '@/types'
-import { buildTrajectory, filterTrajectory, splitPromptSections, summarizeTrajectory, toolNames } from './trajectory'
+import { buildTrajectory, estimateSystemTokens, estimateTextTokens, estimateToolsTokens, extractSystemBlocks, filterTrajectory, summarizeTrajectory, toolNames } from './trajectory'
 
 const data: TrajectoryData = {
   run: {
@@ -276,36 +276,77 @@ describe('tool name extraction (OpenAI-format tool defs)', () => {
   })
 })
 
-// ── 系统提示分块解析（详情窗口「每块一个分页」）──
-describe('splitPromptSections', () => {
-  it('splits on markdown ## headings, keeping order', () => {
-    const system = '## Character\n码仔\n\n## Workspace\n项目目录：/x\n\n## 工作方式\n先读代码'
-    const sections = splitPromptSections(system)
-    expect(sections.map(s => s.title)).toEqual(['Character', 'Workspace', '工作方式'])
-    expect(sections[0].body).toBe('码仔')
-    expect(sections[2].body).toBe('先读代码')
+// ── 系统提示分块解析（详情窗口：每条 system 消息一块，system0/system1/…）──
+describe('extractSystemBlocks', () => {
+  it('renders one block per system message in assembly order', () => {
+    const messages = [
+      { role: 'system', content: '## Character\n码仔' },
+      { role: 'system', content: '## User Info\n开发者' },
+      { role: 'system', content: '## Memory\n记住要点' },
+      { role: 'system', content: '[Compacted History]\n摘要' },
+    ]
+    const blocks = extractSystemBlocks(messages)
+    expect(blocks.map(b => b.systemIndex)).toEqual([0, 1, 2, 3])
+    expect(blocks.map(b => b.title)).toEqual(['Character', 'User Info', 'Memory', '[Compacted History]'])
+    expect(blocks[0].body).toBe('## Character\n码仔')
   })
 
-  it('treats content before the first heading as a prefix block (empty title)', () => {
-    const sections = splitPromptSections('开头没有标题\n\n## Character\n码仔')
-    expect(sections).toHaveLength(2)
-    expect(sections[0].title).toBe('')
-    expect(sections[0].body).toBe('开头没有标题')
-    expect(sections[1].title).toBe('Character')
+  it('keeps full body of each message without inner splitting', () => {
+    const messages = [
+      { role: 'system', content: '## Character\n码仔\n\n## Workspace\n/x\n\n## 工作方式\n先读代码' },
+      { role: 'system', content: '## Active Session Skills\n### skill-x\nbody' },
+    ]
+    const blocks = extractSystemBlocks(messages)
+    expect(blocks).toHaveLength(2)
+    // 单个 system0 不再按 ## 内拆，body 完整保留。
+    expect(blocks[0].body).toContain('## Character')
+    expect(blocks[0].body).toContain('## Workspace')
+    expect(blocks[0].body).toContain('## 工作方式')
+    expect(blocks[1].title).toBe('Active Session Skills')
   })
 
-  it('does not split on ### deeper headings', () => {
-    const system = '## Goal\n目标\n### 子节\n内容\n## Progress\n步骤'
-    const sections = splitPromptSections(system)
-    expect(sections.map(s => s.title)).toEqual(['Goal', 'Progress'])
-    expect(sections[0].body).toContain('### 子节')
+  it('falls back to empty title and skips empty system messages', () => {
+    const messages = [
+      { role: 'system', content: '纯文本系统提示' },
+      { role: 'system', content: '' },
+      { role: 'system', content: '## Workspace\n/x' },
+    ]
+    const blocks = extractSystemBlocks(messages)
+    expect(blocks.map(b => b.systemIndex)).toEqual([0, 2])
+    expect(blocks[0].title).toBe('')
+    expect(blocks[0].body).toBe('纯文本系统提示')
   })
 
-  it('returns empty for empty input and one block for plain text', () => {
-    expect(splitPromptSections('')).toEqual([])
-    const plain = splitPromptSections('纯文本，没有任何标题')
-    expect(plain).toHaveLength(1)
-    expect(plain[0].title).toBe('')
-    expect(plain[0].body).toBe('纯文本，没有任何标题')
+  it('returns empty for no system messages', () => {
+    expect(extractSystemBlocks([])).toEqual([])
+    expect(extractSystemBlocks([{ role: 'user', content: 'hi' }])).toEqual([])
+  })
+})
+
+// ── token 估算（与服务端 loop-policy.estimateTextTokens 一致）──
+describe('estimateTextTokens / estimateSystemTokens', () => {
+  it('counts CJK chars 1:1 and other text ~4 chars/token', () => {
+    expect(estimateTextTokens('')).toBe(0)
+    expect(estimateTextTokens('码仔')).toBe(2)
+    expect(estimateTextTokens('abcd')).toBe(1)
+    expect(estimateTextTokens('你好 world')).toBe(2 + Math.ceil(5 / 4))
+  })
+
+  it('sums tokens across system blocks', () => {
+    const blocks = [
+      { systemIndex: 0, title: 'Character', body: '码仔' },
+      { systemIndex: 1, title: 'Workspace', body: 'abcd' },
+    ]
+    expect(estimateSystemTokens(blocks)).toBe(2 + 1)
+  })
+
+  it('estimates tool definition tokens from JSON serialization', () => {
+    const tools = [
+      { type: 'function', function: { name: 'bash', description: '运行命令', parameters: { type: 'object' } } },
+    ]
+    const n = estimateToolsTokens(tools)
+    expect(n).toBeGreaterThan(0)
+    expect(estimateToolsTokens(undefined)).toBe(0)
+    expect(estimateToolsTokens([])).toBe(0)
   })
 })
