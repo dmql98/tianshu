@@ -35,13 +35,16 @@ win:
 # DMG 是新用户入口，ZIP 是 electron-updater 载荷（latest-mac.yml 必须含两者）。
 # 正式发布在 CI 通过 -c.mac.notarize=true 启用公证（§9.2）；本地无证书构建
 # 保持 notarize: false，避免强行公证失败。签名/公证凭据只来自 CI secrets。
+#
+# 注意：target 不要显式写 arch 数组！electron-builder 的 CLI --x64/--arm64
+# 不会覆盖 target 中显式声明的 arch 列表——若写 [x64, arm64]，build-macos-x64
+# job 会同时构建两个架构，latest-mac.yml 混入 arm64 zip 导致 assemble-release
+# size mismatch 失败（v0.8.1 事故根因）。架构由 CI 命令 --x64/--arm64 控制。
 mac:
   category: public.app-category.productivity
   target:
-    - target: dmg
-      arch: [x64, arm64]
-    - target: zip
-      arch: [x64, arm64]
+    - dmg
+    - zip
   artifactName: TianShu-${version}-mac-${arch}.${ext}
   hardenedRuntime: true
   notarize: false
@@ -68,14 +71,20 @@ appImage:
 deb:
   artifactName: TianShu-${version}-linux-x64.${ext}
 
-# 公开更新直接发布到当前公开源码仓库 dmql98/tianshu（任务书 §10.1 允许的路径）。
-# electron-updater 读取生成的 app-update.yml 决定 feed；客户端内不包含任何 token。
-# 本地构建 `--publish never`（见 package.json dist:*），仅 CI 在打 tag 时发布。
+# 更新源：官网优先，GitHub 兜底。
+#   - 第一个 publish 配置（generic → https://www.tianshuapp.tech/updates）会写入
+#     app-update.yml，作为客户端默认更新源（官网优先）。
+#   - GitHub 同时保留为发布镜像与兜底源：官网缺失文件时由 Nginx 302 到 GitHub；
+#     客户端在官网源检查失败时也会自动切换 GitHub 重试（见 src/updater.ts fallbackFeed）。
+# 注意：electron-builder 只会把 publishConfigs[0] 写入 app-update.yml，
+#       CI 上传仍由工作流 gh release upload 完成，不受此处影响。
 publish:
-  provider: github
-  owner: dmql98
-  repo: tianshu
-  releaseType: release
+  - provider: generic
+    url: https://www.tianshuapp.tech/updates
+  - provider: github
+    owner: dmql98
+    repo: tianshu
+    releaseType: release
 
 nsis:
   oneClick: false

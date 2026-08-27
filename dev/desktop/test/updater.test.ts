@@ -9,15 +9,25 @@ class FakeUpdater extends EventEmitter implements UpdaterLike {
   checkCalls = 0
   downloadCalls = 0
   quitCalls = 0
+  feedCalls = 0
   private _shouldFailCheck = false
+  private _failCheckOnce = false
   private _shouldFailDownload = false
 
   setFailCheck(v: boolean) { this._shouldFailCheck = v }
+  /** 仅让下一次 checkForUpdates 失败一次，之后恢复成功。 */
+  setFailCheckOnce(v = true) { this._failCheckOnce = v }
   setFailDownload(v: boolean) { this._shouldFailDownload = v }
 
   async checkForUpdates() {
     this.checkCalls++
+    if (this._failCheckOnce) {
+      this._failCheckOnce = false
+      throw new Error('net::ERR_NAME_NOT_RESOLVED')
+    }
     if (this._shouldFailCheck) throw new Error('net::ERR_NAME_NOT_RESOLVED')
+    // 模拟 electron-updater：检查成功时发出 not-available 事件。
+    this.emit('update-not-available')
     return {}
   }
 
@@ -29,6 +39,10 @@ class FakeUpdater extends EventEmitter implements UpdaterLike {
 
   quitAndInstall() {
     this.quitCalls++
+  }
+
+  setFeedURL() {
+    this.feedCalls++
   }
 }
 
@@ -47,6 +61,26 @@ function makeManager(fake?: FakeUpdater) {
     stopServer,
     log,
     sanitize,
+  })
+  return { manager, updater, stopServer, log, sanitize, order }
+}
+
+function makeManagerWithFallback(fake?: FakeUpdater) {
+  const updater = fake ?? new FakeUpdater()
+  const order: string[] = []
+  const stopServer = vi.fn(async () => {
+    order.push('stop-server')
+  })
+  const log = vi.fn()
+  const sanitize = vi.fn((m: string) => m)
+  const manager = new UpdateManager({
+    updater,
+    currentVersion: '0.1.0',
+    enabled: true,
+    stopServer,
+    log,
+    sanitize,
+    fallbackFeed: { provider: 'github', owner: 'dmql98', repo: 'tianshu', releaseType: 'release' },
   })
   return { manager, updater, stopServer, log, sanitize, order }
 }
@@ -119,6 +153,31 @@ describe('UpdateManager', () => {
     updater.emit('update-not-available')
     const second = await manager.checkForUpdates()
     expect(second.phase).toBe('not-available')
+  })
+
+  it('switches to the GitHub fallback feed and retries once on primary feed failure', async () => {
+    const { manager, updater } = makeManagerWithFallback()
+    updater.setFailCheckOnce()
+    const first = await manager.checkForUpdates()
+    // 官网源失败 → 切换到兜底源重试一次，成功则不再停留在 error。
+    expect(updater.feedCalls).toBe(1)
+    expect(updater.checkCalls).toBe(2)
+    expect(first.phase).toBe('not-available')
+
+    // 兜底只切一次：再失败不再切换。
+    updater.setFailCheck(true)
+    const second = await manager.checkForUpdates()
+    expect(updater.feedCalls).toBe(1)
+    expect(second.phase).toBe('error')
+  })
+
+  it('does not switch feed when no fallback is configured', async () => {
+    const { manager, updater } = makeManager()
+    updater.setFailCheck(true)
+    const state = await manager.checkForUpdates()
+    expect(state.phase).toBe('error')
+    expect(updater.feedCalls).toBe(0)
+    expect(updater.checkCalls).toBe(1)
   })
 
   it('caps and sanitizes error messages before they reach the UI', () => {

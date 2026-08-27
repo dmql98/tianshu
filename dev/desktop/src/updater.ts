@@ -13,6 +13,8 @@ export interface UpdaterLike {
   downloadUpdate(): Promise<unknown>
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
   on(event: string, listener: (...args: unknown[]) => void): unknown
+  /** Reconfigure the update feed (electron-updater's setFeedURL). */
+  setFeedURL?(options: unknown): void
 }
 
 export interface UpdateManagerOptions {
@@ -28,6 +30,8 @@ export interface UpdateManagerOptions {
   log: (msg: string) => void
   /** Strips local paths etc. from error messages before they reach the UI. */
   sanitize: (msg: string) => string
+  /** GitHub 兜底源：官网源检查失败时自动切换并重试一次（官网优先，GitHub 兜底）。 */
+  fallbackFeed?: Record<string, unknown>
 }
 
 function clampPercent(value: number): number {
@@ -81,6 +85,9 @@ export class UpdateManager {
   private checkTimer: ReturnType<typeof setInterval> | null = null
   /** 初始延迟检查的 setTimeout 句柄（initialDelayMs > 0 时）。 */
   private initialTimer: ReturnType<typeof setTimeout> | null = null
+
+  /** 官网源失败后已切换到 GitHub 兜底源（只切一次）。 */
+  private fallbackUsed = false
 
   constructor(opts: UpdateManagerOptions) {
     this.opts = opts
@@ -247,6 +254,19 @@ export class UpdateManager {
       const raw = this.opts.sanitize(toMessage(err))
       this.opts.log(`[updater] check failed: ${raw}`)
       this.setState({ phase: 'error', message: capMessage(raw) })
+      // 官网源（generic）失败 → 切换到 GitHub 兜底源重试一次（官网优先，GitHub 兜底）。
+      if (!this.fallbackUsed && this.opts.fallbackFeed) {
+        this.fallbackUsed = true
+        this.opts.log('[updater] primary feed failed; switching to GitHub fallback feed and retrying')
+        try {
+          this.opts.updater.setFeedURL?.(this.opts.fallbackFeed)
+          await this.opts.updater.checkForUpdates()
+        } catch (err2) {
+          const raw2 = this.opts.sanitize(toMessage(err2))
+          this.opts.log(`[updater] fallback feed check failed: ${raw2}`)
+          this.setState({ phase: 'error', message: capMessage(raw2) })
+        }
+      }
     } finally {
       this.checking = false
     }

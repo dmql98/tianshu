@@ -383,6 +383,14 @@ if (!app.requestSingleInstanceLock()) {
       currentVersion: app.getVersion(),
       enabled: updaterEnabled,
       disabledReason: updaterDisabledReason,
+      // 更新源：官网优先（electron-builder.yml publish[0]=generic 写入 app-update.yml），
+      // GitHub 作为兜底源——官网 feed 检查失败时自动切换重试。
+      fallbackFeed: {
+        provider: 'github',
+        owner: 'dmql98',
+        repo: 'tianshu',
+        releaseType: 'release',
+      },
       stopServer: async () => {
         if (serverManager) await serverManager.stop()
       },
