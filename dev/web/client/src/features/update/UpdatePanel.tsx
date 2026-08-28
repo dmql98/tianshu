@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useI18n } from '@/i18n'
-import type { UpdateState } from '../../../../../shared/desktop-contract.js'
 import { useDesktopUpdater } from './useDesktopUpdater'
 
 const MAX_NOTES_LENGTH = 2000

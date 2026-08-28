@@ -199,7 +199,6 @@ describe('stop-then-resend race: stale terminal must not double-append the new r
     const send = useChatStore.getState().sendMessage
 
     await send('第一句')
-    const runId1 = (mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as { run_id?: string })?.run_id || ''
     useChatStore.getState().abortRun()
     // 终态事件从未到达（服务端进程重启等）：10s 安全定时器兜底
     await send('第二句')

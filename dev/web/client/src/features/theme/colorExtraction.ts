@@ -235,8 +235,8 @@ export function mergeSimilarClusters(clusters: Cluster[], threshold = 28): Clust
  */
 export function extractColorsFromPixels(
   data: Uint8ClampedArray,
-  width: number,
-  height: number,
+  _width: number,
+  _height: number,
   options: { clusterCount?: number; minFraction?: number } = {},
 ): ExtractedColors {
   const clusterCount = options.clusterCount ?? CLUSTER_COUNT

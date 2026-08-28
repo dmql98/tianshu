@@ -14,7 +14,7 @@ interface Props {
   sessionId?: string
 }
 
-export default memo(function MessageItem({ message, characterId, sessionId }: Props) {
+export default memo(function MessageItem({ message, sessionId }: Props) {
   const editMessage = useChatStore(s => s.editMessage)
   const forkFromMessage = useChatStore(s => s.forkFromMessage)
   const sessionWorkspace = useChatStore(s => s.sessions.find(x => x.id === sessionId)?.workspace ?? undefined)

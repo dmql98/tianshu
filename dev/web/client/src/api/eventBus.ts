@@ -114,7 +114,8 @@ export function createSSEBus(baseUrl = ''): EventBus {
   }
 
   open()
-  const helloTimer = setInterval(() => {
+  // 心跳与应用生命周期同长，无需持有句柄或清除。
+  setInterval(() => {
     if (!es || es.readyState !== EventSource.OPEN) return
     void fetch(`${baseUrl}/api/events/hello`, {
       method: 'POST',
@@ -163,7 +164,8 @@ function createIpcBus(): EventBus {
     return createSSEBus()
   }
 
-  const unsubscribe = bridge.eventOn((data) => {
+  // IPC 桥与应用生命周期同长，事件监听器无需取消。
+  bridge.eventOn((data) => {
     if (!data || typeof data !== 'object') return
     const { eventType, payload } = data as { eventType: string; payload: unknown }
     if (eventType) dispatch(listeners, eventType, payload)

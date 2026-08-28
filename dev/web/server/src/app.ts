@@ -30,6 +30,7 @@ import { startEventScheduler, stopEventScheduler } from './event/event-scheduler
 import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
 import { runStore } from './agent/runtime/run-store.js'
 import { forceCancelSessionRuns, recoverContinuationState } from './agent/runtime/run-event-store.js'
+import { sweepDataRetention } from './db/data-retention.js'
 import { materializeAllBuiltinContent, materializeSummary } from './content/materialize-builtin.js'
 import { migrateAllCharacterVisualsToSkin } from './skin/migrate.js'
 import { startRunStallWatchdog } from './agent/runtime/run-stall-watchdog.js'
@@ -205,6 +206,21 @@ export async function startTianshuServer(
     if (interrupted.length > 0) console.log(`[startup] interrupted ${interrupted.length} orphaned run(s)`)
     if (repairedEvents.length > 0) console.log(`[startup] repaired ${repairedEvents.length} queued run event(s)`)
     if (cancelledQueued.length > 0) console.log(`[startup] cancelled ${cancelledQueued.length} orphaned queued run(s)`)
+  }
+  // Diagnostic-data retention: run_events / llm_calls 只在删除会话时级联清理，
+  // 长时间使用会无界增长。启动时按窗口清理已终态 run 的旧事件与旧 LLM 快照
+  // （默认 30 天，TSS_RUN_EVENTS_RETENTION_DAYS / TSS_LLM_CALLS_RETENTION_DAYS
+  // 可调，设 0 禁用）。放在 recover 之后：刚被标记 interrupted 的孤儿 run 是
+  // 新时间戳，绝不会被本次 sweep 误删。
+  {
+    const retention = sweepDataRetention()
+    if (retention.runEventsRemoved > 0 || retention.llmCallsRemoved > 0) {
+      console.log(
+        `[startup] retention sweep removed ${retention.runEventsRemoved} run event(s), ` +
+        `${retention.llmCallsRemoved} llm call(s) ` +
+        `(run_events ${retention.runEventsRetentionDays}d, llm_calls ${retention.llmCallsRetentionDays}d)`,
+      )
+    }
   }
 
   const app = new Hono()

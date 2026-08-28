@@ -18,7 +18,7 @@ interface Props {
  * 以皮肤立绘卡片网格展示所有皮肤；每张卡片下方一个激活/取消激活按钮，
  * 单选互斥：激活一个皮肤时其它皮肤自动回到未激活；取消激活当前皮肤回到未绑定。
  */
-export default function CharacterSkinBinder({ characterId, skinId, name }: Props) {
+export default function CharacterSkinBinder({ characterId, skinId }: Props) {
   const t = useI18n()
   const navigate = useNavigate()
   const [skins, setSkins] = useState<Skin[]>([])

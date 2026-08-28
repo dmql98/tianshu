@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy, type WorkspaceGroup } from '@/types'
+import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { getEventBus } from '@/api/eventBus'
@@ -563,7 +563,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     // After reconnect, replay persisted events for every tracked run. Background
     // sessions can stream too; replaying only the visible session leaves the
     // others permanently stale after a transport interruption.
-    const offConnect = bus.onConnect(async () => {
+    // 全局监听：stream 连接/断开与应用生命周期同长（zustand store 单例），无需取消。
+    bus.onConnect(async () => {
       // Fresh connection generation: any replay started by an earlier
       // connect/disconnect cycle is now stale and must not land its results.
       const generation = bumpConnectionGeneration()
@@ -608,7 +609,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         console.error('[stream] reconnect replay failed:', error)
       }
     })
-    const offDisconnect = bus.onDisconnect(() => {
+    bus.onDisconnect(() => {
       // Invalidate any replay still in flight from the connection that just died.
       bumpConnectionGeneration()
       set({ streamConnected: false })
@@ -1477,7 +1478,6 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     switchSession: async (id: string) => {
-      const state = get()
       // 单一写路径：没有临时监听器需要清理，切会话只改 activeSessionId
       // 与派生状态即可；各 session 的流式跟踪记录（sessionRuns）保持不动，
       // 后台会话继续由全局处理写入。

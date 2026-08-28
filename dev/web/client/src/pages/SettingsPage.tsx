@@ -96,7 +96,6 @@ export default function SettingsPage() {
 
   // ── 事件设置 ──
   const [blockEventInterrupt, setBlockEventInterrupt] = useState(lsBool('blockEventInterrupt', false))
-  const [schedulerEnabled, setSchedulerEnabled] = useState(lsBool('schedulerEnabled', true))
   const [schedulerInterval, setSchedulerInterval] = useState(lsNum('schedulerInterval', 10))
   const [archiveHours, setArchiveHours] = useState(lsNum('archiveHours', 24))
   const [evo, setEvo] = useState<EvolutionConfig | null>(null)

@@ -232,11 +232,6 @@ export function normalizeNumber(value: unknown, fallback: number, min: number, m
   return clamp(typeof value === 'number' ? value : fallback, min, max)
 }
 
-/** 校验并规范化一个 color token；非法值回退。 */
-function normalizeToken(value: unknown, fallback: string): string {
-  return isCssColor(value) ? value : fallback
-}
-
 /** 从任意对象提取 tokens；缺省用内置主题对应外观的 token。 */
 export function normalizeThemeTokens(value: unknown, appearance: Appearance): ThemeTokens {
   const base = appearance === 'dark' ? BUILTIN_THEME_DARK.tokens : BUILTIN_THEME_LIGHT.tokens

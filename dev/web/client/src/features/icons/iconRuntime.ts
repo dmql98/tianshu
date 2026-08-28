@@ -17,7 +17,6 @@ import {
   ICON_PACK_PREFERENCES_STORAGE_KEY,
   appliedIconPackId,
   getDefaultStorage,
-  loadIconPackPreferences,
   normalizeIconPackPreferences,
   saveIconPackPreferences,
   type IconPackPreferences,
@@ -159,7 +158,7 @@ export function appliedPackId(deps: IconRuntimeDeps = {}): string {
 // ── 初始化 ──
 
 /** 启动前初始化：拉取注册表 + 监听跨窗口 storage。返回 cleanup。 */
-export function initializeIconRuntime(deps: IconRuntimeDeps = {}): () => void {
+export function initializeIconRuntime(): () => void {
   void refreshIconRegistry()
   if (typeof window === 'undefined') return () => {}
   const onStorage = (event: StorageEvent): void => {

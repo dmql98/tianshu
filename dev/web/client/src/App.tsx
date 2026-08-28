@@ -1,27 +1,31 @@
-import { useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { fetchEventDefinitions } from './api/eventDefinitions'
 import { fetchDataDir } from './api/config'
-import CharacterDetailPage from './pages/CharacterDetailPage'
-import CharactersPage from './pages/CharactersPage'
-import SkinsPage from './pages/SkinsPage'
-import SkinDetailPage from './pages/SkinDetailPage'
-import ChatPage from './pages/ChatPage'
-import SkillsPage from './pages/SkillsPage'
-import SkillPackageDetailPage from './pages/SkillPackageDetailPage'
-import NewSkillPackagePage from './pages/NewSkillPackagePage'
-import ToolsPage from './pages/ToolsPage'
-import McpPage from './pages/McpPage'
-import KnowledgePage from './pages/KnowledgePage'
-import MarketPage from './pages/MarketPage'
-import EventsPage from './pages/EventsPage'
-import SettingsPage from './pages/SettingsPage'
-import HomePage from './pages/HomePage'
 import ThemeBackdrop from './features/theme/ThemeBackdrop'
 import UpdateNotificationDialog from './features/update/UpdateNotificationDialog'
 import DesktopTitleBar from './components/DesktopTitleBar'
 import Icon from './features/icons/Icon'
 import { useI18n } from './i18n'
+import HomePage from './pages/HomePage'
+import ChatPage from './pages/ChatPage'
+
+// 低频页面走路由级代码分割（React.lazy），主 bundle 不再包含它们：
+// 首屏只加载布局 + 首页/聊天，SettingsPage(1008 行)/CharacterDetailPage(807 行)
+// 等在进入对应路由时才按需下载。
+const CharacterDetailPage = lazy(() => import('./pages/CharacterDetailPage'))
+const CharactersPage = lazy(() => import('./pages/CharactersPage'))
+const SkinsPage = lazy(() => import('./pages/SkinsPage'))
+const SkinDetailPage = lazy(() => import('./pages/SkinDetailPage'))
+const SkillsPage = lazy(() => import('./pages/SkillsPage'))
+const SkillPackageDetailPage = lazy(() => import('./pages/SkillPackageDetailPage'))
+const NewSkillPackagePage = lazy(() => import('./pages/NewSkillPackagePage'))
+const ToolsPage = lazy(() => import('./pages/ToolsPage'))
+const McpPage = lazy(() => import('./pages/McpPage'))
+const KnowledgePage = lazy(() => import('./pages/KnowledgePage'))
+const MarketPage = lazy(() => import('./pages/MarketPage'))
+const EventsPage = lazy(() => import('./pages/EventsPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 const navItems = [
   { to: '/chat', icon: 'nav-chat', label: '会话' },
@@ -138,6 +142,7 @@ export default function App() {
           <span className="nav-label">{t('设置')}</span>
         </NavLink>
       </nav>
+      <Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-mid)' }}>…</div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/home" element={<HomePage />} />
@@ -160,6 +165,7 @@ export default function App() {
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
+      </Suspense>
       </div>
 
       <UpdateNotificationDialog />

@@ -14,7 +14,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n'
 import Icon, { IconAsset } from './Icon'
 import { ICON_SLOTS, iconSlotsByGroup } from './iconSlots'
-import { loadIconPackPreferences } from './iconPreferences'
 import { refreshIconRegistry } from './iconRuntime'
 import {
   createIconPack,
@@ -60,7 +59,6 @@ export default function IconPackEditor({ pack, focusOverrides, onClose, onSaved,
 
   const [mode, setMode] = useState<EditorMode>(focusOverrides ? 'overrides' : pack?.readOnly ? 'create' : pack ? 'edit' : 'create')
   const [nameDraft, setNameDraft] = useState(pack?.name ?? '')
-  const [userPacks, setUserPacks] = useState<CustomIconPack[]>([])
   const [activeSlots, setActiveSlots] = useState<Record<string, IconOverrideRef>>({})
   const [overrides, setOverrides] = useState<Record<string, IconOverrideRef>>({})
   const [uploading, setUploading] = useState(false)
@@ -76,7 +74,6 @@ export default function IconPackEditor({ pack, focusOverrides, onClose, onSaved,
   const load = useCallback(async () => {
     try {
       const data = await fetchCustomIconPacks()
-      setUserPacks(data.packs)
       setOverrides(data.overrides)
       if (mode === 'overrides') {
         setActiveSlots(data.overrides)

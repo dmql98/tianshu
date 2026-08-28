@@ -43,8 +43,6 @@ export default function CharacterDetailPage() {
   const [enabled, setEnabled] = useState(true)
   const [role, setRole] = useState<Character['role']>('both')
   const [strategy, setStrategy] = useState<Strategy>('Ask Risky')
-  const [stepsEnabled, setStepsEnabled] = useState(false)
-  const [maxSteps, setMaxSteps] = useState(50)
   const [rpSoft, setRpSoft] = useState<string>('')
   const [rpGrace, setRpGrace] = useState<string>('')
   const [rpAutoContinuation, setRpAutoContinuation] = useState<'inherit' | 'enabled' | 'disabled'>('inherit')
@@ -125,8 +123,6 @@ export default function CharacterDetailPage() {
       setEnabled(c.enabled ?? true)
       setRole(c.role || 'both')
       setStrategy(normalizeStrategy(c.default_strategy))
-      setStepsEnabled(!!c.maxSteps && c.maxSteps < 999)
-      setMaxSteps(c.maxSteps && c.maxSteps < 999 ? c.maxSteps : 50)
       // Run policy (new) — configured values from the server preview.
       const rp = c.runPolicy?.configured
       setRpSoft(rp?.softTurns != null ? String(rp.softTurns) : '')

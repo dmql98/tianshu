@@ -62,7 +62,6 @@ export default function EventsPage() {
   const [createError, setCreateError] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [occurrences, setOccurrences] = useState<Record<string, EventOccurrence[]>>({})
-  const [occurrencesLoading, setOccurrencesLoading] = useState<Set<string>>(new Set())
 
   const [form, setForm] = useState<{
     name: string; type: 'once' | 'cron'; cron_expr: string; timezone: string;
@@ -204,18 +203,11 @@ export default function EventsPage() {
     }
     setExpandedId(def.id)
     if (!occurrences[def.id]) {
-      setOccurrencesLoading(prev => new Set(prev).add(def.id))
       try {
         const occs = await fetchEventOccurrences(def.id)
         setOccurrences(prev => ({ ...prev, [def.id]: occs }))
       } catch {
         setOccurrences(prev => ({ ...prev, [def.id]: [] }))
-      } finally {
-        setOccurrencesLoading(prev => {
-          const next = new Set(prev)
-          next.delete(def.id)
-          return next
-        })
       }
     }
   }

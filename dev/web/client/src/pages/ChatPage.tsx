@@ -1,5 +1,5 @@
 ﻿import { useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useProvidersStore } from '@/stores/providersStore'
@@ -12,9 +12,8 @@ import { useI18n } from '@/i18n'
 
 export default function ChatPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
-  const navigate = useNavigate()
   const t = useI18n()
-  const { loadSessions, switchSession, refreshSession, activeSessionId, createSession } = useChatStore()
+  const { loadSessions, switchSession, refreshSession, activeSessionId } = useChatStore()
   const { sidebarOpen, rightPanelOpen, filePanelOpen } = useUIStore()
   const { load: loadProviders } = useProvidersStore()
 
@@ -58,11 +57,6 @@ export default function ChatPage() {
       switchSession(sessionId)
     }
   }, [sessionId, activeSessionId, switchSession])
-
-  async function handleNewSession() {
-    const session = await createSession()
-    navigate(`/chat/${session.id}`)
-  }
 
   // No sessionId — show placeholder
   if (!sessionId) {

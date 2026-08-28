@@ -103,7 +103,6 @@ describe('duplicate-text regression (double-append through both listeners)', () 
     const h = handlers()
 
     // 模拟重连重放：先把历史事件灌进去（这是 attach 时读取历史/重放路径）
-    const replay = [{ session_id: SID, run_id: runId, delta: '你好', type: 'message.delta', seq: 1, occurred_at: Date.now() }] as never[]
     // applyRunEvents 是 store 内部函数，无法直接 import——通过重放路径验证：
     // 这里改为模拟"重放后 live 继续"的场景
     useChatStore.setState(state => ({

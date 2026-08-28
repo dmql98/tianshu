@@ -11,7 +11,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n'
 import Icon, { IconAsset } from './Icon'
 import { DEFAULT_ICON_PACK_ID } from './iconDefinitions'
-import { loadIconPackPreferences, type IconPackPreferences } from './iconPreferences'
 import { appliedPackId, refreshIconRegistry, setActiveIconPack } from './iconRuntime'
 import {
   deleteIconPack,
@@ -40,7 +39,6 @@ function packSlotIcon(pack: CustomIconPack, key: string, size: number) {
 
 export default function IconPackSelector({ showToast, onOpenEditor }: IconPackSelectorProps) {
   const t = useI18n()
-  const [prefs, setPrefs] = useState<IconPackPreferences>(() => loadIconPackPreferences())
   const [packs, setPacks] = useState<CustomIconPack[]>([])
   const [overrides, setOverrides] = useState<Record<string, IconOverrideRef>>({})
   const [loading, setLoading] = useState(true)
@@ -61,7 +59,6 @@ export default function IconPackSelector({ showToast, onOpenEditor }: IconPackSe
   useEffect(() => {
     refresh()
     const onChanged = () => {
-      setPrefs(loadIconPackPreferences())
       setActivePackId(appliedPackId())
     }
     const onStorage = (e: StorageEvent) => {
@@ -78,8 +75,7 @@ export default function IconPackSelector({ showToast, onOpenEditor }: IconPackSe
   const isCurrent = (packId: string): boolean => activePackId === packId
 
   const handleSelect = (packId: string) => {
-    const next = setActiveIconPack(packId)
-    setPrefs(next)
+    setActiveIconPack(packId)
     setActivePackId(packId)
   }
 

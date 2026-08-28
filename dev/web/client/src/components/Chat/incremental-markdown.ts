@@ -1,4 +1,3 @@
-import MarkdownIt from 'markdown-it'
 import type { MarkdownIt as MarkdownItType, Token } from 'markdown-it'
 
 /**

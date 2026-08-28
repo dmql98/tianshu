@@ -49,7 +49,7 @@ export default function ChatInput() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounter = useRef(0)
   const [isDragging, setIsDragging] = useState(false)
-  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, setStrategy, tokenUsage } = useChatStore()
+  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, setStrategy } = useChatStore()
   const { providers } = useProvidersStore()
   const t = useI18n()
   const session = sessions.find(s => s.id === activeSessionId)
