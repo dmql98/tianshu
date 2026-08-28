@@ -22,7 +22,20 @@ export const KEEP_TOKENS_MAX = envInt('TSS_KEEP_TOKENS_MAX', 64000)
 /** 保留比：默认 0.16，对齐 deepseek-harness（P1-3）。 */
 export const COMPACT_RETAIN_RATIO = parseFloat(process.env.TSS_COMPACT_RETAIN_RATIO || '0.16') || 0.16
 /** 手动压缩触发阈值（用户主动点击）：会话用量超过该比例才执行压缩；低于视为无需压缩。 */
-export const MANUAL_COMPACT_RATIO = parseFloat(process.env.TSS_MANUAL_COMPACT_RATIO || '0.5') || 0.5
+export const MANUAL_COMPACT_RATIO = parseFloat(process.env.TSS_MANUAL_COMPACT_RATIO || '0.35') || 0.35
+/** 手动压缩的绝对触发下限（token）：相对比例对超大窗口模型（如 1M）过于宽松，
+ *  用户常在远低于 50% 窗口时就想手动压缩；触发阈值取 min(窗口×比例, 绝对下限)。
+ *  设 0 或负值禁用绝对下限，退回纯相对阈值。 */
+export const MANUAL_COMPACT_ABSOLUTE = envInt('TSS_MANUAL_COMPACT_ABSOLUTE', 170000)
+
+/** 手动压缩触发阈值：相对（窗口×MANUAL_COMPACT_RATIO）与绝对下限取较小值。
+ *  默认相对 0.35：200k 窗口在 70k 即可触发；1M 窗口被绝对下限 170k 提前接管
+ *  （相对 350k 太晚）。小窗口模型不受绝对下限影响（相对阈值更低）。 */
+export function manualCompactThreshold(contextWindow = DEFAULT_CONTEXT_WINDOW): number {
+  const relative = contextWindow * MANUAL_COMPACT_RATIO
+  if (MANUAL_COMPACT_ABSOLUTE > 0) return Math.min(relative, MANUAL_COMPACT_ABSOLUTE)
+  return relative
+}
 /** 单次压缩重试上限（P0-1，对齐 compactionRetries）。 */
 export const MAX_COMPACT_ATTEMPTS = envInt('TSS_COMPACT_RETRIES', 2)
 /** 溢出触发的压缩重试上限（P1-6，对齐 maxOverflowRetries）。 */

@@ -2,7 +2,7 @@
  * Run: npx tsx src/agent/loop/loop-policy.test.ts
  */
 
-import { estimateTokens, shouldCompact, shouldSnip, trimToolResults, systemMessageEnd, resolveKeepTokens, resolveCompactPolicy } from './loop-policy.js'
+import { estimateTokens, shouldCompact, shouldSnip, trimToolResults, systemMessageEnd, resolveKeepTokens, resolveCompactPolicy, manualCompactThreshold } from './loop-policy.js'
 import { detectDoomLoop, evaluateFinalAnswer } from './completion-evaluator.js'
 import { selectEntries, compactHistory, capSummaryLength } from './context-compactor.js'
 import { envInt } from '../../config.js'
@@ -392,6 +392,23 @@ function assertBalancedSeq(msgs: LLMMessage[], label: string): void {
   assert(attempt1 === 10000, 'reserved still halves on retry (20000>>1 = 10000)')
   assert(resolveKeepTokens(50000, 0, undefined, 49000) === 4000, 'reserved clamps to KEEP_TOKENS_MIN floor')
   console.log('  OK P2 COMPACT_RESERVED caps recent budget below window-reserved, default off')
+}
+
+// ---- 手动压缩触发阈值：min(窗口×35%, 绝对下限 170k) --------------------------
+{
+  assert(manualCompactThreshold(200000) === 70000, '200k window: relative 35% wins (70k)')
+  assert(manualCompactThreshold(128000) === 44800, '128k window: relative 35% wins (44.8k)')
+  assert(manualCompactThreshold(1_000_000) === 170000, '1M window: absolute floor wins (170k)')
+  assert(manualCompactThreshold(2_000_000) === 170000, '2M window: absolute floor wins (170k)')
+  console.log('  OK manual compact threshold = min(window x 35%, 170k absolute floor)')
+}
+
+// ---- 手动压缩保留预算：按自动重试第 1 档减半（更激进） ------------------------
+{
+  assert(resolveKeepTokens(1_000_000, 1) === 32000, '1M manual keep = 64k >> 1 = 32k')
+  assert(resolveKeepTokens(200000, 1) === 16000, '200k manual keep = 32k >> 1 = 16k')
+  assert(resolveKeepTokens(50000, 1) === 4000, 'small window clamps to KEEP_TOKENS_MIN')
+  console.log('  OK manual compact keep = auto keep halved, clamped to KEEP_TOKENS_MIN')
 }
 
 console.log('ALL LOOP TESTS PASSED')

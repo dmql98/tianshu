@@ -19,7 +19,7 @@ import {
   assembleStaticPrompt, buildInitialMessages,
 } from '../agent/loop/context-builder.js'
 import { selectAndSummarize } from '../agent/loop/context-compactor.js'
-import { estimateTokens, DEFAULT_CONTEXT_WINDOW, resolveCompactPolicy, MANUAL_COMPACT_RATIO } from '../agent/loop/loop-policy.js'
+import { estimateTokens, DEFAULT_CONTEXT_WINDOW, resolveCompactPolicy, manualCompactThreshold, resolveKeepTokens } from '../agent/loop/loop-policy.js'
 import { resolveCapability } from '../agent/attachments.js'
 import { getCharacterToolDefinitions } from '../tools/definitions.js'
 import { sessionSkillStore } from '../agent/session-skill-store.js'
@@ -229,10 +229,11 @@ router.post('/:id/compact', async (c) => {
 
   // 手动压缩触发阈值：优先采用 provider 实测 input token（session.context_usage 每轮
   // 持久化，对中文更准），缺失时回退本地估算。与自动压缩（thresholdRatio≈0.75）区分，
-  // 手动阈值更低，用户主动点击时更易触发。
+  // 手动阈值更低，用户主动点击时更易触发；取 min(窗口×35%, 绝对下限 170k)，1M 窗口
+  // 模型在 170k 即可压缩，200k 窗口在 70k 即可压缩。
   const estimatedTokens = estimateTokens(messages)
   const tokensBefore = (session.context_usage && session.context_usage > 0) ? session.context_usage : estimatedTokens
-  if (tokensBefore <= contextWindow * MANUAL_COMPACT_RATIO) {
+  if (tokensBefore <= manualCompactThreshold(contextWindow)) {
     return c.json({ ok: true, didCompact: false, reason: 'below_manual_threshold', tokensBefore })
   }
 
@@ -240,6 +241,9 @@ router.post('/:id/compact', async (c) => {
     tools: toolDefs.length > 0 ? toolDefs : undefined,
     contextWindow,
     policy: compactPolicy,
+    // 手动压缩更激进：保留预算按自动重试第 1 档减半（resolveKeepTokens attempt=1），
+    // 用户主动点击时压得更彻底，也更不容易卡在"没有可摘旧内容"（head 为空）。
+    keepTokens: resolveKeepTokens(contextWindow, 1, compactPolicy),
     summarizationProviderId: compactPolicy.summarizationProvider,
     summarizationModel: compactPolicy.summarizationModel,
   })
