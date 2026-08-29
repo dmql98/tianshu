@@ -9,6 +9,8 @@
 !/.gitignore
 !/README.md
 !/publish-release.bat
+!/LICENSE
+!/NOTICE
 
 # 可交付文档（其余根目录文档仍按默认规则忽略）
 !/docs/

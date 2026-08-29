@@ -1,0 +1,12 @@
+TianShu (天枢)
+Copyright 2026 厦门道至数字信息有限公司 and 端木千林
+
+This product is licensed under the Apache License, Version 2.0
+(see the LICENSE file in this repository).
+
+This product includes third-party components and bundled assets. Their
+attributions and license statements are documented in:
+  - content/builtin/LICENSES.md        (bundled built-in content / skills)
+  - dev/content/builtin/LICENSES.md    (same content, dev workspace copy)
+Individual packages may carry their own LICENSE / NOTICE files; those notices
+are preserved as required by the Apache License 2.0.

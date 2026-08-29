@@ -1,6 +1,6 @@
 # Licenses
 
-本目录中的内置内容由 TianShu 项目提供，遵循 MIT License（见仓库根 LICENSE），
+本目录中的内置内容由 TianShu 项目提供，遵循 Apache-2.0 License（见仓库根 LICENSE），
 除非各内容目录内另行标注。
 
 ## 内置角色
