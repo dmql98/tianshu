@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { getDataDir } from '../config.js'
+import { getDataDir, envInt } from '../config.js'
 import { estimateTextTokens } from './loop/loop-policy.js'
 
 export interface ContextReference {
@@ -27,6 +27,30 @@ const MAX_FILE_BYTES = 100 * 1024
 const MAX_TOTAL_BYTES = 200 * 1024
 const SOFT_LIMIT_BYTES = 100 * 1024
 
+// P0-1 cross-Run rebuild memo cache
+// buildInitialMessages runs once per Run and re-expands every @file/@folder/@url user
+// reference (context-builder.ts:336 -> expandContextReferences). File expansion is
+// deterministic (content derive from the file), so validate by (resolved, mtimeMs, size)
+// and reuse the cached content instead of reading the file again each Run - the main
+// cross-Run rebuild waste. URLs have no mtime/size to judge, so use a TTL cache to avoid
+// re-fetching within a short window; failures are never cached (a transient network error
+// must not be frozen into later Runs). Folder trees are not cached (readdir is cheap, and
+// nested edits may not bump the parent dir mtime, risking a stale tree). Caches are bounded.
+const URL_MEMO_TTL_MS = envInt('TSS_URL_CACHE_TTL_MS', 60_000)
+const MEMO_MAX = 256
+
+interface FileMemoEntry { mtimeMs: number; size: number; content: string }
+const fileMemo = new Map<string, FileMemoEntry>()
+interface UrlMemoEntry { ts: number; content: string }
+const urlMemo = new Map<string, UrlMemoEntry>()
+
+function memoSet<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
+  if (map.size >= max) {
+    const first = map.keys().next().value
+    if (first !== undefined) map.delete(first)
+  }
+  map.set(key, value)
+}
 const SENSITIVE_PATTERNS = [
   /[/\\]\.ssh[/\\]/,
   /[/\\]\.aws[/\\]/,
@@ -44,7 +68,7 @@ const SENSITIVE_PATTERNS = [
   /[/\\]key[s]?$/i,
 ]
 
-const REFERENCE_PATTERN = /@(?:file|folder|url):(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|(?:[\w./\\-]+(?::\d+(?:-\d+)?)?))/g
+const REFERENCE_PATTERN = /@(?<kind>file|folder|url):(?<value>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|(?:[\w./\\-]+(?::\d+(?:-\d+)?)?))/g
 
 function stripQuotes(value: string): string {
   if (value.length >= 2 && (value[0] === '"' || value[0] === "'" || value[0] === '`')) {
@@ -143,9 +167,14 @@ function expandFileReference(target: string, workspace: string, allowedRoot: str
       warning: `Skipped oversized file: ${target}`,
     }
   }
+  const mem = fileMemo.get(resolved)
+  if (mem && mem.mtimeMs === stat.mtimeMs && mem.size === stat.size) {
+    return { content: mem.content }
+  }
   let content: string
   try {
     content = fs.readFileSync(resolved, 'utf-8')
+    memoSet(fileMemo, resolved, { mtimeMs: stat.mtimeMs, size: stat.size, content }, MEMO_MAX)
   } catch {
     return {
       content: `[Binary file: ${target}]`,
@@ -178,12 +207,16 @@ function expandFolderReference(target: string, workspace: string, allowedRoot: s
 }
 
 async function expandUrlReference(target: string): Promise<{ content: string; warning?: string } | null> {
+  const now = Date.now()
+  const cached = urlMemo.get(target)
+  if (cached && now - cached.ts < URL_MEMO_TTL_MS) return { content: cached.content }
   try {
     const res = await fetch(target, { signal: AbortSignal.timeout(15000) })
     if (!res.ok) {
       return { content: `[HTTP ${res.status}: ${target}]`, warning: `URL fetch returned ${res.status}` }
     }
     const content = await res.text()
+    memoSet(urlMemo, target, { ts: now, content }, MEMO_MAX)
     return { content }
   } catch (err: any) {
     return {
