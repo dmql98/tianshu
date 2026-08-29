@@ -2,7 +2,7 @@
  * Run: npx tsx src/agent/loop/loop-policy.test.ts
  */
 
-import { estimateTokens, shouldCompact, shouldSnip, trimToolResults, systemMessageEnd, resolveKeepTokens, resolveCompactPolicy, manualCompactThreshold } from './loop-policy.js'
+import { estimateTokens, shouldCompact, shouldSnip, shouldSnipTokens, trimToolResults, systemMessageEnd, resolveKeepTokens, resolveCompactPolicy, manualCompactThreshold, DEFAULT_COMPACT_POLICY } from './loop-policy.js'
 import { detectDoomLoop, evaluateFinalAnswer } from './completion-evaluator.js'
 import { selectEntries, compactHistory, capSummaryLength } from './context-compactor.js'
 import { envInt } from '../../config.js'
@@ -80,6 +80,18 @@ function userMsg(content: string): LLMMessage { return { role: 'user', content }
   assert(shouldCompact(long), 'long context triggers compaction')
   assert(shouldSnip(long), 'long context triggers snip')
   assert(estimateTokens([]) === 0, 'empty context zero tokens')
+
+  // P1-1: 0.85 threshold boundary — 2026 × 300B msg ≈ 160,054 tok: triggers
+  // at the old 0.75 (150k) but must NOT trigger at 0.85 (170k).
+  const boundary: LLMMessage[] = []
+  for (let i = 0; i < 2026; i++) boundary.push(userMsg('x'.repeat(300)))
+  assert(estimateTokens(boundary) === 160054, '2026x300 boundary estimate exact')
+  assert(!shouldCompact(boundary), '160054 tok not compacted at 0.85 (was at 0.75)')
+
+  // P2-1: snipRatio 来自 policy（默认回退 SNIP_RATIO=0.6），可被模型级 compact_snip_ratio 覆盖。
+  assert(!shouldSnipTokens(100000, 200000), 'default snipRatio 0.6 not triggered at 100k/200k')
+  assert(shouldSnipTokens(100000, 200000, { ...DEFAULT_COMPACT_POLICY, snipRatio: 0.4 }), 'policy snipRatio 0.4 triggers at 100k/200k')
+  assert(!shouldSnipTokens(70000, 200000, { ...DEFAULT_COMPACT_POLICY, snipRatio: 0.4 }), 'policy snipRatio 0.4 not triggered at 70k/200k')
   console.log('  OK token estimation and thresholds')
 }
 
@@ -260,7 +272,7 @@ function assertBalancedSeq(msgs: LLMMessage[], label: string): void {
 // ---- P1-4: 按模型策略解析（阈值/保留比/摘要模型） ------------------------------
 {
   const defaults = resolveCompactPolicy(null)
-  assert(defaults.thresholdRatio === 0.75 && defaults.retainRatio === 0.16, 'defaults used when modelConfig absent')
+  assert(defaults.thresholdRatio === 0.85 && defaults.retainRatio === 0.16, 'defaults used when modelConfig absent')
   const perModel = resolveCompactPolicy({
     compact_threshold_ratio: 0.9,
     compact_retain_ratio: 0.2,
@@ -270,7 +282,7 @@ function assertBalancedSeq(msgs: LLMMessage[], label: string): void {
   assert(perModel.thresholdRatio === 0.9 && perModel.retainRatio === 0.2, 'per-model ratios honored')
   assert(perModel.summarizationProvider === 'prov_a' && perModel.summarizationModel === 'summary-1', 'per-model summarizer honored')
   const partial = resolveCompactPolicy({ compact_retain_ratio: 0.1 })
-  assert(partial.thresholdRatio === 0.75 && partial.retainRatio === 0.1, 'partial override keeps defaults for the rest')
+  assert(partial.thresholdRatio === 0.85 && partial.retainRatio === 0.1, 'partial override keeps defaults for the rest')
   console.log('  OK P1-4 resolveCompactPolicy honors per-model fields, falls back to defaults')
 }
 

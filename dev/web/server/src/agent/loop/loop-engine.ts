@@ -136,7 +136,6 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   let totalOutputTokens = 0
   let totalCacheHitTokens = 0
   let totalCacheMissTokens = 0
-  let consecutiveErrors = 0
   let overflowCompacts = 0
   const toolCallHistory: ToolCallRecord[] = []
   let prevPrefixShape: PrefixShape | undefined
@@ -148,6 +147,10 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   const { softTurns, absoluteTurns } = limit
 
   const policyLabel = executionMode === 'direct' ? 'Direct' : executionMode === 'plan_first' ? 'Plan-first' : 'Goal'
+  // 直接对话模式提示（P0-2）：切换进 direct 时注入一次——模型自判是否创建计划/目标。
+  // 仿 lastPlanAlert「变化才注入」：只在该轮未注入 plan alert 且内容变化时 push，
+  // 稳态轮次不重复 → 尾部动态上下文保持字节稳定（provider 前缀缓存不受影响）。
+  const directModeAlert = '[Policy Direct] 当前为直接对话模式：是否创建计划/目标由你自行判断。'
   // Pin the plan to this Run. Once its last step completes its DB status is no
   // longer "active", but submit_result must still validate that same plan.
   let currentPlanId = planStore.getActive(sessionId)?.id || null
@@ -173,6 +176,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   // stays byte-stable on steady-state turns (cache-friendly, fewer tokens).
   let lastPlanAlert = ''
   let lastGoalAlert = ''
+  let lastModeAlert = ''
 
   while (turn < absoluteTurns && !signal?.aborted) {
     turn++
@@ -211,12 +215,14 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     // Execution-policy guardrails: Plan-first / Goal must operate against a
     // persisted plan; Goal mode re-anchors the model to the outcome.
     const plan = currentPlan()
+    let planAlertPushed = false
     if (!plan) {
       if (policyLabel !== 'Direct') {
         const noPlanAlert = `[Policy ${policyLabel}] 当前没有有效计划。先调用 create_plan 把任务拆成有序步骤并注明验证方式，再执行步骤。`
         if (noPlanAlert !== lastPlanAlert) {
           composeCtx.systemAlerts!.push(noPlanAlert)
           lastPlanAlert = noPlanAlert
+          planAlertPushed = true
         }
       }
     } else {
@@ -231,7 +237,13 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       if (planAlert !== lastPlanAlert) {
         composeCtx.systemAlerts!.push(planAlert)
         lastPlanAlert = planAlert
+        planAlertPushed = true
       }
+    }
+    // 直接对话模式：该轮未注入 plan alert 时，注入一次模式提示（每次切换/run 首轮）。
+    if (policyLabel === 'Direct' && !planAlertPushed && directModeAlert !== lastModeAlert) {
+      composeCtx.systemAlerts!.push(directModeAlert)
+      lastModeAlert = directModeAlert
     }
     if (executionMode === 'goal') {
       const g = currentGoal()
@@ -355,30 +367,17 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         return { status: 'stop', sessionId, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn }
       }
 
-      consecutiveErrors++
-      if (consecutiveErrors >= 2) {
-        console.log(`[session] ${sessionId} failed: 2 consecutive errors (${turn} turns)`)
-        stream?.emit('run.failed', { session_id: sessionId, run_id: runId, error: result.error })
-        for (const [, client] of mcpClients) {
-          await disconnectMCPServer(client).catch(() => {})
-        }
-        return { status: 'stop', sessionId, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn }
+      // P0-3: a non-overflow LLM error here is a committed failure — transient
+      // errors were already retried (up to 2 attempts) inside streamWithRetry.
+      // Retrying once more at run level just consumes another turn with no
+      // backoff, so fail the Run instead of adding an extra turn.
+      console.log(`[session] ${sessionId} failed: ${result.error || 'LLM error'} (${turn} turns)`)
+      stream?.emit('run.failed', { session_id: sessionId, run_id: runId, error: result.error })
+      for (const [, client] of mcpClients) {
+        await disconnectMCPServer(client).catch(() => {})
       }
-      stream?.emit('run.retrying', {
-        session_id: sessionId,
-        run_id: runId,
-        scope: 'run',
-        attempt: 2,
-        max_attempts: 2,
-        error: result.error,
-        delay_ms: 0,
-      })
-      // Keep the retry context at the turn tail without misclassifying an API
-      // transport failure as a tool failure.
-      composeCtx.systemAlerts!.push(`[System Note] The model API request failed transiently (${result.error}). Continue from the existing conversation and tool results; do not repeat completed work.`)
-      continue
+      return { status: 'stop', sessionId, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn }
     }
-    consecutiveErrors = 0
 
     if (result.toolCallRecords) {
       toolCallHistory.push(...result.toolCallRecords)
@@ -546,48 +545,6 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       }
     }
 
-    // Snip stale tool results first (cache-friendly), then compact if still over limit.
-    // Use the provider-reported input token count (accurate) with a local
-    // estimate fallback when usage isn't available (e.g. first turn / no usage).
-    // CRITICAL: `lastInputTokens` reflects the request that JUST completed,
-    // which does NOT include the messages appended to `messages` this turn
-    // (`result.messages`). Project the NEXT request's size by adding this
-    // turn's messages, otherwise a large tool output lets the next request
-    // blow past the window before compaction has a chance to fire.
-    const lastMeasured = result.lastInputTokens
-    const projectedTokens = lastMeasured !== undefined
-      ? lastMeasured + estimateTokens(result.messages)
-      : estimateTokens(messages)
-    if (shouldSnipTokens(projectedTokens, contextWindow)) {
-      const snipTokensBefore = estimateTokens(messages)
-      const { pruned: didSnip, trimmedUntilId } = trimToolResults(messages)
-      if (didSnip) {
-        const after = estimateTokens(messages)
-        console.log(`[session] ${sessionId} turn ${turn}: snip trimmed (${snipTokensBefore}→${after} tok, used ${projectedTokens})`)
-        // P0-4: 持久化剪枝水印，重载时恢复同一内存态。
-        if (trimmedUntilId > (session.trimmed_until_id || 0)) {
-          sessionStore.update(sessionId, { trimmed_until_id: trimmedUntilId })
-        }
-      }
-    }
-    if (shouldCompactTokens(projectedTokens, contextWindow, compactPolicy)) {
-      const compact = await compactWithRetries(messages, provider, model, {
-        tools, contextWindow, policy: compactPolicy,
-        summarizationProviderId: compactPolicy.summarizationProvider,
-        summarizationModel: compactPolicy.summarizationModel,
-      })
-      if (compact.didCompact) {
-        // Compaction may have summarized away the create_plan details; force
-        // the next turn to re-inject the current plan render.
-        lastPlanAlert = ''
-        sessionStore.update(sessionId, {
-          compaction_summary: compact.summary!,
-          compaction_until_id: compact.compactedUntilId || null,
-        })
-        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted to manage token usage', compaction_summary: compact.summary!, compaction_until_id: compact.compactedUntilId || null })
-      }
-    }
-
     // ── Dynamic convergence: assess this turn's progress (§8–§9) ──
     if (dynamic) {
       const planChanged = planStepChanged(planSnapshot, sessionId)
@@ -658,6 +615,51 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         continue
       }
       break
+    }
+    // P1-1: post-turn snip + compact moved to the loop tail: turns that end
+    // (final_answer released, aborted, or soft-limit/convergence break) never
+    // pay for a whole compaction summarization call.
+    // Snip stale tool results first (cache-friendly), then compact if still over limit.
+    // Use the provider-reported input token count (accurate) with a local
+    // estimate fallback when usage isn't available (e.g. first turn / no usage).
+    // CRITICAL: `lastInputTokens` reflects the request that JUST completed,
+    // which does NOT include the messages appended to `messages` this turn
+    // (`result.messages`). Project the NEXT request's size by adding this
+    // turn's messages, otherwise a large tool output lets the next request
+    // blow past the window before compaction has a chance to fire.
+    const lastMeasured = result.lastInputTokens
+    const projectedTokens = lastMeasured !== undefined
+      ? lastMeasured + estimateTokens(result.messages)
+      : estimateTokens(messages)
+    if (shouldSnipTokens(projectedTokens, contextWindow, compactPolicy)) {
+      const snipTokensBefore = estimateTokens(messages)
+      const { pruned: didSnip, trimmedUntilId } = trimToolResults(messages)
+      if (didSnip) {
+        const after = estimateTokens(messages)
+        console.log(`[session] ${sessionId} turn ${turn}: snip trimmed (${snipTokensBefore}→${after} tok, used ${projectedTokens})`)
+        // P0-4: 持久化剪枝水印，重载时恢复同一内存态。
+        if (trimmedUntilId > (session.trimmed_until_id || 0)) {
+          sessionStore.update(sessionId, { trimmed_until_id: trimmedUntilId })
+        }
+      }
+    }
+    if (shouldCompactTokens(projectedTokens, contextWindow, compactPolicy)) {
+      const compact = await compactWithRetries(messages, provider, model, {
+        tools, contextWindow, policy: compactPolicy,
+        summarizationProviderId: compactPolicy.summarizationProvider,
+        summarizationModel: compactPolicy.summarizationModel,
+        maxAttempts: 1,  // P1-1: post-turn management compact, retry once only
+      })
+      if (compact.didCompact) {
+        // Compaction may have summarized away the create_plan details; force
+        // the next turn to re-inject the current plan render.
+        lastPlanAlert = ''
+        sessionStore.update(sessionId, {
+          compaction_summary: compact.summary!,
+          compaction_until_id: compact.compactedUntilId || null,
+        })
+        stream?.emit('run.compacted', { session_id: sessionId, run_id: runId, message: 'Context compacted to manage token usage', compaction_summary: compact.summary!, compaction_until_id: compact.compactedUntilId || null })
+      }
     }
   }
 

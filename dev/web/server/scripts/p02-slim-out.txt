@@ -1,0 +1,22 @@
+=== 21 工具总计（三模式统一）===
+当前基线：chars=8199 tokens≈2551
+
+【A 保守（语义全保留）】 chars 8199 → 8853；tokens≈ 2551 → 2911（省 -360，--14%）
+
+【B 激进（删参数描述）】 chars 8199 → 8229；tokens≈ 2551 → 2587（省 -36，--1%）
+
+【C 激进 + 压缩协议注记】 chars 8199 → 8141；tokens≈ 2551 → 2520（省 31，-1%）
+
+=== B 逐工具（激进档）===
+update_plan_step         168 → 164 tok（省 4）
+create_plan              230 → 239 tok（省 -9）
+create_goal              157 → 166 tok（省 -9）
+get_goal                 85 → 93 tok（省 -8）
+complete_goal            104 → 112 tok（省 -8）
+delegate_to_agent        203 → 184 tok（省 19）
+send_message_to_subagent 204 → 212 tok（省 -8）
+submit_result            121 → 129 tok（省 -8）
+ask_user                 101 → 109 tok（省 -8）
+（token 为 CJK 1.3 字/token + ASCII 4 字符/token 的估算，非供应商精确分词）
+(node:22876) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

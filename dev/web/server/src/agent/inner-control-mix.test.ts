@@ -1,9 +1,12 @@
 /**
  * Run: npx tsx src/agent/inner-control-mix.test.ts
  *
- * Covers: a model turn that mixes control actions (old or new names) with
- * ordinary tools must be rejected as a batch with no tool side effects;
- * a lone control action remains a valid protocol turn.
+ * Covers (P0-3 项3 解独占语义):
+ *   - 单个控制动作 + 普通工具同轮：不再整批拒绝——普通工具先执行（结果并入本轮
+ *     上下文，与 tool_call_id 配对完整），控制动作随后正常路由；
+ *   - 仍整批拒绝：多个控制动作互斥、控制动作 + delegate_to_agent 并行；
+ *   - delegate 同步 barrier：delegate（可多个并行）+ 普通工具时普通工具被推迟到下一轮；
+ *   - 单独控制动作 / 单独普通工具保持有效协议轮。
  */
 
 import { mkdtempSync, rmSync } from 'fs'
@@ -65,7 +68,7 @@ try {
   // delegate 批量解析返回给 loop（sub_agent_request / subAgentBatch）。
   {
     globalThis.fetch = (async () => sse(
-      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"read_file","arguments":"{\\"path\\":\\"a.txt\\"}"}}]},{"finish_reason":null}]}',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"read_file","arguments":"{\\"path\\":\\"a.txt\\"}"}}]},"finish_reason":null}]}',
       'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"call_2","type":"function","function":{"name":"delegate_to_agent","arguments":"{\\"task\\":\\"do x\\",\\"target_character_id\\":\\"char_b\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}',
     )) as typeof fetch
 
@@ -82,7 +85,7 @@ try {
     console.log('  OK delegate + ordinary tool: delegate batched, ordinary tool deferred')
   }
 
-  // ---- two control actions in one turn -------------------------------------
+  // ---- control action + delegate_to_agent in one turn (still rejected) ------
   {
     globalThis.fetch = (async () => sse(
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"delegate_to_agent","arguments":"{\\"task\\":\\"x\\"}"}}]},"finish_reason":null}]}',
@@ -92,7 +95,7 @@ try {
     const { stream, emitted } = makeStream()
     const result = await innerLoop(...makeArgs(stream as any)) as any
 
-    assert(result.type === 'tool_calls_executed', 'multiple control actions rejected as a batch')
+    assert(result.type === 'tool_calls_executed', 'control + delegate rejected as a batch')
     assert(result.toolCallRecords.length === 2 && result.toolCallRecords.every((r: any) => r.hasError), 'all control calls rejected')
     assert(emitted.filter(e => e.type === 'control.rejected').length === 2, 'two control.rejected events')
     console.log('  OK multiple control actions in one turn rejected')
@@ -176,6 +179,27 @@ try {
     assert(result.planStepUpdate?.evidence === 'tests passed', 'step evidence parsed')
     assert(!emitted.some(e => e.type === 'control.rejected'), 'lone update_plan_step not rejected')
     console.log('  OK lone update_plan_step routes to plan transition')
+  }
+
+  // ---- P0-3 项3 解独占: submit_result + read_file 同轮 ------------------------
+  // 不再整批拒绝：read_file 真实执行（结果记录 + tool 消息配对），submit_result 正常路由。
+  {
+    globalThis.fetch = (async () => sse(
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"r1","type":"function","function":{"name":"read_file","arguments":"{\\"path\\":\\"does-not-exist.txt\\"}"}}]},"finish_reason":null}]}',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"s1","type":"function","function":{"name":"submit_result","arguments":"{\\"summary\\":\\"done\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}',
+    )) as typeof fetch
+
+    const { stream, emitted } = makeStream()
+    const result = await innerLoop(...makeArgs(stream as any)) as any
+
+    assert(result.type === 'submit_result', 'control action routes normally when mixed with ordinary tool')
+    assert(result.taskCompleteSummary === 'done', 'summary passed through')
+    assert(result.toolCallRecords?.length === 1, 'ordinary tool executed and recorded')
+    assert(result.toolCallRecords?.[0].toolName === 'read_file', 'recorded tool is the ordinary one')
+    assert(result.messages.some((m: any) => m.role === 'tool' && m.tool_call_id === 'r1'), 'ordinary tool result paired with its call id')
+    assert(!emitted.some(e => e.type === 'control.rejected'), 'no control rejection on mixed turn')
+    assert(emitted.some(e => e.type === 'tool.started') && emitted.some(e => e.type === 'tool.completed'), 'ordinary tool lifecycle events emitted')
+    console.log('  OK submit_result + read_file: ordinary tool executed, control routed (P0-3 解独占)')
   }
 
   // ---- lone ordinary tool still executes normally (no false positive) ------

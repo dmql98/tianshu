@@ -8,6 +8,7 @@ export interface ProviderModel {
   api_style?: 'auto' | 'chat_completions' | 'responses'
   compact_threshold_ratio?: number
   compact_retain_ratio?: number
+  compact_snip_ratio?: number
   compact_provider?: string
   compact_model?: string
 }

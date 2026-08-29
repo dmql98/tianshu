@@ -20,6 +20,17 @@ export function envInt(name: string, def: number): number {
   return Number.isFinite(n) && n >= 0 ? n : def
 }
 
+/**
+ * 读取非负浮点环境变量（比例类阈值，如 0.5/0.6），缺失/非法时回退默认值。
+ * 供 snip/soft-compact 比例类配置使用（P2-1：配置化）。
+ */
+export function envFloat(name: string, def: number): number {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return def
+  const n = Number.parseFloat(raw)
+  return Number.isFinite(n) && n >= 0 ? n : def
+}
+
 interface Config {
   dataDir: string
   runPolicy?: SystemRunPolicy

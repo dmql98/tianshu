@@ -1,0 +1,15 @@
+DEBUG mixed result type: sub_agent_request batch: [{"toolCallId":"call_2","data":{"task":"do x","target_character_id":"char_b","instances":1}}]
+  OK delegate + ordinary tool: delegate batched, ordinary tool deferred
+  OK multiple control actions in one turn rejected
+  OK lone delegate remains valid (sync barrier)
+  OK lone submit_result routes to completion
+  OK lone ask_user routes to question turn
+  OK lone create_plan routes to plan request
+  OK lone update_plan_step routes to plan transition
+[registry] Tools accessed before init — call init() at startup
+  OK submit_result + read_file: ordinary tool executed, control routed (P0-3 解独占)
+[registry] Tools accessed before init — call init() at startup
+  OK ordinary tool turn unaffected
+ALL INNER CONTROL-MIX TESTS PASSED
+(node:47608) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

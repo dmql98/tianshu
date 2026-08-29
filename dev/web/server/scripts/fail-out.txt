@@ -1,0 +1,9 @@
+  OK auto-creates parent dirs
+  OK writes content
+  FAIL returns metadata
+  OK identical write is noop
+  OK noop does not error
+  OK update succeeds
+  OK update persists
+  OK BOM preserved after update
+  OK path escape rejected

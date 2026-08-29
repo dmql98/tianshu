@@ -252,7 +252,7 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     const pct = ((estTokens / contextWindow) * 100).toFixed(0)
     console.log(`[session] ${sessionId} context at ${pct}% (soft threshold 50%)`)
   }
-  if (shouldSnip(messages, contextWindow)) {
+  if (shouldSnip(messages, contextWindow, compactPolicy)) {
     const snipTokensBefore = estimateTokens(messages)
     const { pruned: didSnip, trimmedUntilId } = trimToolResults(messages)
     if (didSnip) {

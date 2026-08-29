@@ -49,6 +49,8 @@ export interface ModelInfo {
   /** P1-4 模型级压缩策略（未配置回退全局默认）：触发阈值 / 保留比。 */
   compact_threshold_ratio?: number
   compact_retain_ratio?: number
+  /** P2-1 模型级剪枝阈值（shouldSnip，未配置回退全局 TSS_SNIP_RATIO=0.6）。 */
+  compact_snip_ratio?: number
   /** 独立摘要 provider id / model（P1-4/P1-5）。 */
   compact_provider?: string
   compact_model?: string

@@ -1,7 +1,7 @@
 import type { LLMMessage } from '../../llm/client.js'
 import type { ToolCallRecord } from '../inner.js'
 import { codePointLength, pruneToolResultContent } from './tool-result-pruner.js'
-import { envInt } from '../../config.js'
+import { envFloat, envInt } from '../../config.js'
 
 /**
  * Loop policy: token budgeting, compaction thresholds and run limits.
@@ -12,9 +12,12 @@ import { envInt } from '../../config.js'
 export const DEFAULT_MAX_TURNS = envInt('TSS_MAX_TURNS', 50)
 export const DEFAULT_CONTEXT_WINDOW = envInt('TSS_DEFAULT_CONTEXT_WINDOW', 200000)
 
-export const SOFT_COMPACT_RATIO = 0.5
-export const SNIP_RATIO = 0.6
-export const COMPACT_THRESHOLD = 0.75
+/** P2-1: 软提示日志阈值（outer.ts 打日志用，无行为影响），可经 TSS_SOFT_COMPACT_RATIO 覆盖。 */
+export const SOFT_COMPACT_RATIO = envFloat('TSS_SOFT_COMPACT_RATIO', 0.5)
+/** P2-1: 剪枝触发阈值（trimToolResults），可经 TSS_SNIP_RATIO / 模型级 compact_snip_ratio 覆盖（模型级优先）。 */
+export const SNIP_RATIO = envFloat('TSS_SNIP_RATIO', 0.6)
+/** P1-1: 主动压缩阈值 0.75→0.85（管理性压缩更晚触发；溢出强制压缩 344 不受影响）。 */
+export const COMPACT_THRESHOLD = 0.85
 export const COLD_RESUME_MS = 24 * 60 * 60 * 1000
 /** 保留预算下限/上限（P1-3：预算按窗口缩放时的夹取范围）。 */
 export const KEEP_TOKENS_MIN = envInt('TSS_KEEP_TOKENS_MIN', 4000)
@@ -55,6 +58,8 @@ export const COMPACT_RESERVED = envInt('TSS_COMPACT_RESERVED', 0)
 export interface CompactPolicy {
   thresholdRatio: number
   retainRatio: number
+  /** P2-1: 剪枝触发阈值（trimToolResults）；未配置回退全局 SNIP_RATIO。 */
+  snipRatio: number
   summarizationProvider?: string
   summarizationModel?: string
 }
@@ -62,17 +67,20 @@ export interface CompactPolicy {
 export const DEFAULT_COMPACT_POLICY: CompactPolicy = {
   thresholdRatio: COMPACT_THRESHOLD,
   retainRatio: COMPACT_RETAIN_RATIO,
+  snipRatio: SNIP_RATIO,
 }
 
 export function resolveCompactPolicy(modelConfig?: {
   compact_threshold_ratio?: number
   compact_retain_ratio?: number
+  compact_snip_ratio?: number
   compact_provider?: string
   compact_model?: string
 } | null): CompactPolicy {
   return {
     thresholdRatio: modelConfig?.compact_threshold_ratio ?? COMPACT_THRESHOLD,
     retainRatio: modelConfig?.compact_retain_ratio ?? COMPACT_RETAIN_RATIO,
+    snipRatio: modelConfig?.compact_snip_ratio ?? SNIP_RATIO,
     summarizationProvider: modelConfig?.compact_provider ?? '',
     summarizationModel: modelConfig?.compact_model ?? '',
   }
@@ -146,8 +154,8 @@ export function estimateTokens(messages: LLMMessage[]): number {
   return Math.ceil(total)
 }
 
-export function shouldSnip(messages: LLMMessage[], contextWindow = DEFAULT_CONTEXT_WINDOW): boolean {
-  return estimateTokens(messages) > contextWindow * SNIP_RATIO
+export function shouldSnip(messages: LLMMessage[], contextWindow = DEFAULT_CONTEXT_WINDOW, policy: CompactPolicy = DEFAULT_COMPACT_POLICY): boolean {
+  return estimateTokens(messages) > contextWindow * policy.snipRatio
 }
 
 export function shouldCompact(messages: LLMMessage[], contextWindow = DEFAULT_CONTEXT_WINDOW, policy: CompactPolicy = DEFAULT_COMPACT_POLICY): boolean {
@@ -160,8 +168,8 @@ export function shouldCompact(messages: LLMMessage[], contextWindow = DEFAULT_CO
  * local estimate badly under-counts CJK text and can delay compaction until
  * overflow. Callers pass the last request's actual input tokens.
  */
-export function shouldSnipTokens(usedTokens: number, contextWindow = DEFAULT_CONTEXT_WINDOW): boolean {
-  return usedTokens > contextWindow * SNIP_RATIO
+export function shouldSnipTokens(usedTokens: number, contextWindow = DEFAULT_CONTEXT_WINDOW, policy: CompactPolicy = DEFAULT_COMPACT_POLICY): boolean {
+  return usedTokens > contextWindow * policy.snipRatio
 }
 
 export function shouldCompactTokens(usedTokens: number, contextWindow = DEFAULT_CONTEXT_WINDOW, policy: CompactPolicy = DEFAULT_COMPACT_POLICY): boolean {

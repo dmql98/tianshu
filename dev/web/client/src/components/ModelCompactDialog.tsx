@@ -21,6 +21,7 @@ export default function ModelCompactDialog({ provider, modelId, onClose }: Props
   const model = provider.models?.find(m => m.id === modelId)
   const [threshold, setThreshold] = useState(model?.compact_threshold_ratio != null ? String(model.compact_threshold_ratio) : '')
   const [retain, setRetain] = useState(model?.compact_retain_ratio != null ? String(model.compact_retain_ratio) : '')
+  const [snip, setSnip] = useState(model?.compact_snip_ratio != null ? String(model.compact_snip_ratio) : '')
   const [summProvider, setSummProvider] = useState(model?.compact_provider || '')
   const [summModel, setSummModel] = useState(model?.compact_model || '')
   const [loading, setLoading] = useState(false)
@@ -29,10 +30,13 @@ export default function ModelCompactDialog({ provider, modelId, onClose }: Props
   const handleSubmit = async () => {
     const thrRaw = threshold.trim()
     const retRaw = retain.trim()
+    const snipRaw = snip.trim()
     const thr = thrRaw === '' ? null : parseFloat(thrRaw)
     const ret = retRaw === '' ? null : parseFloat(retRaw)
+    const snp = snipRaw === '' ? null : parseFloat(snipRaw)
     if ((thr !== null && (!Number.isFinite(thr) || thr < 0 || thr > 1)) ||
-        (ret !== null && (!Number.isFinite(ret) || ret < 0 || ret > 1))) {
+        (ret !== null && (!Number.isFinite(ret) || ret < 0 || ret > 1)) ||
+        (snp !== null && (!Number.isFinite(snp) || snp < 0 || snp > 1))) {
       setError(t('请输入 0~1 之间的数值'))
       return
     }
@@ -46,6 +50,8 @@ export default function ModelCompactDialog({ provider, modelId, onClose }: Props
         else next.compact_threshold_ratio = thr
         if (ret === null) delete next.compact_retain_ratio
         else next.compact_retain_ratio = ret
+        if (snp === null) delete next.compact_snip_ratio
+        else next.compact_snip_ratio = snp
         const sp = summProvider.trim()
         if (!sp) delete next.compact_provider
         else next.compact_provider = sp
@@ -66,6 +72,7 @@ export default function ModelCompactDialog({ provider, modelId, onClose }: Props
   const clearAll = () => {
     setThreshold('')
     setRetain('')
+    setSnip('')
     setSummProvider('')
     setSummModel('')
     setError('')
@@ -90,6 +97,11 @@ export default function ModelCompactDialog({ provider, modelId, onClose }: Props
               <label>{t('保留比例 (0-1)')}</label>
               <input type="text" value={retain} onChange={e => setRetain(e.target.value)} placeholder="0.16" />
               <div style={hintStyle}>{t('留空使用默认值 0.16')}</div>
+            </div>
+            <div className="provider-form-field">
+              <label>{t('剪枝阈值 (0-1)')}</label>
+              <input type="text" value={snip} onChange={e => setSnip(e.target.value)} placeholder="0.6" />
+              <div style={hintStyle}>{t('留空使用默认值 0.6')}</div>
             </div>
             <div className="provider-form-field">
               <label>{t('摘要服务')}</label>

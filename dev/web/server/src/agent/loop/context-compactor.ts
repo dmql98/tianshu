@@ -324,6 +324,9 @@ export interface SummarizeOptions {
   summarizationModel?: string
   /** 直接指定摘要 provider（优先于 id 解析）。 */
   summarizationProvider?: ProviderConfig
+  /** P1-1：单次压缩重试上限（覆盖 MAX_COMPACT_ATTEMPTS）。回合后管理性压缩传 1；
+   *  安全阀路径（预请求/溢出/冷恢复）保持默认，避免压缩不彻底就带病发送。 */
+  maxAttempts?: number
 }
 
 /** 解析摘要调用目标：显式 provider > 环境变量 TSS_COMPACT_PROVIDER/MODEL > 主链路。 */
@@ -511,11 +514,13 @@ export async function compactWithRetries(
 ): Promise<CompactRetryResult> {
   const contextWindow = opts?.contextWindow ?? DEFAULT_CONTEXT_WINDOW
   const policy = opts?.policy ?? DEFAULT_COMPACT_POLICY
+  // P1-1: 可覆盖重试上限（回合后管理性压缩 1 次；安全阀路径保持 MAX_COMPACT_ATTEMPTS）。
+  const maxAttempts = opts?.maxAttempts ?? MAX_COMPACT_ATTEMPTS
   let attempts = 0
   let summary: string | undefined
   let compactedUntilId: number | undefined
 
-  while (attempts <= MAX_COMPACT_ATTEMPTS) {
+  while (attempts <= maxAttempts) {
     const keepTokens = resolveKeepTokens(contextWindow, attempts, policy)
     const result = await selectAndSummarize(messages, provider, model, { ...opts, keepTokens })
     if (!result.didCompact) break

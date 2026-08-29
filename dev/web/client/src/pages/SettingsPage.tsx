@@ -567,7 +567,7 @@ export default function SettingsPage() {
                           >
                             ⚙
                           </button>
-                          {(model as any).compact_threshold_ratio != null || (model as any).compact_retain_ratio != null || (model as any).compact_provider != null || (model as any).compact_model != null ? (
+                          {(model as any).compact_threshold_ratio != null || (model as any).compact_retain_ratio != null || (model as any).compact_snip_ratio != null || (model as any).compact_provider != null || (model as any).compact_model != null ? (
                             <span style={{width:6,height:6,borderRadius:3,background:'var(--jade)',marginLeft:6,flexShrink:0}} />
                           ) : null}
                         </div>

@@ -45,7 +45,7 @@ try {
 
   if (fetchCalls !== 2) throw new Error(`expected 2 fetch calls, got ${fetchCalls}`)
   if (retries.length !== 1) throw new Error(`expected 1 retry event, got ${retries.length}`)
-  if (retries[0].attempt !== 2 || retries[0].max_attempts !== 3) {
+  if (retries[0].attempt !== 2 || retries[0].max_attempts !== 2) {
     throw new Error(`unexpected retry metadata: ${JSON.stringify(retries[0])}`)
   }
   if (result.text !== 'recovered') throw new Error(`unexpected result: ${JSON.stringify(result)}`)

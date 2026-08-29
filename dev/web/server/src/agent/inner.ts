@@ -177,7 +177,7 @@ export async function streamWithRetry(
   // arguments can never leak into the successful attempt.
   let committed: { text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null } | null = null
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     if (signal?.aborted) break
     let errorText = ''
     let fullText = ''
@@ -240,12 +240,12 @@ export async function streamWithRetry(
       break
     }
 
-    if (!isTransientLLMError(errorText) || attempt >= 2) {
+    if (!isTransientLLMError(errorText) || attempt >= 1) {
       throw new Error(errorText)
     }
 
     const delay = Math.min(1000 * Math.pow(2, attempt), 8000)
-    onRetry?.({ attempt: attempt + 2, max_attempts: 3, error: errorText, delay_ms: delay })
+    onRetry?.({ attempt: attempt + 2, max_attempts: 2, error: errorText, delay_ms: delay })
     await sleep(delay)
   }
 
@@ -253,6 +253,280 @@ export async function streamWithRetry(
     throw new Error('LLM stream ended without a successful attempt')
   }
   return committed
+}
+
+/**
+ * P0-3 项3：把「普通工具执行」从 innerLoop 主流程提取出来，供两条路径复用：
+ *  1) 纯普通工具轮（与原行为逐字一致）；
+ *  2) 控制动作 + 普通工具混合轮（解独占：普通工具先执行，再路由控制动作）。
+ *
+ * 只接收普通工具与 invalid_tool_call 调用；不得传入 CONTROL_TOOL_SET 控制动作
+ * 或 delegate_to_agent（它们由主流程单独路由，见 innerLoop）。
+ */
+async function executeToolCalls(
+  calls: ToolCall[],
+  ctx: {
+    characterId: string
+    sessionId?: string
+    stream?: TransportBroadcaster
+    runId?: string
+    workspace?: string
+    signal?: AbortSignal
+    mcpClients?: Map<string, MCPClient>
+    workspaces?: string[]
+    cap?: ProviderCapability
+  },
+): Promise<{ toolCallRecords: ToolCallRecord[]; messages: LLMMessage[] }> {
+  const { characterId, sessionId, stream, runId, workspace, signal, mcpClients, workspaces, cap } = ctx
+  const toolCallRecords: ToolCallRecord[] = []
+  const newMessages: LLMMessage[] = []
+
+  // invalid_tool_call never reaches the real executor: it is a synthetic error
+  // surface so the model can rewrite the malformed call. Fixed tool error,
+  // no permissions prompt, no side effects.
+  const invalidCalls = calls.filter(tc => tc.function.name === 'invalid_tool_call')
+  for (const tc of invalidCalls) {
+    const errorText = `模型生成了无效工具参数：${tc.function.arguments}`
+    toolCallRecords.push({
+      toolName: 'invalid_tool_call', hasError: true, error: errorText, args: tc.function.arguments,
+      normalizedArgsHash: stableArgsHash(JSON.parse(tc.function.arguments)),
+      outcomeKind: 'control',
+    })
+    if (sessionId) {
+      messageStore.addMessage(sessionId, {
+        role: 'tool', content: JSON.stringify({ error: errorText }),
+        tool_name: 'invalid_tool_call', tool_input: JSON.stringify({ call_id: tc.id, args: tc.function.arguments }),
+        tool_output: errorText, tool_status: 'error', is_error: 1,
+      })
+    }
+    newMessages.push({ role: 'tool', content: JSON.stringify({ error: errorText }), tool_call_id: tc.id })
+    stream?.emit('tool.completed', { session_id: sessionId, run_id: runId, tool_call_id: tc.id, tool_name: 'invalid_tool_call', tool_output: errorText, tool_status: 'error', duration_ms: 0 })
+  }
+
+  // Phase 1: pre-check all tools, separate deny/ask from allow
+  const prechecked: { tc: ToolCall; name: string; args: ToolArgs; argsStr: string; skip: boolean; skipReason?: string }[] = []
+
+  for (const tc of calls) {
+    const { name, arguments: argsStr } = tc.function
+    if (name === 'invalid_tool_call') continue // handled above
+    // Arguments were canonicalized before persistence, so this parse must
+    // succeed; a failure here is a programming error, never a silent `{}`.
+    let args: ToolArgs
+    try { args = JSON.parse(argsStr) } catch (err: any) {
+      throw new Error(`Internal error: tool arguments failed to parse after canonicalization (${name}): ${err?.message}`)
+    }
+
+    const bindingError = checkToolBinding(characterId, name, args)
+    if (bindingError) {
+      prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: bindingError })
+      continue
+    }
+
+    const strategyState = sessionId ? getSessionState(sessionId) : { current_strategy: 'Auto Approve' as Strategy }
+    let strategyResult = checkStrategy(name, strategyState.current_strategy)
+
+    if (strategyResult === 'deny') {
+      prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: `[Read Only] ${name} is not allowed in read-only mode` })
+      continue
+    }
+
+    if (strategyResult === 'ask') {
+      if (!sessionId || !isToolApprovedForSession(sessionId, name)) {
+        // Ask sequentially — user approval is interactive, can't batch
+        const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
+          if (!stream || !sessionId) { resolve('reject'); return }
+          stream.emit('approval.requested', { session_id: sessionId, run_id: runId, tool_call_id: tc.id, tool_name: `[${strategyState.current_strategy}] ${name}`, tool_input: JSON.stringify(args) })
+          approvalRegistry.register(sessionId, tc.id, runId, resolve)
+        })
+        if (choice === 'reject') {
+          prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: `${name} denied` })
+          continue
+        }
+        if (choice === 'always' && sessionId) {
+          approveToolForSession(sessionId, name)
+        }
+      }
+    }
+
+    prechecked.push({ tc, name, args, argsStr, skip: false })
+  }
+
+  // Phase 2: emit started events for allowed tools. 控制动作不在本函数调用列表内，
+  // 因此无需再对 submit_result 做排除（原内联版本为避开 executor 注册表而排除它）。
+  const allowed = prechecked.filter(p => !p.skip)
+  for (const p of allowed) {
+    stream?.emit('tool.started', { session_id: sessionId, run_id: runId, tool_call_id: p.tc.id, tool_name: p.name, tool_input: p.argsStr })
+  }
+
+  // Phase 3: emit skip results immediately
+  for (const p of prechecked) {
+    if (!p.skip) continue
+    const rec: ToolCallRecord = {
+      toolName: p.name, hasError: true, error: p.skipReason!, args: p.argsStr,
+      normalizedArgsHash: stableArgsHash(p.args),
+      outcomeKind: outcomeKindFor(p.name),
+    }
+    toolCallRecords.push(rec)
+    if (sessionId) {
+      messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: p.skipReason!, tool_status: 'error', is_error: 1 })
+    }
+    newMessages.push({ role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_call_id: p.tc.id })
+    stream?.emit('tool.completed', { session_id: sessionId, run_id: runId, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
+  }
+
+  // Phase 4: execute allowed tools — parallel for read-only, serial for writes
+  const readGroup: typeof allowed = []
+  const writeGroup: typeof allowed = []
+
+  for (const p of allowed) {
+    if (READ_ONLY_TOOLS.has(p.name)) {
+      readGroup.push(p)
+    } else {
+      writeGroup.push(p)
+    }
+  }
+
+  async function runOne(p: typeof allowed[0]): Promise<void> {
+    const startTime = Date.now()
+
+    // ── tool.output 服务端合并（R10）──
+    let pendingOutput = ''
+    let outputTimer: ReturnType<typeof setTimeout> | null = null
+    const flushOutput = () => {
+      if (outputTimer) { clearTimeout(outputTimer); outputTimer = null }
+      if (!pendingOutput) return
+      const output = pendingOutput
+      pendingOutput = ''
+      stream?.emit('tool.output', { session_id: sessionId, run_id: runId, tool_call_id: p.tc.id, output })
+    }
+    const onOutput = (chunk: string) => {
+      pendingOutput += chunk
+      if (!outputTimer) {
+        outputTimer = setTimeout(() => {
+          outputTimer = null
+          flushOutput()
+        }, 50)
+      }
+    }
+
+    async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
+      try {
+        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, sessionId)
+      } catch (err: any) {
+        return { output: '', error: `${p.name}: ${err.message || String(err)}` }
+      }
+    }
+
+    let result = await execWithRoots()
+
+    if (result.escaped && sessionId) {
+      const escapedPath = result.error?.replace('Path escapes workspace: ', '') || ''
+      const absEscapedPath = pathResolve(workspace || getDataDir(), escapedPath)
+      const approvedPath = workspaceApprovalRoot(absEscapedPath)
+      const strategy = getSessionState(sessionId).current_strategy
+      const choice = await decideWorkspaceApproval(strategy, () =>
+        new Promise<'once' | 'always' | 'reject'>((resolve) => {
+          if (!stream) { resolve('reject'); return }
+          stream.emit('approval.requested', {
+            session_id: sessionId,
+            run_id: runId,
+            tool_call_id: p.tc.id,
+            tool_name: p.name,
+            tool_input: JSON.stringify(p.args),
+            approval_kind: 'workspace',
+            requested_path: absEscapedPath,
+            permission_root: approvedPath,
+          })
+          approvalRegistry.register(sessionId, p.tc.id, runId, resolve)
+        })
+      )
+      if (choice !== 'reject') {
+        if (choice === 'always') {
+          let updatedWorkspaces: string[] | undefined
+          const dbSession = sessionStore.getById(sessionId)
+          if (dbSession) {
+            const ws: string[] = dbSession.workspaces
+              ? JSON.parse(dbSession.workspaces)
+              : dbSession.workspace ? [dbSession.workspace] : []
+            const isCovered = ws.some((w: string) => isPathWithin(w, approvedPath))
+            if (!isCovered && !ws.includes(approvedPath)) {
+              ws.push(approvedPath)
+              sessionStore.update(sessionId, { workspaces: JSON.stringify(ws) })
+            }
+            updatedWorkspaces = ws
+          }
+          stream?.emit('workspace.updated', {
+            session_id: sessionId,
+            workspaces: updatedWorkspaces,
+          })
+          fanOutToSinks('workspace.updated', {
+            session_id: sessionId,
+            workspaces: updatedWorkspaces,
+          })
+          if (workspaces && !workspaces.some(w => isPathWithin(w, approvedPath))) {
+            workspaces.push(approvedPath)
+          }
+        }
+        result = await execWithRoots([approvedPath])
+      }
+    }
+
+    const duration = Date.now() - startTime
+
+    flushOutput()
+
+    const outcomeHash = result.metadata?.hash
+      ? String(result.metadata.hash)
+      : result.error
+        ? `err:${stableArgsHash(result.error.slice(0, 500))}`
+        : stableArgsHash(result.output.slice(0, 2000))
+    const changed = determineToolChanged(p.name, result)
+
+    const rec: ToolCallRecord = {
+      toolName: p.name, hasError: !!result.error, error: result.error, args: p.argsStr,
+      normalizedArgsHash: stableArgsHash(p.args),
+      outcomeKind: outcomeKindFor(p.name),
+      resultHash: outcomeHash,
+      changed,
+      evidenceKey: result.metadata?.evidence_key ? String(result.metadata.evidence_key) : undefined,
+    }
+    toolCallRecords.push(rec)
+
+    const toolStatus = result.error ? 'error' : result.escaped ? 'denied' : 'success'
+
+    const displayOutput = result.error || truncate(result.output || '')
+
+    let storedAttachments: AttachmentRecord[] | undefined
+    let toolContent: string | import('../llm/client.js').LLMMessage['content']
+    if (result.attachments && result.attachments.length > 0 && sessionId) {
+      storedAttachments = result.attachments.map(a => saveAttachment(sessionId, { filename: a.name, mediaType: a.mime, data: a.data }))
+      const parts: ContentPart[] = []
+      if (result.output) parts.push(textPart(result.output))
+      for (const a of result.attachments) parts.push(mediaPart({ mediaType: a.mime, data: a.data, filename: a.name }))
+      toolContent = lowerContentToProvider(parts, cap || { supportsVision: false, supportsFiles: false })
+    } else {
+      toolContent = JSON.stringify({ output: truncate(result.output || ''), error: truncateError(result.error || '') })
+    }
+
+    const toolMsg: LLMMessage = { role: 'tool', content: toolContent, tool_call_id: p.tc.id }
+    if (sessionId) {
+      const stored = messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ output: truncate(result.output || ''), error: truncateError(result.error || '') }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: displayOutput, tool_status: toolStatus, attachments: storedAttachments ? JSON.stringify(storedAttachments) : null, is_error: result.error && !result.escaped ? 1 : 0 })
+      ;(toolMsg as any).__dbId = stored.id
+    }
+    newMessages.push(toolMsg)
+    stream?.emit('tool.completed', { session_id: sessionId, run_id: runId, tool_call_id: p.tc.id, tool_name: p.name, tool_output: displayOutput, tool_status: toolStatus, duration_ms: duration })
+  }
+
+  // Run all read-only tools in parallel, then writes sequentially
+  if (readGroup.length > 0) {
+    await Promise.all(readGroup.map(runOne))
+  }
+  for (const p of writeGroup) {
+    if (signal?.aborted) break
+    await runOne(p)
+  }
+
+  return { toolCallRecords, messages: newMessages }
 }
 
 export async function innerLoop(
@@ -456,10 +730,17 @@ export async function innerLoop(
     return { type: 'final_answer', messages: newMessages, fullText, reasoningText, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input }
   }
 
-  const delegateCall = toolCallsAcc.find(tc => tc.function.name === 'delegate_to_agent')
   const controlCalls = toolCallsAcc.filter(tc => CONTROL_TOOL_SET.has(tc.function.name))
-  if (controlCalls.length > 0 && toolCallsAcc.length !== 1) {
-    const error = 'Protocol error: control actions must be the only tool call in a model turn. Recovery: re-issue the ordinary tool call(s) now, then send the control action alone in a following turn.'
+  const delegateCalls = toolCallsAcc.filter(tc => tc.function.name === 'delegate_to_agent')
+  // P0-3 项3 解独占：toolCallRecords 前移，供混合路径（普通工具先执行）与尾部共用。
+  const toolCallRecords: ToolCallRecord[] = []
+
+  // 仍整批拒绝（协议语义不可调和）：
+  //   - 同轮多个控制动作互斥（submit_result/ask_user/create_plan 等语义冲突）
+  //   - 控制动作 + delegate_to_agent 并行（delegate 是控制类屏障，保持分离）
+  // 允许：单个控制动作 + 普通工具 → 普通工具先执行（结果并入本轮上下文），再路由控制动作。
+  if (controlCalls.length > 1 || (controlCalls.length === 1 && delegateCalls.length > 0)) {
+    const error = 'Protocol error: control actions must not be combined with other control actions or delegate_to_agent in the same model turn. Recovery: re-issue the ordinary tool call(s) now, then send the control action alone in a following turn.'
     for (const tc of toolCallsAcc) {
       newMessages.push({ role: 'tool', content: JSON.stringify({ error }), tool_call_id: tc.id })
       if (sessionId) {
@@ -480,6 +761,14 @@ export async function innerLoop(
         reason: error,
       })
     }
+    toolCallRecords.push(...toolCallsAcc.map(tc => ({
+      toolName: tc.function.name,
+      hasError: true,
+      error,
+      args: tc.function.arguments,
+      normalizedArgsHash: stableArgsHash(JSON.parse(tc.function.arguments)),
+      outcomeKind: 'control' as const,
+    })))
     return {
       type: 'tool_calls_executed',
       messages: newMessages,
@@ -490,17 +779,21 @@ export async function innerLoop(
       totalOutputTokens,
       totalCacheHitTokens,
       totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: toolCallsAcc.map(tc => ({
-        toolName: tc.function.name,
-        hasError: true,
-        error,
-        args: tc.function.arguments,
-        normalizedArgsHash: stableArgsHash(JSON.parse(tc.function.arguments)),
-        outcomeKind: 'control' as const,
-      })),
+      toolCallRecords,
     }
   }
-  const delegateCalls = toolCallsAcc.filter(tc => tc.function.name === 'delegate_to_agent')
+
+  // P0-3 项3 解独占：单个控制动作 + 普通工具同轮 → 普通工具先执行（结果并入本轮
+  // 上下文，控制动作随后路由），不再整批拒绝。普通工具结果与 tool_call_id 配对完整，
+  // 不会被 next-turn fixOrphanToolCalls 误删。
+  if (controlCalls.length === 1) {
+    const ordinaryCalls = toolCallsAcc.filter(tc => !CONTROL_TOOL_SET.has(tc.function.name))
+    if (ordinaryCalls.length > 0) {
+      const executed = await executeToolCalls(ordinaryCalls, { characterId, sessionId, stream, runId: opts.run_id, workspace, signal, mcpClients, workspaces, cap })
+      toolCallRecords.push(...executed.toolCallRecords)
+      newMessages.push(...executed.messages)
+    }
+  }
   if (delegateCalls.length > 0) {
     // P5 同步 barrier：同轮所有 delegate 批量并行拉起，全部完成后父 LLM 才收到结果。
     // 同轮混入的非 delegate 工具本轮不执行（生成占位结果保持协议配对完整），
@@ -571,7 +864,7 @@ export async function innerLoop(
       type: 'submit_result',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: [],
+      toolCallRecords,
       taskCompleteSummary: summary,
       evidence,
     }
@@ -585,7 +878,7 @@ export async function innerLoop(
       type: 'ask_user',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: [],
+      toolCallRecords,
       question: args.question || '',
     }
   }
@@ -607,7 +900,7 @@ export async function innerLoop(
       type: 'create_plan',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: [],
+      toolCallRecords,
       planRequest: {
         goal: typeof args.goal === 'string' ? args.goal : undefined,
         verification: typeof args.verification === 'string' ? args.verification : undefined,
@@ -627,7 +920,7 @@ export async function innerLoop(
       type: 'update_plan_step',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: [],
+      toolCallRecords,
       planStepUpdate: {
         ordinal,
         status: status as NonNullable<InnerResult['planStepUpdate']>['status'],
@@ -644,7 +937,7 @@ export async function innerLoop(
       type: 'create_goal',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: [],
+      toolCallRecords,
       goalRequest: {
         outcome: typeof args.outcome === 'string' ? args.outcome.trim() : '',
         constraints: typeof args.constraints === 'string' ? args.constraints.trim() : undefined,
@@ -660,7 +953,7 @@ export async function innerLoop(
       type: 'get_goal',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: [],
+      toolCallRecords,
     }
   }
 
@@ -672,282 +965,15 @@ export async function innerLoop(
       type: 'complete_goal',
       messages: newMessages, fullText, reasoningText,
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
-      toolCallRecords: [],
+      toolCallRecords,
       goalCompleteSummary: typeof args.summary === 'string' ? args.summary.trim() : undefined,
     }
   }
 
-  const toolCallRecords: ToolCallRecord[] = []
-
-  // invalid_tool_call never reaches the real executor: it is a synthetic error
-  // surface so the model can rewrite the malformed call. Fixed tool error,
-  // no permissions prompt, no side effects.
-  const invalidCalls = toolCallsAcc.filter(tc => tc.function.name === 'invalid_tool_call')
-  for (const tc of invalidCalls) {
-    const errorText = `模型生成了无效工具参数：${tc.function.arguments}`
-    toolCallRecords.push({
-      toolName: 'invalid_tool_call', hasError: true, error: errorText, args: tc.function.arguments,
-      normalizedArgsHash: stableArgsHash(JSON.parse(tc.function.arguments)),
-      outcomeKind: 'control',
-    })
-    if (sessionId) {
-      messageStore.addMessage(sessionId, {
-        role: 'tool', content: JSON.stringify({ error: errorText }),
-        tool_name: 'invalid_tool_call', tool_input: JSON.stringify({ call_id: tc.id, args: tc.function.arguments }),
-        tool_output: errorText, tool_status: 'error', is_error: 1,
-      })
-    }
-    newMessages.push({ role: 'tool', content: JSON.stringify({ error: errorText }), tool_call_id: tc.id })
-    stream?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: 'invalid_tool_call', tool_output: errorText, tool_status: 'error', duration_ms: 0 })
-  }
-
-  // Phase 1: pre-check all tools, separate deny/ask from allow
-  const prechecked: { tc: ToolCall; name: string; args: ToolArgs; argsStr: string; skip: boolean; skipReason?: string }[] = []
-
-  for (const tc of toolCallsAcc) {
-    const { name, arguments: argsStr } = tc.function
-    if (name === 'invalid_tool_call') continue // handled above
-    // Arguments were canonicalized before persistence, so this parse must
-    // succeed; a failure here is a programming error, never a silent `{}`.
-    let args: ToolArgs
-    try { args = JSON.parse(argsStr) } catch (err: any) {
-      throw new Error(`Internal error: tool arguments failed to parse after canonicalization (${name}): ${err?.message}`)
-    }
-
-    const bindingError = checkToolBinding(characterId, name, args)
-    if (bindingError) {
-      prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: bindingError })
-      continue
-    }
-
-    const strategyState = sessionId ? getSessionState(sessionId) : { current_strategy: 'Auto Approve' as Strategy }
-    let strategyResult = checkStrategy(name, strategyState.current_strategy)
-
-    if (strategyResult === 'deny') {
-      prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: `[Read Only] ${name} is not allowed in read-only mode` })
-      continue
-    }
-
-    if (strategyResult === 'ask') {
-      if (!sessionId || !isToolApprovedForSession(sessionId, name)) {
-        // Ask sequentially — user approval is interactive, can't batch
-        const choice = await new Promise<'once' | 'always' | 'reject'>((resolve) => {
-          if (!stream || !sessionId) { resolve('reject'); return }
-          stream.emit('approval.requested', { session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id, tool_name: `[${strategyState.current_strategy}] ${name}`, tool_input: JSON.stringify(args) })
-          approvalRegistry.register(sessionId, tc.id, opts.run_id, resolve)
-        })
-        if (choice === 'reject') {
-          prechecked.push({ tc, name, args, argsStr, skip: true, skipReason: `${name} denied` })
-          continue
-        }
-        if (choice === 'always' && sessionId) {
-          approveToolForSession(sessionId, name)
-        }
-      }
-    }
-
-    prechecked.push({ tc, name, args, argsStr, skip: false })
-  }
-
-  // Phase 2: emit started events for allowed tools
-  // submit_result is a control action handled by the loop (control-router),
-  // not a real tool. Executing it through the registry would emit a bogus
-  // "Unknown tool: submit_result" card, so exclude it from the normal tool
-  // lifecycle (it stays in `prechecked` as non-skip, so Phase 3 won't emit a
-  // spurious error card either — control-router owns its tool events).
-  const allowed = prechecked.filter(p => !p.skip && p.name !== 'submit_result')
-  for (const p of allowed) {
-    stream?.emit('tool.started', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_input: p.argsStr })
-  }
-
-  // Phase 3: emit skip results immediately
-  for (const p of prechecked) {
-    if (!p.skip) continue
-    const rec: ToolCallRecord = {
-      toolName: p.name, hasError: true, error: p.skipReason!, args: p.argsStr,
-      normalizedArgsHash: stableArgsHash(p.args),
-      outcomeKind: outcomeKindFor(p.name),
-    }
-    toolCallRecords.push(rec)
-    if (sessionId) {
-      messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: p.skipReason!, tool_status: 'error', is_error: 1 })
-    }
-    newMessages.push({ role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_call_id: p.tc.id })
-    stream?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
-  }
-
-  // Phase 4: execute allowed tools — parallel for read-only, serial for writes
-  const readGroup: typeof allowed = []
-  const writeGroup: typeof allowed = []
-
-  for (const p of allowed) {
-    if (READ_ONLY_TOOLS.has(p.name)) {
-      readGroup.push(p)
-    } else {
-      writeGroup.push(p)
-    }
-  }
-
-  async function runOne(p: typeof allowed[0]): Promise<void> {
-    const startTime = Date.now()
-
-    // ── tool.output 服务端合并（R10）──
-    // bash 等工具以 chunk 频率回调 onOutput（Node child stdout 'data' 事件，
-    // 每秒可达数百次）。若每 chunk 一次 stream.emit('tool.output')，SSE 会以
-    // 同等频率写帧：writeSSE 无背压地入队，几十万字节输出时写端积压、
-    // EventSource 连接假死——表现正是"连续几个 bash 后前端不动了，刷新后
-    // 工具事件批量补出"。这里把 chunk 合并到 ~50ms 窗口（与前端 chatStore 的
-    // 合并缓冲对齐），把 SSE 帧率从 O(chunk) 降到 O(20/s)；tool.completed
-    // 前强制 flush 一次，保证最终内容不丢。
-    let pendingOutput = ''
-    let outputTimer: ReturnType<typeof setTimeout> | null = null
-    const flushOutput = () => {
-      if (outputTimer) { clearTimeout(outputTimer); outputTimer = null }
-      if (!pendingOutput) return
-      const output = pendingOutput
-      pendingOutput = ''
-      stream?.emit('tool.output', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, output })
-    }
-    const onOutput = (chunk: string) => {
-      pendingOutput += chunk
-      if (!outputTimer) {
-        outputTimer = setTimeout(() => {
-          outputTimer = null
-          flushOutput()
-        }, 50)
-      }
-    }
-
-    async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
-      try {
-        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, sessionId)
-      } catch (err: any) {
-        return { output: '', error: `${p.name}: ${err.message || String(err)}` }
-      }
-    }
-
-    let result = await execWithRoots()
-
-    if (result.escaped && sessionId) {
-      const escapedPath = result.error?.replace('Path escapes workspace: ', '') || ''
-      const absEscapedPath = pathResolve(workspace || getDataDir(), escapedPath)
-      // File requests authorize their containing directory; directory
-      // requests keep that directory as the least useful permission scope.
-      const approvedPath = workspaceApprovalRoot(absEscapedPath)
-      const strategy = getSessionState(sessionId).current_strategy
-      const choice = await decideWorkspaceApproval(strategy, () =>
-        new Promise<'once' | 'always' | 'reject'>((resolve) => {
-          if (!stream) { resolve('reject'); return }
-          stream.emit('approval.requested', {
-            session_id: sessionId,
-            run_id: opts.run_id,
-            tool_call_id: p.tc.id,
-            tool_name: p.name,
-            tool_input: JSON.stringify(p.args),
-            approval_kind: 'workspace',
-            requested_path: absEscapedPath,
-            permission_root: approvedPath,
-          })
-          approvalRegistry.register(sessionId, p.tc.id, opts.run_id, resolve)
-        })
-      )
-      if (choice !== 'reject') {
-        if (choice === 'always') {
-          let updatedWorkspaces: string[] | undefined
-          const dbSession = sessionStore.getById(sessionId)
-          if (dbSession) {
-            const ws: string[] = dbSession.workspaces
-              ? JSON.parse(dbSession.workspaces)
-              : dbSession.workspace ? [dbSession.workspace] : []
-            const isCovered = ws.some((w: string) => isPathWithin(w, approvedPath))
-            if (!isCovered && !ws.includes(approvedPath)) {
-              ws.push(approvedPath)
-              sessionStore.update(sessionId, { workspaces: JSON.stringify(ws) })
-            }
-            updatedWorkspaces = ws
-          }
-          stream?.emit('workspace.updated', {
-            session_id: sessionId,
-            workspaces: updatedWorkspaces,
-          })
-          fanOutToSinks('workspace.updated', {
-            session_id: sessionId,
-            workspaces: updatedWorkspaces,
-          })
-          // Also update the in-memory workspaces so subsequent calls in this turn see it
-          if (workspaces && !workspaces.some(w => isPathWithin(w, approvedPath))) {
-            workspaces.push(approvedPath)
-          }
-        }
-        result = await execWithRoots([approvedPath])
-      }
-    }
-
-    const duration = Date.now() - startTime
-
-    // 工具结束：强制 flush 最后一段缓冲的 output，再发 tool.completed。
-    flushOutput()
-
-    // Result hash: stable over the tool outcome so identical calls with the
-    // same result are recognized as repeats. Full outputs never enter the
-    // record (RUN_LIMIT_POLICY_PLAN §8.5).
-    const outcomeHash = result.metadata?.hash
-      ? String(result.metadata.hash)
-      : result.error
-        ? `err:${stableArgsHash(result.error.slice(0, 500))}`
-        : stableArgsHash(result.output.slice(0, 2000))
-    const changed = determineToolChanged(p.name, result)
-
-    const rec: ToolCallRecord = {
-      toolName: p.name, hasError: !!result.error, error: result.error, args: p.argsStr,
-      normalizedArgsHash: stableArgsHash(p.args),
-      outcomeKind: outcomeKindFor(p.name),
-      resultHash: outcomeHash,
-      changed,
-      evidenceKey: result.metadata?.evidence_key ? String(result.metadata.evidence_key) : undefined,
-    }
-    toolCallRecords.push(rec)
-
-    const toolStatus = result.error ? 'error' : result.escaped ? 'denied' : 'success'
-
-    // R1+R2 (P2): 落库/事件里的 tool_output 用截断后展示文本，避免全量输出进前端与
-    // run_events。完整输出仍在 content 列（全量）承载，重放 rowToLLMMessage 对其做
-    // 确定性 truncateToolOutput（sha256 内容寻址），因此 content 不可改为截断版。
-    const displayOutput = result.error || truncate(result.output || '')
-
-    // Persist any media the tool produced (e.g. webfetch images) through the
-    // media pipe, and emit it as multimodal content for vision-capable models.
-    let storedAttachments: AttachmentRecord[] | undefined
-    let toolContent: string | import('../llm/client.js').LLMMessage['content']
-    if (result.attachments && result.attachments.length > 0 && sessionId) {
-      storedAttachments = result.attachments.map(a => saveAttachment(sessionId, { filename: a.name, mediaType: a.mime, data: a.data }))
-      const parts: ContentPart[] = []
-      if (result.output) parts.push(textPart(result.output))
-      for (const a of result.attachments) parts.push(mediaPart({ mediaType: a.mime, data: a.data, filename: a.name }))
-      toolContent = lowerContentToProvider(parts, cap || { supportsVision: false, supportsFiles: false })
-    } else {
-      toolContent = JSON.stringify({ output: truncate(result.output || ''), error: truncateError(result.error || '') })
-    }
-
-    const toolMsg: LLMMessage = { role: 'tool', content: toolContent, tool_call_id: p.tc.id }
-    if (sessionId) {
-      const stored = messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ output: truncate(result.output || ''), error: truncateError(result.error || '') }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: displayOutput, tool_status: toolStatus, attachments: storedAttachments ? JSON.stringify(storedAttachments) : null, is_error: result.error && !result.escaped ? 1 : 0 })
-      // P0-4: 给运行中的 tool 消息附带 DB id，供 trimToolResults 记录
-      // trimmed_until_id 水印，重载时按同一剪枝实现恢复一致的内存态。
-      ;(toolMsg as any).__dbId = stored.id
-    }
-    newMessages.push(toolMsg)
-    stream?.emit('tool.completed', { session_id: sessionId, run_id: opts.run_id, tool_call_id: p.tc.id, tool_name: p.name, tool_output: displayOutput, tool_status: toolStatus, duration_ms: duration })
-  }
-
-  // Run all read-only tools in parallel, then writes sequentially
-  if (readGroup.length > 0) {
-    await Promise.all(readGroup.map(runOne))
-  }
-  for (const p of writeGroup) {
-    if (signal?.aborted) break
-    await runOne(p)
-  }
+  // 无控制动作路径：toolCallsAcc 全部为普通工具（含 invalid_tool_call），按原逻辑执行。
+  const executed = await executeToolCalls(toolCallsAcc, { characterId, sessionId, stream, runId: opts.run_id, workspace, signal, mcpClients, workspaces, cap })
+  toolCallRecords.push(...executed.toolCallRecords)
+  newMessages.push(...executed.messages)
 
   if (signal?.aborted) {
     return { type: 'aborted', messages: newMessages, fullText, reasoningText, toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input }

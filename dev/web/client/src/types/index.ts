@@ -184,6 +184,8 @@ export interface ProviderModel {
   compact_threshold_ratio?: number
   /** 该模型单独指定的压缩保留比例（0~1），覆盖全局默认 0.16。 */
   compact_retain_ratio?: number
+  /** 该模型单独指定的剪枝触发阈值（0~1），覆盖全局默认 0.6。 */
+  compact_snip_ratio?: number
   /** 该模型单独指定的摘要服务（空 = 跟随主链路）。 */
   compact_provider?: string
   /** 该模型单独指定的摘要模型（空 = 跟随主链路）。 */

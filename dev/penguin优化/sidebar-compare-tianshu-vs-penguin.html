@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>侧边栏对比报告：天枢 vs PenguinHarness</title>
+<meta name="description" content="天枢与 PenguinHarness 侧边栏对比：轨迹 / 智能体 / 工作区 / 记忆四模块深度分析（2026-08-29）">
+<style>
+  :root {
+    color-scheme: light;
+    --brand-50: #e8f0fe; --brand-100: #d2e3fc; --brand-300: #8ab4f8; --brand-500: #4285f4;
+    --brand-600: #1a73e8; --brand-700: #0b57d0;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+    --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563; --gray-900: #111827;
+    --bg: #ffffff; --surface: #ffffff; --border: var(--gray-200); --control-border: var(--gray-300);
+    --fg: var(--gray-900); --fg-muted: var(--gray-600); --fg-faint: var(--gray-500);
+    --accent-bg: #111827; --accent-fg: #ffffff;
+    --radius-control: 6px; --radius-card: 12px;
+    --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .dark {
+    color-scheme: dark;
+    --bg: #000000; --surface: #0d0d0d; --border: #1f1f1f; --control-border: #303030;
+    --fg: #f3f4f6; --fg-muted: #9ca3af; --fg-faint: #6b7280;
+    --accent-bg: #f3f4f6; --accent-fg: #111827;
+    --brand-600: #8ab4f8; --brand-700: #8ab4f8;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: var(--bg); color: var(--fg);
+    font-size: 14px; line-height: 1.6;
+  }
+  a { color: var(--brand-700); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre, kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; line-height: 1.85;
+  }
+  code {
+    background: var(--gray-100); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px; color: var(--fg);
+  }
+  .dark code { background: var(--surface); border-color: var(--border); }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -0.025em; margin: 0; }
+  p { margin: 0 0 12px; }
+  :focus-visible { outline: 3px solid rgb(107 114 128 / .4); outline-offset: 2px; }
+
+  /* Topbar */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    height: 56px; border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+  }
+  .topbar-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .topbar-mark {
+    width: 28px; height: 28px; border-radius: 8px; flex: none;
+    background: var(--accent-bg); color: var(--accent-fg);
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 600;
+  }
+  .topbar-name { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .theme-toggle {
+    appearance: none; border: 1px solid var(--control-border); background: var(--surface);
+    color: var(--fg-muted); border-radius: var(--radius-control);
+    width: 36px; height: 36px; display: grid; place-items: center; cursor: pointer;
+    transition: color, background-color, border-color 150ms var(--ease);
+  }
+  .theme-toggle:hover { background: var(--gray-100); color: var(--fg); }
+  .dark .theme-toggle:hover { background: #1f1f1f; }
+  .theme-toggle svg { width: 16px; height: 16px; }
+  .icon-sun { display: none; } .icon-moon { display: block; }
+  .dark .icon-sun { display: block; } .dark .icon-moon { display: none; }
+  .date-chip {
+    border: 1px solid var(--border); border-radius: 9999px;
+    padding: 4px 10px; font-size: 12px; color: var(--fg-muted); white-space: nowrap;
+  }
+
+  main { max-width: 68rem; margin: 0 auto; padding: 0 20px 72px; }
+
+  /* Hero */
+  .hero { padding: 56px 0 28px; }
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--brand-600); margin: 0 0 10px;
+  }
+  .hero h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.25; margin-bottom: 12px; }
+  .hero .subtitle { color: var(--fg-muted); max-width: 56rem; margin: 0 0 18px; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1px solid var(--border); border-radius: 9999px;
+    padding: 4px 10px; font-size: 12px; color: var(--fg-muted);
+  }
+  .chip.brand { background: var(--brand-50); border-color: var(--brand-100); color: var(--brand-700); }
+  .dark .chip.brand { background: transparent; border-color: var(--brand-100); color: var(--brand-300); }
+
+  /* Sections */
+  section { padding: 32px 0 8px; border-top: 1px solid var(--border); margin-top: 8px; }
+  .sec-head { margin-bottom: 16px; }
+  .sec-no { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 0.14em; color: var(--brand-600); display: block; margin-bottom: 6px; }
+  .sec-head h2 { font-size: 24px; line-height: 1.3; }
+  .sec-head .sub { color: var(--fg-muted); margin-top: 6px; max-width: 60rem; }
+  section h3 { font-size: 16px; margin: 20px 0 8px; }
+
+  /* Callout */
+  .callout {
+    border: 1px solid var(--border); border-left: 3px solid var(--brand-600);
+    border-radius: var(--radius-card); background: var(--surface);
+    padding: 16px 18px; margin: 16px 0;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 12px 0 20px; border: 1px solid var(--border); border-radius: var(--radius-card); }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  thead th {
+    text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.03em;
+    color: var(--fg-muted); background: var(--gray-50);
+    border-bottom: 1px solid var(--border); padding: 10px 14px; white-space: nowrap;
+  }
+  .dark thead th { background: var(--surface); }
+  tbody td { border-bottom: 1px solid var(--border); padding: 10px 14px; vertical-align: top; font-size: 13px; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.dim { color: var(--fg-muted); }
+  td.col-a { font-weight: 600; white-space: nowrap; color: var(--fg); }
+  tr:hover td { background: var(--gray-50); }
+  .dark tr:hover td { background: #111; }
+
+  ul, ol { margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  blockquote {
+    margin: 12px 0; padding: 10px 16px;
+    border-left: 2px solid var(--brand-300); border-radius: 0 var(--radius-control) var(--radius-control) 0;
+    background: var(--gray-50); color: var(--fg-muted);
+  }
+  .dark blockquote { background: var(--surface); }
+
+  /* Dual cards */
+  .dual { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 16px 0; }
+  .card {
+    border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface);
+    padding: 20px;
+  }
+  .card h4 { margin: 0 0 8px; font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+  .card .tag { display: inline-block; font-size: 11px; letter-spacing: 0.06em; margin-bottom: 10px; padding: 2px 8px; border-radius: 9999px; }
+  .tag.penguin { background: var(--brand-50); color: var(--brand-700); border: 1px solid var(--brand-100); }
+  .dark .tag.penguin { background: transparent; color: var(--brand-300); border-color: var(--brand-100); }
+  .tag.tianshu { background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--border); }
+  .dark .tag.tianshu { background: var(--surface); color: var(--fg-muted); }
+  .card ul { padding-left: 18px; }
+
+  .ol-num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--brand-600); font-weight: 600; margin-right: 6px; }
+
+  footer {
+    border-top: 1px solid var(--border); margin-top: 32px;
+    padding: 24px 20px 40px; text-align: center;
+    font-size: 12px; color: var(--fg-faint);
+  }
+
+  @media (max-width: 640px) {
+    .dual { grid-template-columns: 1fr; }
+    .topbar { padding: 0 14px; }
+    .date-chip { display: none; }
+    main { padding: 0 14px 56px; }
+    .hero { padding-top: 40px; }
+    .sec-head h2 { font-size: 21px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-brand">
+    <span class="topbar-mark" aria-hidden="true">枢</span>
+    <span class="topbar-name">侧边栏对比报告 · 天枢 vs PenguinHarness</span>
+  </div>
+  <div class="topbar-right">
+    <span class="date-chip">2026-08-29 · 代码核验</span>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换深色/浅色模式">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <p class="eyebrow">对比报告 · Sidebar Comparison</p>
+    <h1>侧边栏对比报告：天枢 vs PenguinHarness</h1>
+    <p class="subtitle">聚焦「轨迹 / 智能体面板 / 工作区 / 记忆」四个模块，两侧均为实际代码核实（<code>packages/web/src</code> 与 <code>dev/web</code>），非文档转述。</p>
+    <div class="meta-row">
+      <span class="chip brand">PenguinHarness</span>
+      <span class="chip">天枢 TianShu</span>
+      <span class="chip">轨迹</span>
+      <span class="chip">智能体</span>
+      <span class="chip">工作区</span>
+      <span class="chip">记忆</span>
+    </div>
+  </div>
+
+  <!-- 0 结论速览 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">§0</span>
+      <h2>结论速览</h2>
+      <p class="sub">两侧侧边栏形态同构、哲学相反：都采纳「会话列表 + 页面导航 + 底部设置」的单栏结构，且都不把「轨迹」放进顶级导航。但 Penguin 把 Agent / Workspace / Memory 做成第一等公民（可管理、可分组的对象），天枢则把它们折叠进「角色」这一个复合对象，工作区停留在工具审批层面。</p>
+    </div>
+    <div class="callout">
+      <strong>一句话结论：</strong>两侧底层都是「极简工具集 Harness」式 Agent 引擎；产品层走向两极——Penguin 向上做「造应用的工厂」（对象化、可分组、可评测），天枢向上做「陪人身边的多角色人格助手」（人格化、可养成、可扮演）。轨迹在两侧都是<strong>会话级观察窗</strong>，这是双方共识的正确形态。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>维度</th><th>PenguinHarness 侧边栏</th><th>天枢侧边栏</th></tr></thead>
+        <tbody>
+          <tr><td class="col-a">结构</td><td>项目切换器 → 新建会话（常驻）+ 页面导航组 → 会话列表（三分组）→ 底部用户设置</td><td>Logo → 9 个导航项（会话/角色/技能/工具/MCP/知识/市场/事件/设置）</td></tr>
+          <tr><td class="col-a">页面导航项</td><td>智能体 / 技能 / 模型 / 用量（仅管理员）/ 评估中心（可折叠一组）</td><td>会话 / 角色 / 技能 / 工具 / MCP / 知识 / 市场 / 事件（带徽标）/ 设置</td></tr>
+          <tr><td class="col-a">轨迹</td><td><strong>不在导航</strong>：聊天工具栏 dock tab（Trace Panel），跨实例导入在系统设置</td><td><strong>不在导航</strong>：聊天页子路由 <code>/chat/:sessionId/trajectory</code></td></tr>
+          <tr><td class="col-a">会话组织</td><td>按工作区（默认）/按智能体/按时间 3 种分组 + 子代理/定时/归档文件夹</td><td>平铺会话列表（按角色/会话自身），无分组模式</td></tr>
+          <tr><td class="col-a">对象模型</td><td>Agent / Workspace / Memory / Skill 都是独立可管理实体</td><td>一切挂在「角色」下面（角色 = 人格+记忆+工具+技能+模型）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 1 侧边栏全景 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">§1</span>
+      <h2>侧边栏全景</h2>
+    </div>
+    <h3>1.1 PenguinHarness（<code>sidebar.tsx</code>，2905 行，单列）</h3>
+    <ol>
+      <li><strong>项目切换器</strong>（Project switcher，多项目数据根）</li>
+      <li><strong>新建会话</strong>（常驻钉住，草稿态 <code>/chat/new</code>，输入卡片上选 Model / Workspace / 审批模式）</li>
+      <li><strong>页面导航组</strong>（可折叠，状态存 localStorage）——由 <code>NAV_GROUP_KEYS</code> 清单驱动：<code>agents → skills → models → usage → benchmark</code>，即 <strong>智能体 → 技能 → 模型 → 用量（仅 admin）→ 评估中心</strong>；<code>machines</code>（远程装机）已构建但<strong>未发布</strong>，不显示。
+        <blockquote>关键设计：Traces 刻意不进导航。源码注释原话：<em>"Traces is deliberately absent: reading a Trace happens in the chat toolbar's panel switcher, which is the only place it happens."</em>（轨迹只在产生它的会话旁边读。）</blockquote>
+      </li>
+      <li><strong>会话区</strong>：3 种分组模式（按 Workspace 默认 / 按 Agent / 按时间），可置顶分组与会话、右键菜单（重命名/归档/删除）、子代理/定时/归档文件夹、分页。</li>
+      <li><strong>底部</strong>：主题 / 语言 / 系统设置（对话框）/ 退出。</li>
+    </ol>
+    <p>另有独立全屏 <code>/terminal</code>（无侧边栏，仅登录校验）。</p>
+
+    <h3>1.2 天枢（<code>App.tsx</code> nav-rail）</h3>
+    <ol>
+      <li><strong>Logo</strong>（点击回首页）</li>
+      <li><strong>9 个导航项</strong>：会话 / 角色 / 技能 / 工具 / MCP / 知识 / 市场 + 分隔线 + 事件（活动事件数徽标，30s 轮询）+ 设置</li>
+      <li>低频页面路由级懒加载（CharacterDetailPage 807 行、SettingsPage 1008 行按需下载）</li>
+      <li>额外路由：<code>/chat/:sessionId/trajectory</code>（轨迹，会话页子视图）、<code>/skins</code>（主题皮肤，未进导航）</li>
+    </ol>
+    <div class="callout">
+      <strong>差异要点：</strong>Penguin 的会话区是一等 UI（分组/置顶/归档/文件夹），天枢的会话只是导航第一项、没有分组组织；天枢有 Penguin 没有的<strong>知识 / 市场 / 事件</strong>三个产品化入口（知识库、技能市场、事件任务），但没有 Penguin 的用量/评估中心（数据层有自进化，却没有评测 UI）。
+    </div>
+  </section>
+
+  <!-- 2 轨迹 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">§2</span>
+      <h2>轨迹（Trajectory / Traces）</h2>
+      <p class="sub">两者惊人一致：都不在侧边栏里，都是「会话内的观察视图」。天枢是刚补上的新功能（<code>/chat/:sessionId/trajectory</code> + <code>evolution/storage/trajectoryStore.ts</code>），Penguin 则是同款思路的成熟版（chat dock trace panel）。</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方面</th><th>天枢 轨迹</th><th>PenguinHarness Traces</th></tr></thead>
+        <tbody>
+          <tr><td class="col-a">入口</td><td>会话页内子路由 <code>/chat/:sessionId/trajectory</code></td><td>聊天工具栏面板切换器（dock tab）</td></tr>
+          <tr><td class="col-a">数据结构</td><td>messages 表时间线 + run 边界；服务端 trajectories 表存 <code>user_goal / tool_calls / summary / success_rate</code>（供进化挖掘）</td><td>Trace 文件（每会话多 shard：压缩分片生成新文件，pills 最新优先），服务端分析出 TaskStats / ModelSegment / ToolSpan</td></tr>
+          <tr><td class="col-a">时间线</td><td>user / assistant / tool 三类行，跨 run 全局 step 号；run 边界分隔条；生命周期事件条（run.* / approval.* / ask_user）</td><td>按 Task(round) 分组的执行时间线 + 消息列表</td></tr>
+          <tr><td class="col-a">模型指标</td><td>LLM 调用指标：llmMs / ttftMs / decodeMs / tokenSpeed / input+output+cache 命中 token；工具时长 durationMs</td><td>分类 token（input 含 cache hit 括号、output）、tool 调用数/成本/时长/输出 TPS、context 用量环（cacheRead/cacheWrite/output）</td></tr>
+          <tr><td class="col-a">可视化</td><td>列表式时间线 + 过滤 + 汇总 + 系统提示 token 估算；子 agent 摘要内联（对齐 opencode <code>formatSubagentToolcalls</code>）</td><td><strong>CUDA profiling 风格二维泳道图</strong>：5 类色段（思考/模型回复/工具调用生成/审批等待/工具执行，每工具一行），时间轴缩放/平移、时间线↔消息联动高亮</td></tr>
+          <tr><td class="col-a">实时性</td><td>由 durable 事件驱动重拉（run.* / message.created / metrics / tool.* / approval.* / ask_user / usage / sub_agent.started），节流 400ms</td><td>首次显示/每次重显/turn 结束时刷新；隐藏 tab 不拉</td></tr>
+          <tr><td class="col-a">导出/导入</td><td>—（无跨实例）</td><td>导出选中文件原始 Trace；<strong>跨实例导入</strong>在系统设置（独立浏览页已废弃）</td></tr>
+          <tr><td class="col-a">附加职能</td><td>轨迹摘要/成功率为离线挖掘（offlineMiner）、洞察提取（InsightExtractor）、技能生成（SkillGenerator）供料</td><td>Trace 供<strong>评估中心</strong>（benchmark）做量化评分回放</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><strong>结论：</strong>天枢轨迹覆盖了「看过程」的主干（行级时间线+指标+实时），Penguin 更进一步做了任务级分组的泳道图与成本/缓存透视。两者都把「轨迹」定位为<strong>生产现场的观察窗</strong>而非导航页，这是值得保持的正确形态。</div>
+  </section>
+
+  <!-- 3 智能体面板 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">§3</span>
+      <h2>智能体面板（Agents / 角色）</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方面</th><th>PenguinHarness 智能体</th><th>天枢 角色</th></tr></thead>
+        <tbody>
+          <tr><td class="col-a">列表页</td><td>GitHub 仓库列表风格紧凑行：头像+名称+agentId、描述、统计行（会话数/工具数）、<strong>30 天活动 sparkline</strong>、按状态高亮；操作：新建会话/设置/用量/删除</td><td>星官卡片/列表：名称、主/子 Agent 标签、<strong>立绘动效预览</strong>（待机/思考/工作/说话/完成/出错 6 组动画）、皮肤</td></tr>
+          <tr><td class="col-a">详情/设置</td><td>8 个 tab：Overview / System Prompt(AGENTS.md+system_prompt) / Runtime(max_turns,model,compaction) / Tools(内置工具表+MCP) / Skills / Memory / Vault(密钥库) / Schedule(定时)</td><td>6 个 tab：基础 / 视觉与动画 / 记忆 / 工具 / 技能 / 统计</td></tr>
+          <tr><td class="col-a">创建</td><td>表单：名称+描述+技能多选（技能库 + 项目 <code>.agents/skills</code> / <code>.claude/skills</code>）；内置 Agent 不可删</td><td>角色新建/复制，内置角色 copy-on-write（source=user）</td></tr>
+          <tr><td class="col-a">状态管理</td><td>Agent State 快照：版本、导出/导入（分片按 member 可下载、owner 可写回）、State 路径可复制</td><td>角色 revision-store（版本）、builtin/user 双层覆盖模型</td></tr>
+          <tr><td class="col-a">对象模型</td><td>Agent 独立：AGENTS.md、skills、tools、vault、schedule、memory 各自成体系，跨 Agent 有层级（父→子）</td><td>角色复合：人格(soul/user/memory)+工具+技能+模型+helpers(子角色白名单)+runPolicy+策略</td></tr>
+          <tr><td class="col-a">代际差异</td><td>面向「多 Agent 分工协作」管理（可被另一个 Agent 创建/优化——AI Build AI）</td><td>面向「人格扮演」管理（星官人格、动效、皮肤），自进化包装为「星官觉醒」</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><strong>差异本质：</strong>Penguin 的智能体面板是<strong>工程对象管理</strong>（配置即代码、可快照、可调度、可评测）；天枢的角色面板是<strong>角色扮演对象管理</strong>（人格+视觉+养成）。天枢的 <code>helpers</code>（工作帮手白名单）在概念上接近 Penguin 的子 Agent，但粒度停在角色级配置。</div>
+  </section>
+
+  <!-- 4 工作区 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">§4</span>
+      <h2>工作区（Workspace）</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方面</th><th>PenguinHarness</th><th>天枢</th></tr></thead>
+        <tbody>
+          <tr><td class="col-a">数据模型</td><td>Session 带 Workspace 路径，临时目录并入 trailing 组；workspace-registry 支持手动注册（别名、重命名、删除）</td><td>Session 表有 <code>workspace</code> + <code>workspaces</code>(JSON 数组) 字段，但<strong>无注册表、无别名</strong></td></tr>
+          <tr><td class="col-a">侧边栏角色</td><td><strong>第一等分组维度</strong>：默认「按工作区」分组；组头 "+" 在该工作区新建草稿会话；组可置顶/折叠/分页</td><td>无：会话平铺，工作区不参与侧边栏组织</td></tr>
+          <tr><td class="col-a">会话内</td><td>草稿输入卡可选 Model / Workspace / 审批模式；会话行显示审批 pending 徽标</td><td>工作区=文件系统工具：<code>/api/workspace/list</code> 浏览目录、resolve、在文件管理器中打开（ChatInput/FilePanel/FolderPicker 选目录）</td></tr>
+          <tr><td class="col-a">审批</td><td>工具权限矩阵 + workspace 根授权</td><td><code>workspace-approval.ts</code>：审批「工作区根目录扩张」，Auto Approve 策略直接放行</td></tr>
+          <tr><td class="col-a">记忆联动</td><td>每个 Workspace 有<strong>独立 Memory scope</strong>（见 §5）</td><td>无此概念</td></tr>
+          <tr><td class="col-a">语义</td><td>工作区 = 会话的组织单元 + 记忆的边界 + 资源隔离</td><td>工作区 = 工具要操作的目录（更像「当前文件夹」而非组织维度）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><strong>结论：</strong>这是两者差距最大的模块。Penguin 把 Workspace 做成了<strong>会话组织 + 记忆边界 + 项目分割</strong>的枢纽概念；天枢的 session 表虽已预留 <code>workspace/workspaces</code> 字段，但 UI 与产品层还没把它立起来。</div>
+  </section>
+
+  <!-- 5 记忆 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">§5</span>
+      <h2>记忆（Memory）</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方面</th><th>PenguinHarness</th><th>天枢</th></tr></thead>
+        <tbody>
+          <tr><td class="col-a">存储形态</td><td>文件即记忆：<strong>MEMORY.md</strong>（每文件一条目，frontmatter 元数据，正文 Markdown），分 user scope（每个会话都读）+ 每 Workspace 一组</td><td>每角色 3 个文件：<code>soul.md</code>（魂/系统人格）、<code>user.md</code>（用户设定）、<code>memory.md</code>（运行时记忆）；角色详情「记忆」tab 直接编辑</td></tr>
+          <tr><td class="col-a">开关/配置</td><td>Memory 总开关（即时写，不进 tab 保存）；关掉=不进上下文、不建目录，文件保留</td><td><code>CharacterMemory { enabled, selfEvolution, charLimit, maxEntries }</code>：启用记忆 + 自进化 + 字符上限</td></tr>
+          <tr><td class="col-a">写入方式</td><td><strong>不直接编辑文件</strong>：bridge 模态 = 文本框 + 生成 prompt 实时预览 → 跳去新会话让 Agent 自己改记忆（workspace scope 的 draft 钉住对应工作区）</td><td>用户在角色设置里手工改 memory.md / soul.md</td></tr>
+          <tr><td class="col-a">变更可见性</td><td>聊天侧 Memory 侧面板：两 scope 话题列表 + 本会话改过的条目打标；每轮 turn 后展示 memory-changes 卡；删除同步清 MEMORY.md 索引行</td><td>无变更流；记忆更新仅存在于角色文件内，需手动开设置查看</td></tr>
+          <tr><td class="col-a">版本/迁移</td><td>Agent State 快照导出/导入，组级 export/import（任何成员可下载、owner 可写回）</td><td>revision-store（记忆版本/回退）、asset 生命周期 GC</td></tr>
+          <tr><td class="col-a">上下文注入</td><td>记忆作为上下文一部分进入每次会话（User scopes 全部 + 会话所属 Workspace scope）</td><td>记忆/魂/用户设定在 context-builder 组装（presence-projector 投影）</td></tr>
+          <tr><td class="col-a">进化</td><td>记忆靠 Agent 自我维护（自进化引擎的产物之一是记忆条目）</td><td>selfEvolution + 离线挖掘 offlineMiner / 洞察提取 / 技能生成写回记忆</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><strong>差异本质：</strong>Penguin 的记忆是<strong>运行时自我维护的上下文资产</strong>（Agent 自己改、会话可见变化、按工作区隔离）；天枢的记忆是<strong>角色人格的静态配置</strong>（人工设定、随角色永久生效）。Penguin 的「桥接式写入」和「变更卡」是天枢可以借鉴的两处亮点；天枢的 <code>selfEvolution</code> 开关则是 Penguin 用户需要靠记忆目录约定手动达到的能力（penguin 另有 agent-optimization / benchmark 引擎）。</div>
+  </section>
+
+  <!-- 6 综合结论与建议 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">§6</span>
+      <h2>综合结论与建议</h2>
+    </div>
+    <h3>6.1 设计哲学</h3>
+    <div class="dual">
+      <div class="card">
+        <span class="tag penguin">PenguinHarness</span>
+        <h4>“工厂”式世界</h4>
+        <ul>
+          <li>对象（Agent / Workspace / Memory / Skill）都可枚举、可管理、可分组、可快照、可评测</li>
+          <li>侧边栏是管理控制台</li>
+          <li>让 AI 构建 AI：生成 → 评估 → 优化 → 部署</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag tianshu">天枢</span>
+        <h4>“星阁”式世界</h4>
+        <ul>
+          <li>一切收敛到「角色」这个复合对象，侧边栏是人格入口</li>
+          <li>管理深度藏在角色详情；非对象化、更聚焦体验（立绘/动效/事件/市场）</li>
+          <li>轨迹定位为会话级观察窗，与 Penguin 共识一致</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>6.2 天枢可借鉴（按性价比排序）</h3>
+    <ol>
+      <li><span class="ol-num">01</span><strong>工作区晋升为会话组织维度</strong>：session 表已预留 <code>workspace/workspaces</code>，加一个「按工作区分组」的会话列表模式（对齐 Penguin 默认模式）成本低、收益明显。</li>
+      <li><span class="ol-num">02</span><strong>记忆变更可见性</strong>：在轨迹/消息流里加「本轮记忆变更卡」（对齐 memory-changes-card），让「星官觉醒 / 自进化」可感知。</li>
+      <li><span class="ol-num">03</span><strong>桥接式记忆写入</strong>：角色设置里点击「让 TA 自己更新记忆」→ 开一个带任务的新会话，由角色自己改 memory.md（对齐 bridge modal），比手写记忆文件自然。</li>
+      <li><span class="ol-num">04</span><strong>（可选）评估中心页</strong>：把已存在的 evolution / trajectoryStore 的 <code>success_rate</code> 数据可视化，对应 Penguin 的 benchmark。</li>
+    </ol>
+
+    <h3>6.3 Penguin 可借鉴天枢</h3>
+    <ul>
+      <li>「角色」复合模型对 C 端更友好（一个对象管完人格+记忆+工具），Penguin 的 8-tab 设置页更适合开发者而不适合普通用户。</li>
+      <li>事件化任务（带徽标、定时触发）和「市场 / 知识库」入口是 Penguin 侧边栏没有的产品力。</li>
+    </ul>
+  </section>
+
+  <!-- 附录 -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">附</span>
+      <h2>核验依据（文件级）</h2>
+    </div>
+    <p class="sub">以下均为本次调查实际阅读的源码文件。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>项目</th><th>文件</th></tr></thead>
+        <tbody>
+          <tr><td class="col-a">Penguin</td><td><code>packages/web/src/components/layout/sidebar.tsx</code>、<code>lib/nav-group-collapse.ts</code>（NAV_GROUP_KEYS）、<code>router.tsx</code>、<code>features/agents/{agents-page,agent-settings-page,memory-tab}.tsx</code>、<code>features/chat/{memory-nav,memory-view,memory-changes-card}.tsx</code>、<code>features/traces/{trace-panel,trace-file-view,timeline-chart}.tsx</code>、<code>components/ui/icons.tsx</code>（NAV_ICONS）</td></tr>
+          <tr><td class="col-a">天枢</td><td><code>web/client/src/App.tsx</code>（navItems+路由）、<code>pages/CharactersPage.tsx</code>、<code>pages/CharacterDetailPage.tsx</code>（6 tabs）、<code>features/trajectory/{trajectory.ts,TrajectoryView.tsx}</code>、<code>api/workspace.ts</code>、<code>web/server/src/db/sessionStore.ts</code>（workspace 字段）、<code>web/server/src/db/characterStore.ts</code>（CharacterRecord / CharacterMemory）、<code>web/server/src/agent/workspace-approval.ts</code>、<code>web/server/src/evolution/storage/trajectoryStore.ts</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  侧边栏对比报告 · 天枢 vs PenguinHarness · 2026-08-29 · 同期文件：<code>sidebar-compare-tianshu-vs-penguin.md</code>（Markdown 版）
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var stored = null;
+  try { stored = localStorage.getItem("penguin.theme"); } catch (e) {}
+  var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  if (stored === "dark" || (stored === null && prefersDark)) root.classList.add("dark");
+  var btn = document.getElementById("themeToggle");
+  btn.addEventListener("click", function () {
+    var isDark = root.classList.toggle("dark");
+    try { localStorage.setItem("penguin.theme", isDark ? "dark" : "light"); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

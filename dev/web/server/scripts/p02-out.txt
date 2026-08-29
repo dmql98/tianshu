@@ -1,0 +1,37 @@
+=== 常规工具（12 白名单） ===
+总 chars=6412  tokens≈1634
+  edit                   chars= 1222 tokens≈306
+  skill_manager          chars= 1159 tokens≈300
+  webfetch               chars=  808 tokens≈202
+  grep                   chars=  474 tokens≈119
+  pwsh                   chars=  477 tokens≈119
+  read                   chars=  447 tokens≈112
+  write                  chars=  395 tokens≈99
+  debug_sessions         chars=  262 tokens≈86
+  glob                   chars=  330 tokens≈83
+  bash                   chars=  324 tokens≈81
+  websearch              chars=  300 tokens≈75
+  get_time               chars=  225 tokens≈56
+
+=== 控制工具（9 个，当前无条件注入） ===
+  delegate_to_agent      chars=  849 tokens≈400
+  send_message_to_subagent chars=  812 tokens≈344
+  create_plan            chars=  698 tokens≈259
+  create_goal            chars=  582 tokens≈237
+  update_plan_step       chars=  608 tokens≈231
+  submit_result          chars=  399 tokens≈159
+  complete_goal          chars=  326 tokens≈137
+  ask_user               chars=  315 tokens≈133
+  get_goal               chars=  252 tokens≈115
+合计 chars=4833 tokens≈2012
+
+=== 按模式估算（12 常规 + 控制子集，无 MCP） ===
+direct(全量9)          tools=21  chars=11244  tokens≈3645
+direct(最小4)          tools=16  chars= 8783  tokens≈2668
+plan_first(计划2)      tools=18  chars=10087  tokens≈3158
+plan_first(全量9)      tools=21  chars=11244  tokens≈3645
+goal(全量9)            tools=21  chars=11244  tokens≈3645
+
+=== 描述精简后的粗估（假设长描述工具压到 ~100 汉字/条）： ===
+(node:39756) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
