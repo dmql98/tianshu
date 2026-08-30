@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { DesktopAppInfo, UpdateState } from '../../../../../shared/desktop-contract.js'
+import type { DesktopAppInfo, UpdateSource, UpdateState } from '../../../../../shared/desktop-contract.js'
 
 const DISABLED: UpdateState = { phase: 'disabled', currentVersion: '' }
 
@@ -11,12 +11,14 @@ const DISABLED: UpdateState = { phase: 'disabled', currentVersion: '' }
 export function useDesktopUpdater() {
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null)
   const [updateState, setUpdateState] = useState<UpdateState>(DISABLED)
+  const [source, setSourceState] = useState<UpdateSource>('server')
 
   useEffect(() => {
     const api = window.tianshuDesktop
     if (!api) return
     api.getAppInfo().then(setAppInfo).catch(() => {})
     api.getUpdateState().then(setUpdateState).catch(() => {})
+    api.getUpdateSource().then(setSourceState).catch(() => {})
     const unsubscribe = api.onUpdateState(setUpdateState)
     return unsubscribe
   }, [])
@@ -51,5 +53,15 @@ export function useDesktopUpdater() {
     }
   }, [])
 
-  return { appInfo, updateState, check, download, install }
+  const setSource = useCallback(async (next: UpdateSource) => {
+    const api = window.tianshuDesktop
+    if (!api) return
+    try {
+      setSourceState(await api.setUpdateSource(next))
+    } catch {
+      /* keep current selection on failure */
+    }
+  }, [])
+
+  return { appInfo, updateState, source, check, download, install, setSource }
 }

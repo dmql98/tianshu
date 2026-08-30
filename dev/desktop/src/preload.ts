@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { DesktopServerStatus, UpdateState } from '../../shared/desktop-contract.js'
+import type { DesktopServerStatus, UpdateSource, UpdateState } from '../../shared/desktop-contract.js'
 
 // Whitelist-only bridge: no generic send(), no arbitrary channels.
 const api = {
@@ -16,6 +16,8 @@ const api = {
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
   downloadUpdate: () => ipcRenderer.invoke('updater:download'),
   installUpdate: () => ipcRenderer.invoke('updater:install'),
+  getUpdateSource: () => ipcRenderer.invoke('updater:get-source'),
+  setUpdateSource: (source: UpdateSource) => ipcRenderer.invoke('updater:set-source', source),
   onUpdateState: (listener: (state: UpdateState) => void) => {
     const handler = (_event: IpcRendererEvent, state: UpdateState) => listener(state)
     ipcRenderer.on('updater:state', handler)

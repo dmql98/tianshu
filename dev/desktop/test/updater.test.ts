@@ -46,7 +46,10 @@ class FakeUpdater extends EventEmitter implements UpdaterLike {
   }
 }
 
-function makeManager(fake?: FakeUpdater) {
+function makeManager(
+  fake?: FakeUpdater,
+  feeds?: { serverFeed?: Record<string, unknown>; githubFeed?: Record<string, unknown> },
+) {
   const updater = fake ?? new FakeUpdater()
   const order: string[] = []
   const stopServer = vi.fn(async () => {
@@ -61,26 +64,7 @@ function makeManager(fake?: FakeUpdater) {
     stopServer,
     log,
     sanitize,
-  })
-  return { manager, updater, stopServer, log, sanitize, order }
-}
-
-function makeManagerWithFallback(fake?: FakeUpdater) {
-  const updater = fake ?? new FakeUpdater()
-  const order: string[] = []
-  const stopServer = vi.fn(async () => {
-    order.push('stop-server')
-  })
-  const log = vi.fn()
-  const sanitize = vi.fn((m: string) => m)
-  const manager = new UpdateManager({
-    updater,
-    currentVersion: '0.1.0',
-    enabled: true,
-    stopServer,
-    log,
-    sanitize,
-    fallbackFeed: { provider: 'github', owner: 'dmql98', repo: 'tianshu', releaseType: 'release' },
+    ...feeds,
   })
   return { manager, updater, stopServer, log, sanitize, order }
 }
@@ -155,29 +139,61 @@ describe('UpdateManager', () => {
     expect(second.phase).toBe('not-available')
   })
 
-  it('switches to the GitHub fallback feed and retries once on primary feed failure', async () => {
-    const { manager, updater } = makeManagerWithFallback()
-    updater.setFailCheckOnce()
-    const first = await manager.checkForUpdates()
-    // 官网源失败 → 切换到兜底源重试一次，成功则不再停留在 error。
+  it('applies the selected source feed and does not fall back on failure', async () => {
+    const { manager, updater } = makeManager(new FakeUpdater(), {
+      serverFeed: { provider: 'generic', url: 'https://example.test/updates' },
+      githubFeed: { provider: 'github', owner: 'dmql98', repo: 'tianshu' },
+    })
+    // 默认官网服务器源：首次检查对齐 server feed 一次。
+    await manager.checkForUpdates()
     expect(updater.feedCalls).toBe(1)
-    expect(updater.checkCalls).toBe(2)
-    expect(first.phase).toBe('not-available')
+    expect(manager.getState().source).toBe('server')
 
-    // 兜底只切一次：再失败不再切换。
+    // 切换到 GitHub：对齐 github feed，且只切换一次（不重复 setFeedURL）。
+    manager.setSource('github')
+    expect(manager.getSource()).toBe('github')
+    await manager.checkForUpdates()
+    expect(updater.feedCalls).toBe(2)
+    await manager.checkForUpdates()
+    expect(updater.feedCalls).toBe(2) // 已应用，不重复
+
+    // GitHub 源检查失败 → 停留在 error，不再转回官网兜底。
     updater.setFailCheck(true)
-    const second = await manager.checkForUpdates()
-    expect(updater.feedCalls).toBe(1)
-    expect(second.phase).toBe('error')
+    const state = await manager.checkForUpdates()
+    expect(state.phase).toBe('error')
+    expect(updater.feedCalls).toBe(2) // 未切回 server
   })
 
-  it('does not switch feed when no fallback is configured', async () => {
+  it('does not setFeedURL when the selected source feed is not configured', async () => {
     const { manager, updater } = makeManager()
     updater.setFailCheck(true)
     const state = await manager.checkForUpdates()
     expect(state.phase).toBe('error')
     expect(updater.feedCalls).toBe(0)
     expect(updater.checkCalls).toBe(1)
+  })
+
+  it('defaults to the server source and exposes it on state', () => {
+    const { manager } = makeManager()
+    expect(manager.getSource()).toBe('server')
+    expect(manager.getState().source).toBe('server')
+  })
+
+  it('applies the persisted initial source at construction (github)', () => {
+    const updater = new FakeUpdater()
+    const manager = new UpdateManager({
+      updater,
+      currentVersion: '0.1.0',
+      enabled: true,
+      stopServer: vi.fn(),
+      log: vi.fn(),
+      sanitize: (m) => m,
+      githubFeed: { provider: 'github', owner: 'dmql98', repo: 'tianshu' },
+      initialSource: 'github',
+    })
+    expect(manager.getSource()).toBe('github')
+    // 启动时即把 electron-updater 的 feed 对齐到 github。
+    expect(updater.feedCalls).toBe(1)
   })
 
   it('caps and sanitizes error messages before they reach the UI', () => {

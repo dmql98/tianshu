@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useI18n } from '@/i18n'
 import { useDesktopUpdater } from './useDesktopUpdater'
+import type { UpdateSource } from '../../../../../shared/desktop-contract.js'
 
 const MAX_NOTES_LENGTH = 2000
 
@@ -35,7 +36,7 @@ function ReleaseNotes({ notes }: { notes?: string }) {
 }
 
 export default function UpdatePanel() {
-  const { appInfo, updateState, check, download, install } = useDesktopUpdater()
+  const { appInfo, updateState, source, setSource, check, download, install } = useDesktopUpdater()
   const t = useI18n()
   const [dismissed, setDismissed] = useState(false)
   const state = updateState
@@ -129,8 +130,21 @@ export default function UpdatePanel() {
         <div className="setting-control"><span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)', fontWeight: 500 }}>{versionLabel}</span></div>
       </div>
       <div className="setting-row">
-        <div className="setting-info"><span className="setting-label">{t('更新渠道')}</span></div>
-        <div className="setting-control"><span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>Stable</span></div>
+        <div className="setting-info">
+          <span className="setting-label">{t('更新源')}</span>
+          <span className="setting-hint">{t('更新源说明')}</span>
+        </div>
+        <div className="setting-control">
+          <select
+            className="btn"
+            value={source}
+            onChange={(e) => void setSource(e.target.value as UpdateSource)}
+            style={{ cursor: 'pointer' }}
+          >
+            <option value="server">{t('官网服务器')}</option>
+            <option value="github">GitHub</option>
+          </select>
+        </div>
       </div>
       <div className="setting-row">
         <div className="setting-info"><span className="setting-label">{t('运行模式')}</span></div>

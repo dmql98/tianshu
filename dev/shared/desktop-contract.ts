@@ -30,6 +30,9 @@ export type UpdatePhase =
   | 'downloaded'
   | 'error'
 
+/** 更新源：官网服务器（默认）或 GitHub；用户可在设置中选择并持久化。 */
+export type UpdateSource = 'server' | 'github'
+
 export interface UpdateState {
   phase: UpdatePhase
   currentVersion: string
@@ -49,6 +52,8 @@ export interface UpdateState {
   packageSize?: number
   /** 更新被禁用的原因（如 Linux 非 AppImage 安装形态，§11.4）。 */
   disabledReason?: string
+  /** 当前生效的更新源（官网服务器 / GitHub）；UI 据此展示用户选择。 */
+  source?: UpdateSource
 }
 
 /**
@@ -95,6 +100,10 @@ export interface TianShuDesktopAPI {
   checkForUpdates(): Promise<UpdateState>
   downloadUpdate(): Promise<void>
   installUpdate(): Promise<void>
+  /** 读取当前更新源偏好（官网服务器 / GitHub）。 */
+  getUpdateSource(): Promise<UpdateSource>
+  /** 设置更新源偏好并持久化；返回实际生效的源。 */
+  setUpdateSource(source: UpdateSource): Promise<UpdateSource>
   onUpdateState(listener: (state: UpdateState) => void): () => void
   /** Native approval notification asked the app to open a specific session. */
   onOpenSession(listener: (sessionId: string) => void): () => void

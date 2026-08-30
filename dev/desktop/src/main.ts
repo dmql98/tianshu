@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { appendFileSync, mkdirSync } from 'fs'
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { ServerManager } from './server-manager.js'
 import { bundledNodePath, verifyBundledNode } from './runtime-paths.js'
@@ -8,6 +8,7 @@ import { UpdateManager } from './updater.js'
 import type {
   DesktopAppInfo,
   DesktopServerStatus,
+  UpdateSource,
   UpdateState,
 } from '../../shared/desktop-contract.js'
 import type { ServerMessage } from '../../shared/server-ipc.js'
@@ -150,6 +151,31 @@ function sanitizeUpdaterMessage(msg: string): string {
   return out
 }
 
+// 更新源偏好持久化（userData/update-source.json），跨重启保存用户选择。
+const UPDATE_SOURCE_FILE = 'update-source.json'
+function readUpdateSource(): UpdateSource {
+  try {
+    const raw = readFileSync(join(app.getPath('userData'), UPDATE_SOURCE_FILE), 'utf8')
+    const parsed = JSON.parse(raw) as { source?: unknown }
+    return parsed.source === 'github' ? 'github' : 'server'
+  } catch {
+    return 'server'
+  }
+}
+function writeUpdateSource(source: UpdateSource): void {
+  try {
+    const dir = app.getPath('userData')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, UPDATE_SOURCE_FILE), JSON.stringify({ source }), 'utf8')
+  } catch (err) {
+    console.error('[desktop] failed to persist update source:', err)
+  }
+}
+
+// 两个可用的更新源；用户在设置中选择，无自动兜底。
+const SERVER_FEED = { provider: 'generic', url: 'https://www.tianshuapp.tech/updates' }
+const GITHUB_FEED = { provider: 'github', owner: 'dmql98', repo: 'tianshu', releaseType: 'release' }
+
 function broadcastUpdateState(state: UpdateState): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
@@ -249,6 +275,16 @@ function registerIpc(manager: ServerManager): void {
     } catch (err) {
       console.error('[desktop] updater install failed:', err)
     }
+  })
+  ipcMain.handle('updater:get-source', (): UpdateSource =>
+    updateManager?.getSource() ?? 'server',
+  )
+  ipcMain.handle('updater:set-source', (_event, source: UpdateSource): UpdateSource => {
+    // 仅接受 'server' / 'github' 两种值，其余一律按官网服务器处理。
+    const next: UpdateSource = source === 'github' ? 'github' : 'server'
+    updateManager?.setSource(next)
+    writeUpdateSource(next)
+    return next
   })
 }
 
@@ -383,14 +419,11 @@ if (!app.requestSingleInstanceLock()) {
       currentVersion: app.getVersion(),
       enabled: updaterEnabled,
       disabledReason: updaterDisabledReason,
-      // 更新源：官网优先（electron-builder.yml publish[0]=generic 写入 app-update.yml），
-      // GitHub 作为兜底源——官网 feed 检查失败时自动切换重试。
-      fallbackFeed: {
-        provider: 'github',
-        owner: 'dmql98',
-        repo: 'tianshu',
-        releaseType: 'release',
-      },
+      // 更新源可让用户选择（官网服务器 / GitHub），无自动兜底；
+      // 启动时按持久化偏好对齐 feed，默认官网服务器。
+      serverFeed: SERVER_FEED,
+      githubFeed: GITHUB_FEED,
+      initialSource: readUpdateSource(),
       stopServer: async () => {
         if (serverManager) await serverManager.stop()
       },

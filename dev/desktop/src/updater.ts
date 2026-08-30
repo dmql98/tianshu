@@ -1,4 +1,4 @@
-import type { UpdateState } from '../../shared/desktop-contract.js'
+import type { UpdateSource, UpdateState } from '../../shared/desktop-contract.js'
 
 /**
  * Minimal surface of electron-updater's autoUpdater that this manager needs.
@@ -30,8 +30,12 @@ export interface UpdateManagerOptions {
   log: (msg: string) => void
   /** Strips local paths etc. from error messages before they reach the UI. */
   sanitize: (msg: string) => string
-  /** GitHub 兜底源：官网源检查失败时自动切换并重试一次（官网优先，GitHub 兜底）。 */
-  fallbackFeed?: Record<string, unknown>
+  /** 官网服务器更新源（generic provider），对应 electron-builder.yml 的 publish[0]。 */
+  serverFeed?: Record<string, unknown>
+  /** GitHub 更新源（owner / repo / releaseType）。 */
+  githubFeed?: Record<string, unknown>
+  /** 启动时的更新源偏好（由持久化文件读取）；缺省 'server'（官网优先）。 */
+  initialSource?: UpdateSource
 }
 
 function clampPercent(value: number): number {
@@ -86,14 +90,18 @@ export class UpdateManager {
   /** 初始延迟检查的 setTimeout 句柄（initialDelayMs > 0 时）。 */
   private initialTimer: ReturnType<typeof setTimeout> | null = null
 
-  /** 官网源失败后已切换到 GitHub 兜底源（只切一次）。 */
-  private fallbackUsed = false
+  /** 当前生效的逻辑更新源（用户选择，默认官网服务器）。 */
+  private currentSource: UpdateSource
+  /** 已通过 setFeedURL 应用到 electron-updater 的物理源；避免重复切换。 */
+  private appliedFeedSource: UpdateSource | null = null
 
   constructor(opts: UpdateManagerOptions) {
     this.opts = opts
+    this.currentSource = opts.initialSource ?? 'server'
     this.state = {
       phase: opts.enabled ? 'idle' : 'disabled',
       currentVersion: opts.currentVersion,
+      source: this.currentSource,
       ...(opts.disabledReason ? { disabledReason: opts.disabledReason } : {}),
     }
     if (opts.enabled) {
@@ -102,9 +110,11 @@ export class UpdateManager {
       this.opts.updater.autoInstallOnAppQuit = true
       this.opts.updater.allowDowngrade = false
       this.hookEvents()
-      // 初始化可观测性：当前版本、平台、架构（§11.2）
+      // 启动时把 electron-updater 的 feed 对齐到当前选择的更新源。
+      this.applyFeed(this.currentSource)
+      // 初始化可观测性：当前版本、平台、架构、更新源（§11.2）
       this.opts.log(
-        `[updater] initialized (version=${opts.currentVersion}, platform=${process.platform}, arch=${process.arch}, enabled=true)`,
+        `[updater] initialized (version=${opts.currentVersion}, platform=${process.platform}, arch=${process.arch}, enabled=true, source=${this.currentSource})`,
       )
     }
   }
@@ -118,8 +128,35 @@ export class UpdateManager {
     return () => this.listeners.delete(listener)
   }
 
+  /** 当前生效的更新源（用户选择）。 */
+  getSource(): UpdateSource {
+    return this.currentSource
+  }
+
+  /** 切换更新源：更新逻辑源、对齐物理 feed，并广播给 UI（无自动兜底）。 */
+  setSource(source: UpdateSource): void {
+    if (this.currentSource === source) return
+    this.currentSource = source
+    this.opts.log(`[updater] update source set to ${source}`)
+    this.applyFeed(source)
+    this.setState({})
+  }
+
+  /** 返回某更新源对应的 feed 配置；未配置则返回 undefined（沿用默认 feed）。 */
+  private feedFor(source: UpdateSource): Record<string, unknown> | undefined {
+    return source === 'github' ? this.opts.githubFeed : this.opts.serverFeed
+  }
+
+  /** 仅在物理 feed 与逻辑源不一致时调用 setFeedURL，避免重复切换。 */
+  private applyFeed(source: UpdateSource): void {
+    if (this.appliedFeedSource === source) return
+    const feed = this.feedFor(source)
+    if (feed) this.opts.updater.setFeedURL?.(feed)
+    this.appliedFeedSource = source
+  }
+
   private setState(partial: Partial<UpdateState>): void {
-    this.state = { ...this.state, ...partial }
+    this.state = { ...this.state, ...partial, source: this.currentSource }
     const snapshot = { ...this.state }
     for (const listener of [...this.listeners]) {
       try {
@@ -249,24 +286,13 @@ export class UpdateManager {
     if (this.checking) return this.state
     this.checking = true
     try {
+      // 对齐当前选择的更新源再检查（官网服务器 / GitHub，无自动兜底）。
+      this.applyFeed(this.currentSource)
       await this.opts.updater.checkForUpdates()
     } catch (err) {
       const raw = this.opts.sanitize(toMessage(err))
-      this.opts.log(`[updater] check failed: ${raw}`)
+      this.opts.log(`[updater] check failed (source=${this.currentSource}): ${raw}`)
       this.setState({ phase: 'error', message: capMessage(raw) })
-      // 官网源（generic）失败 → 切换到 GitHub 兜底源重试一次（官网优先，GitHub 兜底）。
-      if (!this.fallbackUsed && this.opts.fallbackFeed) {
-        this.fallbackUsed = true
-        this.opts.log('[updater] primary feed failed; switching to GitHub fallback feed and retrying')
-        try {
-          this.opts.updater.setFeedURL?.(this.opts.fallbackFeed)
-          await this.opts.updater.checkForUpdates()
-        } catch (err2) {
-          const raw2 = this.opts.sanitize(toMessage(err2))
-          this.opts.log(`[updater] fallback feed check failed: ${raw2}`)
-          this.setState({ phase: 'error', message: capMessage(raw2) })
-        }
-      }
     } finally {
       this.checking = false
     }
