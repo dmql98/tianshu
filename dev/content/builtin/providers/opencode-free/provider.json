@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "opencode-free",
+  "name": "OpenCode Free",
+  "description": "OpenCode 官方 Zen 网关免费档（匿名公开 token，模型列表会浮动）",
+  "format": "openai",
+  "runtime": {
+    "plugin": "opencode-free"
+  },
+  "baseUrl": "https://opencode.ai/zen/v1",
+  "icon": "icon.svg",
+  "website": "https://opencode.ai/",
+  "docsUrl": "https://opencode.ai/docs",
+  "popular": true,
+  "sortOrder": 71,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "text",
+      "label": "API Key",
+      "required": false,
+      "placeholder": "留空默认使用公开 token: public"
+    }
+  ]
+}

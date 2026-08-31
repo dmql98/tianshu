@@ -47,6 +47,11 @@ export function builtinIconPacksRoot(): string {
   return resolve(builtinContentRoot(), 'iconpacks')
 }
 
+/** content/builtin/config 出厂默认用户层配置目录（如 providers.json 默认记录）。 */
+export function builtinConfigRoot(): string {
+  return resolve(builtinContentRoot(), 'config')
+}
+
 /** 内容来源：内置只读层 / 用户可写层。 */
 export type ContentSource = 'builtin' | 'user'
 

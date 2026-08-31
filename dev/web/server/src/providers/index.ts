@@ -23,6 +23,7 @@ import * as nvidia from './nvidia.js'
 import * as openai from './openai.js'
 import * as openaiCompatible from './openai-compatible.js'
 import * as opencodeGo from './opencode-go.js'
+import * as opencodeFree from './opencode-free.js'
 import * as openrouter from './openrouter.js'
 import * as perplexity from './perplexity.js'
 import * as sapAICore from './sap-ai-core.js'
@@ -43,7 +44,7 @@ export const plugins: ProviderPlugin[] = [
   gitlab.plugin, google.plugin, googleVertex.plugin,
   groq.plugin, kilo.plugin, llmgateway.plugin,
   mistral.plugin, nvidia.plugin, openai.plugin,
-  openaiCompatible.plugin, opencodeGo.plugin, openrouter.plugin,
+  openaiCompatible.plugin, opencodeGo.plugin, opencodeFree.plugin, openrouter.plugin,
   perplexity.plugin, sapAICore.plugin, siliconflow.plugin,
   snowflakeCortex.plugin, togetherai.plugin, venice.plugin,
   vercel.plugin, xai.plugin, xiaomi.plugin, zenmux.plugin,

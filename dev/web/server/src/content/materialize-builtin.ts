@@ -2,9 +2,9 @@
  * 启动时把 builtin/content 全量物化到 dataDir 用户层。
  *
  * 目的：
- * - content/builtin 是只读出厂底稿；角色/技能/图标包/提示词/服务商预设的
- *   指南与路径统一指向 <dataDir>。启动时把全部五类 content/builtin 物化到
- *   <dataDir> 对应目录，保证用户层**始终有**可读写的内容文件。
+ * - content/builtin 是只读出厂底稿；角色/技能/图标包/提示词/服务商预设/出厂默认
+ *   config（providers.json）的指南与路径统一指向 <dataDir>。启动时把全部六类
+ *   content/builtin 物化到 <dataDir> 对应目录，保证用户层**始终有**可读写的内容文件。
  * - 物化副本的元数据文件自带 source: 'builtin' 标签（复制自 builtin 层）。
  *   合并扫描时，**未编辑的物化副本仍由 source 标签标识为 builtin**（single-layer
  *   改造后运行时只扫 dataDir，不再回退 content/builtin）；用户编辑后标签置 'user'。
@@ -28,6 +28,7 @@ import {
   materializeIconPack,
   materializePrompt,
   materializeProviderCatalog,
+  materializeConfigProvidersFile,
 } from './copy-on-write.js'
 import { markSeeded } from '../content/state.js'
 
@@ -139,6 +140,18 @@ function materializeAllProviders(): { materialized: string[]; skipped: string[];
   }
 }
 
+/** 物化出厂默认 config/providers.json（首次启动默认带 opencode-free 厂商记录）。 */
+function materializeAllConfigProviders(): { materialized: string[]; skipped: string[]; failed: MaterializeResult['failed'] } {
+  try {
+    const status = materializeConfigProvidersFile()
+    if (status === 'materialized') return { materialized: ['configProviders:providers.json'], skipped: [], failed: [] }
+    if (status === 'skipped') return { materialized: [], skipped: ['configProviders:providers.json'], failed: [] }
+    return { materialized: [], skipped: [], failed: [] }
+  } catch (err: any) {
+    return { materialized: [], skipped: [], failed: [{ id: 'configProviders:providers.json', error: err?.message || String(err) }] }
+  }
+}
+
 /** 读取 content/builtin/manifest.json 的发行版本号（供 seed 状态记录）。 */
 function readBuiltinVersion(): string | undefined {
   try {
@@ -159,10 +172,11 @@ export function materializeAllBuiltinContent(): MaterializeResult {
   const iconPacks = materializeAllIconPacks()
   const prompts = materializeAllPrompts()
   const providers = materializeAllProviders()
+  const configProviders = materializeAllConfigProviders()
   const result: MaterializeResult = {
-    materialized: [...chars.materialized, ...skills.materialized, ...iconPacks.materialized, ...prompts.materialized, ...providers.materialized],
-    skipped: [...chars.skipped, ...skills.skipped, ...iconPacks.skipped, ...prompts.skipped, ...providers.skipped],
-    failed: [...chars.failed, ...skills.failed, ...iconPacks.failed, ...prompts.failed, ...providers.failed],
+    materialized: [...chars.materialized, ...skills.materialized, ...iconPacks.materialized, ...prompts.materialized, ...providers.materialized, ...configProviders.materialized],
+    skipped: [...chars.skipped, ...skills.skipped, ...iconPacks.skipped, ...prompts.skipped, ...providers.skipped, ...configProviders.skipped],
+    failed: [...chars.failed, ...skills.failed, ...iconPacks.failed, ...prompts.failed, ...providers.failed, ...configProviders.failed],
   }
   // 记录 seed 状态（contentVersion + seededAt），复用 content/state.ts。
   try {

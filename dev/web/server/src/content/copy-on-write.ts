@@ -26,7 +26,7 @@ import {
   writeFileSync,
 } from 'fs'
 import { dirname, join, resolve } from 'path'
-import { charactersRoot, skillsRoot, iconPacksRoot, providersRoot } from '../data-paths.js'
+import { charactersRoot, skillsRoot, iconPacksRoot, providersRoot, configProvidersFile } from '../data-paths.js'
 import { getDataDir } from '../config.js'
 import {
   builtinCharactersRoot,
@@ -34,6 +34,7 @@ import {
   builtinIconPacksRoot,
   builtinPromptsRoot,
   builtinProvidersRoot,
+  builtinConfigRoot,
 } from './paths.js'
 
 /** 内容来源标签（写入元数据文件的 `source` 字段）。未来可扩展 'market'。 */
@@ -241,6 +242,22 @@ export function materializePrompt(): string {
   mkdirSync(dirname(userFile), { recursive: true })
   cpSync(builtinFile, userFile)
   return userFile
+}
+
+/**
+ * 将出厂默认 <config>/providers.json 物化为用户层副本
+ * （<dataDir>/config/providers.json），首次启动默认带厂商预置记录。
+ * 仅当用户层文件不存在时物化，绝不覆盖用户修改。
+ * 返回 'materialized' | 'skipped' | 'missing'。
+ */
+export function materializeConfigProvidersFile(): 'materialized' | 'skipped' | 'missing' {
+  const builtinFile = resolve(builtinConfigRoot(), 'providers.json')
+  if (!existsSync(builtinFile)) return 'missing'
+  const userFile = configProvidersFile()
+  if (existsSync(userFile)) return 'skipped'
+  mkdirSync(dirname(userFile), { recursive: true })
+  cpSync(builtinFile, userFile)
+  return 'materialized'
 }
 
 /**
