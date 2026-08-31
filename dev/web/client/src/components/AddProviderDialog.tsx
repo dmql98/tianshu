@@ -3,6 +3,7 @@ import Icon from '@/features/icons/Icon'
 import { useI18n } from '@/i18n'
 import { useProvidersStore } from '@/stores/providersStore'
 import { createProvider, fetchBuiltinProviders, type ProviderPreset } from '@/api/providers'
+import ProviderOAuthDialog from '@/components/ProviderOAuthDialog'
 
 const formatLabel: Record<string, string> = {
   openai: 'OpenAI 兼容', anthropic: 'Anthropic 格式', gemini: 'Gemini 格式',
@@ -46,6 +47,8 @@ export default function AddProviderDialog({ onClose }: Props) {
   const [listError, setListError] = useState('')
   const [error, setError] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
+  /** 当前配置步骤是否展示「一键获取」授权弹窗（仅声明 oauth 的预设可用）。 */
+  const [oauthOpen, setOauthOpen] = useState(false)
 
   const loadList = () => {
     setListLoading(true)
@@ -91,6 +94,15 @@ export default function AddProviderDialog({ onClose }: Props) {
     setFormData({ name: '', baseUrl: '', apiKey: '' })
     setSearch('')
     setStep('config')
+  }
+
+  /**
+   * 一键获取完成：服务端已按预设创建/更新记录并写入 Key。
+   * 这里直接关掉整个添加流程——继续提交会因 preset_id 重复而 409。
+   */
+  const handleOauthApplied = async () => {
+    await load()
+    onClose()
   }
 
   const handleSubmit = async () => {
@@ -190,9 +202,23 @@ export default function AddProviderDialog({ onClose }: Props) {
                     <ProviderIcon preset={provider} />
                   </div>
                   <div className="provider-list-info">
-                    <div className="provider-list-name">{provider.name}</div>
+                    <div className="provider-list-name">
+                      {provider.name}
+                      {provider.popular && (
+                        <span
+                          style={{
+                            marginLeft: 6, fontSize: 'calc(10px * var(--ui-font-scale))',
+                            padding: '1px 6px', borderRadius: 8,
+                            background: 'rgba(240,180,41,.18)', color: '#b8860b',
+                            verticalAlign: 'middle', fontWeight: 600,
+                          }}
+                        >
+                          {t('推荐')}
+                        </span>
+                      )}
+                    </div>
                     <div className="provider-list-desc">
-                      {formatLabel[provider.format] || provider.format}
+                      {provider.description || formatLabel[provider.format] || provider.format}
                       {provider.env_available && (
                         <span style={{ color: 'var(--jade)', marginLeft: 6 }}>· {t('已检测到环境变量')}</span>
                       )}
@@ -272,6 +298,16 @@ export default function AddProviderDialog({ onClose }: Props) {
                   onChange={e => setFormData(p => ({...p, apiKey: e.target.value}))}
                   placeholder="sk-..."
                 />
+                {selectedProvider?.oauth && (
+                  <button
+                    type="button"
+                    className="provider-btn secondary"
+                    style={{ width: '100%', marginTop: 8, color: 'var(--jade)' }}
+                    onClick={() => setOauthOpen(true)}
+                  >
+                    {t('一键获取 API Key（浏览器授权）')}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -294,6 +330,14 @@ export default function AddProviderDialog({ onClose }: Props) {
           )}
         </div>
       </div>
+
+      {oauthOpen && selectedProvider && (
+        <ProviderOAuthDialog
+          provider={{ id: selectedProvider.id, name: selectedProvider.name }}
+          onClose={() => setOauthOpen(false)}
+          onApplied={() => void handleOauthApplied()}
+        />
+      )}
     </div>
   )
 }

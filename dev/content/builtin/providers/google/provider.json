@@ -14,7 +14,6 @@
   "icon": "icon.svg",
   "website": "https://ai.google.dev/",
   "docsUrl": "https://ai.google.dev/gemini-api/docs",
-  "popular": true,
   "sortOrder": 30,
   "enabled": true,
   "fields": [

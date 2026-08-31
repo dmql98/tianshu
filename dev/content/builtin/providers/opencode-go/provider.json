@@ -14,7 +14,6 @@
   "icon": "icon.svg",
   "website": "https://opencode.ai/",
   "docsUrl": "https://opencode.ai/docs",
-  "popular": true,
   "sortOrder": 70,
   "enabled": true,
   "fields": [

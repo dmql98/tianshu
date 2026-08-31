@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
-import { testProvider } from '@/api/providers'
+import { testProvider, fetchBuiltinProviders, type ProviderPresetOAuth } from '@/api/providers'
 import type { Provider } from '@/types'
 import { useI18n } from '@/i18n'
 import AddProviderDialog from '@/components/AddProviderDialog'
 import EditProviderDialog from '@/components/EditProviderDialog'
 import ModelCompactDialog from '@/components/ModelCompactDialog'
+import ProviderOAuthDialog from '@/components/ProviderOAuthDialog'
 
 /** 解析手输上下文值：\"128k\" / \"1m\" / \"200000\"。 */
 function parseContextOverride(raw: string): number | null {
@@ -84,8 +85,25 @@ export default function ModelLibrarySection() {
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const [editingCtx, setEditingCtx] = useState<{ providerId: string; modelId: string } | null>(null)
   const [ctxDraft, setCtxDraft] = useState('')
+  /** 声明了 oauth 一键授权能力的内置预设（preset_id → 描述符），驱动分组头「一键获取」按钮。 */
+  const [oauthPresets, setOauthPresets] = useState<Record<string, { id: string; name: string; oauth: ProviderPresetOAuth }>>({})
+  const [oauthFor, setOauthFor] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => { void load() }, [load])
+
+  // 拉取内置预设的 oauth 描述符（仅需一次；服务商列表变更时重拉）。
+  useEffect(() => {
+    let cancelled = false
+    fetchBuiltinProviders().then((list) => {
+      if (cancelled) return
+      const map: Record<string, { id: string; name: string; oauth: ProviderPresetOAuth }> = {}
+      for (const p of list) {
+        if (p.oauth) map[p.id] = { id: p.id, name: p.name, oauth: p.oauth }
+      }
+      setOauthPresets(map)
+    }).catch(() => { /* 拉取失败不影响主列表 */ })
+    return () => { cancelled = true }
+  }, [showAddModal])
 
   const showToast = useCallback((msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type })
@@ -231,6 +249,20 @@ export default function ModelLibrarySection() {
                   <span className={`model-lib-gstatus ${test.ok ? '' : 'err'}`}>{test.msg}</span>
                 )}
                 <div className="model-lib-gactions" onClick={e => e.stopPropagation()}>
+                  {(() => {
+                    const oauthPreset = provider.preset_id ? oauthPresets[provider.preset_id] : undefined
+                    if (!oauthPreset) return null
+                    return (
+                      <button
+                        className="btn"
+                        title={t('一键获取 API Key')}
+                        onClick={() => setOauthFor({ id: oauthPreset.id, name: oauthPreset.name })}
+                        style={{ color: 'var(--jade)' }}
+                      >
+                        {t('一键获取')}
+                      </button>
+                    )
+                  })()}
                   <button
                     className="btn"
                     title={t('测试联通')}
@@ -342,6 +374,13 @@ export default function ModelLibrarySection() {
       </button>
 
       {showAddModal && <AddProviderDialog onClose={() => setShowAddModal(false)} />}
+      {oauthFor && (
+        <ProviderOAuthDialog
+          provider={oauthFor}
+          onClose={() => setOauthFor(null)}
+          onApplied={() => { void load() }}
+        />
+      )}
       {editTarget && <EditProviderDialog provider={editTarget} onClose={() => setEditTarget(null)} />}
       {compactTarget && (
         <ModelCompactDialog

@@ -14,7 +14,6 @@
   "icon": "icon.svg",
   "website": "https://github.com/features/copilot",
   "docsUrl": "https://docs.github.com/en/copilot",
-  "popular": true,
   "sortOrder": 50,
   "enabled": true,
   "fields": [

@@ -14,7 +14,6 @@
   "icon": "icon.svg",
   "website": "https://platform.openai.com/",
   "docsUrl": "https://platform.openai.com/docs/",
-  "popular": true,
   "sortOrder": 10,
   "enabled": true,
   "fields": [

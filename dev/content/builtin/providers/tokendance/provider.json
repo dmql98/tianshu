@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "tokendance",
+  "name": "TokenDance",
+  "description": "官方推荐网关：一个 API Key 调用 OpenAI、Claude、Gemini 等主流模型，支持一键授权获取密钥",
+  "format": "openai",
+  "runtime": {
+    "plugin": "openai"
+  },
+  "baseUrl": "https://tokendance.space/gateway/v1",
+  "env": [
+    "TOKENDANCE_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://tokendance.space/",
+  "docsUrl": "https://tokendance.space/docs/",
+  "popular": true,
+  "sortOrder": 1,
+  "enabled": true,
+  "headers": {
+    "X-App-URL": "https://www.tianshuapp.tech/"
+  },
+  "oauth": {
+    "authorizeUrl": "https://tokendance.space/auth",
+    "exchangeUrl": "https://tokendance.space/portal/api/v1/auth/keys",
+    "keyName": "天枢",
+    "appUrl": "https://www.tianshuapp.tech/"
+  },
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "td-..."
+    }
+  ]
+}

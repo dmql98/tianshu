@@ -14,7 +14,6 @@
   "icon": "icon.svg",
   "website": "https://openrouter.ai/",
   "docsUrl": "https://openrouter.ai/docs",
-  "popular": true,
   "sortOrder": 40,
   "enabled": true,
   "fields": [

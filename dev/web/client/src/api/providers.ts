@@ -23,6 +23,13 @@ export interface ProviderPresetField {
   options?: Array<{ label: string; value: string }>
 }
 
+export interface ProviderPresetOAuth {
+  authorizeUrl: string
+  exchangeUrl: string
+  keyName: string
+  appUrl: string
+}
+
 export interface ProviderPreset {
   id: string
   name: string
@@ -36,6 +43,8 @@ export interface ProviderPreset {
   popular: boolean
   sort_order: number
   fields: ProviderPresetField[]
+  /** 声明后渲染「一键获取」按钮（如 TokenDance OAuth 授权）。 */
+  oauth?: ProviderPresetOAuth
   /** 是否已被当前用户添加。 */
   added: boolean
 }
@@ -58,3 +67,26 @@ export const fetchProviderModels = (id: string) =>
 
 export const testProvider = (id: string) =>
   apiPost<{ ok: boolean; status?: number; error?: string; protocols?: { chat: boolean; responses?: boolean } }>(`/api/providers/${id}/test`)
+
+// ── Provider 一键授权（OAuth PKCE，如 TokenDance）──
+
+export interface ProviderOAuthStartResult {
+  flowId: string
+  authorizeUrl: string
+}
+
+export interface ProviderOAuthStatusResult {
+  status: 'pending' | 'done' | 'error'
+  provider: string
+  applied?: number
+  error?: string
+}
+
+export const startProviderOAuth = (provider: string, mode: 'callback' | 'manual' = 'callback') =>
+  apiPost<ProviderOAuthStartResult>('/api/provider-oauth/start', { provider, mode })
+
+export const pollProviderOAuth = (flowId: string) =>
+  apiGet<ProviderOAuthStatusResult>(`/api/provider-oauth/${encodeURIComponent(flowId)}`)
+
+export const submitProviderOAuthCode = (flowId: string, code: string) =>
+  apiPost<{ ok: boolean; applied?: number; error?: string }>(`/api/provider-oauth/${encodeURIComponent(flowId)}/code`, { code })

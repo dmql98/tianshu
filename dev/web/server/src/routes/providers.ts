@@ -60,6 +60,7 @@ router.get('/builtin', (c) => {
     popular: p.popular ?? false,
     sort_order: p.sortOrder ?? Number.MAX_SAFE_INTEGER,
     fields: p.fields ?? [],
+    oauth: p.oauth ?? undefined,
     added: userIds.has(p.id),
   })))
 })

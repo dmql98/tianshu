@@ -55,6 +55,22 @@ export const providerPresetSchema = z.object({
   fields: z.array(providerFieldSchema).optional(),
   /** 预设默认附加请求头（如 opencode 免费档客户端指纹头）；添加时合并进记录。 */
   headers: z.record(z.string(), z.string()).optional(),
+  /**
+   * 一键授权获取 API Key（OAuth Authorization Code + PKCE，如 TokenDance）：
+   * 声明后前端渲染「一键获取」按钮，服务端据此开流并兑换 Key。
+   */
+  oauth: z
+    .object({
+      /** 授权页地址（用户浏览器打开，参数挂在 query 上）。 */
+      authorizeUrl: z.string().url('authorizeUrl 必须是合法 URL'),
+      /** 用授权码兑换新 Key 的端点。 */
+      exchangeUrl: z.string().url('exchangeUrl 必须是合法 URL'),
+      /** 记录在新 Key 上的名称（授权页展示名）。 */
+      keyName: z.string().min(1),
+      /** 写入新 Key 的稳定 App URL（应用归因唯一要素，后续调用自动继承）。 */
+      appUrl: z.string().min(1),
+    })
+    .optional(),
 })
 
 export type ProviderPreset = z.infer<typeof providerPresetSchema>

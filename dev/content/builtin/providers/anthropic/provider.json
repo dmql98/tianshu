@@ -14,7 +14,6 @@
   "icon": "icon.svg",
   "website": "https://www.anthropic.com/",
   "docsUrl": "https://docs.anthropic.com/",
-  "popular": true,
   "sortOrder": 20,
   "enabled": true,
   "fields": [

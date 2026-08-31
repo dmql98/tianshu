@@ -14,7 +14,6 @@
   "icon": "icon.svg",
   "website": "https://vercel.com/",
   "docsUrl": "https://vercel.com/docs",
-  "popular": true,
   "sortOrder": 60,
   "enabled": true,
   "fields": [
