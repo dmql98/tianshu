@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import type { Message } from '@/types'
 import { useChatStore } from '@/stores/chatStore'
 import MessageItem from './MessageItem'
+import WorkGroup from './WorkGroup'
 import { useI18n } from '@/i18n'
 
 const isCompact = () => localStorage.getItem('tianshu:compact') === 'true'
@@ -58,17 +61,42 @@ export default function MessageList() {
     setUnread(0)
   }
 
-  return (
-    <div className="chat-scroll-wrap">
-      <div className={`chat-scroll${isCompact() ? ' compact' : ''}`} ref={scrollRef}>
-        {messages.map(msg => (
+  // 把连续相邻的 tool 消息合并为一个「工具调用」组，其余按单条渲染（对齐 penguin 的
+  // Reasoning & Tools 分段）。遇到非 tool 消息即结束当前运行中的组。
+  const renderSegments = () => {
+    const out: ReactNode[] = []
+    let run: Message[] = []
+    const flush = () => {
+      if (run.length > 0) {
+        out.push(<WorkGroup key={`wg-${run[0]!.id}`} items={run.slice()} />)
+        run = []
+      }
+    }
+    const msgCount = messages.length
+    for (let i = 0; i < msgCount; i++) {
+      const msg = messages[i]!
+      if (msg.role === 'tool') {
+        run.push(msg)
+      } else {
+        flush()
+        out.push(
           <MessageItem
             key={msg.id}
             message={msg}
             characterId={session?.character_id}
             sessionId={session?.id}
           />
-        ))}
+        )
+      }
+    }
+    flush()
+    return out
+  }
+
+  return (
+    <div className="chat-scroll-wrap">
+      <div className={`chat-scroll${isCompact() ? ' compact' : ''}`} ref={scrollRef}>
+        {renderSegments()}
       </div>
       {showJumpToBottom && (
         <button

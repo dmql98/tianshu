@@ -15,7 +15,7 @@ export function getDangerousTools(): string[] {
  */
 export const DEFAULT_TOOL_NAMES = new Set([
   'read', 'edit', 'write', 'grep', 'glob', 'bash', 'pwsh', 'webfetch', 'websearch', 'get_time',
-  'skill_manager', 'debug_sessions',
+  'skill_manager', 'debug_sessions', 'character_memory',
 ])
 
 function matchPath(pattern: string, target: string): boolean {

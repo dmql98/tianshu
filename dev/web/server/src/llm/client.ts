@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { describeTransportError, IncompleteLLMStreamError, MalformedSSEError } from './errors.js'
 
 // Toggle streaming usage info. Some providers (proxies) may handle
@@ -57,6 +58,27 @@ export interface LLMUsage {
 /** Provider API surface: chat/completions vs the OpenAI Responses API. */
 export type ProviderApiStyle = 'auto' | 'chat_completions' | 'responses'
 
+/**
+ * 每请求级头模板：配置里允许用 `${session}` / `${request}` 占位，
+ * 每次请求替换为随机值——模拟真实客户端指纹（如 opencode 免费档的
+ * x-opencode-session/request），规避按固定 session 指纹的限流。
+ */
+export function resolveHeaderTemplates(headers?: Record<string, string>): Record<string, string> | undefined {
+  if (!headers) return headers
+  let hasTemplate = false
+  for (const v of Object.values(headers)) {
+    if (v.includes('${session}') || v.includes('${request}')) { hasTemplate = true; break }
+  }
+  if (!hasTemplate) return headers
+  const session = `ses_${randomUUID().replace(/-/g, '')}`
+  const request = `msg_${randomUUID().replace(/-/g, '')}`
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(headers)) {
+    out[k] = v.replace(/\$\{session\}/g, session).replace(/\$\{request\}/g, request)
+  }
+  return out
+}
+
 /** The provider slice threaded through the agent loop (matches ProviderRecord). */
 export interface ProviderConfig {
   base_url: string
@@ -87,7 +109,7 @@ export async function probeResponsesApi(baseUrl: string, apiKey: string, model: 
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
-        ...(headers || {}),
+        ...(resolveHeaderTemplates(headers) || {}),
       },
       body: JSON.stringify({
         model,
@@ -227,7 +249,7 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
-        ...(opts.headers || {}),
+        ...(resolveHeaderTemplates(opts.headers) || {}),
       },
       body: JSON.stringify(body),
       signal,
@@ -490,7 +512,7 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
-        ...(opts.headers || {}),
+        ...(resolveHeaderTemplates(opts.headers) || {}),
       },
       body: JSON.stringify(body),
       signal,

@@ -96,9 +96,16 @@ router.get('/builtin/:id/icon', (c) => {
 router.get('/', (c) => c.json(providerStore.getAll()))
 router.post('/', async (c) => {
   const body = await c.req.json()
-  const { conflict, record } = providerStore.create(body)
+  // 从预设添加时，自动合并预设声明的默认 headers（如 opencode 免费档客户端指纹头），
+  // 保证重新添加 / 新用户添加的服务商配置完整，不依赖前端传值。
+  const preset = body.preset_id ? getPreset(body.preset_id) : undefined
+  const record = {
+    ...body,
+    headers: body.headers ?? preset?.headers ?? undefined,
+  }
+  const { conflict, record: created } = providerStore.create(record)
   if (conflict) return c.json({ error: '该预设服务商已添加', conflict: true }, 409)
-  return c.json(record, 201)
+  return c.json(created, 201)
 })
 router.put('/:id', async (c) => {
   const body = await c.req.json()
@@ -116,7 +123,10 @@ router.post('/:id/test', async (c) => {
   if (!provider) return c.json({ error: 'Not found' }, 404)
   try {
     const res = await fetch(`${provider.base_url.replace(/\/+$/, '')}/models`, {
-      headers: provider.api_key ? { Authorization: `Bearer ${provider.api_key}` } : {},
+      headers: {
+        ...(provider.api_key ? { Authorization: `Bearer ${provider.api_key}` } : {}),
+        ...(provider.headers || {}),
+      },
       signal: AbortSignal.timeout(10000),
     })
     if (res.ok) {

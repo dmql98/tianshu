@@ -63,7 +63,9 @@ export interface Message {
   tool_input?: string
   tool_output?: string
   tool_call_id?: string
-  tool_status?: 'running' | 'done' | 'success' | 'error'
+  tool_status?: 'running' | 'done' | 'success' | 'error' | 'denied'
+  /** 工具调用耗时（毫秒），来自后端 tool.completed 的 duration_ms；空串/缺省表示未知。 */
+  tool_duration_ms?: number
   is_streaming?: boolean
   /** Virtual conversation-flow marker (not persisted as a real message). */
   notice?: 'compacted'
@@ -71,6 +73,10 @@ export interface Message {
   compact_summary?: string | null
   reasoning?: string
   reasoning_duration?: number
+  /** LLM 调用总时长（毫秒），来自 message.metrics 的 llm_ms（含重试/首 token 等待）。 */
+  llm_duration_ms?: number
+  /** 思考块计时：ttft_ms 起算 → 内容首 token 结束，取近似；无内容时回退 llm_duration_ms。 */
+  reasoning_duration_ms?: number
   token_speed?: number
   token_speed_estimated?: boolean
   timestamp: number

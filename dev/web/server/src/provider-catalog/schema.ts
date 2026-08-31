@@ -53,6 +53,8 @@ export const providerPresetSchema = z.object({
   enabled: z.boolean().optional(),
   /** 配置表单字段；第一版只完整处理 apiKey，但保留扩展协议。 */
   fields: z.array(providerFieldSchema).optional(),
+  /** 预设默认附加请求头（如 opencode 免费档客户端指纹头）；添加时合并进记录。 */
+  headers: z.record(z.string(), z.string()).optional(),
 })
 
 export type ProviderPreset = z.infer<typeof providerPresetSchema>

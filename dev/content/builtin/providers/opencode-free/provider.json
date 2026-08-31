@@ -8,6 +8,13 @@
     "plugin": "opencode-free"
   },
   "baseUrl": "https://opencode.ai/zen/v1",
+  "headers": {
+    "User-Agent": "opencode",
+    "x-opencode-client": "desktop",
+    "x-opencode-session": "${session}",
+    "x-opencode-request": "${request}",
+    "x-opencode-project": "global"
+  },
   "icon": "icon.svg",
   "website": "https://opencode.ai/",
   "docsUrl": "https://opencode.ai/docs",

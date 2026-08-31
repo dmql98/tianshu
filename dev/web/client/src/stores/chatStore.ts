@@ -83,6 +83,12 @@ function toMessage(message: any): Message {
     tool_output: message.tool_output || undefined,
     tool_status: (message.tool_status as Message['tool_status']) || undefined,
     token_speed: typeof message.token_speed === 'number' ? message.token_speed : undefined,
+    llm_duration_ms: typeof message.llm_ms === 'number' ? message.llm_ms : undefined,
+    // 思考块计时近似：内容首 token（decode 起点）距调用开始（ttft 起点）的跨度；
+    // 没有 ttft 时回退到整个调用时长，供纯思考轮显示。
+    reasoning_duration_ms: typeof message.ttft_ms === 'number' && typeof message.decode_ms === 'number'
+      ? message.ttft_ms + message.decode_ms
+      : (typeof message.llm_ms === 'number' ? message.llm_ms : undefined),
     timestamp: message.created_at,
   }
 }
@@ -756,13 +762,19 @@ export const useChatStore = create<ChatState>((set, get) => {
         const messages = [...sess.messages]
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role !== 'assistant') continue
-          messages[i] = {
-            ...messages[i],
-            id: data.message_id != null ? String(data.message_id) : messages[i].id,
-            token_speed: data.token_speed,
-            token_speed_estimated: data.token_speed_estimated,
-            is_streaming: false,
-          }
+      messages[i] = {
+        ...messages[i],
+        id: data.message_id != null ? String(data.message_id) : messages[i].id,
+        token_speed: data.token_speed,
+        token_speed_estimated: data.token_speed_estimated,
+        llm_duration_ms: typeof data.llm_ms === 'number' ? data.llm_ms : messages[i].llm_duration_ms,
+        // 思考块计时近似：内容首 token（decode 起点）距调用开始（ttft 起点）的跨度；
+        // 没有 ttft 时回退整个调用时长。
+        reasoning_duration_ms: typeof data.ttft_ms === 'number' && typeof data.decode_ms === 'number'
+          ? data.ttft_ms + data.decode_ms
+          : (typeof data.llm_ms === 'number' ? data.llm_ms : messages[i].reasoning_duration_ms),
+        is_streaming: false,
+      }
           updated = true
           break
         }
@@ -814,7 +826,12 @@ export const useChatStore = create<ChatState>((set, get) => {
         ...sess,
         messages: sess.messages.map(m =>
           m.role === 'tool' && m.tool_call_id === data.tool_call_id
-            ? { ...m, tool_status: (data.tool_status as Message['tool_status']) || 'success', tool_output: data.tool_output }
+            ? {
+                ...m,
+                tool_status: (data.tool_status as Message['tool_status']) || 'success',
+                tool_output: data.tool_output,
+                tool_duration_ms: data.duration_ms ?? m.tool_duration_ms,
+              }
             : m
         ),
       }))
@@ -1279,6 +1296,7 @@ export const useChatStore = create<ChatState>((set, get) => {
               ...messages[idx],
               tool_status: (e.tool_status as Message['tool_status']) || 'success',
               tool_output: e.tool_output,
+              tool_duration_ms: e.duration_ms ?? messages[idx].tool_duration_ms,
             }
           }
         } else if (e.type === 'tool.output') {

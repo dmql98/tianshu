@@ -99,12 +99,23 @@ function buildSubAgentSystemPrompt(
   charContent: { soul: string; user: string; memory: string },
   taskHeader: string,
   hasTools: boolean,
+  memoryEnabled = true,
 ): string[] {
   // 与主代理组装逻辑一致：每个 part 一条独立 system 消息（组装顺序即发送顺序）。
   const systemParts: string[] = []
   if (charContent.soul) systemParts.push(`## Character\n${charContent.soul}`)
   if (charContent.user) systemParts.push(`## User Info\n${charContent.user}`)
-  if (charContent.memory) systemParts.push(`## Memory\n${charContent.memory}`)
+  if (charContent.memory && memoryEnabled) {
+    let memoryMsg = `## Memory\n${charContent.memory}`
+    if (memoryEnabled) {
+      memoryMsg +=
+        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留。你可调用 `character_memory` 工具：' +
+        '用 remember 记下值得留存的信息、用 recall 重读、用 forget 遗忘。' +
+        '只记录有跨会话价值的事实/偏好/约定，不要记录寒暄。' +
+        '记忆有字数上限（charLimit），超限会自动从最旧条目压缩；请留意剩余空间，必要时主动精简。'
+    }
+    systemParts.push(memoryMsg)
+  }
   systemParts.push(`## Delegated Task\n${taskHeader}`)
   const subSkillIndex = buildSkillIndex(targetChar)
   if (subSkillIndex.length > 0) {
@@ -292,6 +303,7 @@ export async function spawnAndRunSubAgent(
     charContent,
     `You are being delegated a sub-task by a parent agent. Complete the following task and report your findings.\n\nTask: ${task}`,
     hasTools,
+    targetChar.memory?.enabled !== false,
   )
 
   const messages: LLMMessage[] = [
@@ -492,11 +504,13 @@ export async function continueSubAgentWithMessage(input: {
     charContent,
     'You are a sub-agent continuing an existing delegated session. Follow the conversation history; the latest user message is your new instruction from the parent agent. Complete it and report your findings.',
     hasTools,
+    targetChar.memory?.enabled !== false,
   )
   const messages = await buildInitialMessages({
     characterId: subSession.character_id,
     systemPrompt,
-    memory: charContent.memory || null,
+    memory: targetChar.memory?.enabled !== false ? (charContent.memory || null) : null,
+    memoryEnabled: targetChar.memory?.enabled !== false,
     compactionSummary: subSession.compaction_summary || null,
     rows,
     compactionUntilId: subSession.compaction_until_id || 0,

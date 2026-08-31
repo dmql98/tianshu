@@ -213,10 +213,12 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   // Memory + compaction summary at fixed positions so prefix cache stays stable
   // P2-8: 按 compaction_until_id 水位读取，取消 2000 行硬上限（未被压缩的旧消息
   // 超过 2000 条时不得被静默丢弃）。
+  const memoryEnabled = charMeta.memory?.enabled !== false
   const messages: LLMMessage[] = await buildInitialMessages({
     characterId: sessionId,
     systemPrompt,
-    memory: charContent.memory || null,
+    memory: memoryEnabled ? (charContent.memory || null) : null,
+    memoryEnabled,
     compactionSummary: session.compaction_summary || null,
     rows: messageStore.getMessagesAfter(sessionId, session.compaction_until_id || 0, 100000),
     compactionUntilId: session.compaction_until_id || 0,

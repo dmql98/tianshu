@@ -10,7 +10,7 @@ function parseMCPToolName(name: string): { serverName: string; toolName: string 
   return { serverName: m[1], toolName: m[2] }
 }
 
-export async function executeTool(name: string, args: ToolArgs, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void,     workspaces?: string[], sessionId?: string): Promise<ToolResult> {
+export async function executeTool(name: string, args: ToolArgs, workspace: string, signal?: AbortSignal, mcpClients?: Map<string, MCPClient>, allowedRoots?: string[], onOutput?: (chunk: string) => void,     workspaces?: string[], sessionId?: string, characterId?: string): Promise<ToolResult> {
   if (name.startsWith('mcp__') && mcpClients) {
     const parsed = parseMCPToolName(name)
     if (!parsed) return { output: '', error: `Invalid MCP tool name: ${name}` }
@@ -22,7 +22,7 @@ export async function executeTool(name: string, args: ToolArgs, workspace: strin
   try {
     // 合并全局 dataDir 到工作区，使所有工具可访问角色/技能/MCP 等配置
     const mergedWorkspaces = [...(workspaces || []), getDataDir()].filter((v, i, a) => a.indexOf(v) === i)
-    return await registryExecute(name, args, { sessionId, workspace, workspaces: mergedWorkspaces, signal, allowedRoots, onOutput })
+    return await registryExecute(name, args, { sessionId, characterId, workspace, workspaces: mergedWorkspaces, signal, allowedRoots, onOutput })
   } catch (err: any) {
     if (err instanceof PathEscapeError) {
       return { output: '', error: err.message, escaped: true }

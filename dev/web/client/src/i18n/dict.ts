@@ -116,6 +116,7 @@ export const dict: Record<string, DictEntry> = {
 
   // ── 消息区 ──
   '思考中': { zh: '思考中', en: 'Thinking' },
+  '估算值': { zh: '估算值', en: 'Estimated' },
   '执行工具中': { zh: '执行工具中', en: 'Using tools' },
   '回复中': { zh: '回复中', en: 'Responding' },
   '等待确认': { zh: '等待确认', en: 'Waiting for confirmation' },
@@ -149,6 +150,7 @@ export const dict: Record<string, DictEntry> = {
   '会话已压缩': { zh: '会话已压缩', en: 'Session was compacted' },
   '消息': { zh: '消息', en: 'Messages' },
   '工具调用': { zh: '工具调用', en: 'Tool Calls' },
+  '{count} 次工具调用': { zh: '{count} 次工具调用', en: '{count} tool calls' },
   '模型调用': { zh: '模型调用', en: 'Model Calls' },
   '总消息数': { zh: '总消息数', en: 'Messages' },
   '模型调用数': { zh: '模型调用数', en: 'Model Calls' },

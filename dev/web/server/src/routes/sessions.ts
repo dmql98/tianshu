@@ -213,10 +213,12 @@ router.post('/:id/compact', async (c) => {
     resolveWorkspace(session.workspace),
     getDataDir(),
   )
+  const memoryEnabled = charMeta.memory?.enabled !== false
   const messages = await buildInitialMessages({
     characterId: session.id,
     systemPrompt,
-    memory: charContent.memory || null,
+    memory: memoryEnabled ? (charContent.memory || null) : null,
+    memoryEnabled,
     compactionSummary: session.compaction_summary || null,
     rows: messageStore.getMessagesAfter(id, session.compaction_until_id || 0, 100000),
     compactionUntilId: session.compaction_until_id || 0,

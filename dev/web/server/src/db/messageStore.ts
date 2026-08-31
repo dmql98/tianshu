@@ -7,6 +7,10 @@ export interface MessageRow {
   tool_output: string | null; tool_status: string | null
   attachments: string | null
   token_speed: number | null
+  /** LLM 调用墙钟时长 / 首 token 等待 / 内容流式输出时长（毫秒），来自 message.metrics。 */
+  llm_ms: number | null
+  ttft_ms: number | null
+  decode_ms: number | null
   is_error: number | null
   turn_id: string | null
   run_id: string | null
@@ -58,6 +62,12 @@ export const messageStore = {
   updateToolStatus(id: number, toolStatus: string) {
     getDb().prepare('UPDATE messages SET tool_status = ? WHERE id = ?').run(toolStatus, id)
   },
+  /** 回写 message.metrics 计时（llm_ms / ttft_ms / decode_ms）与最终 token 速率，随消息持久化，刷新后仍显示。 */
+  updateMetrics(id: number, metrics: { llm_ms?: number | null; ttft_ms?: number | null; decode_ms?: number | null; token_speed?: number | null }) {
+    getDb().prepare(
+      'UPDATE messages SET llm_ms = ?, ttft_ms = ?, decode_ms = ?, token_speed = ? WHERE id = ?',
+    ).run(metrics.llm_ms ?? null, metrics.ttft_ms ?? null, metrics.decode_ms ?? null, metrics.token_speed ?? null, id)
+  },
   /** P2-3: 持久化工具调用修复（移除孤儿调用后回写 tool_input）。 */
   updateToolInput(id: number, toolInput: string) {
     getDb().prepare('UPDATE messages SET tool_input = ? WHERE id = ?').run(toolInput, id)
@@ -87,6 +97,9 @@ export const messageStore = {
       tool_output: data.tool_output || null, tool_status: data.tool_status || null,
       attachments: data.attachments || null,
       token_speed: data.token_speed ?? null,
+      llm_ms: data.llm_ms ?? null,
+      ttft_ms: data.ttft_ms ?? null,
+      decode_ms: data.decode_ms ?? null,
       is_error: data.is_error ?? null,
       turn_id: data.turn_id || null,
       run_id: data.run_id || null,
@@ -97,7 +110,7 @@ export const messageStore = {
     // 只绑定 SQL 引用的命名参数（node:sqlite 的 allowUnknownNamedParameters=false
     // 会拒绝多余字段，§7.3）；id 由自增生成，不参与 INSERT。
     const { id: _autoId, ...insertParams } = row
-    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, is_error, turn_id, run_id, status, supersedes_message_id, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @is_error, @turn_id, @run_id, @status, @supersedes_message_id, @created_at)`).run(insertParams)
+    const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, is_error, llm_ms, ttft_ms, decode_ms, turn_id, run_id, status, supersedes_message_id, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @is_error, @llm_ms, @ttft_ms, @decode_ms, @turn_id, @run_id, @status, @supersedes_message_id, @created_at)`).run(insertParams)
     row.id = Number(result.lastInsertRowid)
     getDb().prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(now, sessionId)
     return row
@@ -107,11 +120,13 @@ export const messageStore = {
     const result = getDb().prepare(`
       INSERT INTO messages (
         session_id, role, content, reasoning_content, tool_name, tool_input,
-        tool_output, tool_status, attachments, token_speed, is_error, turn_id, run_id,
+        tool_output, tool_status, attachments, token_speed, is_error, llm_ms, ttft_ms, decode_ms,
+        turn_id, run_id,
         status, supersedes_message_id, created_at
       )
       SELECT ?, role, content, reasoning_content, tool_name, tool_input,
-        tool_output, tool_status, attachments, token_speed, is_error, turn_id, run_id,
+        tool_output, tool_status, attachments, token_speed, is_error, llm_ms, ttft_ms, decode_ms,
+        turn_id, run_id,
         status, supersedes_message_id, created_at
       FROM messages
       WHERE session_id = ?

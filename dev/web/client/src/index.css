@@ -282,6 +282,48 @@ body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink
 .tool-invoke .tool-card-output{max-height:320px}
 @keyframes tool-running{0%,100%{opacity:1}50%{opacity:0.55}}
 
+/* ── 工具调用组（多个同轮工具合并折叠，对齐 penguin Reasoning & Tools）── */
+.work-group{margin-top:6px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-card);flex-shrink:0}
+.work-group + .work-group{margin-top:6px}
+.compact .work-group{margin-top:4px}
+.work-group-header{background:color-mix(in srgb,var(--ink) 3%,transparent)}
+.work-group-header.running{background:var(--gold-mist)}
+.work-group-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;text-align:left;background:transparent;border:0;font-family:inherit;cursor:pointer;color:inherit}
+.work-group-toggle:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.work-group-status{font-size:calc(11px * var(--ui-font-scale));font-weight:600;color:var(--ink-mid)}
+.work-group-status.running{color:var(--gold);animation:tool-running 1.2s ease-in-out infinite}
+.work-group-status.done{color:var(--jade)}
+.work-group-steps{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint);white-space:nowrap}
+.work-group-time{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint);font-family:var(--mono-font,monospace);margin-left:auto}
+.work-group-caret{margin-left:2px;font-size:10px;opacity:.7}
+.work-group-body{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--border);padding:6px 8px 8px}
+/* WorkGroup 内的 ToolCall：紧凑单行（icon 工具名 · 状态 耗时 ▸），不再是撑满整条的大卡片。
+   点击行展开参数/结果；展开态退回小卡片（左侧状态色条）。 */
+.work-group-body .msg-group{max-width:100%;width:100%;align-self:stretch;align-items:stretch}
+.work-group-body .tool-invoke{margin-top:0;width:100%;display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--ink-mid);font-size:calc(11px * var(--ui-font-scale));animation:none;flex-shrink:0}
+.work-group-body .tool-invoke:hover{background:var(--bg-hover);border-color:var(--border-light)}
+.work-group-body .tool-invoke.running{background:var(--gold-mist);border-color:var(--gold-border);color:var(--gold)}
+.work-group-body .tool-invoke.success{border-color:color-mix(in srgb,var(--jade) 18%,transparent)}
+.work-group-body .tool-invoke.error{border-color:color-mix(in srgb,var(--cinnabar) 18%,transparent)}
+.work-group-body .tool-invoke .tool-card-head{display:flex;align-items:center;gap:8px;width:100%;padding:0;background:transparent;border:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.work-group-body .tool-invoke .tool-card-name{font-weight:500;font-size:calc(12px * var(--ui-font-scale))}
+.work-group-body .tool-invoke .tool-card-dot{display:none}
+.work-group-body .tool-invoke .tool-card-status{margin-left:auto;white-space:nowrap}
+.work-group-body .tool-invoke .tool-card-subtask{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;min-width:0}
+.work-group-body .tool-invoke.expanded{flex-direction:column;align-items:stretch;gap:0;padding:0;background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--jade);color:var(--ink-deep);cursor:default}
+.work-group-body .tool-invoke.expanded.running{border-left-color:var(--gold)}
+.work-group-body .tool-invoke.expanded.error{border-left-color:var(--cinnabar)}
+.work-group-body .tool-invoke.expanded .tool-card-head{padding:6px 10px}
+.work-group-body .tool-invoke.expanded .tool-card-name{font-weight:600;font-size:calc(12.5px * var(--ui-font-scale))}
+.work-group-body .tool-invoke.expanded .tool-card-status{padding:1px 7px;border-radius:10px}
+.work-group-body .tool-invoke.expanded .tool-card-status.success{background:color-mix(in srgb,var(--jade) 12%,transparent);color:var(--jade)}
+.work-group-body .tool-invoke.expanded .tool-card-status.error{background:color-mix(in srgb,var(--cinnabar) 12%,transparent);color:var(--cinnabar)}
+.work-group-body .tool-invoke.expanded .tool-card-status.running{background:var(--gold-mist);color:var(--gold)}
+.work-group-body .tool-invoke .tool-card-section{padding:0 10px 8px}
+.tool-card-time{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint);font-family:var(--mono-font,monospace);white-space:nowrap}
+.compact .work-group-body{padding:4px 6px 6px}
+.compact .work-group-toggle{padding:6px 8px}
+
 .input-area{padding-bottom:10px}
 .input-options{display:grid;grid-template-columns:130px minmax(0,1.5fr) minmax(0,.65fr) repeat(2,minmax(0,1fr));align-items:flex-end;gap:12px;padding:0 28px 2px}
 .io-select{width:100%;min-width:0;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);font-size:calc(12px * var(--ui-font-scale));font-family:inherit;cursor:pointer;outline:none;transition:border-color 0.15s}

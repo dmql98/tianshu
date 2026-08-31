@@ -37,6 +37,8 @@ export interface ToolResult {
 
 export interface ToolContext {
   sessionId?: string
+  /** 触发该工具调用的当前角色（主代理或子代理）。用于角色私有记忆等按角色归属的读写。 */
+  characterId?: string
   workspace: string
   workspaces?: string[]
   signal?: AbortSignal

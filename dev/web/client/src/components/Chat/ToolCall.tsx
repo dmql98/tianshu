@@ -2,6 +2,8 @@
 import type { Message } from '@/types'
 import { useI18n } from '@/i18n'
 import Icon from '@/features/icons/Icon'
+import { formatDuration } from '@/features/chat/runStats'
+import LiveDuration from './LiveDuration'
 
 interface Props {
   message: Message
@@ -47,7 +49,8 @@ function taskSummary(raw: string | undefined): string {
 
 function statusLabel(status: string, t: (k: string) => string): string {
   if (status === 'success') return `✓ ${t('成功')}`
-  if (status === 'error') return `✗ ${t('失败')}`
+  if (status === 'error' || status === 'denied') return `✗ ${t('失败')}`
+  if (status === 'done') return `✓ ${t('已完成')}`
   return t('执行中...')
 }
 
@@ -76,6 +79,14 @@ export default memo(function ToolCall({ message }: Props) {
           <span className="tool-card-name">{message.tool_name}</span>
           <span className="tool-card-dot">·</span>
           <span className={`tool-card-status ${status}`}>{statusLabel(status, t)}</span>
+          {/* 耗时：running 显示 live 秒级计时（从卡片创建时刻起算），否则显示后端结算的 duration_ms */}
+          {status === 'running' ? (
+            <span className="tool-card-time">
+              <LiveDuration sinceMs={message.timestamp} />
+            </span>
+          ) : typeof message.tool_duration_ms === 'number' && message.tool_duration_ms >= 0 ? (
+            <span className="tool-card-time">· {formatDuration(message.tool_duration_ms)}</span>
+          ) : null}
           {isSubAgentCard && subTask && (
             <span className="tool-card-subtask" title={subTask}>{subTask}</span>
           )}

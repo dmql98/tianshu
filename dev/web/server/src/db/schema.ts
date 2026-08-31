@@ -53,6 +53,9 @@ export function getDb(): TianshuDatabase {
   try { db.exec('ALTER TABLE messages ADD COLUMN token_speed REAL') } catch { }
   try { db.exec('ALTER TABLE sessions ADD COLUMN context_usage INTEGER') } catch { }
   try { db.exec('ALTER TABLE messages ADD COLUMN is_error INTEGER') } catch { }
+  try { db.exec('ALTER TABLE messages ADD COLUMN llm_ms INTEGER') } catch { }
+  try { db.exec('ALTER TABLE messages ADD COLUMN ttft_ms INTEGER') } catch { }
+  try { db.exec('ALTER TABLE messages ADD COLUMN decode_ms INTEGER') } catch { }
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
@@ -97,6 +100,9 @@ export function getDb(): TianshuDatabase {
       attachments TEXT,
       token_speed REAL,
       is_error INTEGER,
+      llm_ms INTEGER,
+      ttft_ms INTEGER,
+      decode_ms INTEGER,
       created_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS events (

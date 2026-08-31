@@ -7,16 +7,36 @@
     "headers": {
       "User-Agent": "opencode",
       "x-opencode-client": "desktop",
-      "x-opencode-session": "ses_tianshu",
-      "x-opencode-request": "msg_tianshu",
+      "x-opencode-session": "${session}",
+      "x-opencode-request": "${request}",
       "x-opencode-project": "global"
     },
     "models": [
-      { "id": "big-pickle", "name": "big-pickle", "enabled": true },
-      { "id": "mimo-v2.5-free", "name": "mimo-v2.5-free", "enabled": true },
-      { "id": "ling-3.0-flash-fin-free", "name": "ling-3.0-flash-fin-free", "enabled": true },
-      { "id": "nemotron-3.5-lightning-free", "name": "nemotron-3.5-lightning-free", "enabled": true },
-      { "id": "laguna-s-2.1-free", "name": "laguna-s-2.1-free", "enabled": true }
+      {
+        "id": "big-pickle",
+        "name": "big-pickle",
+        "enabled": true
+      },
+      {
+        "id": "mimo-v2.5-free",
+        "name": "mimo-v2.5-free",
+        "enabled": true
+      },
+      {
+        "id": "ling-3.0-flash-fin-free",
+        "name": "ling-3.0-flash-fin-free",
+        "enabled": true
+      },
+      {
+        "id": "nemotron-3.5-lightning-free",
+        "name": "nemotron-3.5-lightning-free",
+        "enabled": true
+      },
+      {
+        "id": "laguna-s-2.1-free",
+        "name": "laguna-s-2.1-free",
+        "enabled": true
+      }
     ],
     "preset_id": "opencode-free",
     "format": "openai",

@@ -95,12 +95,14 @@ export default memo(function MessageItem({ message, sessionId }: Props) {
   return (
     <div className={`msg-group ${isUser ? 'user' : 'star'}`}>
       {!isUser && message.token_speed != null && message.token_speed > 0 && (
-        <div className="msg-token-speed">{message.token_speed.toFixed(1)} token/s</div>
+        <div className="msg-token-speed" title={message.token_speed_estimated ? t('估算值') : undefined}>
+          {message.token_speed_estimated ? '~' : ''}{message.token_speed.toFixed(1)} tok/s
+        </div>
       )}
       {!isUser && message.reasoning && (
         <ThinkingBlock
           content={message.reasoning}
-          duration={message.reasoning_duration}
+          duration={message.reasoning_duration_ms ?? message.reasoning_duration}
           defaultExpanded={showReasoning()}
           streaming={!!message.is_streaming}
         />

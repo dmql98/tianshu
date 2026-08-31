@@ -302,6 +302,8 @@ export interface SessionContextInput {
   /** 静态系统提示的分块（每个 part 一条 system 消息，按组装顺序）。 */
   systemPrompt: string[]
   memory: string | null
+  /** 记忆是否启用（character.memory.enabled）。启用时附带「记忆使用说明」引导，并在关闭时不注入。 */
+  memoryEnabled?: boolean
   compactionSummary: string | null
   rows: MessageRow[]
   compactionUntilId: number
@@ -324,8 +326,18 @@ export async function buildInitialMessages(input: SessionContextInput): Promise<
       content: `## Active Session Skills\n${input.activeSkills.map(skill => `### ${skill.ref}\n${skill.body}`).join('\n\n')}`,
     })
   }
-  if (input.memory) {
-    messages.push({ role: 'system', content: `## Memory\n${input.memory}` })
+  if (input.memory && input.memoryEnabled !== false) {
+    // 记忆启用时注入记忆内容，并附带一条「记忆使用说明」，告知模型可以更新记忆、
+    // 有字数上限、超限需压缩。未启用（memoryEnabled=false）时不注入。
+    let memoryMsg = `## Memory\n${input.memory}`
+    if (input.memoryEnabled) {
+      memoryMsg +=
+        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留。你可调用 `character_memory` 工具：' +
+        '用 remember 记下值得留存的信息、用 recall 重读、用 forget 遗忘。' +
+        '只记录有跨会话价值的事实/偏好/约定，不要记录寒暄。' +
+        '记忆有字数上限（charLimit），超限会自动从最旧条目压缩；请留意 recall 返回的剩余空间，必要时主动精简。'
+    }
+    messages.push({ role: 'system', content: memoryMsg })
   }
   if (input.compactionSummary) {
     messages.push({ role: 'system', content: `[Compacted History]\n${input.compactionSummary}` })

@@ -412,7 +412,7 @@ async function executeToolCalls(
 
     async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
       try {
-        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, sessionId)
+        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, sessionId, characterId)
       } catch (err: any) {
         return { output: '', error: `${p.name}: ${err.message || String(err)}` }
       }
@@ -698,6 +698,14 @@ export async function innerLoop(
       const sess = sessionStore.getById(sessionId)
       const hitTotal = (sess?.cache_hit_tokens || 0) + totalCacheHitTokens
       const missTotal = (sess?.cache_miss_tokens || 0) + totalCacheMissTokens
+      // 计时随消息持久化（llm_ms / ttft_ms / decode_ms / token_speed），
+      // 刷新后思考块与正文的耗时/token 速率仍可显示。
+      messageStore.updateMetrics(storedMessage.id, {
+        llm_ms: Date.now() - llmStart,
+        ttft_ms: firstChunkAt === null ? null : firstChunkAt - llmStart,
+        decode_ms: firstOutputAt == null ? null : Date.now() - firstOutputAt,
+        token_speed: finalTokenSpeed ?? null,
+      })
       stream?.emit('message.metrics', {
         session_id: sessionId,
         run_id: opts.run_id,
