@@ -79,6 +79,8 @@ export function getDb(): TianshuDatabase {
       compaction_until_id INTEGER DEFAULT 0,
       trimmed_until_id INTEGER DEFAULT 0,
       context_usage INTEGER,
+      pinned INTEGER DEFAULT 0,
+      archived INTEGER DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -159,6 +161,8 @@ export function getDb(): TianshuDatabase {
     'ALTER TABLE sessions ADD COLUMN event_occurrence_id TEXT',
     "ALTER TABLE sessions ADD COLUMN approval_mode TEXT NOT NULL DEFAULT 'Ask Risky'",
     "ALTER TABLE sessions ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'direct'",
+    'ALTER TABLE sessions ADD COLUMN pinned INTEGER DEFAULT 0',
+    'ALTER TABLE sessions ADD COLUMN archived INTEGER DEFAULT 0',
   ]
   for (const statement of sessionColumns) {
     try { db.exec(statement) } catch { /* column already exists */ }

@@ -138,6 +138,10 @@
       "file": "running.svg",
       "tint": true
     },
+    "search": {
+      "file": "search.svg",
+      "tint": true
+    },
     "send": {
       "file": "send.svg",
       "tint": true

@@ -4,6 +4,13 @@
     "name": "OpenCode Free",
     "base_url": "https://opencode.ai/zen/v1",
     "api_key": "public",
+    "headers": {
+      "User-Agent": "opencode",
+      "x-opencode-client": "desktop",
+      "x-opencode-session": "ses_tianshu",
+      "x-opencode-request": "msg_tianshu",
+      "x-opencode-project": "global"
+    },
     "models": [
       { "id": "big-pickle", "name": "big-pickle", "enabled": true },
       { "id": "mimo-v2.5-free", "name": "mimo-v2.5-free", "enabled": true },

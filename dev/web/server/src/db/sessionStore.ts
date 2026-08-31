@@ -23,7 +23,31 @@ export interface SessionRow {
   cache_hit_tokens: number; cache_miss_tokens: number; cache_hit_ratio: string | null
   compaction_summary: string | null; compaction_until_id: number | null
   trimmed_until_id: number | null
+  pinned: boolean
+  archived: boolean
   created_at: number; updated_at: number
+}
+
+/** SQLite 以 0/1 存储 pinned/archived；对外统一暴露布尔（node:sqlite 无法绑定 boolean）。 */
+function normalizeFlags<T extends { pinned?: unknown; archived?: unknown }>(
+  row: T,
+): T & { pinned: boolean; archived: boolean } {
+  return {
+    ...row,
+    pinned: row.pinned === 1 || row.pinned === true,
+    archived: row.archived === 1 || row.archived === true,
+  }
+}
+
+/** UPDATE/INSERT 绑定用：pinned/archived 转回 0/1。 */
+function toDbFlags<T extends { pinned?: boolean | number; archived?: boolean | number }>(
+  row: T,
+): T & { pinned: number; archived: number } {
+  return {
+    ...row,
+    pinned: row.pinned ? 1 : 0,
+    archived: row.archived ? 1 : 0,
+  }
 }
 
 /** targets 序列化：数组→JSON 字符串；已是字符串→透传（防双重编码）；空→null。 */
@@ -52,13 +76,14 @@ export function cleanMessagePreview(content: string | null | undefined): string 
   return chars.slice(0, RECENT_PREVIEW_MAX).join('')
 }
 
-const INSERT_COLS =       'id, character_id, title, model, provider_id, workspace, workspaces, parent_id, active_group, targets, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, context_usage, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, trimmed_until_id, created_at, updated_at'
-const INSERT_PARAMS =     '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @parent_id, @active_group, @targets, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @context_usage, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @trimmed_until_id, @created_at, @updated_at'
-const UPDATE_COLS =       'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, parent_id=@parent_id, active_group=@active_group, targets=@targets, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, context_usage=@context_usage, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, trimmed_until_id=@trimmed_until_id, updated_at=@updated_at'
+const INSERT_COLS =       'id, character_id, title, model, provider_id, workspace, workspaces, parent_id, active_group, targets, session_type, event_id, character_binding_mode, pinned_character_revision_id, forked_from_session_id, forked_from_message_id, event_occurrence_id, approval_mode, execution_mode, current_strategy, reasoning_effort, context_window, context_usage, input_tokens, output_tokens, cache_hit_tokens, cache_miss_tokens, cache_hit_ratio, compaction_summary, compaction_until_id, trimmed_until_id, pinned, archived, created_at, updated_at'
+const INSERT_PARAMS =     '@id, @character_id, @title, @model, @provider_id, @workspace, @workspaces, @parent_id, @active_group, @targets, @session_type, @event_id, @character_binding_mode, @pinned_character_revision_id, @forked_from_session_id, @forked_from_message_id, @event_occurrence_id, @approval_mode, @execution_mode, @current_strategy, @reasoning_effort, @context_window, @context_usage, @input_tokens, @output_tokens, @cache_hit_tokens, @cache_miss_tokens, @cache_hit_ratio, @compaction_summary, @compaction_until_id, @trimmed_until_id, @pinned, @archived, @created_at, @updated_at'
+const UPDATE_COLS =       'character_id=@character_id, title=@title, model=@model, provider_id=@provider_id, workspace=@workspace, workspaces=@workspaces, parent_id=@parent_id, active_group=@active_group, targets=@targets, session_type=@session_type, event_id=@event_id, character_binding_mode=@character_binding_mode, pinned_character_revision_id=@pinned_character_revision_id, forked_from_session_id=@forked_from_session_id, forked_from_message_id=@forked_from_message_id, event_occurrence_id=@event_occurrence_id, approval_mode=@approval_mode, execution_mode=@execution_mode, current_strategy=@current_strategy, reasoning_effort=@reasoning_effort, context_window=@context_window, context_usage=@context_usage, input_tokens=@input_tokens, output_tokens=@output_tokens, cache_hit_tokens=@cache_hit_tokens, cache_miss_tokens=@cache_miss_tokens, cache_hit_ratio=@cache_hit_ratio, compaction_summary=@compaction_summary, compaction_until_id=@compaction_until_id, trimmed_until_id=@trimmed_until_id, pinned=@pinned, archived=@archived, updated_at=@updated_at'
 
 export const sessionStore = {
   list(limit = 50): SessionRow[] {
-    return getDb().prepare('SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?').all(limit) as SessionRow[]
+    const rows = getDb().prepare('SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?').all(limit) as SessionRow[]
+    return rows.map(normalizeFlags)
   },
   /**
    * 最近普通对话（HOME_PAGE_DEVELOPMENT_PLAN §4.2）：
@@ -85,13 +110,15 @@ export const sessionStore = {
       row.last_message_preview = cleanMessagePreview(row.last_message_preview)
       if (!row.last_message_preview) row.last_message_preview = null
     }
-    return rows
+    return rows.map(normalizeFlags)
   },
   getById(id: string): SessionRow | null {
-    return getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(id) as SessionRow | null
+    const row = getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(id) as SessionRow | null
+    return row ? normalizeFlags(row) : null
   },
   getChildren(parentId: string): SessionRow[] {
-    return getDb().prepare('SELECT * FROM sessions WHERE parent_id = ? ORDER BY created_at ASC').all(parentId) as SessionRow[]
+    const rows = getDb().prepare('SELECT * FROM sessions WHERE parent_id = ? ORDER BY created_at ASC').all(parentId) as SessionRow[]
+    return rows.map(normalizeFlags)
   },
   nextForkTitle(sourceTitle: string): string {
     const base = (sourceTitle || '新会话').trim() || '新会话'
@@ -132,10 +159,12 @@ export const sessionStore = {
       compaction_summary: data.compaction_summary ?? null,
       compaction_until_id: data.compaction_until_id ?? null,
       trimmed_until_id: data.trimmed_until_id ?? null,
+      pinned: !!data.pinned,
+      archived: !!data.archived,
       created_at: now, updated_at: now,
     }
-    getDb().prepare(`INSERT INTO sessions (${INSERT_COLS}) VALUES (${INSERT_PARAMS})`).run(row)
-    return row
+    getDb().prepare(`INSERT INTO sessions (${INSERT_COLS}) VALUES (${INSERT_PARAMS})`).run(toDbFlags(row))
+    return normalizeFlags(row)
   },
   update(id: string, patch: Partial<SessionRow>): SessionRow | null {
     const existing = this.getById(id)
@@ -145,9 +174,12 @@ export const sessionStore = {
     if (patch.workspaces || (patch.workspace && !patch.workspaces)) {
       patch.workspaces = patch.workspaces || JSON.stringify([patch.workspace!])
     }
-    const updated = { ...existing, ...patch, updated_at: Date.now() }
-    getDb().prepare(`UPDATE sessions SET ${UPDATE_COLS} WHERE id=@id`).run(updated)
-    return updated
+    // 仅置顶/归档的变更不视为「活动」：不该把会话顶到最近列表、也不该改行尾的相对时间。
+    const touchKeys = Object.keys(patch).filter(k => k !== 'pinned' && k !== 'archived')
+    const shouldTouch = touchKeys.length > 0
+    const updated = { ...existing, ...patch, ...(shouldTouch ? { updated_at: Date.now() } : {}) }
+    getDb().prepare(`UPDATE sessions SET ${UPDATE_COLS} WHERE id=@id`).run(toDbFlags(updated))
+    return normalizeFlags(updated)
   },
   delete(id: string): boolean {
     const db = getDb()

@@ -192,6 +192,7 @@ export async function streamWithRetry(
       thinking: opts.thinking,
       reasoning_effort: opts.reasoning_effort,
       apiStyle: provider.api_style,
+      headers: provider.headers,
     })
 
     for await (const chunk of gen) {

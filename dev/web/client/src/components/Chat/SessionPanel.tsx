@@ -3,14 +3,28 @@ import { useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
 import { openInFileManager } from '@/api/workspace'
 import { fetchSessionExport } from '@/api/sessions'
+import {
+  useSessionListPrefs,
+  isSessionUnread,
+  commitOrder,
+  toggleGroupPin,
+  orderSessionRows,
+} from '@/stores/sessionListPrefs'
 import FolderPicker from './FolderPicker'
 import type { Session } from '@/types'
 import type { I18nState } from '@/i18n'
 import { useI18n } from '@/i18n'
 import { motionLabelKey } from '@/features/character-presence/motion'
+import type { CharacterMotion } from '@/api/characters'
 import Icon from '@/features/icons/Icon'
 
 type T = I18nState['t']
+
+/** 视为「正在运行」的角色动作（这些状态下不显示未读点，动态点本身就是提示）。 */
+const ACTIVE_MOTIONS = new Set<CharacterMotion>(['listening', 'thinking', 'speaking', 'toolCalling', 'working'])
+
+/** 拖拽数据私有 MIME：避免误落到聊天输入框变成粘贴文本。 */
+const SESSION_DRAG_MIME = 'application/x-tianshu-session-id'
 
 function timeAgo(ts: number, t: T): string {
   const diff = Date.now() - ts
@@ -21,6 +35,25 @@ function timeAgo(ts: number, t: T): string {
   if (hours < 24) return t('{hours}小时前', { hours })
   const days = Math.floor(hours / 24)
   return t('{days}天前', { days })
+}
+
+/** 在显示序列中把 dragId 移到 targetId 前/后（同置顶分区的拖拽）。 */
+function moveInDisplayed<T>(
+  rows: readonly T[],
+  keyOf: (row: T) => string,
+  dragId: string,
+  targetId: string,
+  after: boolean,
+): T[] {
+  if (dragId === targetId) return [...rows]
+  const from = rows.findIndex(r => keyOf(r) === dragId)
+  const to = rows.findIndex(r => keyOf(r) === targetId)
+  if (from < 0 || to < 0) return [...rows]
+  const next = [...rows]
+  const [moved] = next.splice(from, 1)
+  const toIdx = next.findIndex(r => keyOf(r) === targetId)
+  next.splice(after ? toIdx + 1 : toIdx, 0, moved)
+  return next
 }
 
 interface ContextMenu {
@@ -37,23 +70,38 @@ interface ProjectContextMenu {
 
 export default function SessionPanel() {
   const t = useI18n()
+  const navigate = useNavigate()
+  // 头部：搜索框由放大镜按钮唤起，不常驻
+  const [searchOpen, setSearchOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const [exportTarget, setExportTarget] = useState<Session | null>(null)
   const [projectMenu, setProjectMenu] = useState<ProjectContextMenu | null>(null)
   const [showFolderPicker, setShowFolderPicker] = useState(false)
-  // 会话树折叠：有子会话的会话默认折叠，点箭头展开；expandedSessions 记录「用户手动展开」的会话（仅 UI 态）。
+  // 子会话树折叠：有子会话的会话默认折叠，点箭头展开（保留原设计）
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set())
-  const navigate = useNavigate()
+  // 归档案夹展开（每个工作区组一个）
+  const [openArchivedGroups, setOpenArchivedGroups] = useState<Set<string>>(() => new Set())
+  // 拖拽
+  const [dragRow, setDragRow] = useState<{ id: string; groupKey: string } | null>(null)
+  const [dropHint, setDropHint] = useState<{ id: string; after: boolean } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
   const {
     sessions, activeSessionId, sessionMotions,
     collapsedWorkspaces, toggleWorkspaceCollapse,
-    createSession, deleteSession, toggleSessionStar,
+    createSession, deleteSession, toggleSessionStar, toggleArchive,
     deleteProject,
-    isBatchMode, selectedSessionIds, toggleBatchMode, toggleSessionSelection,
     subAgentNotice,
   } = useChatStore()
+  const prefs = useSessionListPrefs()
+  const { pinnedGroups, order, setPrefs } = prefs
+
+  // 置顶会话集合（组内排序用）
+  const pinnedSet = useMemo(
+    () => new Set(sessions.filter(s => s.pinned).map(s => s.id)),
+    [sessions],
+  )
 
   // Close context menus on outside click
   useEffect(() => {
@@ -88,14 +136,29 @@ export default function SessionPanel() {
         sessions: sessions.sort((a, b) => b.updated_at - a.updated_at),
         collapsed: collapsedWorkspaces.has(name),
       }))
-      .sort((a, b) => a.name.localeCompare(b.name))
   }, [parentSessions, collapsedWorkspaces])
+
+  // 组排序：置顶组在前（按置顶顺序），其余按名称
+  const orderedGroups = useMemo(() => {
+    const groups = [...workspaceGroups]
+    groups.sort((a, b) => {
+      const pa = pinnedGroups.indexOf(a.name)
+      const pb = pinnedGroups.indexOf(b.name)
+      if (pa !== -1 || pb !== -1) {
+        if (pa === -1) return 1
+        if (pb === -1) return -1
+        return pa - pb
+      }
+      return a.name.localeCompare(b.name)
+    })
+    return groups
+  }, [workspaceGroups, pinnedGroups])
 
   // Filter by search
   const filteredGroups = useMemo(() => {
-    if (!search) return workspaceGroups
+    if (!search) return orderedGroups
     const q = search.toLowerCase()
-    return workspaceGroups
+    return orderedGroups
       .map(g => ({
         ...g,
         sessions: g.sessions.filter(s =>
@@ -104,13 +167,22 @@ export default function SessionPanel() {
         ),
       }))
       .filter(g => g.sessions.length > 0)
-  }, [workspaceGroups, search])
+  }, [orderedGroups, search])
 
   const filteredEvents = useMemo(() => {
     if (!search) return eventSessions
     const q = search.toLowerCase()
     return eventSessions.filter(s => s.title?.toLowerCase().includes(q))
   }, [eventSessions, search])
+
+  function toggleArchivedGroup(name: string) {
+    setOpenArchivedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
 
   // Get child sessions for a parent
   function getChildren(parentId: string): Session[] {
@@ -217,55 +289,114 @@ export default function SessionPanel() {
   }
 
   function handleTogglePin(session: Session) {
-    toggleSessionStar(session.id)
+    void toggleSessionStar(session.id)
     setContextMenu(null)
   }
 
-  function renderSessionItem(session: Session, isChild = false) {
+  function handleToggleArchive(session: Session) {
+    void toggleArchive(session.id)
+    setContextMenu(null)
+  }
+
+  /** 拖拽 props：仅根会话、非归档、非搜索态下开启。 */
+  function rowDragProps(session: Session, groupKey: string, ordered: Session[]) {
+    const isChild = !!session.parent_id
+    if (isChild || session.archived || !!search) return {}
+    return {
+      draggable: true,
+      onDragStart: (e: React.DragEvent) => {
+        e.dataTransfer.setData(SESSION_DRAG_MIME, session.id)
+        e.dataTransfer.effectAllowed = 'move'
+        setDragRow({ id: session.id, groupKey })
+      },
+      onDragEnd: () => { setDragRow(null); setDropHint(null) },
+      onDragOver: (e: React.DragEvent) => {
+        const d = dragRow
+        if (!d || d.id === session.id || d.groupKey !== groupKey) return
+        if (pinnedSet.has(session.id) !== pinnedSet.has(d.id)) return
+        e.preventDefault()
+        const rect = e.currentTarget.getBoundingClientRect()
+        const after = e.clientY - rect.top > rect.height / 2
+        setDropHint(h => (h?.id === session.id && h.after === after) ? h : { id: session.id, after })
+      },
+      onDragLeave: () => setDropHint(h => (h?.id === session.id ? null : h)),
+      onDrop: (e: React.DragEvent) => {
+        const d = dragRow
+        if (!d || d.id === session.id || d.groupKey !== groupKey) return
+        if (pinnedSet.has(session.id) !== pinnedSet.has(d.id)) return
+        e.preventDefault()
+        const rect = e.currentTarget.getBoundingClientRect()
+        const after = e.clientY - rect.top > rect.height / 2
+        const next = moveInDisplayed(ordered, s => s.id, d.id, session.id, after)
+        setPrefs(commitOrder(prefs, groupKey, next.map(s => s.id)))
+        setDragRow(null)
+        setDropHint(null)
+      },
+      dropEdge: dropHint?.id === session.id ? (dropHint.after ? 'below' : 'above') : null,
+    }
+  }
+
+  function renderSessionItem(session: Session, isChild = false, groupKey?: string, ordered?: Session[]) {
     const isActive = session.id === activeSessionId
-    const isSelected = selectedSessionIds.has(session.id)
     const children = getChildren(session.id)
     const hasChildren = children.length > 0
     const isCollapsed = hasChildren && !expandedSessions.has(session.id)
     const motion = sessionMotions[session.id] || 'idle'
     const motionLabel = t(motionLabelKey(motion))
+    const isRunning = ACTIVE_MOTIONS.has(motion)
+    const unread = !session.archived &&
+      session.id !== activeSessionId &&
+      !isRunning &&
+      isSessionUnread(prefs, session.id, session.updated_at)
+    const drag = groupKey && ordered ? rowDragProps(session, groupKey, ordered) : {}
 
     return (
       <div key={session.id}>
         <div
-          className={`session-item ${isActive ? 'active' : ''} ${isChild ? 'subsession-item' : ''} ${subAgentNotice?.sub_session_id === session.id ? 'subagent-new' : ''}`}
-          onClick={() => {
-            if (isBatchMode) {
-              toggleSessionSelection(session.id)
-            } else {
-              navigate(`/chat/${session.id}`)
-            }
-          }}
-          onContextMenu={e => handleContextMenu(e, session)}
+          className={`session-item ${isActive ? 'active' : ''} ${isChild ? 'subsession-item' : ''} ${session.archived ? 'archived' : ''} ${subAgentNotice?.sub_session_id === session.id ? 'subagent-new' : ''} ${drag.dropEdge === 'above' ? 'drop-above' : drag.dropEdge === 'below' ? 'drop-below' : ''}`}
         >
-          {isBatchMode && (
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => toggleSessionSelection(session.id)}
-              style={{ marginRight: 6 }}
-            />
-          )}
           <div
-            className={`session-dot motion-${motion}`}
-            title={motionLabel}
-            aria-label={motionLabel}
-          ></div>
-          <div className="session-info">
-            <div className="session-title">
-              {session.pinned && <span style={{ marginRight: 4, display: 'inline-flex' }}><Icon name="pin" size={12} ariaHidden /></span>}
-              {session.title || t('新会话')}
+            className="session-main"
+            onClick={() => navigate(`/chat/${session.id}`)}
+            onContextMenu={e => handleContextMenu(e, session)}
+            {...drag}
+          >
+            <div
+              className={`session-dot motion-${motion}`}
+              title={motionLabel}
+              aria-label={motionLabel}
+            ></div>
+            <div className="session-title-row">
+              <span className="session-title">
+                {session.pinned && <span style={{ marginRight: 4, display: 'inline-flex' }}><Icon name="pin" size={12} ariaHidden /></span>}
+                {session.title || t('新会话')}
+              </span>
+              {unread && <span className="session-unread-dot" title={t('有未读消息')}></span>}
             </div>
-            <div className="session-meta">
-              <span>{timeAgo(session.updated_at, t)}</span>
-              {session.current_strategy && (
-                <span className="session-badge">{t(session.current_strategy)}</span>
+            <div className="session-trailing">
+              {!session.archived && (
+                <span className="session-time">{timeAgo(session.updated_at, t)}</span>
               )}
+              <span className="session-hover-actions">
+                <button
+                  type="button"
+                  className="row-icon-btn"
+                  title={session.archived ? t('取消归档会话') : t('归档会话')}
+                  aria-label={session.archived ? t('取消归档会话') : t('归档会话')}
+                  onClick={e => { e.stopPropagation(); handleToggleArchive(session) }}
+                >
+                  <Icon name="archived" size={13} ariaHidden />
+                </button>
+                <button
+                  type="button"
+                  className="row-icon-btn"
+                  title={t('更多操作')}
+                  aria-label={t('更多操作')}
+                  onClick={e => { e.stopPropagation(); handleContextMenu(e, session) }}
+                >
+                  <Icon name="more" size={14} ariaHidden />
+                </button>
+              </span>
             </div>
           </div>
           {hasChildren && (
@@ -294,47 +425,104 @@ export default function SessionPanel() {
       <div className="ctx-header">
         <span className="ctx-title">{t('会话')}</span>
         <div className="ctx-actions">
-          <button onClick={toggleBatchMode} title={isBatchMode ? t('退出批量') : t('批量操作')}>
-            <Icon name={isBatchMode ? 'close' : 'menu'} size={14} ariaHidden />
+          <button
+            type="button"
+            className={`ctx-icon-btn ${searchOpen ? 'active' : ''}`}
+            onClick={() => setSearchOpen(o => !o)}
+            title={t('搜索会话')}
+            aria-label={t('搜索会话')}
+          >
+            <Icon name="search" size={14} ariaHidden />
+          </button>
+          <button
+            type="button"
+            className="ctx-icon-btn"
+            onClick={handleNewSession}
+            title={t('新建项目')}
+            aria-label={t('新建项目')}
+          >
+            <Icon name="add" size={15} ariaHidden />
           </button>
         </div>
       </div>
-      <div className="ctx-search">
-        <input
-          placeholder={t('搜索会话...')}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
-      <div className="add-btn" onClick={handleNewSession}>+ {t('新建项目')}</div>
+      {searchOpen && (
+        <div className="ctx-search">
+          <input
+            placeholder={t('搜索会话...')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoFocus
+          />
+        </div>
+      )}
       <div className="ctx-body">
-        {filteredGroups.map(group => (
-          <div key={group.name} className="project-item">
-            <div
-              className={`project-header ${!group.collapsed ? 'active' : ''}`}
-              onClick={() => toggleWorkspaceCollapse(group.name)}
-              onContextMenu={e => handleProjectContextMenu(e, group.name)}
-            >
-              <span className="project-icon"><Icon name="folder" size={14} ariaHidden /></span>
-              <span className="project-name">{group.name === 'default' ? t('默认') : group.name.split(/[/\\\\]/).pop() || group.name}</span>
-              <button
-                type="button"
-                className="project-add-btn"
-                title={t('在「{name}」中新建会话', { name: group.name === 'default' ? t('默认') : group.name.split(/[/\\]/).pop() || group.name })}
-                aria-label={t('在项目 {name} 中新建会话', { name: group.name })}
-                onClick={event => handleNewSessionInWorkspace(event, group.name)}
+        {filteredGroups.map(group => {
+          const searching = !!search
+          const collapsed = searching ? false : group.collapsed
+          const activeRoots = group.sessions.filter(s => !s.archived)
+          const archivedRoots = group.sessions.filter(s => s.archived)
+          const ordered = orderSessionRows(activeRoots, s => s.id, {
+            pinned: pinnedSet,
+            order: order[group.name] ?? [],
+            recencyOf: s => s.updated_at,
+          })
+          const archivedSorted = [...archivedRoots].sort((a, b) => b.updated_at - a.updated_at)
+          const groupPinned = pinnedGroups.includes(group.name)
+          const archivedOpen = openArchivedGroups.has(group.name)
+          return (
+            <div key={group.name} className="project-item">
+              <div
+                className={`project-header ${!collapsed ? 'active' : ''}`}
+                onClick={() => toggleWorkspaceCollapse(group.name)}
+                onContextMenu={e => handleProjectContextMenu(e, group.name)}
               >
-                +
-              </button>
-              <span className={`project-arrow ${!group.collapsed ? 'open' : ''}`}>▶</span>
-            </div>
-            {!group.collapsed && (
-              <div className="project-children">
-                {group.sessions.map(s => renderSessionItem(s))}
+                <span className="project-icon"><Icon name={collapsed ? 'folder' : 'folder-open'} size={14} ariaHidden /></span>
+                <span className="project-name">{group.name === 'default' ? t('默认') : group.name.split(/[/\\]/).pop() || group.name}</span>
+                <span className="project-count">{group.sessions.length}</span>
+                <button
+                  type="button"
+                  className={`header-icon-btn ${groupPinned ? 'on' : ''}`}
+                  title={groupPinned ? t('取消置顶') : t('置顶')}
+                  aria-label={groupPinned ? t('取消置顶') : t('置顶')}
+                  onClick={e => {
+                    e.stopPropagation()
+                    setPrefs(toggleGroupPin(prefs, group.name))
+                  }}
+                >
+                  <Icon name="pin" size={12} ariaHidden />
+                </button>
+                <button
+                  type="button"
+                  className="header-icon-btn add"
+                  title={t('在「{name}」中新建会话', { name: group.name === 'default' ? t('默认') : group.name.split(/[/\\]/).pop() || group.name })}
+                  aria-label={t('在项目 {name} 中新建会话', { name: group.name })}
+                  onClick={event => handleNewSessionInWorkspace(event, group.name)}
+                >
+                  <Icon name="add" size={13} ariaHidden />
+                </button>
+                <span className={`project-arrow ${!collapsed ? 'open' : ''}`}>▶</span>
               </div>
-            )}
-          </div>
-        ))}
+              {!collapsed && (
+                <div className="project-children">
+                  {ordered.map(s => renderSessionItem(s, false, group.name, ordered))}
+                  {archivedSorted.length > 0 && (
+                    <div className="archive-folder">
+                      <button
+                        type="button"
+                        className="archive-folder-toggle"
+                        onClick={() => toggleArchivedGroup(group.name)}
+                      >
+                        <span className={`archive-chevron ${archivedOpen ? 'open' : ''}`}>▶</span>
+                        {t('已归档 ({count})', { count: archivedSorted.length })}
+                      </button>
+                      {archivedOpen && archivedSorted.map(s => renderSessionItem(s, false))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
 
         {filteredEvents.length > 0 && (
           <>
@@ -371,14 +559,21 @@ export default function SessionPanel() {
           }}
           onClick={e => e.stopPropagation()}
         >
-          <ContextMenuItem
-            icon={contextMenu.session.pinned ? 'pin' : 'pin'}
-            label={contextMenu.session.pinned ? t('取消收藏') : t('收藏')}
-            onClick={() => handleTogglePin(contextMenu.session)}
-          />
+          {!contextMenu.session.archived && (
+            <ContextMenuItem
+              icon="pin"
+              label={contextMenu.session.pinned ? t('取消置顶') : t('置顶')}
+              onClick={() => handleTogglePin(contextMenu.session)}
+            />
+          )}
           <ContextMenuItem icon="copy" label={t('复制 ID')} onClick={() => handleCopyId(contextMenu.session)} />
           <ContextMenuItem icon="export" label={t('导出')} onClick={() => handleExport(contextMenu.session)} />
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+          <ContextMenuItem
+            icon="archived"
+            label={contextMenu.session.archived ? t('取消归档会话') : t('归档会话')}
+            onClick={() => handleToggleArchive(contextMenu.session)}
+          />
           <ContextMenuItem icon="delete" label={t('删除')} danger onClick={() => handleDelete(contextMenu.session)} />
         </div>
       )}

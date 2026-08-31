@@ -1,33 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useProvidersStore } from '@/stores/providersStore'
-import { testProvider } from '@/api/providers'
 import { fetchDefaultPrompt, saveDefaultPrompt } from '@/api/prompts'
 import { fetchDataDir, saveDataDir, reloadDataDir, reimportBuiltin, fetchRtk, saveRtk, installRtk, updateRtk } from '@/api/config'
 import { fetchEvolutionConfig, saveEvolutionConfig, clearEvolutionConfig, type EvolutionConfig } from '@/api/evolution'
 import { fetchCharacters } from '@/api/characters'
-import type { Provider, Character } from '@/types'
+import type { Character } from '@/types'
 import type { DesktopServerStatus } from '../../../../shared/desktop-contract.js'
 import UpdatePanel from '@/features/update/UpdatePanel'
-import AddProviderDialog from '@/components/AddProviderDialog'
-import EditProviderDialog from '@/components/EditProviderDialog'
-import ModelCompactDialog from '@/components/ModelCompactDialog'
+import ModelLibrarySection from '@/components/ModelLibrarySection'
 
-/** Parse a hand-entered context value like "128k", "1m" or "200000". */
-function parseContextOverride(raw: string): number | null {
-  const s = raw.trim().toLowerCase()
-  if (!s) return null
-  if (s.endsWith('k')) { const n = parseFloat(s.slice(0, -1)); return Number.isFinite(n) && n > 0 ? Math.round(n * 1000) : null }
-  if (s.endsWith('m')) { const n = parseFloat(s.slice(0, -1)); return Number.isFinite(n) && n > 0 ? Math.round(n * 1000_000) : null }
-  const n = parseInt(s, 10)
-  return Number.isFinite(n) && n > 0 ? n : null
-}
-
-function formatContext(tokens?: number): string {
-  if (!tokens || tokens <= 0) return ''
-  if (tokens >= 1000000) return (tokens / 1000000).toFixed(tokens % 1000000 ? 1 : 0) + 'm'
-  if (tokens >= 1000) return (tokens / 1000).toFixed(tokens % 1000 ? 1 : 0) + 'k'
-  return String(tokens)
-}
 import SystemRunPolicySettings from '@/features/run-policy/SystemRunPolicySettings'
 import ThemeSelector from '@/features/theme/ThemeSelector'
 import ThemeStudio from '@/features/theme/ThemeStudio'
@@ -60,13 +41,7 @@ const saveLs = (key: string, value: string | boolean | number) => localStorage.s
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('provider')
-  const { providers, loading, load, update, remove, fetchModels } = useProvidersStore()
-  const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
-  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
-  const [testing, setTesting] = useState<Record<string, boolean>>({})
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [editTarget, setEditTarget] = useState<Provider | null>(null)
-  const [compactTarget, setCompactTarget] = useState<{ provider: Provider; modelId: string } | null>(null)
+  const { providers, load } = useProvidersStore()
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
   // ── 显示设置 ──
@@ -337,76 +312,6 @@ export default function SettingsPage() {
     showToast(t('显示设置已恢复默认'))
   }
 
-  // ── Provider handlers ──
-  const loadModels = async (providerId: string) => {
-    setLoadingModels(prev => ({ ...prev, [providerId]: true }))
-    try {
-      await fetchModels(providerId)
-      showToast(t('模型列表已刷新'))
-    } catch (err: any) {
-      showToast(`${t('获取模型失败')}: ${err.message || t('网络错误')}`, 'err')
-    } finally {
-      setLoadingModels(prev => ({ ...prev, [providerId]: false }))
-    }
-  }
-
-  const handleTest = async (providerId: string) => {
-    setTesting(prev => ({ ...prev, [providerId]: true }))
-    setTestResult(prev => ({ ...prev, [providerId]: { ok: false, msg: t('测试中...') } }))
-    try {
-      const res = await testProvider(providerId)
-      setTestResult(prev => ({
-        ...prev,
-        [providerId]: res.ok
-          ? {
-              ok: true,
-              msg: `${t('连通')} (${res.status})` + (res.protocols
-                ? ` · ${t('协议')}: ${res.protocols.responses ? 'Chat + Responses' : 'Chat'}`
-                : ''),
-            }
-          : { ok: false, msg: res.error || t('连接失败') },
-      }))
-    } catch (e: any) {
-      setTestResult(prev => ({ ...prev, [providerId]: { ok: false, msg: e.message || t('请求失败') } }))
-    } finally {
-      setTesting(prev => ({ ...prev, [providerId]: false }))
-    }
-  }
-
-  const handleDelete = async (providerId: string) => {
-    try { await remove(providerId); showToast(t('已删除')) } catch { showToast(t('删除失败'), 'err') }
-  }
-
-  const isModelEnabled = (provider: Provider, modelId: string) => {
-    const model = provider.models?.find((m: any) => m.id === modelId)
-    return model ? (model as any).enabled !== false : true
-  }
-
-  const toggleModel = async (provider: Provider, modelId: string) => {
-    const models = [...(provider.models || [])]
-    const model = models.find((m: any) => m.id === modelId) as any
-    if (model) {
-      model.enabled = model.enabled === false ? true : false
-      try { await update(provider.id, { models }) } catch {}
-    }
-  }
-
-  const handleModelApiStyle = async (provider: Provider, modelId: string, apiStyle: string) => {
-    const models = (provider.models || []).map((m: any) =>
-      m.id === modelId ? { ...m, api_style: apiStyle } : m
-    )
-    try { await update(provider.id, { models }); showToast(t('已保存')) } catch { showToast(t('保存失败'), 'err') }
-  }
-
-  const handleContextOverride = async (provider: Provider, modelId: string, raw: string) => {
-    const parsed = parseContextOverride(raw)
-    if (parsed == null) { showToast(t('上下文格式无效'), 'err'); return }
-    const models = (provider.models || []).map((m: any) =>
-      m.id === modelId ? { ...m, context_window: parsed, context_window_overridden: true } : m
-    )
-    try { await update(provider.id, { models }); showToast(t('已保存')) } catch { showToast(t('保存失败'), 'err') }
-  }
-
   // ── 保存 handlers ──
   const handleSavePrompt = async () => {
     try { await saveDefaultPrompt(defaultPrompt); setPromptDirty(false); showToast(t('默认提示词已保存')) }
@@ -483,123 +388,8 @@ export default function SettingsPage() {
 
         {/* 模型服务 */}
         <div className="tab-page" style={{display: activeTab === 'provider' ? 'block' : 'none'}}>
-          <div className="settings-section">
-            <div className="section-title">{t('模型服务')}</div>
-            <div className="section-desc">{t('配置 LLM 模型服务提供商，管理 API 密钥和可用模型。')}</div>
-
-            {loading ? (
-              <div style={{textAlign:'center',padding:'40px',color:'var(--ink-faint)'}}>{t('加载中...')}</div>
-            ) : (
-              providers.map(provider => (
-                <div key={provider.id} className="provider-card">
-                  <div className="provider-header">
-                    <span className="provider-name">{provider.name}</span>
-                    <span className={`provider-badge ${provider.is_builtin ? 'builtin' : 'custom'}`}>
-                      {provider.is_builtin ? t('内置') : t('自定义')}
-                    </span>
-                    {testResult[provider.id] && (
-                      <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:testResult[provider.id].ok ? 'var(--jade)' : 'var(--cinnabar)',marginLeft:4}}>
-                        {testResult[provider.id].msg}
-                      </span>
-                    )}
-                    <button
-                      className="btn sm"
-                      onClick={() => handleTest(provider.id)}
-                      disabled={testing[provider.id]}
-                    >
-                      {testing[provider.id] ? t('测试中...') : t('测试联通')}
-                    </button>
-                    <button 
-                      className="btn sm" 
-                      onClick={() => loadModels(provider.id)}
-                      disabled={loadingModels[provider.id]}
-                    >
-                      {loadingModels[provider.id] ? t('加载中...') : t('刷新模型')}
-                    </button>
-                    <button className="btn sm" onClick={() => setEditTarget(provider)}>{t('编辑')}</button>
-                    <button className="btn sm danger" onClick={() => handleDelete(provider.id)}>{t('删除')}</button>
-                  </div>
-                  <div className="provider-url">{provider.base_url}</div>
-                  {provider.api_key && (
-                    <div className="provider-key">
-                      API Key: {'•'.repeat(Math.min(provider.api_key.length, 32))}
-                    </div>
-                  )}
-                  <div className="model-list">
-                    {provider.models?.map(model => {
-                      const on = isModelEnabled(provider, model.id)
-                      return (
-                        <div key={model.id} className="model-item" onClick={() => toggleModel(provider, model.id)}>
-                          <div className={`toggle ${on ? 'on' : ''}`} style={{flexShrink:0}} />
-                          <span className="model-item-name">{model.name || model.id}</span>
-                          <input
-                            key={`ctx-${model.id}-${model.context_window}`}
-                            type="text"
-                            defaultValue={formatContext(model.context_window)}
-                            placeholder={model.context_window ? undefined : t('上下文')}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => e.stopPropagation()}
-                            onKeyDown={e => {
-                              e.stopPropagation()
-                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                            }}
-                            onBlur={e => handleContextOverride(provider, model.id, e.target.value)}
-                            className="model-item-ctx-input"
-                            title={t('上下文窗口（可手动覆盖，如 128k / 1m）')}
-                            style={{width:52,marginLeft:6,fontSize:'calc(11px * var(--ui-font-scale))',padding:'1px 4px',textAlign:'right'}}
-                          />
-                          <select
-                            value={(model as any).api_style || 'auto'}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => handleModelApiStyle(provider, model.id, e.target.value)}
-                            className="io-select"
-                            title={t('API 协议')}
-                            style={{marginLeft:8,width:76,fontSize:'calc(11px * var(--ui-font-scale))',padding:'1px 2px'}}
-                          >
-                            <option value="auto">{t('自动')}</option>
-                            <option value="chat_completions">Chat</option>
-                            <option value="responses">Resp</option>
-                          </select>
-                          <button
-                            onClick={e => { e.stopPropagation(); setCompactTarget({ provider, modelId: model.id }) }}
-                            title={t('压缩策略')}
-                            style={{marginLeft:8,background:'none',border:'none',cursor:'pointer',color:'var(--ink-light)',fontSize:'calc(13px * var(--ui-font-scale))',padding:'0 2px',flexShrink:0}}
-                          >
-                            ⚙
-                          </button>
-                          {(model as any).compact_threshold_ratio != null || (model as any).compact_retain_ratio != null || (model as any).compact_snip_ratio != null || (model as any).compact_provider != null || (model as any).compact_model != null ? (
-                            <span style={{width:6,height:6,borderRadius:3,background:'var(--jade)',marginLeft:6,flexShrink:0}} />
-                          ) : null}
-                        </div>
-                      )
-                    }) || (
-                      <span style={{fontSize: 'calc(11px * var(--ui-font-scale))',color:'var(--ink-faint)'}}>
-                        {t('点击"刷新模型"加载模型列表')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-
-            <button className="btn primary" style={{marginTop:8}} onClick={() => setShowAddModal(true)}>+ {t('添加服务')}</button>
-          </div>
+          <ModelLibrarySection />
         </div>
-
-        {/* 添加服务弹窗 */}
-        {showAddModal && (
-          <AddProviderDialog onClose={() => setShowAddModal(false)} />
-        )}
-
-        {/* 编辑服务弹窗 */}
-        {editTarget && (
-          <EditProviderDialog provider={editTarget} onClose={() => setEditTarget(null)} />
-        )}
-
-        {/* 压缩策略弹窗 */}
-        {compactTarget && (
-          <ModelCompactDialog provider={compactTarget.provider} modelId={compactTarget.modelId} onClose={() => setCompactTarget(null)} />
-        )}
 
         {/* 系统 */}
         <div className="tab-page" style={{display: activeTab === 'system' ? 'block' : 'none'}}>

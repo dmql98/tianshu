@@ -36,6 +36,10 @@ export interface SessionSummary {
   cache_hit_ratio?: string | null
   compaction_summary?: string | null
   compaction_until_id?: number | null
+  /** 置顶（服务端持久化，v2 会话列表）。 */
+  pinned?: boolean
+  /** 归档（服务端持久化，v2 会话列表）。 */
+  archived?: boolean
   created_at: number
   updated_at: number
 }

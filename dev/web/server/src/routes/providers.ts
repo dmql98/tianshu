@@ -127,7 +127,7 @@ router.post('/:id/test', async (c) => {
       try {
         const { probeResponsesApi } = await import('../llm/client.js')
         const sample = provider.models?.[0]?.id
-        if (sample) protocols.responses = await probeResponsesApi(provider.base_url, provider.api_key || '', sample)
+        if (sample) protocols.responses = await probeResponsesApi(provider.base_url, provider.api_key || '', sample, provider.headers)
       } catch {
         /* protocol probe is best-effort */
       }

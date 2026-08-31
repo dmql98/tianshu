@@ -387,6 +387,7 @@ async function llmSummarize(
     for await (const chunk of streamChatCompletion({
       baseUrl: target.provider.base_url, apiKey: target.provider.api_key, model: target.model,
       apiStyle: target.provider.api_style,
+      headers: target.provider.headers,
       messages,
       tools: opts?.tools,
       // P1-5: 摘要输出上限，防摘要无限膨胀。

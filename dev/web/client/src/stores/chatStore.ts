@@ -4,6 +4,7 @@ import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { getEventBus } from '@/api/eventBus'
 import { useProvidersStore } from './providersStore'
+import { useSessionListPrefs, forgetSessionSeen, removeSessionFromOrder } from './sessionListPrefs'
 import type { CharacterMotion } from '@/api/characters'
 import { motionForRunEvent } from '@/features/character-presence/motion'
 
@@ -274,7 +275,8 @@ interface ChatState {
   renameSession: (id: string, title: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
   resetToMessage: (sessionId: string, messageId: string) => Promise<void>
-  toggleSessionStar: (id: string) => void
+  toggleSessionStar: (id: string) => Promise<void>
+  toggleArchive: (id: string) => Promise<void>
 
   // Messages
   sendMessage: (input: string) => Promise<void>
@@ -1383,6 +1385,8 @@ export const useChatStore = create<ChatState>((set, get) => {
           return {
             ...s,
             current_strategy: normalizeStrategy(s.current_strategy),
+            pinned: !!s.pinned,
+            archived: !!s.archived,
             messages: existing?.messages || [],
             workspaces: s.workspaces ? JSON.parse(s.workspaces as string) : undefined,
             context_usage: existing?.context_usage ?? s.context_usage ?? undefined,
@@ -1596,6 +1600,16 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     deleteSession: async (id: string) => {
       const state = get()
+      // 清理本地列表偏好（未读标记 / 手动排序中的 id）
+      const prefsStore = useSessionListPrefs.getState()
+      let prefs = {
+        seededAt: prefsStore.seededAt,
+        seen: prefsStore.seen,
+        pinnedGroups: prefsStore.pinnedGroups,
+        order: prefsStore.order,
+      }
+      prefs = removeSessionFromOrder(forgetSessionSeen(prefs, id), id)
+      prefsStore.setPrefs(prefs)
       // Delete children too
       const children = state.sessions.filter(s => s.parent_id === id)
       const childIds = children.map(c => c.id)
@@ -1629,12 +1643,26 @@ export const useChatStore = create<ChatState>((set, get) => {
       try { await sessionsApi.keepMessages(sessionId, idx + 1) } catch { /* best-effort */ }
     },
 
-    toggleSessionStar: (id: string) => {
+    toggleSessionStar: async (id: string) => {
+      const target = get().sessions.find(s => s.id === id)
+      const next = !target?.pinned
       set(state => ({
         sessions: state.sessions.map(s =>
-          s.id === id ? { ...s, pinned: !s.pinned } : s
+          s.id === id ? { ...s, pinned: next } : s
         ),
       }))
+      try { await sessionsApi.updateSession(id, { pinned: next }) } catch { /* 失败：下次 loadSessions 自愈 */ }
+    },
+
+    toggleArchive: async (id: string) => {
+      const target = get().sessions.find(s => s.id === id)
+      const next = !target?.archived
+      set(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === id ? { ...s, archived: next } : s
+        ),
+      }))
+      try { await sessionsApi.updateSession(id, { archived: next }) } catch { /* 失败：下次 loadSessions 自愈 */ }
     },
 
     // ── Message Actions ──

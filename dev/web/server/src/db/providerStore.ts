@@ -25,6 +25,8 @@ export interface ProviderRecord {
   id: string; name: string; base_url: string; api_key: string
   models: ModelInfo[]
   enabled_models?: string[]
+  /** 附加请求头（provider 级自定义，如 opencode 免费档客户端指纹头）。 */
+  headers?: Record<string, string>
   is_builtin?: boolean
   envKey?: string
   has_api_key?: boolean

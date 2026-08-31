@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型服务 Demo — 学 penguin 模型库界面</title>
+<style>
+  /* ====== 复用天枢设计令牌（浅色默认 tianshu-light）====== */
+  :root{
+    --ui-font-scale:1;
+    --theme-canvas:#f5f0e8;--theme-surface-1:#ede6da;--theme-surface-2:#e0d8cc;--theme-surface-hover:#e0d8cc;
+    --theme-input:#faf8f4;--theme-border:rgba(180,160,130,0.15);--theme-border-subtle:rgba(180,160,130,0.08);
+    --theme-text-primary:#2c2418;--theme-text-secondary:#5c5040;--theme-text-muted:#8a7d68;--theme-text-faint:#b8a890;
+    --theme-accent:#c8960a;--theme-accent-hover:#b08508;--theme-accent-soft:rgba(200,150,10,0.1);
+    --theme-success:#2a9d5c;--theme-warning:#d97706;--theme-danger:#c45c3c;--theme-info:#2563eb;
+    --bg-main:var(--theme-canvas);--bg-card:var(--theme-surface-1);--bg-hover:var(--theme-surface-hover);--bg-input:var(--theme-input);
+    --border:var(--theme-border);--border-light:var(--theme-border-subtle);
+    --gold:var(--theme-accent);--gold-soft:var(--theme-accent-soft);--gold-mist:color-mix(in srgb,var(--theme-accent) 6%,transparent);
+    --jade:var(--theme-success);--cinnabar:var(--theme-danger);--blue:var(--theme-info);
+    --ink-deep:var(--theme-text-primary);--ink-mid:var(--theme-text-secondary);--ink-light:var(--theme-text-muted);--ink-faint:var(--theme-text-faint);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--ui-font-family);background:var(--bg-main);
+    color:var(--ink-deep);padding:24px;min-height:100vh;
+  }
+  .demo-note{
+    max-width:960px;margin:0 auto 20px;padding:12px 16px;border-radius:10px;
+    background:var(--gold-mist);border:1px solid var(--gold-border,#0000);
+    color:var(--ink-mid);font-size:calc(13px * var(--ui-font-scale));
+  }
+  .demo-note b{color:var(--gold)}
+
+  .wrap{max-width:960px;margin:0 auto}
+
+  /* ====== 页面头（标题 + 搜索 + 同步按钮）—— 同 penguin ====== */
+  .page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .page-title{font-size:calc(20px * var(--ui-font-scale));font-weight:600;color:var(--ink-deep)}
+  .page-tools{display:flex;align-items:center;gap:8px}
+  .search-box{
+    width:220px;padding:7px 12px;border-radius:8px;border:1px solid var(--border);
+    background:var(--bg-input);color:var(--ink-deep);font-size:calc(13px * var(--ui-font-scale));
+    font-family:inherit;outline:none;transition:border-color .15s;
+  }
+  .search-box:focus{border-color:var(--gold)}
+  .search-box::placeholder{color:var(--ink-faint)}
+  .btn{
+    padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);
+    color:var(--ink-mid);font-size:calc(13px * var(--ui-font-scale));font-family:inherit;
+    cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn:hover{background:var(--bg-hover);color:var(--ink-deep)}
+  .btn.primary{background:var(--gold);border-color:var(--gold);color:var(--theme-text-on-accent,#fff);font-weight:600}
+  .btn.primary:hover{background:var(--theme-accent-hover)}
+  .btn.ghost{background:transparent;border-color:transparent}
+  .btn.ghost:hover{background:var(--bg-hover)}
+  .btn.danger:hover{color:var(--cinnabar);border-color:color-mix(in srgb,var(--cinnabar) 30%,transparent)}
+  .btn.sm{padding:4px 10px;font-size:calc(12px * var(--ui-font-scale));border-radius:6px}
+
+  /* ====== 分组（penguin 模型库核心：折叠组 + 卡片网格）====== */
+  .group{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+    margin-bottom:12px;overflow:hidden;
+  }
+  .group-head{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;
+    background:color-mix(in srgb,var(--theme-surface-2) 40%,transparent);
+    cursor:pointer;user-select:none;transition:background .15s;
+  }
+  .group-head:hover{background:var(--bg-hover)}
+  .provider-logo{
+    width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-size:calc(14px * var(--ui-font-scale));font-weight:700;color:var(--ink-mid);
+  }
+  .provider-logo img{width:22px;height:22px;object-fit:contain}
+  .group-name{font-size:calc(14px * var(--ui-font-scale));font-weight:600;color:var(--ink-deep);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .group-count{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-faint);font-family:monospace;flex-shrink:0}
+  .group-actions{display:flex;align-items:center;gap:2px;flex-shrink:0}
+  .group-actions .btn{color:var(--ink-light)}
+  .group-actions .btn:hover{color:var(--ink-deep);background:var(--bg-hover)}
+  .chevron{flex-shrink:0;width:14px;height:14px;transition:transform .2s;color:var(--ink-faint)}
+  .chevron.open{transform:rotate(90deg)}
+  .group-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease-out}
+  .group.open .group-body{grid-template-rows:1fr}
+  .group-body-inner{overflow:hidden}
+  .card-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;
+    padding:10px;border-top:1px solid var(--border-light);opacity:0;transition:opacity .2s;
+    transition-delay:.05s;
+  }
+  .group.open .card-grid{opacity:1}
+
+  /* ====== 模型卡片（penguin 风格 + 天枢压缩/协议功能）====== */
+  .model-card{
+    border:1px solid var(--border-light);border-radius:10px;background:var(--bg-input);
+    padding:10px 12px;text-align:left;font-family:inherit;cursor:pointer;
+    transition:border-color .15s,box-shadow .15s,transform .15s;position:relative;
+  }
+  .model-card:hover{border-color:var(--gold);box-shadow:0 2px 8px var(--theme-shadow-color,rgba(44,36,24,.15));transform:translateY(-1px)}
+  .model-card .card-title-row{display:flex;align-items:center;gap:6px}
+  .model-card .card-name{font-weight:600;font-size:calc(13px * var(--ui-font-scale));color:var(--ink-deep);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .model-card .card-switch{flex-shrink:0;margin-left:auto}
+  /* 启用开关（天枢功能保留） */
+  .toggle{width:30px;height:16px;border-radius:9px;background:var(--border);position:relative;cursor:pointer;transition:background .15s;flex-shrink:0}
+  .toggle::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .toggle.on{background:var(--gold)}
+  .toggle.on::after{transform:translateX(14px)}
+  /* 徽标行（penguin 特有：默认 / 视觉 / 快速 / 压缩 / 免费等） */
+  .card-tags{display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;min-height:20px}
+  .tag{font-size:calc(10px * var(--ui-font-scale));padding:1px 7px;border-radius:10px;font-weight:500;white-space:nowrap}
+  .tag.status{background:var(--gold-soft);color:var(--gold)}
+  .tag.capability{background:var(--gold-mist);color:var(--ink-mid);border:1px solid var(--border-light)}
+  .tag.price{background:var(--theme-accent-soft);color:var(--theme-warning,#d97706)}
+  .tag.compact{background:color-mix(in srgb,var(--jade) 12%,transparent);color:var(--jade)}
+  .tag.image{background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--blue)}
+  /* 元信息单行（penguin：上下文 / 价格 / 协议 / Key 状态） */
+  .card-meta{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-light);font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);flex-wrap:wrap}
+  .card-meta .mono{font-family:monospace}
+  .card-meta .key-ok{color:var(--jade)}
+  .card-meta .key-missing{color:var(--cinnabar)}
+  .card-meta .ctx{color:var(--ink-mid)}
+  /* 天枢特有：压缩标记 / 协议选择（卡片一角） */
+  .protocol-select{
+    font-size:calc(10px * var(--ui-font-scale));padding:0 4px;border:1px solid var(--border);
+    border-radius:4px;background:var(--bg-input);color:var(--ink-mid);outline:none;font-family:inherit;
+  }
+  .protocol-select:focus{border-color:var(--gold)}
+  .card-compact-gear{cursor:pointer;color:var(--ink-light);font-size:calc(12px * var(--ui-font-scale));flex-shrink:0;background:none;border:none;padding:0 2px}
+  .card-compact-gear:hover{color:var(--gold)}
+  .compact-dot{width:6px;height:6px;border-radius:3px;background:var(--jade);flex-shrink:0;display:inline-block}
+
+  /* ====== 空分组提示 & 添加分组（penguin 虚线框）====== */
+  .group-empty{padding:12px;text-align:center;font-size:calc(12px * var(--ui-font-scale));color:var(--ink-faint)}
+  .add-group{
+    width:100%;padding:10px;border-radius:10px;border:1px dashed var(--border);
+    background:transparent;color:var(--ink-light);font-size:calc(13px * var(--ui-font-scale));
+    font-family:inherit;cursor:pointer;transition:all .15s;
+  }
+  .add-group:hover{border-color:var(--gold);color:var(--gold)}
+</style>
+</head>
+<body>
+  <div class="demo-note">
+    <b>Demo 说明：</b>下面是用「天枢设计令牌」复刻的 penguin 模型库界面 —— 折叠分组 + 卡片网格 + 徽标行 + 元信息单行。
+    天枢独有的 <b>启用开关、协议下拉、压缩策略(⚙)</b> 都保留在卡片上。当前为静态演示，确认方向后可据此改造真实的 SettingsPage。
+  </div>
+
+  <div class="wrap">
+    <div class="page-head">
+      <div class="page-title">模型服务</div>
+      <div class="page-tools">
+        <input class="search-box" placeholder="搜索模型…">
+        <button class="btn sm">⇅ 同步内置目录</button>
+      </div>
+    </div>
+
+    <!-- 分组 1：DeepSeek -->
+    <div class="group open" id="g-deepseek">
+      <div class="group-head" onclick="toggleGroup('g-deepseek')">
+        <span class="provider-logo">DS</span>
+        <span class="group-name">DeepSeek</span>
+        <span class="group-count">2 个模型</span>
+        <div class="group-actions" onclick="event.stopPropagation()">
+          <button class="btn sm ghost" title="测速">⏱</button>
+          <button class="btn sm ghost" title="批量配置 Key">🔑</button>
+          <button class="btn sm ghost" title="添加模型">＋</button>
+          <a class="btn sm ghost" href="#" title="获取 API Key">↗</a>
+        </div>
+        <svg class="chevron open" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="group-body"><div class="group-body-inner">
+        <div class="card-grid">
+          <!-- deepseek-chat -->
+          <div class="model-card">
+            <div class="card-title-row">
+              <span class="card-name">deepseek-chat</span>
+              <span class="card-switch"><span class="toggle on" onclick="this.classList.toggle('on')"></span></span>
+            </div>
+            <div class="card-tags">
+              <span class="tag status">默认</span>
+              <span class="tag price">限时折扣</span>
+            </div>
+            <div class="card-meta">
+              <span class="ctx mono">64k</span>
+              <span class="mono">¥0.0003 / ¥0.0006 / ¥0.0003</span>
+            </div>
+            <div class="card-meta">
+              <select class="protocol-select" title="API 协议"><option>自动</option><option>Chat</option><option>Resp</option></select>
+              <span class="card-compact-gear" title="压缩策略">⚙</span>
+              <span class="key-ok mono">sk-••••</span>
+            </div>
+          </div>
+          <!-- deepseek-reasoner -->
+          <div class="model-card">
+            <div class="card-title-row">
+              <span class="card-name">deepseek-reasoner</span>
+              <span class="card-switch"><span class="toggle on" onclick="this.classList.toggle('on')"></span></span>
+            </div>
+            <div class="card-tags">
+              <span class="tag capability">视觉</span>
+              <span class="tag compact">已压缩</span>
+            </div>
+            <div class="card-meta">
+              <span class="ctx mono">64k</span>
+              <span class="mono">¥0.0006 / ¥0.0012 / ¥0.0006</span>
+            </div>
+            <div class="card-meta">
+              <select class="protocol-select" title="API 协议"><option>自动</option><option>Chat</option><option>Resp</option></select>
+              <span class="card-compact-gear" title="压缩策略">⚙</span>
+              <span class="key-ok mono">sk-••••</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 分组 2：OpenAI -->
+    <div class="group" id="g-openai">
+      <div class="group-head" onclick="toggleGroup('g-openai')">
+        <span class="provider-logo">OA</span>
+        <span class="group-name">OpenAI</span>
+        <span class="group-count">3 个模型</span>
+        <div class="group-actions" onclick="event.stopPropagation()">
+          <button class="btn sm ghost" title="测速">⏱</button>
+          <button class="btn sm ghost" title="批量配置 Key">🔑</button>
+          <button class="btn sm ghost" title="添加模型">＋</button>
+          <a class="btn sm ghost" href="#" title="获取 API Key">↗</a>
+        </div>
+        <svg class="chevron" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="group-body"><div class="group-body-inner">
+        <div class="card-grid">
+          <div class="model-card">
+            <div class="card-title-row">
+              <span class="card-name">gpt-4o</span>
+              <span class="card-switch"><span class="toggle on" onclick="this.classList.toggle('on')"></span></span>
+            </div>
+            <div class="card-tags"><span class="tag capability">视觉</span></div>
+            <div class="card-meta"><span class="ctx mono">128k</span><span class="mono">$2.5 / $10 / $1.25</span></div>
+            <div class="card-meta">
+              <select class="protocol-select"><option>自动</option><option>Chat</option><option selected>Resp</option></select>
+              <span class="card-compact-gear" title="压缩策略">⚙</span><span class="key-ok mono">sk-••••</span>
+            </div>
+          </div>
+          <div class="model-card">
+            <div class="card-title-row">
+              <span class="card-name">gpt-4o-mini</span>
+              <span class="card-switch"><span class="toggle on" onclick="this.classList.toggle('on')"></span></span>
+            </div>
+            <div class="card-tags"><span class="tag capability">视觉</span></div>
+            <div class="card-meta"><span class="ctx mono">128k</span><span class="mono">$0.15 / $0.6 / $0.08</span></div>
+            <div class="card-meta">
+              <select class="protocol-select"><option>自动</option><option>Chat</option><option>Resp</option></select>
+              <span class="card-compact-gear" title="压缩策略">⚙</span><span class="key-ok mono">sk-••••</span>
+            </div>
+          </div>
+          <div class="model-card">
+            <div class="card-title-row">
+              <span class="card-name">o1</span>
+              <span class="card-switch"><span class="toggle on" onclick="this.classList.toggle('on')"></span></span>
+            </div>
+            <div class="card-meta"><span class="ctx mono">200k</span><span class="mono">$15 / $60 / $7.5</span></div>
+            <div class="card-meta">
+              <select class="protocol-select"><option>自动</option><option>Chat</option><option>Resp</option></select>
+              <span class="card-compact-gear" title="压缩策略">⚙</span><span class="key-ok mono">sk-••••</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 分组 3：自定义 -->
+    <div class="group" id="g-custom">
+      <div class="group-head" onclick="toggleGroup('g-custom')">
+        <span class="provider-logo" style="font-weight:400">✱</span>
+        <span class="group-name">自定义</span>
+        <span class="group-count">1 个模型</span>
+        <div class="group-actions" onclick="event.stopPropagation()">
+          <button class="btn sm ghost" title="测速">⏱</button>
+          <button class="btn sm ghost" title="批量配置 Key">🔑</button>
+          <button class="btn sm ghost" title="添加模型">＋</button>
+        </div>
+        <svg class="chevron" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="group-body"><div class="group-body-inner">
+        <div class="card-grid">
+          <div class="model-card">
+            <div class="card-title-row">
+              <span class="card-name">本地-llama3</span>
+              <span class="card-switch"><span class="toggle on" onclick="this.classList.toggle('on')"></span></span>
+            </div>
+            <div class="card-meta"><span class="ctx mono">8k</span><span class="key-ok mono">已配置</span></div>
+            <div class="card-meta">
+              <select class="protocol-select"><option>自动</option><option selected>Chat</option><option>Resp</option></select>
+              <span class="card-compact-gear" title="压缩策略">⚙</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 添加分组（虚线框，penguin） -->
+    <button class="add-group">＋ 添加分组</button>
+  </div>
+
+<script>
+function toggleGroup(id){
+  const g = document.getElementById(id)
+  g.classList.toggle('open')
+  const head = g.querySelector('.chevron')
+  head.classList.toggle('open')
+}
+</script>
+</body>
+</html>

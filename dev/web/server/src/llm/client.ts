@@ -62,6 +62,8 @@ export interface ProviderConfig {
   base_url: string
   api_key: string
   api_style?: ProviderApiStyle
+  /** 附加请求头（如 opencode 免费档的客户端指纹头），原样透传。 */
+  headers?: Record<string, string>
 }
 
 // ── Auto protocol detection ────────────────────────────────────────────────
@@ -78,13 +80,14 @@ function normalizeBaseUrl(url: string): string {
 
 /** Probe whether /v1/responses reports cache-hit tokens. One cheap non-stream
  *  request (1 output token). False on any failure / missing field. */
-export async function probeResponsesApi(baseUrl: string, apiKey: string, model: string): Promise<boolean> {
+export async function probeResponsesApi(baseUrl: string, apiKey: string, model: string, headers?: Record<string, string>): Promise<boolean> {
   try {
     const res = await fetch(`${normalizeBaseUrl(baseUrl)}/responses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+        ...(headers || {}),
       },
       body: JSON.stringify({
         model,
@@ -108,7 +111,7 @@ async function resolveApiStyle(opts: LLMOptions): Promise<'chat_completions' | '
   const key = normalizeBaseUrl(opts.baseUrl)
   const decided = protocolDecisions.get(key)
   if (decided) return decided
-  const decidedStyle = await probeResponsesApi(opts.baseUrl, opts.apiKey, opts.model)
+  const decidedStyle = await probeResponsesApi(opts.baseUrl, opts.apiKey, opts.model, opts.headers)
     ? 'responses' as const
     : 'chat_completions' as const
   protocolDecisions.set(key, decidedStyle)
@@ -140,6 +143,8 @@ export interface LLMOptions {
   apiKey: string
   model: string
   messages: LLMMessage[]
+  /** 附加请求头（provider 级自定义，如 opencode 免费档指纹头）。 */
+  headers?: Record<string, string>
   tools?: Array<{
     type: 'function'
     function: {
@@ -222,6 +227,7 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+        ...(opts.headers || {}),
       },
       body: JSON.stringify(body),
       signal,
@@ -484,6 +490,7 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+        ...(opts.headers || {}),
       },
       body: JSON.stringify(body),
       signal,

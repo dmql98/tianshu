@@ -282,6 +282,20 @@ export const dict: Record<string, DictEntry> = {
   '导出': { zh: '导出', en: 'Export' },
   '打开所在文件夹': { zh: '打开所在文件夹', en: 'Open containing folder' },
   '删除项目': { zh: '删除项目', en: 'Delete Project' },
+  // ── v2 会话列表（置顶 / 归档 / 未读 / 更多）──
+  '置顶': { zh: '置顶', en: 'Pin' },
+  '取消置顶': { zh: '取消置顶', en: 'Unpin' },
+  '归档会话': { zh: '归档', en: 'Archive' },
+  '取消归档会话': { zh: '取消归档', en: 'Unarchive' },
+  '搜索会话': { zh: '搜索会话', en: 'Search sessions' },
+  '更多操作': { zh: '更多操作', en: 'More actions' },
+  '有未读消息': { zh: '有未读消息', en: 'Unread' },
+  '已归档 ({count})': { zh: '已归档 ({count})', en: 'Archived ({count})' },
+  '折叠': { zh: '折叠', en: 'Collapse' },
+  '导出会话': { zh: '导出会话', en: 'Export Session' },
+  '导出失败': { zh: '导出失败', en: 'Export failed' },
+  '仅会话与消息': { zh: '仅会话与消息', en: 'Conversation & messages only' },
+  '完整轨迹（含每次 LLM 调用的请求/响应/工具/用量）': { zh: '完整轨迹（含每次 LLM 调用的请求/响应/工具/用量）', en: 'Full trace (includes every LLM call: requests, responses, tools, usage)' },
 
   // ── 文件面板 / 目录选择 ──
   '无附件': { zh: '无附件', en: 'No attachments' },
@@ -1054,4 +1068,15 @@ export const dict: Record<string, DictEntry> = {
   '留空则使用主链路模型': { zh: '留空则使用主链路模型', en: 'Blank = use the main chain model' },
   '清空为默认': { zh: '清空为默认', en: 'Clear to defaults' },
   '请输入 0~1 之间的数值': { zh: '请输入 0~1 之间的数值', en: 'Please enter a value between 0 and 1' },
+  // ── 模型服务（ModelLibrarySection）──
+  '搜索模型…': { zh: '搜索模型…', en: 'Search models…' },
+  '个模型': { zh: '个模型', en: ' models' },
+  '无匹配的服务': { zh: '无匹配的服务', en: 'No matching providers' },
+  '已压缩': { zh: '已压缩', en: 'Compacted' },
+  '视觉': { zh: '视觉', en: 'Vision' },
+  '上下文（点击可修改）': { zh: '上下文（点击可修改）', en: 'Context (click to edit)' },
+  '已启用，点击停用': { zh: '已启用，点击停用', en: 'Enabled, click to disable' },
+  '已停用，点击启用': { zh: '已停用，点击启用', en: 'Disabled, click to enable' },
+  '确认删除该服务？': { zh: '确认删除该服务？', en: 'Delete this provider?' },
+  '点击刷新模型加载列表': { zh: '点击刷新模型加载列表', en: 'Click "Refresh Models" to load the list' },
 }

@@ -75,6 +75,7 @@ export const ICON_SLOTS: readonly IconSlot[] = [
   { key: 'menu', name: '菜单', group: '界面与入口' },
   { key: 'pin', name: '置顶', group: '界面与入口' },
   { key: 'add', name: '添加', group: '界面与入口' },
+  { key: 'search', name: '搜索', group: '界面与入口' },
   { key: 'home', name: '首页', group: '界面与入口' },
   { key: 'preview', name: '预览', group: '界面与入口' },
   { key: 'info', name: '信息', group: '界面与入口' },

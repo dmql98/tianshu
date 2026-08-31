@@ -55,6 +55,7 @@ export async function generateSessionTitle(input: {
       model: input.model,
       signal: input.signal,
       apiStyle: input.provider.api_style,
+      headers: input.provider.headers,
       messages: [
         {
           role: 'system',

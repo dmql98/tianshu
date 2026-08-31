@@ -9,6 +9,7 @@ import RightPanel from '@/components/Chat/RightPanel'
 import Icon from '@/features/icons/Icon'
 import FilePanel from '@/components/Chat/FilePanel'
 import { useI18n } from '@/i18n'
+import { useSessionListPrefs, markSessionSeen } from '@/stores/sessionListPrefs'
 
 export default function ChatPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -53,7 +54,23 @@ export default function ChatPage() {
 
   // Switch session when URL param changes
   useEffect(() => {
-    if (sessionId && sessionId !== activeSessionId) {
+    if (!sessionId) return
+    // 进入会话即标记已读（本地偏好层，纯前端未读标记；时间源 = updated_at）
+    const prefsStore = useSessionListPrefs.getState()
+    const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
+    if (session) {
+      prefsStore.setPrefs(markSessionSeen(
+        {
+          seededAt: prefsStore.seededAt,
+          seen: prefsStore.seen,
+          pinnedGroups: prefsStore.pinnedGroups,
+          order: prefsStore.order,
+        },
+        sessionId,
+        session.updated_at,
+      ))
+    }
+    if (sessionId !== activeSessionId) {
       switchSession(sessionId)
     }
   }, [sessionId, activeSessionId, switchSession])
