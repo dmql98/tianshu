@@ -246,7 +246,7 @@ interface ChatState {
   sessionMotions: Record<string, CharacterMotion>
 
   // UI state
-  collapsedWorkspaces: Set<string>
+  expandedWorkspaces: Set<string>
   toolExpandAll: boolean
   isBatchMode: boolean
   selectedSessionIds: Set<string>
@@ -306,7 +306,7 @@ interface ChatState {
   // Workspaces
   addWorkspace: (path: string) => void
   removeWorkspace: (path: string) => void
-  toggleWorkspaceCollapse: (workspace: string) => void
+  toggleWorkspaceExpand: (workspace: string) => void
 
   // Delegation targets（本会话可委托角色白名单）
   updateSessionTargets: (sessionId: string, targets: string[] | null) => void
@@ -1372,7 +1372,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     limitNotice: null,
     sessionRuns: {},
     sessionMotions: {},
-    collapsedWorkspaces: new Set<string>(),
+    expandedWorkspaces: new Set<string>(),
     toolExpandAll: false,
     isBatchMode: false,
     selectedSessionIds: new Set<string>(),
@@ -2160,12 +2160,12 @@ export const useChatStore = create<ChatState>((set, get) => {
       sessionsApi.updateSession(session.id, { workspaces: wsStr }).catch(() => {})
     },
 
-    toggleWorkspaceCollapse: (workspace) => {
+    toggleWorkspaceExpand: (workspace) => {
       set(state => {
-        const collapsed = new Set(state.collapsedWorkspaces)
-        if (collapsed.has(workspace)) collapsed.delete(workspace)
-        else collapsed.add(workspace)
-        return { collapsedWorkspaces: collapsed }
+        const expanded = new Set(state.expandedWorkspaces)
+        if (expanded.has(workspace)) expanded.delete(workspace)
+        else expanded.add(workspace)
+        return { expandedWorkspaces: expanded }
       })
     },
 

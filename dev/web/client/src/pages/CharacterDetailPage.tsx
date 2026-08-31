@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, updateCharacterSkillBinding, deleteCharacter } from '@/api/characters'
+import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, updateCharacterSkillBinding, deleteCharacter, type CharacterMotion } from '@/api/characters'
 import { fetchTools } from '@/api/tools'
 import { fetchSkillPackages } from '@/api/skills'
 import { normalizeStrategy, STRATEGIES, type Character, type CharacterStats, type Strategy } from '@/types'
@@ -16,6 +16,15 @@ import { useI18n } from '@/i18n'
 type T = I18nState['t']
 
 const roleLabels: Record<string, string> = { main: '主 Agent', sub: '子 Agent', both: '主 / 子 Agent' }
+
+const previewMotions: Array<{ id: CharacterMotion; label: string }> = [
+  { id: 'idle', label: '待机' },
+  { id: 'thinking', label: '思考' },
+  { id: 'working', label: '工作' },
+  { id: 'speaking', label: '说话' },
+  { id: 'success', label: '完成' },
+  { id: 'error', label: '出错' },
+]
 
 export default function CharacterDetailPage() {
   const t = useI18n()
@@ -69,8 +78,11 @@ export default function CharacterDetailPage() {
   const [boundSkills, setBoundSkills] = useState<string[]>([])
 
   // Groups UI
-  const [showNewGroupInput, setShowNewGroupInput] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
+
+  // 动画预览
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewMotion, setPreviewMotion] = useState<CharacterMotion>('idle')
 
   // Track current ID (may change after rename)
   const [currentId, setCurrentId] = useState(id || '')
@@ -293,7 +305,6 @@ export default function CharacterDetailPage() {
       autoSave({ groups: next })
     }
     setNewGroupName('')
-    setShowNewGroupInput(false)
   }
 
   async function toggleSkill(name: string) {
@@ -334,29 +345,51 @@ export default function CharacterDetailPage() {
   return (
     <div className="main">
       <div className="detail-header">
-        <button className="back-btn" onClick={() => navigate('/characters')}>←</button>
-        <div className="detail-header-info">
-          <h1>{isNew ? t('新建角色') : name}</h1>
-          {!isNew && id && <p>{id} · {t(roleLabels[role] || role)}</p>}
-        </div>
-        <div style={{ flex: 1 }}></div>
-      </div>
-
-      <div className="detail-body">
-        <div className="detail-art">
-          <div className="detail-art-img">
+        {isNew ? (
+          <div className="chd-avatar" style={{ background: color, color: '#fff', fontWeight: 700, fontSize: 'calc(20px * var(--ui-font-scale))' }}>
+            {(name.trim() || '+').slice(0, 1)}
+          </div>
+        ) : (
+          <div className="chd-avatar">
             <CharacterRenderer
               characterId={currentId}
               name={name}
-              mode="portrait"
-              className="character-renderer-detail"
+              legacyAvatar={char?.avatar}
+              mode="avatar"
+              className="character-renderer-card"
             />
           </div>
-          <div className="detail-actions">
-            {!isNew && <button className="detail-btn danger" onClick={handleDelete}>{t('删除角色')}</button>}
-          </div>
+        )}
+        <div className="detail-header-info">
+          <h1>
+            {isNew ? t('新建角色') : name}
+            {!isNew && id && <span className="chd-id">{id}</span>}
+          </h1>
+          {!isNew && id && (
+            <p>
+              {t(roleLabels[role] || role)}
+              {' · '}{enabled ? t('已启用') : t('已停用')}
+              {' · '}{t('分组')} {groups.join(' / ') || '—'}
+            </p>
+          )}
         </div>
+        <div style={{ flex: 1 }}></div>
+        {!isNew && (
+          <>
+            <span className="chd-toggle-label">{t('启用')}</span>
+            <div
+              className={`toggle ${enabled ? 'on' : ''}`}
+              title={enabled ? t('已启用') : t('已停用')}
+              onClick={() => { const next = !enabled; setEnabled(next); autoSave({ enabled: next }) }}
+            ></div>
+            <button className="btn sm" onClick={() => { setPreviewMotion('idle'); setPreviewOpen(true) }}>{t('预览动画')}</button>
+            <button className="btn sm" onClick={() => setActiveTab('visual')}>{t('绑定皮肤')}</button>
+            <button className="detail-btn danger chd-del" onClick={handleDelete}>{t('删除角色')}</button>
+          </>
+        )}
+      </div>
 
+      <div className="detail-body">
         <div className="detail-content">
           <div className="detail-tabs">
             {tabs.map(tab => (
@@ -372,254 +405,266 @@ export default function CharacterDetailPage() {
 
           {/* 基础 */}
           <div className={`tab-page ${activeTab === 'basic' ? 'active' : ''}`}>
-            <div className="detail-section">
-              <div className="detail-section-title">{t('基本信息')}</div>
-              <div className="info-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                <div className="info-item" style={{ gridColumn: '1/-1' }}>
-                  <EditField
-                    label={t('角色名称')}
-                    value={name}
-                    onSave={v => {
-                      const trimmed = v.trim()
-                      setName(trimmed)
-                      if (!idEdited) setCharId(toSlug(trimmed))
-                      autoSave({ name: trimmed })
-                    }}
-                    renderInput={(v, onChange) => (
-                      <input value={v} onChange={e => onChange(e.target.value)} placeholder={t('输入角色名称')} style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-                    )}
-                  />
-                </div>
-                <div className="info-item" style={{ gridColumn: '1/-1' }}>
-                  <EditField
-                    label={t('角色颜色')}
-                    value={color}
-                    onSave={v => { setColor(v); autoSave({ color: v }) }}
-                    renderInput={(v, onChange) => (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input type="color" value={v} onChange={e => onChange(e.target.value)} style={{ width: 36, height: 32, border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', padding: 2, background: 'var(--bg-input)' }} />
-                        <input value={v} onChange={e => onChange(e.target.value)} style={{ flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
-                      </div>
-                    )}
-                    display={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 20, height: 20, borderRadius: 4, background: color, border: '1px solid var(--border)', display: 'inline-block' }} />
-                      <span style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)', fontFamily: 'monospace' }}>{color}</span>
-                    </div>}
-                  />
-                </div>
-                <div className="info-item" style={{ gridColumn: '1/-1' }}>
-                  <EditField
-                    label={t('角色简介')}
-                    value={description}
-                    onSave={v => { setDescription(v); autoSave({ description: v }) }}
-                    renderInput={(v, onChange) => (
-                      <textarea value={v} onChange={e => onChange(e.target.value)} placeholder={t('简短描述这个角色')} rows={2} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                    )}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: 8, gridColumn: '1/-1' }}>
-                  <div className="info-item" style={{ flex: 1 }}>
-                    <EditField
-                      label={t('角色 ID')}
+            <div className="basic-grid">
+              {/* 左列：基本信息 */}
+              <section className="form-card">
+                <div className="fc-head">{t('基本信息')}<span className="fc-sub">{t('身份、归属与协作策略')}</span></div>
+                <div className="fc-body">
+                  <div className="field">
+                    <label>{t('角色名称')}</label>
+                    <input
+                      value={name}
+                      placeholder={t('输入角色名称')}
+                      onChange={e => {
+                        const v = e.target.value
+                        setName(v)
+                        if (isNew && !idEdited) setCharId(toSlug(v))
+                      }}
+                      onBlur={() => {
+                        const trimmed = name.trim()
+                        if (!trimmed) return
+                        if (trimmed !== name) setName(trimmed)
+                        if (!idEdited) setCharId(toSlug(trimmed))
+                        autoSave({ name: trimmed })
+                      }}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>{t('角色 ID')}<span className="label-hint">{isNew ? t('留空按名称生成') : t('修改后将同步重命名')}</span></label>
+                    <input
+                      className="mono"
                       value={charId}
-                      onSave={v => {
-                        const trimmed = toSlug(v)
-                        setCharId(trimmed)
+                      placeholder={t('自定义ID')}
+                      onChange={e => setCharId(e.target.value)}
+                      onBlur={() => {
+                        const trimmed = toSlug(charId)
+                        if (trimmed !== charId) setCharId(trimmed)
                         setIdEdited(true)
                         if (trimmed && trimmed !== currentId) autoSave({ id: trimmed })
                       }}
-                      renderInput={(v, onChange) => (
-                        <input value={v} onChange={e => onChange(e.target.value)} placeholder={t('自定义ID')} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', boxSizing: 'border-box' }} />
-                      )}
                     />
                   </div>
-                  <div className="info-item" style={{ flex: 1 }}>
-                    <EditField
-                      label={t('角色类型')}
-                      value={role}
-                      onSave={v => { setRole(v as Character['role']); autoSave({ role: v }) }}
-                      renderInput={(v, onChange) => (
-                        <select value={v} onChange={e => onChange(e.target.value)} style={{ marginTop: 4, width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', fontFamily: 'inherit' }}>
-                          <option value="main">{t('主 Agent')}</option>
-                          <option value="sub">{t('子 Agent')}</option>
-                          <option value="both">{t('主/子 Agent')}</option>
-                        </select>
-                      )}
-                      display={<div style={{ marginTop: 4, fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{t(roleLabels[role] || role)}</div>}
+                  <div className="field full">
+                    <label>{t('角色简介')}<span className="label-hint">{t('展示在角色列表与选择器中')}</span></label>
+                    <textarea
+                      value={description}
+                      placeholder={t('简短描述这个角色')}
+                      onChange={e => setDescription(e.target.value)}
+                      onBlur={() => autoSave({ description })}
                     />
                   </div>
-                  <div className="info-item" style={{ flex: 1 }}>
-                    <div className="info-item-label">{t('默认审批模式')}</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  <div className="field">
+                    <label>{t('角色类型')}</label>
+                    <select value={role} onChange={e => { const v = e.target.value as Character['role']; setRole(v); autoSave({ role: v }) }}>
+                      <option value="main">{t('主 Agent')}</option>
+                      <option value="sub">{t('子 Agent')}</option>
+                      <option value="both">{t('主/子 Agent')}</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>{t('默认审批模式')}<span className="label-hint">{t('被委派任务时的审批模式')}</span></label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {STRATEGIES.map(s => (
                         <span key={s} className={`strategy-btn ${strategy === s ? 'active' : ''}`} onClick={() => { setStrategy(s); autoSave({ default_strategy: s }) }}>{t(s)}</span>
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
-              <div className="tool-list" style={{ marginTop: 12 }}>
-                <div className="tool-item">
-                  <div className="tool-name">{t('自我进化')}</div>
-                  <div className={`toggle ${selfEvolution ? 'on' : ''}`} onClick={() => { setSelfEvolution(!selfEvolution); autoSave({ memory: { enabled: memoryEnabled, selfEvolution: !selfEvolution, charLimit } }) }}></div>
-                </div>
-                <div className="tool-item" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8, padding: '12px 0' }}>
-                  <div className="tool-name">{t('运行策略')}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%' }}>
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      {t('收敛起始轮次（空=继承）')}
+                  <div className="field full">
+                    <label>{t('主题色')}<span className="label-hint">{t('用于头像、标识与强调色')}</span></label>
+                    <div className="color-row">
                       <input
-                        type="number" min={1} max={999} value={rpSoft} placeholder={t('继承')}
-                        onChange={e => setRpSoft(e.target.value)}
-                        onBlur={autoSaveRunPolicy}
-                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
+                        type="color"
+                        className="swatch"
+                        value={color}
+                        onChange={e => { setColor(e.target.value); autoSave({ color: e.target.value }) }}
                       />
-                    </label>
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      {t('宽限轮次（空=继承）')}
                       <input
-                        type="number" min={0} max={999} value={rpGrace} placeholder={t('继承')}
-                        onChange={e => setRpGrace(e.target.value)}
-                        onBlur={autoSaveRunPolicy}
-                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
+                        className="mono"
+                        style={{ width: 110 }}
+                        value={color}
+                        onChange={e => setColor(e.target.value)}
+                        onBlur={() => autoSave({ color })}
                       />
-                    </label>
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      {t('自动续跑')}
-                      <select
-                        value={rpAutoContinuation}
-                        onChange={e => { setRpAutoContinuation(e.target.value as any); autoSaveRunPolicy() }}
-                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))', fontFamily: 'inherit' }}
-                      >
-                        <option value="inherit">{t('继承系统')}</option>
-                        <option value="enabled">{t('允许')}</option>
-                        <option value="disabled">{t('禁止')}</option>
-                      </select>
-                    </label>
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>
-                      {t('最多自动续跑（空=继承）')}
-                      <input
-                        type="number" min={0} max={50} value={rpMaxAuto} placeholder={t('继承')}
-                        onChange={e => setRpMaxAuto(e.target.value)}
-                        onBlur={autoSaveRunPolicy}
-                        style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-input)', color: 'var(--ink-deep)', fontSize: 'calc(12px * var(--ui-font-scale))' }}
-                      />
-                    </label>
-                  </div>
-                  {rpEffective?.effectivePreview && (
-                    <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-mid)', background: 'rgba(42,157,92,0.05)', border: '1px solid rgba(42,157,92,0.15)', borderRadius: 8, padding: '6px 10px', width: '100%', boxSizing: 'border-box' }}>
-                      {t('当前有效')}：{rpEffective.effectivePreview.softTurns} + {rpEffective.effectivePreview.graceTurns} {t('轮宽限')} · {t('自动续跑')} {rpEffective.effectivePreview.autoContinuation ? t('开') : t('关')}
-                      {rpEffective.constrainedFields && rpEffective.constrainedFields.length > 0 && (
-                        <div style={{ color: 'var(--cinnabar)', marginTop: 2 }}>{t('受限字段')}：{rpEffective.constrainedFields.join('、')}（{t('被系统上限约束')}）</div>
-                      )}
+                      <span className="color-preview">
+                        <span className="cp-avatar" style={{ background: color }}>{(name.trim() || '?').slice(0, 1)}</span>
+                        <span className="cp-tag" style={{ color, borderColor: `${color}66`, background: `${color}14` }}>{charId || 'id'}</span>
+                      </span>
                     </div>
-                  )}
-                  {rpEffective?.configured == null && (
-                    <button
-                      className="btn sm"
-                      onClick={() => { setRpSoft(''); setRpGrace(''); setRpAutoContinuation('inherit'); setRpMaxAuto(''); saveRunPolicy(null) }}
-                      style={{ fontSize: 'calc(11px * var(--ui-font-scale))' }}
-                    >
-                      {t('恢复继承')}
-                    </button>
-                  )}
+                  </div>
+                  <div className="field full">
+                    <label>{t('分组')}<span className="label-hint">{t('影响记忆共享范围与知识库绑定')}</span></label>
+                    <div className="chips">
+                      {groups.map(g => (
+                        <span key={g} className="chip on">{g}<button title={t('移出分组')} onClick={() => toggleGroup(g)}>×</button></span>
+                      ))}
+                      {allGroups.filter(g => !groups.includes(g)).map(g => (
+                        <span key={g} className="chip dashed" onClick={() => toggleGroup(g)}>+ {g}</span>
+                      ))}
+                      <input
+                        className="chip-input"
+                        value={newGroupName}
+                        placeholder={t('新分组，回车添加')}
+                        onChange={e => setNewGroupName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addNewGroup(); if (e.key === 'Escape') setNewGroupName('') }}
+                        onBlur={() => { if (newGroupName.trim()) addNewGroup() }}
+                      />
+                    </div>
+                  </div>
+                  <div className="field full">
+                    <label>{t('工作帮手')}<span className="label-hint">{t('该角色新会话默认可委托的角色（可含自己与 worker）。在会话侧边「帮手栏」可再单独调整。')}</span></label>
+                    <div className="chips">
+                      {allChars.map(c => (
+                        <span
+                          key={c.id}
+                          className={`chip helper ${helpers.includes(c.id) ? 'on' : ''}`}
+                          title={c.description}
+                          onClick={() => toggleHelper(c.id)}
+                        >
+                          <span className="chip-av" style={{
+                            background: c.color
+                              ? `linear-gradient(135deg, ${c.color}20, ${c.color}08)`
+                              : 'linear-gradient(135deg, var(--gold-soft), var(--gold-mist))'
+                          }}>
+                            <CharacterRenderer
+                              characterId={c.id}
+                              name={c.name}
+                              legacyAvatar={c.avatar}
+                              mode="avatar"
+                              className="character-renderer-card"
+                            />
+                          </span>
+                          {c.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </section>
 
-            <div className="detail-section">
-              <div className="detail-section-title">{t('分组')}</div>
-              <div className="tag-list">
-                {allGroups.map(grp => (
-                  <span
-                    key={grp}
-                    className={`tag ${groups.includes(grp) ? 'on' : ''}`}
-                    onClick={() => toggleGroup(grp)}
-                  >
-                    {grp}
-                  </span>
-                ))}
-                {showNewGroupInput ? (
-                  <input
-                    value={newGroupName}
-                    onChange={e => setNewGroupName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addNewGroup(); if (e.key === 'Escape') { setShowNewGroupInput(false); setNewGroupName('') } }}
-                    onBlur={addNewGroup}
-                    placeholder={t('新分组名')}
-                    autoFocus
-                    style={{ width: 80, padding: '3px 10px', fontSize: 'calc(11px * var(--ui-font-scale))', border: '1px solid var(--gold)', borderRadius: 6, outline: 'none', background: 'var(--bg-input)', color: 'var(--ink-deep)' }}
-                  />
-                ) : (
-                  <span className="tag" style={{ borderStyle: 'dashed', borderColor: 'var(--border)' }} onClick={() => setShowNewGroupInput(true)}>+</span>
-                )}
-              </div>
-            </div>
-
-            <div className="detail-section">
-              <div className="detail-section-title">{t('工作帮手')}</div>
-              <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)', marginBottom: 8 }}>
-                {t('该角色新会话默认可委托的角色（可含自己与 worker）。在会话侧边「帮手栏」可再单独调整。')}
-              </div>
-              <div className="tag-list">
-                {allChars.map(c => (
-                  <span
-                    key={c.id}
-                    className={`tag ${helpers.includes(c.id) ? 'on' : ''}`}
-                    title={c.description}
-                    onClick={() => toggleHelper(c.id)}
-                  >
-                    {c.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="detail-section">
-              <div className="detail-columns">
-                <div className="detail-col">
-                  <EditField
-                    label="Soul（人格）"
-                    value={soul}
-                    onSave={v => { setSoul(v); autoSave({ soul: v }) }}
-                    renderInput={(v, onChange) => (
-                      <textarea className="md-box" value={v} placeholder={t('(未设置)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+              {/* 右列：人格与提示词 + 运行策略 */}
+              <div className="basic-side">
+                <section className="form-card">
+                  <div className="fc-head">{t('人格与提示词')}<span className="fc-sub">{t('注入系统提示词')}</span></div>
+                  <div className="fc-body single">
+                    <div className="field">
+                      <label>Soul（{t('人格')}）<span className="label-hint">{t('人格与口吻，置于系统提示词最前')}</span></label>
+                      <textarea
+                        style={{ minHeight: 140 }}
+                        value={soul}
+                        placeholder={t('(未设置)')}
+                        onChange={e => setSoul(e.target.value)}
+                        onBlur={() => autoSave({ soul })}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>User（{t('用户画像')}）<span className="label-hint">{t('描述服务对象，影响回复视角')}</span></label>
+                      <textarea
+                        style={{ minHeight: 110 }}
+                        value={userProfile}
+                        placeholder={t('(未设置)')}
+                        onChange={e => setUserProfile(e.target.value)}
+                        onBlur={() => autoSave({ userProfile })}
+                      />
+                    </div>
+                    <div className="setting-row">
+                      <div className="setting-info">
+                        <span className="setting-label">{t('自定义提示词')}</span>
+                        <div className="setting-hint">{t('开启后完全替换默认系统提示词')}</div>
+                      </div>
+                      <div className="setting-control">
+                        <div className={`toggle ${customPromptEnabled ? 'on' : ''}`} onClick={() => { setCustomPromptEnabled(!customPromptEnabled); autoSave({ customPrompt: !customPromptEnabled ? customPrompt : '' }) }}></div>
+                      </div>
+                    </div>
+                    {customPromptEnabled && (
+                      <div className="field">
+                        <textarea
+                          style={{ minHeight: 140 }}
+                          value={customPrompt}
+                          placeholder={t('(输入自定义提示词)')}
+                          onChange={e => setCustomPrompt(e.target.value)}
+                          onBlur={() => autoSave({ customPrompt })}
+                        />
+                      </div>
                     )}
-                    display={<div className="md-box" style={{ minHeight: 400, color: soul ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{soul || t('(未设置)')}</div>}
-                  />
-                </div>
-                <div className="detail-col">
-                  <EditField
-                    label="User（用户画像）"
-                    value={userProfile}
-                    onSave={v => { setUserProfile(v); autoSave({ userProfile: v }) }}
-                    renderInput={(v, onChange) => (
-                      <textarea className="md-box" value={v} placeholder={t('(未设置)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 400, width: '100%', resize: 'vertical' }} />
+                  </div>
+                </section>
+
+                <section className="form-card">
+                  <div className="fc-head">{t('运行策略')}<span className="fc-sub">{t('留空则继承系统默认')}</span></div>
+                  <div className="fc-body single">
+                    <div className="setting-row">
+                      <div className="setting-info">
+                        <span className="setting-label">{t('自我进化')}</span>
+                        <div className="setting-hint">{t('允许角色在会话结束后沉淀、更新自身记忆')}</div>
+                      </div>
+                      <div className="setting-control">
+                        <div className={`toggle ${selfEvolution ? 'on' : ''}`} onClick={() => { setSelfEvolution(!selfEvolution); autoSave({ memory: { enabled: memoryEnabled, selfEvolution: !selfEvolution, charLimit } }) }}></div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', marginTop: 4 }}>
+                      <div className="field">
+                        <label>{t('收敛起始轮次')}<span className="label-hint">{t('空=继承')}</span></label>
+                        <input
+                          type="number" min={1} max={999} value={rpSoft} placeholder={t('继承')}
+                          onChange={e => setRpSoft(e.target.value)}
+                          onBlur={autoSaveRunPolicy}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>{t('宽限轮次')}<span className="label-hint">{t('空=继承')}</span></label>
+                        <input
+                          type="number" min={0} max={999} value={rpGrace} placeholder={t('继承')}
+                          onChange={e => setRpGrace(e.target.value)}
+                          onBlur={autoSaveRunPolicy}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>{t('自动续跑')}</label>
+                        <select
+                          value={rpAutoContinuation}
+                          onChange={e => { setRpAutoContinuation(e.target.value as any); autoSaveRunPolicy() }}
+                        >
+                          <option value="inherit">{t('继承系统')}</option>
+                          <option value="enabled">{t('允许')}</option>
+                          <option value="disabled">{t('禁止')}</option>
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label>{t('最多自动续跑')}<span className="label-hint">{t('空=继承')}</span></label>
+                        <input
+                          type="number" min={0} max={50} value={rpMaxAuto} placeholder={t('继承')}
+                          onChange={e => setRpMaxAuto(e.target.value)}
+                          onBlur={autoSaveRunPolicy}
+                        />
+                      </div>
+                    </div>
+                    {rpEffective?.effectivePreview && (
+                      <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-mid)', background: 'rgba(42,157,92,0.05)', border: '1px solid rgba(42,157,92,0.15)', borderRadius: 8, padding: '6px 10px', width: '100%', boxSizing: 'border-box' }}>
+                        {t('当前有效')}：{rpEffective.effectivePreview.softTurns} + {rpEffective.effectivePreview.graceTurns} {t('轮宽限')} · {t('自动续跑')} {rpEffective.effectivePreview.autoContinuation ? t('开') : t('关')}
+                        {rpEffective.constrainedFields && rpEffective.constrainedFields.length > 0 && (
+                          <div style={{ color: 'var(--cinnabar)', marginTop: 2 }}>{t('受限字段')}：{rpEffective.constrainedFields.join('、')}（{t('被系统上限约束')}）</div>
+                        )}
+                      </div>
                     )}
-                    display={<div className="md-box" style={{ minHeight: 400, color: userProfile ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{userProfile || t('(未设置)')}</div>}
-                  />
-                </div>
+                    {rpEffective?.configured == null && (
+                      <div>
+                        <button
+                          className="btn sm"
+                          onClick={() => { setRpSoft(''); setRpGrace(''); setRpAutoContinuation('inherit'); setRpMaxAuto(''); saveRunPolicy(null) }}
+                        >
+                          {t('恢复继承')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </section>
               </div>
             </div>
 
-            <div className="detail-section">
-              <div className="detail-section-title">{t('自定义提示词')}</div>
-              <div className="tool-item" style={{ border: 'none', padding: '0 0 8px 0' }}>
-                <div className="tool-name">{t('启用自定义提示词')}</div>
-                <div className={`toggle ${customPromptEnabled ? 'on' : ''}`} onClick={() => { setCustomPromptEnabled(!customPromptEnabled); autoSave({ customPrompt: !customPromptEnabled ? customPrompt : '' }) }}></div>
-              </div>
-              {customPromptEnabled ? (
-                <EditField
-                  label={t('自定义提示词内容')}
-                  value={customPrompt}
-                  onSave={v => { setCustomPrompt(v); autoSave({ customPrompt: v }) }}
-                  renderInput={(v, onChange) => (
-                    <textarea className="md-box" value={v} placeholder={t('(输入自定义提示词)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 250, width: '100%', resize: 'vertical' }} />
-                  )}
-                  display={<div className="md-box" style={{ minHeight: 250, color: customPrompt ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{customPrompt || t('(未设置)')}</div>}
-                />
-              ) : (
-                <div className="md-box" style={{ color: 'var(--ink-faint)' }}>{t('(未设置，将使用默认系统提示词)')}</div>
-              )}
+            <div className="form-foot">
+              <span className="hint">{isNew ? t('填写名称与 ID 后，点击创建') : t('更改会自动保存')}</span>
+              <span className="spacer"></span>
+              {isNew && <button className="btn primary" onClick={handleCreate}>{t('创建')}</button>}
             </div>
           </div>
 
@@ -790,14 +835,49 @@ export default function CharacterDetailPage() {
             </div>
           </div>
 
-          {/* 新建角色时显示创建按钮 */}
-          {isNew && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 0', borderTop: '1px solid var(--border)', marginTop: 16 }}>
-              <button className="detail-btn primary" onClick={handleCreate}>{t('创建')}</button>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* 动画预览弹窗 */}
+      {previewOpen && !isNew && (
+        <div className="approval-overlay character-preview-overlay" onClick={() => setPreviewOpen(false)}>
+          <div
+            className="approval-dialog character-preview-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('{name} 动画预览', { name })}
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="character-preview-header">
+              <div>
+                <div className="character-preview-title">{name} · {t('动画预览')}</div>
+                <div className="character-preview-subtitle">{t('未配置的动作会自动使用待机动画或立绘')}</div>
+              </div>
+              <button className="btn sm" onClick={() => setPreviewOpen(false)}>{t('关闭')}</button>
+            </div>
+            <CharacterRenderer
+              key={`${currentId}-${previewMotion}`}
+              characterId={currentId}
+              name={name}
+              legacyAvatar={char?.avatar}
+              mode="stage"
+              motion={previewMotion}
+              className="character-renderer-preview"
+            />
+            <div className="character-preview-motions" role="group" aria-label={t('选择预览动作')}>
+              {previewMotions.map(item => (
+                <button
+                  key={item.id}
+                  className={`btn sm ${previewMotion === item.id ? 'primary' : ''}`}
+                  onClick={() => setPreviewMotion(item.id)}
+                >
+                  {t(item.label)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

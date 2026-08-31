@@ -11,9 +11,8 @@ import HomePage from './pages/HomePage'
 import ChatPage from './pages/ChatPage'
 
 // 低频页面走路由级代码分割（React.lazy），主 bundle 不再包含它们：
-// 首屏只加载布局 + 首页/聊天，SettingsPage(1008 行)/CharacterDetailPage(807 行)
+// 首屏只加载布局 + 首页/聊天，SettingsPage(1008 行)/CharactersPage(含详情)
 // 等在进入对应路由时才按需下载。
-const CharacterDetailPage = lazy(() => import('./pages/CharacterDetailPage'))
 const CharactersPage = lazy(() => import('./pages/CharactersPage'))
 const SkinsPage = lazy(() => import('./pages/SkinsPage'))
 const SkinDetailPage = lazy(() => import('./pages/SkinDetailPage'))
@@ -150,8 +149,8 @@ export default function App() {
         <Route path="/chat/:sessionId" element={<ChatPage />} />
         <Route path="/chat/:sessionId/trajectory" element={<ChatPage />} />
         <Route path="/characters" element={<CharactersPage />} />
-        <Route path="/characters/new" element={<CharacterDetailPage />} />
-        <Route path="/characters/:id" element={<CharacterDetailPage />} />
+        <Route path="/characters/new" element={<CharactersPage />} />
+        <Route path="/characters/:id" element={<CharactersPage />} />
         <Route path="/skins" element={<SkinsPage />} />
         <Route path="/skins/:id" element={<SkinDetailPage />} />
         <Route path="/skills" element={<SkillsPage />} />

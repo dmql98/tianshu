@@ -89,7 +89,7 @@ export default function SessionPanel() {
 
   const {
     sessions, activeSessionId, sessionMotions,
-    collapsedWorkspaces, toggleWorkspaceCollapse,
+    expandedWorkspaces, toggleWorkspaceExpand,
     createSession, deleteSession, toggleSessionStar, toggleArchive,
     deleteProject,
     subAgentNotice,
@@ -134,9 +134,9 @@ export default function SessionPanel() {
       .map(([name, sessions]) => ({
         name,
         sessions: sessions.sort((a, b) => b.updated_at - a.updated_at),
-        collapsed: collapsedWorkspaces.has(name),
+        collapsed: !expandedWorkspaces.has(name),
       }))
-  }, [parentSessions, collapsedWorkspaces])
+  }, [parentSessions, expandedWorkspaces])
 
   // 组排序：置顶组在前（按置顶顺序），其余按名称
   const orderedGroups = useMemo(() => {
@@ -217,8 +217,8 @@ export default function SessionPanel() {
     workspace: string,
   ) {
     event.stopPropagation()
-    if (collapsedWorkspaces.has(workspace)) {
-      toggleWorkspaceCollapse(workspace)
+    if (!expandedWorkspaces.has(workspace)) {
+      toggleWorkspaceExpand(workspace)
     }
     const session = await createSession(workspace === 'default' ? {} : { workspace })
     navigate(`/chat/${session.id}`)
@@ -473,7 +473,7 @@ export default function SessionPanel() {
             <div key={group.name} className="project-item">
               <div
                 className={`project-header ${!collapsed ? 'active' : ''}`}
-                onClick={() => toggleWorkspaceCollapse(group.name)}
+                onClick={() => toggleWorkspaceExpand(group.name)}
                 onContextMenu={e => handleProjectContextMenu(e, group.name)}
               >
                 <span className="project-icon"><Icon name={collapsed ? 'folder' : 'folder-open'} size={14} ariaHidden /></span>
