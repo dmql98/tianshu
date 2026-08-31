@@ -127,7 +127,7 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
       type: 'function',
       function: {
         name: 'delegate_to_agent',
-        description: '委托子任务给 targets 中的角色（仅顶层会话）：子 agent 独立会话执行、看不到本会话上下文，task 必须自包含；结果转述给用户。小事别委托、无合适角色不调用；多角色可连续调用多个并行发起；描述中未列出 targets 时表示未配置可委托角色，勿调用。',
+        description: '把可自包含、可并行的子任务委托给子代理，是处理大任务最快的方式：子 agent 在独立会话执行（看不到本会话上下文），task 必须自包含、写清返回格式，结果由其转述给用户。可连续调用多个并行发起（仅顶层会话）。target_character_id 必须是你配置在可委托列表（targets）中的角色；若当前角色未配置任何可委托角色，则无法委派（不要臆造角色 ID）。',
         parameters: {
           type: 'object',
           properties: {

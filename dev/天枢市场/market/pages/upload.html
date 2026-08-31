@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上传资产 · 天枢市场</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="../js/api.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 300:'#fcd34d', 400:'#fbbf24', 500:'#f59e0b', 600:'#d97706' },
+        ink: { 950:'#09090b', 900:'#0f0f12', 850:'#141418', 800:'#1c1c21', 700:'#26262d' }
+      },
+      fontFamily: {
+        sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Text"','"Segoe UI"','Roboto','"PingFang SC"','"Microsoft YaHei"','sans-serif']
+      }
+    }
+  }
+}
+</script>
+<style>
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#2e2e36; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#3f3f4a; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  body { font-family:-apple-system,system-ui,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .glass { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  .fade-in { animation: fadeIn .35s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:none;} }
+  .toast-in { animation: toastIn .3s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes toastIn { from { opacity:0; transform:translateX(24px);} to { opacity:1; transform:none;} }
+  .drop-active { border-color:#f59e0b !important; background:rgba(245,158,11,.06) !important; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body class="bg-ink-950 text-zinc-200 antialiased overflow-hidden">
+
+<div class="flex h-screen">
+  <!-- 侧栏 -->
+  <aside class="w-60 shrink-0 flex flex-col border-r border-zinc-800/80 bg-ink-900">
+    <a href="../index.html" class="h-16 flex items-center gap-3 px-5 border-b border-zinc-800/80 hover:bg-zinc-800/40 transition">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center shadow-lg shadow-brand-500/20">
+        <i class="fa-solid fa-star-of-david text-ink-950 text-sm"></i>
+      </div>
+      <div>
+        <div class="font-bold text-zinc-50 leading-tight">天枢市场</div>
+        <div class="text-[11px] text-zinc-500">TianShu Market</div>
+      </div>
+    </a>
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <div class="px-2 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">发现</div>
+      <a href="../index.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-compass w-4 text-center"></i><span>市场首页</span>
+      </a>
+      <div class="px-2 pt-4 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">我的</div>
+      <a href="downloads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-cloud-arrow-down w-4 text-center"></i><span>我的下载</span>
+      </a>
+      <a href="uploads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-arrow-up-from-bracket w-4 text-center"></i><span>我的上传</span>
+      </a>
+      <a href="favorites.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-regular fa-heart w-4 text-center"></i><span>我的收藏</span>
+      </a>
+    </nav>
+    <div class="p-4 border-t border-zinc-800/80" id="sidebarUser">
+<script>
+      (function(){
+        const wrap = document.getElementById('sidebarUser');
+        MarketAPI.isLoggedIn()
+          ? MarketAPI.me().then(d => {
+              const u = d.user;
+              wrap.innerHTML = '<div class="flex items-center gap-3 px-1"><img src="'+(u.avatar||'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80')+'" alt="头像" class="w-8 h-8 rounded-full object-cover ring-2 ring-zinc-700"><div class="min-w-0 flex-1"><div class="text-sm font-medium text-zinc-200 truncate">'+u.name+'</div><div class="text-[11px] text-zinc-500">已安装 '+u.installed+' 个资产</div></div><button onclick="MarketAPI.logout();location.reload();" class="w-8 h-8 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition" title="退出登录"><i class="fa-solid fa-right-from-bracket text-xs"></i></button><a href="uploads.html" class="w-8 h-8 rounded-lg bg-brand-500/15 border border-brand-500/30 grid place-items-center text-brand-300 hover:bg-brand-500/25 transition" title="上传资产"><i class="fa-solid fa-cloud-arrow-up text-xs"></i></a></div>';
+            }).catch(()=>{ MarketAPI.logout(); location.reload(); })
+          : (wrap.innerHTML = '<a href="login.html" class="flex items-center justify-center gap-2 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 text-brand-300 text-sm font-medium hover:bg-brand-500/25 transition active:scale-95"><i class="fa-solid fa-right-to-bracket text-xs"></i>登录 / 注册</a>');
+      })();
+      </script>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="flex-1 flex flex-col min-w-0">
+    <!-- 顶部栏 -->
+    <header class="h-16 shrink-0 flex items-center gap-4 px-6 border-b border-zinc-800/80 bg-ink-900/60 glass z-10">
+      <button onclick="history.back()" class="w-9 h-9 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition" aria-label="返回">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <div class="flex-1">
+        <h1 class="text-lg font-semibold text-zinc-100">上传分享资产</h1>
+        <p class="text-xs text-zinc-500">审核通过后将在市场公开展示</p>
+      </div>
+      <div class="flex items-center gap-3 ml-auto">
+        <button class="relative w-9 h-9 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition" aria-label="通知">
+          <i class="fa-regular fa-bell"></i>
+          <span class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-brand-400"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 内容滚动区 -->
+    <div class="flex-1 overflow-y-auto">
+      <div class="max-w-3xl mx-auto px-6 py-6">
+        <div class="fade-in space-y-6">
+          <!-- 资产类型 -->
+          <div>
+            <div class="text-sm font-semibold text-zinc-200 mb-3">资产类型 <span class="text-rose-400">*</span></div>
+            <div id="typeGrid" class="grid grid-cols-4 gap-2.5"></div>
+          </div>
+          
+          <!-- 资产文件 -->
+          <div>
+            <div class="text-sm font-semibold text-zinc-200 mb-3">资产文件 <span class="text-rose-400">*</span></div>
+            <div id="dropZone" class="rounded-xl border-2 border-dashed border-zinc-700 bg-ink-850 p-8 text-center cursor-pointer transition hover:border-zinc-500">
+              <input id="fileInput" type="file" class="hidden" accept="*/*">
+              <i class="fa-solid fa-cloud-arrow-up text-3xl text-zinc-600 mb-3"></i>
+              <p class="text-sm text-zinc-400">拖拽文件到此处，或 <span class="text-brand-400 font-medium">点击选择文件</span></p>
+              <p class="text-xs text-zinc-600 mt-2">支持任意类型：图片 / 视频 / Markdown / 脚本 / 压缩包等，单个文件不超过 50MB</p>
+              <p id="fileName" class="hidden mt-3 text-sm text-brand-300 font-medium"></p>
+            </div>
+          </div>
+          
+          <!-- 基本信息 -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="col-span-2">
+              <label class="text-sm font-semibold text-zinc-200 block mb-2" for="upName">资产名称 <span class="text-rose-400">*</span></label>
+              <input id="upName" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20 transition placeholder-zinc-600" placeholder="例如：星轨架构师">
+            </div>
+            <div class="col-span-2">
+              <label class="text-sm font-semibold text-zinc-200 block mb-2" for="upDesc">简介</label>
+              <textarea id="upDesc" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20 transition placeholder-zinc-600 resize-none" placeholder="一句话说明这个资产能做什么…"></textarea>
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-zinc-200 block mb-2" for="upVer">版本号</label>
+              <input id="upVer" value="1.0.0" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600">
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-zinc-200 block mb-2" for="upTags">标签</label>
+              <input id="upTags" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="逗号分隔，如：效率,编程">
+            </div>
+          </div>
+
+          <!-- 类型专属配置（按所选类型动态渲染） -->
+          <div id="detailFields"></div>
+
+          <!-- 更新日志（详情页"更新日志"卡片） -->
+          <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5">
+            <div class="flex items-center gap-2 mb-1.5">
+              <i class="fa-solid fa-clock-rotate-left text-brand-400 text-sm"></i>
+              <span class="text-sm font-semibold text-zinc-100">更新日志</span>
+            </div>
+            <p class="text-xs text-zinc-500 mb-3">每行一条：<code class="text-brand-300 font-mono">版本号 | 说明</code>，最新版本写最前面（详情页将按此渲染）</p>
+            <textarea id="upChangelog" rows="4" class="w-full px-3.5 py-2.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600 resize-none font-mono" placeholder="1.0.0 | 首个版本，包含核心功能&#10;0.9.0 | 预览版，修复已知问题"></textarea>
+          </div>
+          
+          <!-- 协议与提交 -->
+          <div class="flex items-center justify-between pt-4 border-t border-zinc-800/80">
+            <label class="flex items-center gap-2 text-xs text-zinc-500 cursor-pointer select-none">
+              <input type="checkbox" checked class="accent-amber-500 w-3.5 h-3.5"> 我已阅读并同意《资产发布协议》
+            </label>
+            <div class="flex gap-3">
+              <button onclick="history.back()" class="h-9 px-4 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 transition active:scale-95">取消</button>
+              <button onclick="submitUpload()" id="submitBtn" class="h-9 px-5 rounded-lg bg-brand-500 hover:bg-brand-400 text-ink-950 font-semibold text-sm transition active:scale-95 shadow-lg shadow-brand-500/20">提交审核</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast 容器 -->
+<div id="toastWrap" class="fixed bottom-6 right-6 z-[60] space-y-3"></div>
+
+<script>
+const CATS = {
+  character:{ name:'角色',   icon:'fa-solid fa-user-astronaut', grad:'from-amber-500/80 to-orange-600/80' },
+  skin:{     name:'皮肤',   icon:'fa-solid fa-shirt',          grad:'from-rose-500/80 to-pink-600/80' },
+  skill:{    name:'技能',   icon:'fa-solid fa-wand-magic-sparkles', grad:'from-emerald-500/80 to-teal-600/80' },
+  tool:{     name:'工具',   icon:'fa-solid fa-screwdriver-wrench',  grad:'from-sky-500/80 to-blue-600/80' },
+  mcp:{      name:'MCP',    icon:'fa-solid fa-plug-circle-bolt',    grad:'from-cyan-500/80 to-sky-600/80' },
+  kb:{       name:'知识库', icon:'fa-solid fa-book-open',      grad:'from-indigo-500/80 to-violet-600/80' },
+  theme:{    name:'主题',   icon:'fa-solid fa-palette',        grad:'from-teal-500/80 to-emerald-600/80' },
+  iconpack:{ name:'图标包', icon:'fa-solid fa-icons',          grad:'from-orange-500/80 to-amber-600/80' },
+  provider:{ name:'提供商', icon:'fa-solid fa-server',         grad:'from-purple-500/80 to-violet-600/80' },
+};
+
+const $ = s => document.querySelector(s);
+let upType = 'skill';
+
+function toast(msg, ok=true){
+  const t = document.createElement('div');
+  t.className = 'toast-in flex items-center gap-3 px-4 py-3 rounded-xl border text-sm shadow-2xl shadow-black/50 glass ' + (ok ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/15 border-rose-500/30 text-rose-300');
+  t.innerHTML = `<i class=\"fa-solid ${ok?'fa-circle-check':'fa-circle-exclamation'}\"></i><span>${msg}</span>`;
+  $('#toastWrap').appendChild(t);
+  setTimeout(()=>{ t.style.transition='all .3s'; t.style.opacity='0'; t.style.transform='translateX(24px)'; setTimeout(()=>t.remove(),300); }, 2600);
+}
+
+// 类型专属配置模板（与详情页类型面板一一对应）
+const FIELD_TPL = {
+  character: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5 space-y-4">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-user-astronaut text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">角色设定</span></div>
+      <div>
+        <label class="text-xs text-zinc-500 block mb-1.5">人格描述 (soul)</label>
+        <textarea id="f_soul" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600 resize-none" placeholder="你是一个……（决定角色的灵魂与行为方式）"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-zinc-500 block mb-1.5">头像 URL</label><input id="f_avatar" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="https://…"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">肖像 URL</label><input id="f_portrait" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="https://…"></div>
+      </div>
+      <div>
+        <label class="text-xs text-zinc-500 block mb-1.5">可用工具（逗号分隔）</label>
+        <input id="f_tools" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="bash,read,write,edit,glob,grep…">
+      </div>
+      <div>
+        <label class="text-xs text-zinc-500 block mb-1.5">绑定技能（逗号分隔）</label>
+        <input id="f_skills" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="graphify,agent-reach…">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-zinc-500 block mb-1.5">最大步数</label><input id="f_maxSteps" type="number" value="999" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition"></div>
+        <div>
+          <label class="text-xs text-zinc-500 block mb-1.5">执行策略</label>
+          <select id="f_strategy" class="w-full h-10 px-3 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition">
+            ${['Read Only','Ask Every Change','Ask Risky','Auto in Workspace','Auto Approve'].map(s=>`<option ${s==='Ask Risky'?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`,
+  skill: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5 space-y-4">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">包含子技能</span></div>
+      <div>
+        <label class="text-xs text-zinc-500 block mb-1.5">子技能列表（每行一个：名称 | 描述）</label>
+        <textarea id="f_children" rows="4" class="w-full px-3.5 py-2.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600 resize-none font-mono" placeholder="Git 提交热图 | 可视化提交历史&#10;架构评审 | 输出 ADR 决策记录"></textarea>
+      </div>
+      <div>
+        <label class="text-xs text-zinc-500 block mb-1.5">文件结构（每行一个）</label>
+        <textarea id="f_files" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600 resize-none font-mono" placeholder="SKILL.md&#10;services/&#10;tests/"></textarea>
+      </div>
+    </div>`,
+  theme: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5 space-y-4">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-palette text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">颜色方案</span></div>
+      <div>
+        <label class="text-xs text-zinc-500 block mb-1.5">外观</label>
+        <select id="f_appearance" class="w-full h-10 px-3 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition">
+          <option value="dark">暗色</option><option value="light">亮色</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-zinc-500 block mb-1.5">主色 primary</label><input id="f_primary" value="#f59e0b" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">背景 background</label><input id="f_background" value="#09090b" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">表面 surface</label><input id="f_surface" value="#1c1c21" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">表面亮 surfaceLight</label><input id="f_surfaceLight" value="#26262d" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">文字 text</label><input id="f_text" value="#fafafa" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">次要文字 textSecondary</label><input id="f_textSecondary" value="#a1a1aa" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">边框 border</label><input id="f_border" value="#27272a" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">边框亮 borderLight</label><input id="f_borderLight" value="#3f3f46" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">成功 success</label><input id="f_success" value="#10b981" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">警告 warning</label><input id="f_warning" value="#f59e0b" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">错误 error</label><input id="f_error" value="#ef4444" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">信息 info</label><input id="f_info" value="#3b82f6" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+      </div>
+      <div><label class="text-xs text-zinc-500 block mb-1.5">预览图 URL（可选）</label><input id="f_artwork" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="https://…"></div>
+    </div>`,
+  mcp: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5 space-y-4">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-plug-circle-bolt text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">MCP 配置</span></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-zinc-500 block mb-1.5">启动命令</label><input id="f_command" value="node" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">参数（空格分隔）</label><input id="f_args" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition font-mono" placeholder="server.js"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">提供工具（逗号分隔）</label><input id="f_mcp_tools" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="query,schema-info"></div>
+        <div>
+          <label class="text-xs text-zinc-500 block mb-1.5">能力</label>
+          <select id="f_capabilities" multiple size="3" class="w-full px-3 py-2 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition">
+            <option value="tools" selected>tools</option>
+            <option value="resources">resources</option>
+            <option value="prompts">prompts</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-zinc-500 block mb-1.5">状态</label>
+          <select id="f_status" class="w-full h-10 px-3 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition">
+            <option value="stable">stable</option><option value="beta">beta</option><option value="alpha">alpha</option>
+          </select>
+        </div>
+      </div>
+    </div>`,
+  iconpack: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5 space-y-4">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-icons text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">图标包</span></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-zinc-500 block mb-1.5">图标总数 slotCount</label><input id="f_slotCount" type="number" value="260" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">预览图标（逗号分隔）</label><input id="f_previewIcons" value="add,close,delete,home,file,folder" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600"></div>
+      </div>
+    </div>`,
+  tool: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5 space-y-4">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-screwdriver-wrench text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">工具信息</span></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-zinc-500 block mb-1.5">运行方式 format</label><input id="f_format" value="cli" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition"></div>
+        <div><label class="text-xs text-zinc-500 block mb-1.5">大小 size</label><input id="f_size" value="12KB" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition"></div>
+      </div>
+    </div>`,
+  provider: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5 space-y-4">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-server text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">API 配置</span></div>
+      <div><label class="text-xs text-zinc-500 block mb-1.5">端点 baseUrl</label><input id="f_baseUrl" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600 font-mono" placeholder="https://api.example.com/v1"></div>
+      <div><label class="text-xs text-zinc-500 block mb-1.5">支持模型（逗号分隔）</label><input id="f_models" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="gpt-4o,claude-3.5-sonnet"></div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs text-zinc-500">配置项 fields（品牌名/密钥/模型名等）</label>
+          <button type="button" onclick="addFieldRow()" class="h-7 px-3 rounded-lg bg-brand-500/15 border border-brand-500/30 text-brand-300 text-xs font-medium hover:bg-brand-500/25 transition"><i class="fa-solid fa-plus mr-1"></i>添加配置项</button>
+        </div>
+        <div id="f_fieldsRows" class="space-y-2"></div>
+        <p class="text-[11px] text-zinc-600 mt-1.5">每项：名称 · 类型（string/secret）· 占位提示 · 是否必填</p>
+      </div>
+    </div>`,
+  kb: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5">
+      <div class="flex items-center gap-2 mb-3"><i class="fa-solid fa-book-open text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">知识库</span></div>
+      <p class="text-xs text-zinc-500 leading-relaxed">知识库资产为经过分块和索引的文档集合（上传打包好的文档目录）。安装后角色可实时检索库内内容辅助回答。</p>
+    </div>`,
+  skin: `
+    <div class="rounded-xl bg-ink-900 border border-zinc-800 p-5">
+      <div class="flex items-center gap-2 mb-3"><i class="fa-solid fa-shirt text-brand-400 text-sm"></i><span class="text-sm font-semibold text-zinc-100">皮肤</span></div>
+      <p class="text-xs text-zinc-500 leading-relaxed">皮肤是角色的视觉包装，定义头像、肖像、渐变色和动画动作，不改变角色的能力与行为。上传资源包即可。</p>
+    </div>`,
+};
+const FIELD_NONE = '<div class="text-xs text-zinc-500 border-l-2 border-brand-500/40 pl-3">该类型无需额外配置，直接上传资产文件即可。</div>';
+
+// 提供商配置项动态行（与详情页 renderProviderPanel 的 fields 对齐）
+function addFieldRow(){
+  const wrap = document.getElementById('f_fieldsRows');
+  if (!wrap) return;
+  const div = document.createElement('div');
+  div.className = 'prov-field grid grid-cols-[1fr_90px_1fr_auto] gap-2 items-center';
+  div.innerHTML = `
+    <input class="pf-label w-full h-9 px-3 rounded-lg bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="配置项名称，如 API Key">
+    <select class="pf-type w-full h-9 px-2 rounded-lg bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition">
+      <option value="string">string</option><option value="secret">secret</option>
+    </select>
+    <input class="pf-ph w-full h-9 px-3 rounded-lg bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="占位提示">
+    <span class="flex items-center gap-2">
+      <label class="text-[11px] text-zinc-500 flex items-center gap-1 cursor-pointer"><input type="checkbox" class="pf-required accent-amber-500 w-3 h-3">必填</label>
+      <button type="button" onclick="this.closest('.prov-field').remove()" class="w-7 h-7 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-500 hover:text-rose-400 hover:border-rose-500/40 transition" title="删除"><i class="fa-solid fa-trash text-[10px]"></i></button>
+    </span>`;
+  wrap.appendChild(div);
+}
+
+function renderTypeGrid(){
+  $('#typeGrid').innerHTML = Object.entries(CATS).map(([k,c])=>`
+    <button onclick="upType='${k}';renderTypeGrid()" class="flex flex-col items-center gap-1.5 py-3 rounded-xl border transition active:scale-95 ${upType===k?'border-brand-500/60 bg-brand-500/10 text-brand-300':'border-zinc-800 bg-ink-850 text-zinc-400 hover:border-zinc-600'}">
+      <i class="${c.icon} text-lg"></i><span class="text-xs">${c.name}</span>
+    </button>`).join('');
+  // 切换类型时渲染专属配置区
+  $('#detailFields').innerHTML = FIELD_TPL[upType] || FIELD_NONE;
+}
+
+// 收集类型专属字段 → detail_data 对象
+function collectDetailData(){
+  const $val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const split = s => s.split(/[,，\n]/).map(x=>x.trim()).filter(Boolean);
+  const dd = {};
+  // 通用：更新日志（详情页 renderChangelogCard 渲染）
+  const changelog = $val('upChangelog').split('\n').map(line => {
+    const idx = line.indexOf('|');
+    if (idx < 0) return null;
+    const ver = line.slice(0, idx).trim();
+    const desc = line.slice(idx + 1).trim();
+    return ver && desc ? { ver, desc } : null;
+  }).filter(Boolean);
+  if (changelog.length) dd.changelog = changelog;
+  switch (upType) {
+    case 'character':
+      dd.characterData = {
+        tools: split($val('f_tools')), skills: split($val('f_skills')),
+        maxSteps: parseInt($val('f_maxSteps')) || 999, strategy: $val('f_strategy') || 'Ask Risky',
+        soul: $val('f_soul'),
+        visual: { avatar: $val('f_avatar')||undefined, portrait: $val('f_portrait')||undefined },
+      };
+      break;
+    case 'skill':
+      dd.skillData = {
+        children: $val('f_children').split('\n').map(l=>{ const [name,...desc]=l.split('|'); const n=name.trim(); if(!n) return null; return { name:n, description: desc.join('|').trim() }; }).filter(Boolean),
+        files: $val('f_files').split('\n').map(x=>x.trim()).filter(Boolean),
+      };
+      break;
+    case 'theme':
+      dd.themeData = {
+        appearance: $val('f_appearance') || 'dark',
+        colors: { primary:$val('f_primary'), background:$val('f_background'), surface:$val('f_surface'), surfaceLight:$val('f_surfaceLight'), text:$val('f_text'), textSecondary:$val('f_textSecondary'), border:$val('f_border'), borderLight:$val('f_borderLight'), success:$val('f_success'), warning:$val('f_warning'), error:$val('f_error'), info:$val('f_info') },
+        artwork: $val('f_artwork') || undefined,
+      };
+      break;
+    case 'mcp':
+      dd.mcpData = {
+        command: $val('f_command'), args: $val('f_args').split(/\s+/).filter(Boolean),
+        capabilities: Array.from(document.querySelectorAll('#f_capabilities option:checked')).map(o=>o.value),
+        tools: split($val('f_mcp_tools')), status: $val('f_status') || 'stable',
+      };
+      break;
+    case 'iconpack':
+      dd.iconpackData = { slotCount: parseInt($val('f_slotCount')) || 0, previewIcons: split($val('f_previewIcons')), slots: {} };
+      break;
+    case 'tool':
+      dd.toolData = { format: $val('f_format'), size: $val('f_size') };
+      break;
+    case 'provider':
+      dd.providerData = {
+        baseUrl: $val('f_baseUrl'),
+        models: split($val('f_models')),
+        fields: Array.from(document.querySelectorAll('#f_fieldsRows .prov-field')).map(row => ({
+          label: row.querySelector('.pf-label').value.trim(),
+          required: row.querySelector('.pf-required').checked,
+          type: row.querySelector('.pf-type').value,
+          placeholder: row.querySelector('.pf-ph').value.trim(),
+        })).filter(f => f.label),
+      };
+      break;
+  }
+  return dd;
+}
+
+function submitUpload(){
+  const name = $('#upName').value.trim();
+  if (!name){
+    toast('请填写资产名称', false);
+    $('#upName').focus();
+    return;
+  }
+  const file = window.__upFile || null;
+  if (!file) { toast('请选择要上传的资产文件', false); return; }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录', false); setTimeout(()=>location.href='login.html',800); return; }
+
+  // 构造 FormData（任意文件类型）
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('name', name);
+  fd.append('desc', $('#upDesc').value.trim());
+  fd.append('ver', $('#upVer').value.trim() || '1.0.0');
+  fd.append('cat', upType);
+  fd.append('tags', $('#upTags').value.trim());
+  // 类型专属字段 → detail_data JSON
+  const dd = collectDetailData();
+  if (Object.keys(dd).length) fd.append('detail_data', JSON.stringify(dd));
+
+  const btn = $('#submitBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>上传中…'; }
+
+  MarketAPI.uploadAsset(fd)
+    .then(()=>{
+      toast(`「${name}」已提交审核，通过后将自动上架`);
+      setTimeout(()=>{ window.location.href = 'uploads.html'; }, 1200);
+    })
+    .catch(e=>{
+      toast(e.message || '上传失败', false);
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>提交审核'; }
+    });
+}
+
+// 文件拖拽/选择功能（支持任意文件类型）
+let __upFile = null;
+const dz = $('#dropZone');
+const fi = $('#fileInput');
+function setFile(f){
+  if (!f) return;
+  __upFile = f;
+  $('#fileName').textContent = '已选择：'+f.name+'（'+(f.size/1024).toFixed(1)+' KB）';
+  $('#fileName').classList.remove('hidden');
+}
+['dragover','dragenter'].forEach(e=>dz.addEventListener(e, ev=>{ev.preventDefault(); dz.classList.add('drop-active');}));
+['dragleave','drop'].forEach(e=>dz.addEventListener(e, ev=>{ev.preventDefault(); dz.classList.remove('drop-active');
+  if(e==='drop' && ev.dataTransfer.files[0]) setFile(ev.dataTransfer.files[0]);
+}));
+dz.addEventListener('click', ()=>{ fi.click(); });
+fi.addEventListener('change', ()=>{ if(fi.files[0]) setFile(fi.files[0]); });
+
+// 初始化
+renderTypeGrid();
+</script>
+</body>
+</html>

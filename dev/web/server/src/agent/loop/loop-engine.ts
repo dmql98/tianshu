@@ -151,6 +151,17 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   // 仿 lastPlanAlert「变化才注入」：只在该轮未注入 plan alert 且内容变化时 push，
   // 稳态轮次不重复 → 尾部动态上下文保持字节稳定（provider 前缀缓存不受影响）。
   const directModeAlert = '[Policy Direct] 当前为直接对话模式：是否创建计划/目标由你自行判断。'
+  // 委派策略提示（对齐 directModeAlert 的注入样式）：角色配了可委托 targets 时提示模型主动
+  // 委派。具体"能拉起谁 / 能做什么"已由 outer.ts 在 delegate_to_agent 工具描述末尾注入
+  // ` | targets: ...`，此处不重复列名。targets 在会话创建时确定、不会中途变，故每 Run 预计算一次。
+  const delegationPolicyAlert =
+    '[Policy Delegation] 你已配置可委托角色（详见 delegate_to_agent 工具的 targets 列表，含各角色简介）。' +
+    '遇到可自包含、可并行的子任务时，主动用 delegate_to_agent 把子任务委派给子 agent 并行处理——这是处理大任务最快的方式；是否委派、委派给谁由你判断。'
+  const sessRow0 = sessionStore.getById(sessionId)
+  const delegatableTargets = !!sessRow0?.targets && (() => {
+    try { return (JSON.parse(sessRow0.targets) as unknown[]).length > 0 } catch { return false }
+  })()
+  const isTopLevelSession = !sessRow0?.parent_id
   // Pin the plan to this Run. Once its last step completes its DB status is no
   // longer "active", but submit_result must still validate that same plan.
   let currentPlanId = planStore.getActive(sessionId)?.id || null
@@ -177,6 +188,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   let lastPlanAlert = ''
   let lastGoalAlert = ''
   let lastModeAlert = ''
+  let lastDelegationAlert = ''
 
   while (turn < absoluteTurns && !signal?.aborted) {
     turn++
@@ -244,6 +256,11 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     if (policyLabel === 'Direct' && !planAlertPushed && directModeAlert !== lastModeAlert) {
       composeCtx.systemAlerts!.push(directModeAlert)
       lastModeAlert = directModeAlert
+    }
+    // 委派策略提示：仅顶层会话 + 配置了可委托 targets 时，任何执行模式都注入（变化才注入）。
+    if (delegatableTargets && isTopLevelSession && delegationPolicyAlert !== lastDelegationAlert) {
+      composeCtx.systemAlerts!.push(delegationPolicyAlert)
+      lastDelegationAlert = delegationPolicyAlert
     }
     if (executionMode === 'goal') {
       const g = currentGoal()

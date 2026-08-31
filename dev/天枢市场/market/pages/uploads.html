@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的上传 · 天枢市场</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="../js/api.js"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { brand:{300:'#fcd34d',400:'#fbbf24',500:'#f59e0b',600:'#d97706'}, ink:{950:'#09090b',900:'#0f0f12',850:'#141418',800:'#1c1c21',700:'#26262d'} }
+}}}
+</script>
+<style>
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2e2e36;border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+  body{font-family:-apple-system,system-ui,"PingFang SC","Microsoft YaHei",sans-serif}
+  .glass{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+  .fade-in{animation:fadeIn .35s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  .toast-in{animation:toastIn .3s cubic-bezier(.2,.8,.2,1) both}@keyframes toastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+  .star-field{background-image:radial-gradient(1px 1px at 20% 30%,rgba(251,191,36,.5) 50%,transparent 51%),radial-gradient(1px 1px at 70% 60%,rgba(255,255,255,.35) 50%,transparent 51%)}
+  .drop-active{border-color:#f59e0b !important;background:rgba(245,158,11,.06) !important}
+  .pulse-dot{animation:pd 1.6s infinite}@keyframes pd{0%,100%{opacity:1}50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body class="bg-ink-950 text-zinc-200 antialiased overflow-hidden">
+
+<div class="flex h-screen">
+  <!-- 侧栏 -->
+  <aside class="w-60 shrink-0 flex flex-col border-r border-zinc-800/80 bg-ink-900">
+    <a href="../index.html" class="h-16 flex items-center gap-3 px-5 border-b border-zinc-800/80 hover:bg-zinc-800/40 transition">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center shadow-lg shadow-brand-500/20">
+        <i class="fa-solid fa-star-of-david text-ink-950 text-sm"></i>
+      </div>
+      <div>
+        <div class="font-bold text-zinc-50 leading-tight">天枢市场</div>
+        <div class="text-[11px] text-zinc-500">TianShu Market</div>
+      </div>
+    </a>
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <div class="px-2 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">发现</div>
+      <a href="../index.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-compass w-4 text-center"></i><span>市场首页</span>
+        <i class="fa-solid fa-chevron-right ml-auto text-[10px] text-zinc-700"></i>
+      </a>
+      <a href="../index.html?cat=character" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-user-astronaut w-4 text-center"></i><span>角色</span></a>
+      <a href="../index.html?cat=skin" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-shirt w-4 text-center"></i><span>皮肤</span></a>
+      <a href="../index.html?cat=skill" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-wand-magic-sparkles w-4 text-center"></i><span>技能</span></a>
+      <a href="../index.html?cat=tool" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-screwdriver-wrench w-4 text-center"></i><span>工具</span></a>
+      <a href="../index.html?cat=mcp" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-plug-circle-bolt w-4 text-center"></i><span>MCP</span></a>
+      <a href="../index.html?cat=kb" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-book-open w-4 text-center"></i><span>知识库</span></a>
+      <a href="../index.html?cat=theme" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-palette w-4 text-center"></i><span>主题</span></a>
+      <a href="../index.html?cat=iconpack" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition"><i class="fa-solid fa-icons w-4 text-center"></i><span>图标包</span></a>
+      <div class="px-2 pt-4 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">我的</div>
+      <a href="downloads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-cloud-arrow-down w-4 text-center"></i><span>我的下载</span>
+      </a>
+      <a href="uploads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm bg-brand-500/15 text-brand-300 font-medium transition">
+        <i class="fa-solid fa-arrow-up-from-bracket w-4 text-center"></i><span>我的上传</span>
+        <span id="navCount" class="ml-auto text-[11px] text-brand-400/80"></span>
+      </a>
+      <a href="favorites.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-regular fa-heart w-4 text-center"></i><span>我的收藏</span>
+      </a>
+
+      <a href="admin.html" id="navAdmin" class="hidden w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-shield-halved w-4 text-center"></i><span>管理后台</span>
+      </a>    </nav>
+    <div class="p-4 border-t border-zinc-800/80" id="sidebarUser">
+<script>
+      (function(){
+        const wrap = document.getElementById('sidebarUser');
+        MarketAPI.isLoggedIn()
+          ? MarketAPI.me().then(d => {
+              const u = d.user;
+              const na = document.getElementById('navAdmin');
+              if (na && u.role === 'admin') na.classList.remove('hidden');
+              wrap.innerHTML = '<div class="flex items-center gap-3 px-1"><img src="'+(u.avatar||'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80')+'" alt="头像" class="w-8 h-8 rounded-full object-cover ring-2 ring-zinc-700"><div class="min-w-0 flex-1"><div class="text-sm font-medium text-zinc-200 truncate">'+u.name+'</div><div class="text-[11px] text-zinc-500">已安装 '+u.installed+' 个资产</div></div><button onclick="MarketAPI.logout();location.reload();" class="w-8 h-8 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition" title="退出登录"><i class="fa-solid fa-right-from-bracket text-xs"></i></button><a href="uploads.html" class="w-8 h-8 rounded-lg bg-brand-500/15 border border-brand-500/30 grid place-items-center text-brand-300 hover:bg-brand-500/25 transition" title="上传资产"><i class="fa-solid fa-cloud-arrow-up text-xs"></i></a></div>';
+            }).catch(()=>{ MarketAPI.logout(); location.reload(); })
+          : (wrap.innerHTML = '<a href="login.html" class="flex items-center justify-center gap-2 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 text-brand-300 text-sm font-medium hover:bg-brand-500/25 transition active:scale-95"><i class="fa-solid fa-right-to-bracket text-xs"></i>登录 / 注册</a>');
+      })();
+      </script>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="flex-1 flex flex-col min-w-0">
+    <header class="h-16 shrink-0 flex items-center gap-4 px-6 border-b border-zinc-800/80 bg-ink-900/60 glass">
+      <div>
+        <h1 class="font-bold text-zinc-50 leading-tight">我的上传</h1>
+        <p class="text-[11px] text-zinc-500">发布与管理你分享的资产</p>
+      </div>
+      <a href="upload.html" class="ml-auto h-9 px-5 rounded-lg bg-brand-500 hover:bg-brand-400 text-ink-950 font-semibold text-sm transition active:scale-95 shadow-lg shadow-brand-500/20 flex items-center gap-2">
+        <i class="fa-solid fa-cloud-arrow-up"></i>上传资产
+      </a>
+    </header>
+
+    <div class="flex-1 overflow-y-auto">
+      <div class="max-w-5xl mx-auto px-6 py-6">
+        <!-- 创作者数据 -->
+        <div class="grid grid-cols-4 gap-4 mb-6 fade-in">
+          <div class="rounded-2xl bg-ink-900 border border-zinc-800 p-5">
+            <div class="flex items-center gap-2 text-zinc-500 text-xs mb-2"><i class="fa-solid fa-cube text-brand-400"></i>发布资产</div>
+            <div class="text-2xl font-bold text-zinc-50"><span id="statTotal">4</span></div>
+          </div>
+          <div class="rounded-2xl bg-ink-900 border border-zinc-800 p-5">
+            <div class="flex items-center gap-2 text-zinc-500 text-xs mb-2"><i class="fa-solid fa-download text-emerald-400"></i>总下载量</div>
+            <div class="text-2xl font-bold text-zinc-50">28.6<span class="text-sm font-normal text-zinc-500">k</span></div>
+          </div>
+          <div class="rounded-2xl bg-ink-900 border border-zinc-800 p-5">
+            <div class="flex items-center gap-2 text-zinc-500 text-xs mb-2"><i class="fa-solid fa-star text-amber-400"></i>平均评分</div>
+            <div class="text-2xl font-bold text-zinc-50">4.6</div>
+          </div>
+          <div class="rounded-2xl bg-ink-900 border border-zinc-800 p-5">
+            <div class="flex items-center gap-2 text-zinc-500 text-xs mb-2"><i class="fa-solid fa-arrow-trend-up text-sky-400"></i>本月新增下载</div>
+            <div class="text-2xl font-bold text-zinc-50">3.2<span class="text-sm font-normal text-zinc-500">k</span></div>
+          </div>
+        </div>
+
+        <!-- 状态筛选 -->
+        <div id="chips" class="flex flex-wrap gap-2 mb-5"></div>
+
+        <!-- 资产列表 -->
+        <div id="list" class="space-y-3 pb-10"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+
+
+<div id="toastWrap" class="fixed bottom-6 right-6 z-[60] space-y-3"></div>
+
+<script>
+const CATS = {
+  character:{ name:'角色',   icon:'fa-solid fa-user-astronaut', grad:'from-amber-500/80 to-orange-600/80' },
+  skin:{     name:'皮肤',   icon:'fa-solid fa-shirt',          grad:'from-rose-500/80 to-pink-600/80' },
+  skill:{    name:'技能',   icon:'fa-solid fa-wand-magic-sparkles', grad:'from-emerald-500/80 to-teal-600/80' },
+  tool:{     name:'工具',   icon:'fa-solid fa-screwdriver-wrench',  grad:'from-sky-500/80 to-blue-600/80' },
+  mcp:{      name:'MCP',    icon:'fa-solid fa-plug-circle-bolt',    grad:'from-cyan-500/80 to-sky-600/80' },
+  kb:{       name:'知识库', icon:'fa-solid fa-book-open',      grad:'from-indigo-500/80 to-violet-600/80' },
+  theme:{    name:'主题',   icon:'fa-solid fa-palette',        grad:'from-teal-500/80 to-emerald-600/80' },
+  iconpack:{ name:'图标包', icon:'fa-solid fa-icons',          grad:'from-orange-500/80 to-amber-600/80' },
+};
+const STATUS = {
+  live:    { name:'已上架', cls:'bg-emerald-500/10 border-emerald-500/25 text-emerald-400', dot:false },
+  review:  { name:'审核中', cls:'bg-amber-500/10 border-amber-500/30 text-amber-300',       dot:true  },
+  rejected:{ name:'需修改', cls:'bg-rose-500/10 border-rose-500/30 text-rose-300',          dot:false },
+};
+const fmt = n => n >= 1000 ? (n/1000).toFixed(1)+'k' : n;
+let seq = 100;
+let MY = [];
+async function loadMY(){
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录', false); setTimeout(()=>location.href='login.html',800); return; }
+  try {
+    const list = await MarketAPI.myUploads();
+    MY = list.map(a => ({
+      id: a.id, cat: a.cat, name: a.name, ver: a.ver,
+      status: a.status, dl: a.dl, rate: a.rate,
+      date: (a.updated_at||'').slice(5,10), note: a.note || '',
+    }));
+  } catch(e) { toast(e.message, false); }
+  renderAll();
+}
+let curChip = 'all';
+const $ = s => document.querySelector(s);
+
+function toast(msg, ok=true){
+  const t = document.createElement('div');
+  t.className = 'toast-in flex items-center gap-3 px-4 py-3 rounded-xl border text-sm shadow-2xl shadow-black/50 glass ' + (ok ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/15 border-rose-500/30 text-rose-300');
+  t.innerHTML = `<i class="fa-solid ${ok?'fa-circle-check':'fa-circle-exclamation'}"></i><span>${msg}</span>`;
+  $('#toastWrap').appendChild(t);
+  setTimeout(()=>{ t.style.transition='all .3s'; t.style.opacity='0'; t.style.transform='translateX(24px)'; setTimeout(()=>t.remove(),300); }, 2600);
+}
+function renderChips(){
+  const all = [['all','全部'],['live','已上架'],['review','审核中'],['rejected','需修改']];
+  $('#chips').innerHTML = all.map(([k,n])=>{
+    const cnt = k==='all' ? MY.length : MY.filter(a=>a.status===k).length;
+    const on = curChip===k;
+    return `<button onclick="curChip='${k}';renderAll()" class="h-8 px-3.5 rounded-lg text-xs font-medium transition active:scale-95 ${on?'bg-brand-500/15 border border-brand-500/40 text-brand-300':'bg-ink-900 border border-zinc-800 text-zinc-400 hover:border-zinc-600'}">${n} <span class="${on?'text-brand-400/70':'text-zinc-600'} ml-0.5">${cnt}</span></button>`;
+  }).join('');
+}
+function rowHTML(a, i){
+  const c = CATS[a.cat], s = STATUS[a.status];
+  return `
+  <div class="fade-in rounded-2xl bg-ink-900 border border-zinc-800 hover:border-zinc-700 p-4 transition" style="animation-delay:${i*40}ms">
+    <div class="flex items-center gap-4">
+      <span class="w-11 h-11 rounded-xl bg-gradient-to-br ${c.grad} grid place-items-center shrink-0 star-field"><i class="${c.icon} text-white/90"></i></span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-medium text-zinc-100 truncate">${a.name}</span>
+          <span class="px-2 py-0.5 rounded-md border text-[11px] ${s.cls}">${s.dot?'<span class="pulse-dot inline-block mr-1">●</span>':''}${s.name}</span>
+        </div>
+        <div class="text-xs text-zinc-500 mt-1">${c.name} · v${a.ver} · ${a.date}提交
+          ${a.status==='live' ? `<span class="text-zinc-700"> · </span><i class="fa-solid fa-download ml-1 mr-0.5"></i>${fmt(a.dl)} <i class="fa-solid fa-star text-amber-400/80 ml-2 mr-0.5 text-[10px]"></i>${a.rate}` : ''}
+        </div>
+      </div>
+      <div class="flex gap-2 shrink-0">
+        ${a.status==='live'    ? `<a href="edit.html?id=${a.id}" class="h-8 px-3.5 rounded-lg bg-ink-800 border border-zinc-800 text-zinc-300 hover:border-zinc-600 text-xs transition active:scale-95 flex items-center">编辑</a>
+                                  <button onclick="offline(${a.id})" class="h-8 px-3.5 rounded-lg bg-ink-800 border border-zinc-800 text-zinc-500 hover:text-rose-300 hover:border-rose-500/30 text-xs transition active:scale-95">下架</button>` : ''}
+        ${a.status==='review'  ? `<button onclick="withdraw(${a.id})" class="h-8 px-3.5 rounded-lg bg-ink-800 border border-zinc-800 text-zinc-500 hover:text-zinc-200 text-xs transition active:scale-95">撤回</button>` : ''}
+        ${a.status==='rejected'? `<a href="edit.html?id=${a.id}" class="h-8 px-3.5 rounded-lg bg-brand-500/15 border border-brand-500/30 text-brand-300 hover:bg-brand-500/25 text-xs font-medium transition active:scale-95 flex items-center">重新提交</a>` : ''}
+      </div>
+    </div>
+    ${a.note ? `<p class="mt-3 ml-[60px] text-xs ${a.status==='rejected'?'text-rose-300/80':'text-zinc-500'}"><i class="fa-solid ${a.status==='rejected'?'fa-circle-exclamation':'fa-hourglass-half'} mr-1.5"></i>${a.note}</p>` : ''}
+  </div>`;
+}
+function emptyHTML(){
+  return `<div class="flex flex-col items-center justify-center py-24 fade-in">
+    <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5"><i class="fa-solid fa-arrow-up-from-bracket text-2xl text-zinc-600"></i></div>
+    <h3 class="font-semibold text-zinc-300 mb-2">还没有分享过资产</h3>
+    <p class="text-sm text-zinc-500 mb-6">把你打磨的角色、技能或主题分享给整个天枢社区</p>
+    <a href="upload.html" class="h-9 px-5 rounded-lg bg-brand-500 hover:bg-brand-400 text-ink-950 font-semibold text-sm transition active:scale-95 flex items-center justify-center">上传第一个资产</a>
+  </div>`;
+}
+function renderAll(){
+  const list = curChip==='all' ? MY : MY.filter(a=>a.status===curChip);
+  renderChips();
+  $('#statTotal').textContent = MY.length;
+  $('#navCount').textContent = MY.length;
+  $('#list').innerHTML = list.length ? list.map(rowHTML).join('') : emptyHTML();
+}
+function offline(id){ const a=MY.find(x=>x.id===id); MarketAPI.deleteAsset(id).then(()=>{ a.status='offline'; a.note='已下架'; renderAll(); toast(`「${a.name}」已下架`); }).catch(e=>toast(e.message,false)); }
+function withdraw(id){ const a=MY.find(x=>x.id===id); MarketAPI.deleteAsset(id).then(()=>{ MY = MY.filter(x=>x.id!==id); renderAll(); toast(`已撤回「${a.name}」的审核申请`); }).catch(e=>toast(e.message,false)); }
+function resubmit(id){ /* 重新提交需编辑后走 edit.html 的更新接口 */ location.href = `edit.html?id=${id}`; }
+
+loadMY();
+</script>
+</body>
+</html>

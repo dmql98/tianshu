@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资产详情 · 天枢市场</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="../js/api.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#fffbeb',100:'#fef3c7',200:'#fde68a',300:'#fcd34d',400:'#fbbf24',500:'#f59e0b',600:'#d97706',700:'#b45309' },
+        ink: { 950:'#09090b',900:'#0f0f12',850:'#141418',800:'#1c1c21',700:'#26262d',600:'#32323a' }
+      },
+      fontFamily: {
+        sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Text"','"Segoe UI"','Roboto','"PingFang SC"','"Microsoft YaHei"','sans-serif']
+      }
+    }
+  }
+}
+</script>
+<style>
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-thumb { background:#2e2e36; border-radius:6px; }
+  ::-webkit-scrollbar-thumb:hover { background:#3f3f4a; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  body { font-family:-apple-system,system-ui,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .glass { backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+  .fade-in { animation:fadeIn .35s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes fadeIn { from {opacity:0; transform:translateY(8px);} to {opacity:1; transform:none;} }
+  .toast-in { animation:toastIn .3s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes toastIn { from {opacity:0; transform:translateX(24px);} to {opacity:1; transform:none;} }
+  .star-field { background-image:radial-gradient(1px 1px at 20% 30%,rgba(251,191,36,.5) 50%,transparent 51%),radial-gradient(1px 1px at 70% 60%,rgba(255,255,255,.35) 50%,transparent 51%),radial-gradient(1.5px 1.5px at 45% 75%,rgba(251,191,36,.4) 50%,transparent 51%),radial-gradient(1px 1px at 85% 25%,rgba(255,255,255,.3) 50%,transparent 51%); }
+  @media (prefers-reduced-motion:reduce) { * {animation:none!important;transition:none!important;} }
+</style>
+</head>
+<body class="bg-ink-950 text-zinc-200 antialiased overflow-hidden">
+
+<div class="flex h-screen">
+  <!-- ═══════════ 左侧导航 ═══════════ -->
+  <aside class="w-60 shrink-0 flex flex-col border-r border-zinc-800/80 bg-ink-900">
+    <a href="../index.html" class="h-16 flex items-center gap-3 px-5 border-b border-zinc-800/80 hover:bg-zinc-800/40 transition">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center shadow-lg shadow-brand-500/20">
+        <i class="fa-solid fa-star-of-david text-ink-950 text-sm"></i>
+      </div>
+      <div>
+        <div class="font-bold text-zinc-50 leading-tight">天枢市场</div>
+        <div class="text-[11px] text-zinc-500">TianShu Market</div>
+      </div>
+    </a>
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <div class="px-2 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">发现</div>
+      <a href="../index.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-compass w-4 text-center"></i><span>市场首页</span>
+      </a>
+      <div class="px-2 pt-4 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">我的</div>
+      <a href="downloads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-cloud-arrow-down w-4 text-center"></i><span>我的下载</span>
+      </a>
+      <a href="uploads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-arrow-up-from-bracket w-4 text-center"></i><span>我的上传</span>
+      </a>
+      <a href="favorites.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-regular fa-heart w-4 text-center"></i><span>我的收藏</span>
+      </a>
+    </nav>
+    <div class="p-4 border-t border-zinc-800/80" id="sidebarUser">
+<script>
+      (function(){
+        const wrap = document.getElementById('sidebarUser');
+        MarketAPI.isLoggedIn()
+          ? MarketAPI.me().then(d => {
+              const u = d.user;
+              wrap.innerHTML = '<div class="flex items-center gap-3 px-1"><img src="'+(u.avatar||'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80')+'" alt="头像" class="w-8 h-8 rounded-full object-cover ring-2 ring-zinc-700"><div class="min-w-0 flex-1"><div class="text-sm font-medium text-zinc-200 truncate">'+u.name+'</div><div class="text-[11px] text-zinc-500">已安装 '+u.installed+' 个资产</div></div><button onclick="MarketAPI.logout();location.reload();" class="w-8 h-8 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition" title="退出登录"><i class="fa-solid fa-right-from-bracket text-xs"></i></button><a href="uploads.html" class="w-8 h-8 rounded-lg bg-brand-500/15 border border-brand-500/30 grid place-items-center text-brand-300 hover:bg-brand-500/25 transition" title="上传资产"><i class="fa-solid fa-cloud-arrow-up text-xs"></i></a></div>';
+            }).catch(()=>{ MarketAPI.logout(); location.reload(); })
+          : (wrap.innerHTML = '<a href="login.html" class="flex items-center justify-center gap-2 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 text-brand-300 text-sm font-medium hover:bg-brand-500/25 transition active:scale-95"><i class="fa-solid fa-right-to-bracket text-xs"></i>登录 / 注册</a>');
+      })();
+      </script>
+    </div>
+  </aside>
+
+  <!-- ═══════════ 主区域 ═══════════ -->
+  <main class="flex-1 flex flex-col min-w-0">
+    <!-- 顶部栏 -->
+    <header class="h-14 shrink-0 flex items-center gap-3 px-5 border-b border-zinc-800/80 bg-ink-900/80 glass z-10">
+      <button onclick="history.back()" class="w-8 h-8 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition" aria-label="返回">
+        <i class="fa-solid fa-arrow-left text-sm"></i>
+      </button>
+      <div id="breadcrumb" class="flex items-center gap-2 text-sm text-zinc-500 min-w-0"></div>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-2">
+        <button id="shareBtn" class="h-8 px-3 rounded-lg bg-ink-800 border border-zinc-800 text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-share-nodes"></i><span>分享</span>
+        </button>
+        <button class="relative w-8 h-8 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition" aria-label="通知">
+          <i class="fa-regular fa-bell text-sm"></i>
+          <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-brand-400"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 内容区 -->
+    <div class="flex-1 overflow-y-auto" id="scrollArea">
+      <div id="detailContent" class="fade-in"></div>
+    </div>
+  </main>
+</div>
+
+<div id="toastWrap" class="fixed bottom-6 right-6 z-[60] space-y-3"></div>
+
+<script>
+/* ═══════════════ 数据 ═══════════════ */
+const CATS = {
+  character:{ name:'角色',   icon:'fa-solid fa-user-astronaut', grad:'from-amber-500/80 to-orange-600/80', color:'#f59e0b' },
+  skin:{     name:'皮肤',   icon:'fa-solid fa-shirt',          grad:'from-rose-500/80 to-pink-600/80', color:'#f43f5e' },
+  skill:{    name:'技能',   icon:'fa-solid fa-wand-magic-sparkles', grad:'from-emerald-500/80 to-teal-600/80', color:'#10b981' },
+  tool:{     name:'工具',   icon:'fa-solid fa-screwdriver-wrench',  grad:'from-sky-500/80 to-blue-600/80', color:'#0ea5e9' },
+  mcp:{      name:'MCP',    icon:'fa-solid fa-plug-circle-bolt',    grad:'from-cyan-500/80 to-sky-600/80', color:'#06b6d4' },
+  kb:{       name:'知识库', icon:'fa-solid fa-book-open',      grad:'from-indigo-500/80 to-violet-600/80', color:'#6366f1' },
+  theme:{    name:'主题',   icon:'fa-solid fa-palette',        grad:'from-teal-500/80 to-emerald-600/80', color:'#14b8a6' },
+  iconpack:{ name:'图标包', icon:'fa-solid fa-icons',          grad:'from-orange-500/80 to-amber-600/80', color:'#f97316' },
+  provider:{ name:'提供商', icon:'fa-solid fa-server',         grad:'from-purple-500/80 to-indigo-600/80', color:'#a855f7' },
+  prompt:{   name:'提示词', icon:'fa-solid fa-comment-dots',   grad:'from-pink-500/80 to-rose-600/80', color:'#ec4899' },
+};
+
+// 当前查看的资产（由 API 加载）
+let curAsset = null;
+const installed = new Set();
+const favs = new Set();
+
+const $ = s => document.querySelector(s);
+const fmt = n => n >= 10000 ? (n/10000).toFixed(1)+' 万' : n >= 1000 ? (n/1000).toFixed(1)+'k' : n;
+const catOf = k => CATS[k] || CATS.skill;
+const esc = s => String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ═══════════════ Toast ═══════════════ */
+function toast(msg, ok=true){
+  const t = document.createElement('div');
+  t.className = 'toast-in flex items-center gap-3 px-4 py-3 rounded-xl border text-sm shadow-2xl shadow-black/50 glass '+(ok?'bg-emerald-500/15 border-emerald-500/30 text-emerald-300':'bg-rose-500/15 border-rose-500/30 text-rose-300');
+  t.innerHTML = `<i class="fa-solid ${ok?'fa-circle-check':'fa-circle-exclamation'}"></i><span>${msg}</span>`;
+  $('#toastWrap').appendChild(t);
+  setTimeout(()=>{ t.style.transition='all .3s'; t.style.opacity='0'; t.style.transform='translateX(24px)'; setTimeout(()=>t.remove(),300); }, 2600);
+}
+
+/* ═══════════════ 通用：头部 Banner ═══════════════ */
+function renderBanner(a) {
+  const c = catOf(a.cat);
+  return `
+  <div class="relative h-56 overflow-hidden">
+    <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=80" alt="" class="absolute inset-0 w-full h-full object-cover opacity-30">
+    <div class="absolute inset-0 bg-gradient-to-b from-ink-950/60 via-ink-950/80 to-ink-950"></div>
+    <div class="absolute inset-0 star-field"></div>
+    <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-ink-950 to-transparent"></div>
+    <div class="absolute inset-0 flex items-center justify-center opacity-20">
+      <i class="${c.icon} text-[120px] text-white"></i>
+    </div>
+  </div>`;
+}
+
+/* ═══════════════ 通用：头部信息 ═══════════════ */
+function renderHeader(a) {
+  const c = catOf(a.cat);
+  const isIn = installed.has(a.id);
+  return `
+  <div class="max-w-6xl mx-auto px-6 -mt-20 relative z-10">
+    <div class="flex items-end gap-5 mb-6">
+      <div class="w-20 h-20 rounded-2xl bg-gradient-to-br ${c.grad} grid place-items-center shadow-2xl shadow-black/40 border-4 border-ink-950 shrink-0 star-field">
+        <i class="${c.icon} text-3xl text-white drop-shadow-lg"></i>
+      </div>
+      <div class="flex-1 min-w-0 pb-1">
+        <div class="flex items-center gap-2 mb-1">
+          <h1 class="text-2xl font-bold text-white truncate">${esc(a.name)}</h1>
+          ${a.verified ? '<span class="shrink-0 px-2 py-0.5 rounded-md bg-brand-500 text-[11px] text-ink-950 font-semibold"><i class="fa-solid fa-badge-check mr-0.5"></i>官方</span>' : ''}
+        </div>
+        <div class="flex items-center gap-2 text-sm text-zinc-400">
+          <span class="px-2 py-0.5 rounded-md bg-ink-800 border border-zinc-800 text-xs">${c.name}</span>
+          <span>·</span>
+          <span>${esc(a.author)}</span>
+          <span>·</span>
+          <span>v${a.ver}</span>
+          <span>·</span>
+          <span>${a.days} 天前更新</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 pb-1 shrink-0">
+        <button onclick="installAsset(${a.id})" class="h-10 px-5 rounded-xl font-semibold text-sm transition active:scale-95 ${isIn?'bg-zinc-800 text-emerald-400 border border-zinc-700 hover:bg-zinc-700':'bg-brand-500 hover:bg-brand-400 text-ink-950 shadow-lg shadow-brand-500/25'}">
+          ${isIn ? '<i class="fa-solid fa-check mr-1.5"></i>已安装' : '<i class="fa-solid fa-download mr-1.5"></i>安装'}
+        </button>
+      </div>
+    </div>
+    <p class="text-sm text-zinc-400 leading-relaxed max-w-3xl mb-8">${esc(a.desc)}</p>
+    <div class="flex flex-wrap gap-2 mb-8">
+      ${a.tags.map(t => `<span class="px-2.5 py-1 rounded-lg bg-ink-800 border border-zinc-800 text-xs text-zinc-400 hover:border-zinc-600 transition cursor-default"># ${esc(t)}</span>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ═══════════════ 两栏布局容器 ═══════════════ */
+function renderTwoCol(mainContent, sideContent) {
+  return `
+  <div class="max-w-6xl mx-auto px-6 pb-16">
+    <div class="flex gap-6">
+      <!-- 左栏：核心内容 -->
+      <div class="flex-1 min-w-0 space-y-5">
+        ${mainContent}
+      </div>
+      <!-- 右栏：信息卡片 -->
+      <div class="w-72 shrink-0 space-y-4 hidden lg:block">
+        ${sideContent}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ═══════════════ 右栏：统计卡片 ═══════════════ */
+function renderStatsCard(a) {
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 p-4">
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div>
+        <div class="text-lg font-bold text-zinc-100">${fmt(a.dl)}</div>
+        <div class="text-[11px] text-zinc-500 mt-0.5">下载</div>
+      </div>
+      <div>
+        <div class="text-lg font-bold text-zinc-100">${a.rate}</div>
+        <div class="text-[11px] text-zinc-500 mt-0.5">评分</div>
+      </div>
+      <div>
+        <div class="text-lg font-bold text-zinc-100">${a.ver}</div>
+        <div class="text-[11px] text-zinc-500 mt-0.5">版本</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ═══════════════ 右栏：关联资产卡片 ═══════════════ */
+function renderRelCard(a) {
+  if (!a.rel || !a.rel.length) return '';
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+      <span class="text-xs font-semibold text-zinc-300">关联资产</span>
+      <span class="text-[11px] text-zinc-500">${a.rel.length} 项</span>
+    </div>
+    <div class="divide-y divide-zinc-800/80 max-h-64 overflow-y-auto">
+      ${a.rel.map(x => {
+        const xc = catOf(x.cat);
+        const rid = x.ref || x.rid;
+        const isR = installed.has(rid);
+        return `
+        <div class="flex items-center gap-2.5 px-3 py-2.5 transition hover:bg-zinc-800/40 ${x.ref ? 'cursor-pointer' : ''}" ${x.ref ? `onclick="window.location.href='asset-detail.html?id=${x.ref}'"` : ''}>
+          <span class="w-7 h-7 rounded-lg bg-gradient-to-br ${xc.grad} grid place-items-center shrink-0"><i class="${xc.icon} text-white/90 text-[10px]"></i></span>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs text-zinc-300 truncate leading-tight">${esc(x.name)}</div>
+            <div class="text-[10px] text-zinc-600 mt-0.5">v${x.ver}</div>
+          </div>
+          <button onclick="event.stopPropagation(); installRel(${rid}, ${a.id})" class="shrink-0 w-6 h-6 rounded-md text-[10px] transition active:scale-90 flex items-center justify-center ${isR ? 'bg-emerald-500/15 text-emerald-400' : 'bg-brand-500/15 text-brand-300 hover:bg-brand-500/25'}">
+            <i class="fa-solid ${isR ? 'fa-check' : 'fa-plus'}"></i>
+          </button>
+        </div>`;
+      }).join('')}
+    </div>
+    ${a.rel.length > 3 ? `
+    <div class="px-3 py-2 border-t border-zinc-800">
+      <button onclick="downloadAllRels(${a.id})" class="w-full h-7 rounded-lg bg-brand-500/10 text-brand-300 text-[11px] font-medium hover:bg-brand-500/20 transition active:scale-95">
+        <i class="fa-solid fa-cloud-arrow-down mr-1"></i>一键下载全部
+      </button>
+    </div>` : ''}
+  </div>`;
+}
+
+/* ═══════════════ 右栏：更新日志卡片 ═══════════════ */
+function renderChangelogCard(a) {
+  const logs = Array.isArray(a.changelog) && a.changelog.length ? a.changelog : null;
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 p-4">
+    <div class="text-xs font-semibold text-zinc-300 mb-3">更新日志</div>
+    ${logs ? `
+    <div class="space-y-2 text-xs">
+      ${logs.map(log => `
+      <div class="flex items-start gap-2">
+        <span class="shrink-0 px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-300 font-mono text-[10px]">v${esc(log.ver)}</span>
+        <span class="text-zinc-400">${esc(log.desc)}</span>
+      </div>`).join('')}
+    </div>` : `
+    <p class="text-[11px] text-zinc-600">作者暂未填写更新日志</p>`}
+  </div>`;
+}
+
+/* ═══════════════ 右栏：安全信息 ═══════════════ */
+function renderSafetyCard(a) {
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 p-4">
+    <div class="flex items-center gap-2 text-xs text-zinc-400">
+      <i class="fa-solid fa-shield-halved text-emerald-500"></i>
+      <span>已通过天枢安全扫描</span>
+    </div>
+    <div class="mt-2 text-[11px] text-zinc-600">由 ${esc(a.author)} 发布</div>
+  </div>`;
+}
+
+/* ═══════════════ 类型特定内容 ═══════════════ */
+
+const TYPE_INTRO = {
+  character: '角色是天枢中具备独立人格、记忆与专业能力的 AI Agent。每个角色拥有专属工具箱、技能绑定和运行策略，可通过切换皮肤来改变视觉风格。',
+  skill:     '技能包是一组可复用的工作流，包含多个子技能和标准化文件结构。每个子技能对应一个独立场景（如原型设计、代码审查），角色安装后即可调用。',
+  iconpack:  '图标包定义了界面中所有图标槽位的 SVG 资源，支持着色与暗色/亮色双套适配。安装后全局生效，覆盖侧边栏、状态栏和资产卡片。',
+  theme:     '主题通过设计令牌（Design Tokens）统一控制界面的色彩体系、背景和间距。安装后立即生效，支持跟随系统自动切换浅色/深色。',
+  mcp:       'MCP（Model Context Protocol）是天枢的外部能力扩展协议。每个 MCP 服务通过命令行启动，向 Agent 暴露一组工具和资源，如数据库查询、文件操作。',
+  provider:  '提供商定义了 AI 模型的接入方式，包括 API 端点、认证字段和可用模型列表。安装后在角色配置中选择即可切换底层模型。',
+  tool:      '工具是轻量级的功能插件，通常以命令行形式运行。Agent 在执行任务时按需调用，无需独立启动。',
+  skin:      '皮肤是角色的视觉包装，定义头像、肖像、渐变色和动画动作，不改变角色的能力与行为。',
+  kb:        '知识库是经过分块和索引的文档集合，为 Agent 提供检索增强生成（RAG）能力。安装后角色可实时检索库内内容辅助回答。',
+  prompt:    '提示词模板是经过实测的系统提示词集合，覆盖编程、写作、分析等场景。可直接复用或微调后绑定到角色。',
+};
+
+function renderCharacterPanel(a) {
+  const d = a.characterData; if (!d) return '';
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-zinc-800 flex items-center gap-2">
+      <i class="fa-solid fa-user-astronaut text-brand-400 text-sm"></i>
+      <span class="text-sm font-semibold text-zinc-100">角色设定</span>
+    </div>
+    <div class="p-5 space-y-5">
+      <!-- 简介 -->
+      <p class="text-xs text-zinc-500 leading-relaxed border-l-2 border-brand-500/40 pl-3">${TYPE_INTRO[a.cat]}</p>
+      <!-- 灵魂 -->
+      <div>
+        <div class="text-xs text-zinc-500 mb-1.5">人格描述</div>
+        <p class="text-sm text-zinc-300 leading-relaxed bg-ink-850 rounded-lg p-3 border border-zinc-800">${esc(d.soul)}</p>
+      </div>
+      <!-- 头像预览 -->
+      <div class="flex gap-4">
+        <div class="text-center">
+          <img src="${d.visual.avatar}" alt="头像" class="w-14 h-14 rounded-full object-cover ring-2 ring-zinc-700 mb-1.5">
+          <div class="text-[10px] text-zinc-500">头像</div>
+        </div>
+        <div class="text-center">
+          <img src="${d.visual.portrait}" alt="肖像" class="w-14 h-18 rounded-xl object-cover ring-2 ring-zinc-700 mb-1.5">
+          <div class="text-[10px] text-zinc-500">肖像</div>
+        </div>
+      </div>
+      <!-- 工具 -->
+      <div>
+        <div class="text-xs text-zinc-500 mb-2">可用工具</div>
+        <div class="flex flex-wrap gap-1.5">
+          ${d.tools.map(t => `<span class="px-2 py-1 rounded-md bg-ink-800 border border-zinc-800 text-[11px] text-zinc-400 font-mono">${t}</span>`).join('')}
+        </div>
+      </div>
+      <!-- 技能 -->
+      <div>
+        <div class="text-xs text-zinc-500 mb-2">已绑定技能</div>
+        <div class="flex flex-wrap gap-1.5">
+          ${d.skills.map(s => `<span class="px-2 py-1 rounded-md bg-brand-500/10 border border-brand-500/20 text-[11px] text-brand-300">${s}</span>`).join('')}
+        </div>
+      </div>
+      <!-- 运行配置 -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-ink-850 rounded-lg p-3 border border-zinc-800">
+          <div class="text-[10px] text-zinc-500 mb-0.5">最大步数</div>
+          <div class="text-sm text-zinc-200 font-medium">${d.maxSteps}</div>
+        </div>
+        <div class="bg-ink-850 rounded-lg p-3 border border-zinc-800">
+          <div class="text-[10px] text-zinc-500 mb-0.5">执行策略</div>
+          <div class="text-sm text-zinc-200 font-medium">${d.strategy}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderSkillPanel(a) {
+  const d = a.skillData; if (!d) return '';
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-zinc-800 flex items-center gap-2">
+      <i class="fa-solid fa-puzzle-piece text-brand-400 text-sm"></i>
+      <span class="text-sm font-semibold text-zinc-100">包含子技能</span>
+      <span class="ml-auto text-[11px] text-zinc-500">${d.children.length} 个</span>
+    </div>
+    <div class="p-5 pb-2">
+      <p class="text-xs text-zinc-500 leading-relaxed border-l-2 border-brand-500/40 pl-3 mb-3">${TYPE_INTRO[a.cat]}</p>
+    </div>
+    <div class="divide-y divide-zinc-800/80">
+      ${d.children.map(child => `
+      <div class="flex items-center gap-3 px-5 py-3 hover:bg-zinc-800/30 transition">
+        <div class="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 grid place-items-center shrink-0">
+          <i class="fa-solid fa-play text-brand-300 text-[10px]"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-zinc-200 font-medium truncate">${esc(child.name)}</div>
+          <div class="text-[11px] text-zinc-500 truncate">${esc(child.description)}</div>
+        </div>
+        <i class="fa-solid fa-chevron-right text-[10px] text-zinc-600"></i>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 p-4">
+    <div class="text-xs font-semibold text-zinc-300 mb-2">文件结构</div>
+    <div class="font-mono text-[11px] text-zinc-500 space-y-1 bg-ink-850 rounded-lg p-3 border border-zinc-800">
+      ${d.files.map(f => `<div class="flex items-center gap-1.5"><i class="fa-solid fa-file text-zinc-700 text-[9px]"></i>${f}</div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderIconpackPanel(a) {
+  const d = a.iconpackData; if (!d) return '';
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-zinc-800 flex items-center gap-2">
+      <i class="fa-solid fa-icons text-brand-400 text-sm"></i>
+      <span class="text-sm font-semibold text-zinc-100">图标预览</span>
+      <span class="ml-auto text-[11px] text-zinc-500">${d.slotCount} 个图标</span>
+    </div>
+    <div class="p-5">
+      <p class="text-xs text-zinc-500 leading-relaxed border-l-2 border-brand-500/40 pl-3 mb-4">${TYPE_INTRO[a.cat]}</p>
+      <div class="grid grid-cols-8 gap-2">
+        ${d.previewIcons.map(icon => `
+        <div class="aspect-square rounded-xl bg-ink-800 border border-zinc-800 flex items-center justify-center hover:border-zinc-600 transition cursor-pointer">
+          <i class="fa-solid fa-${icon} text-lg text-zinc-400"></i>
+        </div>`).join('')}
+      </div>
+      <div class="mt-3 text-[11px] text-zinc-600 text-center">显示部分图标，完整包包含 ${d.slotCount} 个</div>
+    </div>
+  </div>`;
+}
+
+function renderThemePanel(a) {
+  const d = a.themeData; if (!d) return '';
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-zinc-800 flex items-center gap-2">
+      <i class="fa-solid fa-palette text-brand-400 text-sm"></i>
+      <span class="text-sm font-semibold text-zinc-100">颜色方案</span>
+      <span class="ml-auto text-[11px] px-2 py-0.5 rounded-md bg-ink-800 text-zinc-400 capitalize">${d.appearance}</span>
+    </div>
+    <div class="p-5 space-y-4">
+      <p class="text-xs text-zinc-500 leading-relaxed border-l-2 border-brand-500/40 pl-3 -mt-1">${TYPE_INTRO[a.cat]}</p>
+      <div class="grid grid-cols-5 gap-2">
+        ${Object.entries(d.colors).map(([name, color]) => `
+        <div class="text-center">
+          <div class="w-full h-8 rounded-lg mb-1 border border-zinc-800" style="background-color:${color}"></div>
+          <div class="text-[9px] text-zinc-600 truncate">${name}</div>
+        </div>`).join('')}
+      </div>
+      ${d.artwork ? `
+      <div class="rounded-lg overflow-hidden border border-zinc-800">
+        <img src="${d.artwork}" alt="预览" class="w-full h-32 object-cover">
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderMCPPanel(a) {
+  const d = a.mcpData; if (!d) return '';
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-zinc-800 flex items-center gap-2">
+      <i class="fa-solid fa-plug text-brand-400 text-sm"></i>
+      <span class="text-sm font-semibold text-zinc-100">MCP 配置</span>
+      <span class="ml-auto flex items-center gap-1.5 text-[11px]"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span class="text-zinc-400 capitalize">${d.status}</span></span>
+    </div>
+    <div class="p-5 space-y-4">
+      <p class="text-xs text-zinc-500 leading-relaxed border-l-2 border-brand-500/40 pl-3 -mt-1">${TYPE_INTRO[a.cat]}</p>
+      <div>
+        <div class="text-[11px] text-zinc-500 mb-1">启动命令</div>
+        <code class="block text-xs text-zinc-300 bg-ink-850 rounded-lg p-2.5 border border-zinc-800 font-mono">${d.command} ${d.args.join(' ')}</code>
+      </div>
+      <div>
+        <div class="text-[11px] text-zinc-500 mb-2">提供工具</div>
+        <div class="flex flex-wrap gap-1.5">
+          ${d.tools.map(t => `<span class="px-2 py-1 rounded-md bg-ink-800 border border-zinc-800 text-[11px] text-zinc-400 font-mono">${t}</span>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="text-[11px] text-zinc-500 mb-2">能力</div>
+        <div class="flex gap-1.5">
+          ${d.capabilities.map(c => `<span class="px-2 py-1 rounded-md bg-brand-500/10 border border-brand-500/20 text-[11px] text-brand-300">${c}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderProviderPanel(a) {
+  const d = a.providerData; if (!d) return '';
+  return `
+  <div class="rounded-xl bg-ink-900 border border-zinc-800 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-zinc-800 flex items-center gap-2">
+      <i class="fa-solid fa-server text-brand-400 text-sm"></i>
+      <span class="text-sm font-semibold text-zinc-100">API 配置</span>
+    </div>
+    <div class="p-5 space-y-4">
+      <p class="text-xs text-zinc-500 leading-relaxed border-l-2 border-brand-500/40 pl-3 -mt-1">${TYPE_INTRO[a.cat]}</p>
+      <div>
+        <div class="text-[11px] text-zinc-500 mb-1">端点</div>
+        <code class="block text-xs text-zinc-300 bg-ink-850 rounded-lg p-2.5 border border-zinc-800 font-mono break-all">${d.baseUrl}</code>
+      </div>
+      <div>
+        <div class="text-[11px] text-zinc-500 mb-2">支持模型</div>
+        <div class="flex flex-wrap gap-1.5">
+          ${d.models.map(m => `<span class="px-2 py-1 rounded-md bg-ink-800 border border-zinc-800 text-[11px] text-zinc-400">${m}</span>`).join('')}
+        </div>
+      </div>
+      ${d.fields.length ? `
+      <div>
+        <div class="text-[11px] text-zinc-500 mb-2">配置项</div>
+        <div class="space-y-2">
+          ${d.fields.map(f => `
+          <div class="bg-ink-850 rounded-lg p-2.5 border border-zinc-800">
+            <div class="text-xs text-zinc-300">${f.label} <span class="text-rose-400">${f.required ? '*' : ''}</span></div>
+            <div class="text-[10px] text-zinc-600 mt-0.5">${f.type} · ${f.placeholder || ''}</div>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ═══════════════ 主渲染 ═══════════════ */
+function loadingHTML(){
+  return `
+  <div class="flex flex-col items-center justify-center py-32">
+    <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5"><i class="fa-solid fa-circle-notch fa-spin text-2xl text-brand-400"></i></div>
+    <h3 class="font-semibold text-zinc-300 mb-2">正在加载资产详情…</h3>
+    <p class="text-sm text-zinc-500">从服务器获取数据</p>
+  </div>`;
+}
+async function renderDetail(id) {
+  // 从后端加载资产详情
+  let a;
+  try {
+    $('#detailContent').innerHTML = loadingHTML();
+    a = await MarketAPI.asset(id);
+    curAsset = a;
+  } catch(e) {
+    $('#detailContent').innerHTML = `
+    <div class="flex flex-col items-center justify-center py-32 fade-in">
+      <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5"><i class="fa-solid fa-satellite-dish text-2xl text-zinc-600"></i></div>
+      <h3 class="font-semibold text-zinc-300 mb-2">资产未找到</h3>
+      <p class="text-sm text-zinc-500 mb-6">${esc(e.message || '该资产可能已下架或不存在')}</p>
+      <button onclick="history.back()" class="h-9 px-5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 transition active:scale-95">返回</button>
+    </div>`;
+    return;
+  }
+
+  const c = catOf(a.cat);
+
+  // 面包屑
+  $('#breadcrumb').innerHTML = `
+    <a href="../index.html" class="hover:text-zinc-300 transition">市场</a>
+    <i class="fa-solid fa-chevron-right text-[9px] text-zinc-700"></i>
+    <span class="text-zinc-300">${c.name}</span>
+    <i class="fa-solid fa-chevron-right text-[9px] text-zinc-700"></i>
+    <span class="text-zinc-400 truncate max-w-[200px]">${esc(a.name)}</span>
+  `;
+
+  // 类型面板
+  let typePanel = '';
+  switch(a.cat) {
+    case 'character': typePanel = renderCharacterPanel(a); break;
+    case 'skill':     typePanel = renderSkillPanel(a); break;
+    case 'iconpack':  typePanel = renderIconpackPanel(a); break;
+    case 'theme':     typePanel = renderThemePanel(a); break;
+    case 'mcp':       typePanel = renderMCPPanel(a); break;
+    case 'provider':  typePanel = renderProviderPanel(a); break;
+    default:
+      const fallbackType = a.cat;
+      typePanel = `<div class="rounded-xl bg-ink-900 border border-zinc-800 p-5">
+        <p class="text-xs text-zinc-500 leading-relaxed border-l-2 border-brand-500/40 pl-3">${TYPE_INTRO[fallbackType] || '暂无详细说明'}</p>
+      </div>`;
+  }
+
+  const mainContent = typePanel;
+  const sideContent = `
+    ${renderStatsCard(a)}
+    ${renderRelCard(a)}
+    ${renderChangelogCard(a)}
+    ${renderSafetyCard(a)}
+  `;
+
+  $('#detailContent').innerHTML = renderBanner(a) + renderHeader(a) + renderTwoCol(mainContent, sideContent);
+}
+
+/* ═══════════════ 交互 ═══════════════ */
+async function installAsset(id) {
+  const a = curAsset;
+  if (!a) return;
+  if (installed.has(id)) {
+    // 卸载
+    try {
+      await MarketAPI.uninstall(id);
+      installed.delete(id);
+      toast(`已卸载「${a.name}」`);
+    } catch(e) { toast(e.message, false); }
+    return renderDetail(id);
+  }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录后再安装', false); setTimeout(()=>location.href='login.html',800); return; }
+  try {
+    await MarketAPI.install(id);
+    installed.add(id);
+    toast(`「${a.name}」安装成功`);
+  } catch(e) { toast(e.message, false); }
+  renderDetail(id);
+}
+
+function installRel(rid, parentId) {
+  let relInfo = null;
+  if (curAsset && (curAsset.rel||[]).length) {
+    const r = curAsset.rel.find(x => (x.ref||x.rid)===rid);
+    if (r) relInfo = r;
+  }
+  if (!relInfo) return;
+  const refId = relInfo.ref != null ? relInfo.ref : null;
+  if (installed.has(rid)) {
+    // 真实资产卸载
+    if (refId != null) {
+      MarketAPI.uninstall(refId).then(()=>{
+        installed.delete(rid); toast(`已卸载「${relInfo.name}」`); renderDetail(parentId);
+      }).catch(e=>toast(e.message,false));
+      return;
+    }
+    installed.delete(rid); toast(`已移除「${relInfo.name}」`); return renderDetail(parentId);
+  }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录后再安装', false); setTimeout(()=>location.href='login.html',800); return; }
+  if (refId != null) {
+    MarketAPI.install(refId).then(()=>{
+      installed.add(rid); toast(`「${relInfo.name}」安装成功`); renderDetail(parentId);
+    }).catch(e=>toast(e.message,false));
+  } else {
+    // 虚拟关联资产
+    installed.add(rid); toast(`「${relInfo.name}」安装成功`); renderDetail(parentId);
+  }
+}
+
+async function downloadAllRels(id) {
+  const a = curAsset || (await MarketAPI.asset(id).catch(()=>null));
+  if (!a || !a.rel) return;
+  const pending = a.rel.filter(x => !installed.has(x.ref||x.rid));
+  if (!pending.length) { toast('关联资产已全部安装'); return; }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录后再安装', false); setTimeout(()=>location.href='login.html',800); return; }
+  const realOnes = pending.filter(x => x.ref != null);
+  try {
+    if (realOnes.length) await Promise.all(realOnes.map(x => MarketAPI.install(x.ref).catch(()=>{})));
+    pending.forEach(x => installed.add(x.ref||x.rid));
+    toast(`已一键下载 ${pending.length} 项关联资产`);
+  } catch(e) { toast(e.message, false); }
+  renderDetail(id);
+}
+
+/* ═══════════════ 初始化 ═══════════════ */
+async function init() {
+  // 加载当前用户已安装/收藏集合
+  if (MarketAPI.isLoggedIn()) {
+    try {
+      const me = await MarketAPI.me();
+      (me.installed_assets || []).forEach(a => installed.add(a.id));
+      (me.fav_ids || []).forEach(id => favs.add(id));
+    } catch(e) { /* 忽略 */ }
+  }
+  const params = new URLSearchParams(window.location.search);
+  const id = parseInt(params.get('id'));
+  if (id) { renderDetail(id); }
+  else {
+    $('#detailContent').innerHTML = `
+    <div class="flex flex-col items-center justify-center py-32 fade-in">
+      <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5"><i class="fa-solid fa-circle-question text-2xl text-zinc-600"></i></div>
+      <h3 class="font-semibold text-zinc-300 mb-2">未指定资产</h3>
+      <p class="text-sm text-zinc-500 mb-6">请从市场首页选择一个资产查看详情</p>
+      <a href="../index.html" class="h-9 px-5 rounded-lg bg-brand-500/15 border border-brand-500/30 text-brand-300 text-sm font-medium hover:bg-brand-500/25 transition active:scale-95">返回市场</a>
+    </div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢市场 · 发现与分享 Agent 资产</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="js/api.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 300:'#fcd34d', 400:'#fbbf24', 500:'#f59e0b', 600:'#d97706' },
+        ink: { 950:'#09090b', 900:'#0f0f12', 850:'#141418', 800:'#1c1c21', 700:'#26262d' }
+      },
+      fontFamily: {
+        sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Text"','"Segoe UI"','Roboto','"PingFang SC"','"Microsoft YaHei"','sans-serif']
+      }
+    }
+  }
+}
+</script>
+<style>
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#2e2e36; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#3f3f4a; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  body { font-family:-apple-system,system-ui,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .glass { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  .card-lift { transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s, border-color .25s; }
+  .card-lift:hover { transform: translateY(-4px); }
+  .fade-in { animation: fadeIn .35s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:none;} }
+
+  .toast-in { animation: toastIn .3s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes toastIn { from { opacity:0; transform:translateX(24px);} to { opacity:1; transform:none;} }
+  .skeleton { background: linear-gradient(100deg,#1c1c21 40%,#26262d 50%,#1c1c21 60%); background-size:200% 100%; animation: sk 1.2s infinite linear; }
+  @keyframes sk { from {background-position:200% 0;} to {background-position:-200% 0;} }
+  .star-field { background-image: radial-gradient(1px 1px at 20% 30%, rgba(251,191,36,.5) 50%, transparent 51%), radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,.35) 50%, transparent 51%), radial-gradient(1.5px 1.5px at 45% 75%, rgba(251,191,36,.4) 50%, transparent 51%), radial-gradient(1px 1px at 85% 25%, rgba(255,255,255,.3) 50%, transparent 51%), radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,.25) 50%, transparent 51%); }
+  .drop-active { border-color:#f59e0b !important; background:rgba(245,158,11,.06) !important; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body class="bg-ink-950 text-zinc-200 antialiased overflow-hidden">
+
+<div class="flex h-screen">
+
+  <!-- ═══════════ 左侧导航 ═══════════ -->
+  <aside class="w-60 shrink-0 flex flex-col border-r border-zinc-800/80 bg-ink-900">
+    <!-- Logo -->
+    <div class="h-16 flex items-center gap-3 px-5 border-b border-zinc-800/80">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center shadow-lg shadow-brand-500/20">
+        <i class="fa-solid fa-star-of-david text-ink-950 text-sm"></i>
+      </div>
+      <div>
+        <div class="font-bold text-zinc-50 leading-tight">天枢市场</div>
+        <div class="text-[11px] text-zinc-500">TianShu Market</div>
+      </div>
+    </div>
+
+    <!-- 分类导航 -->
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1" id="sideNav" aria-label="资产分类">
+      <div class="px-2 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">发现</div>
+      <!-- JS 渲染 -->
+    </nav>
+
+    <!-- 底部：登录/用户状态 -->
+<div class="p-4 border-t border-zinc-800/80" id="sidebarUser">
+      <script>
+      (function(){
+        const wrap = document.getElementById('sidebarUser');
+        // 通过 API 获取当前用户
+        MarketAPI.isLoggedIn()
+          ? MarketAPI.me().then(d => {
+              const u = d.user;
+              wrap.innerHTML = '<div class="flex items-center gap-3 px-1"><img src="'+(u.avatar||'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80')+'" alt="头像" class="w-8 h-8 rounded-full object-cover ring-2 ring-zinc-700"><div class="min-w-0 flex-1"><div class="text-sm font-medium text-zinc-200 truncate">'+u.name+'</div><div class="text-[11px] text-zinc-500">已安装 '+u.installed+' 个资产</div></div><button onclick="MarketAPI.logout();location.reload();" class="w-8 h-8 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition" title="退出登录"><i class="fa-solid fa-right-from-bracket text-xs"></i></button><a href="pages/uploads.html" class="w-8 h-8 rounded-lg bg-brand-500/15 border border-brand-500/30 grid place-items-center text-brand-300 hover:bg-brand-500/25 transition" title="上传资产"><i class="fa-solid fa-cloud-arrow-up text-xs"></i></a></div>';
+            }).catch(()=>{ MarketAPI.logout(); location.reload(); })
+          : (wrap.innerHTML = '<a href="pages/login.html" class="flex items-center justify-center gap-2 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 text-brand-300 text-sm font-medium hover:bg-brand-500/25 transition active:scale-95"><i class="fa-solid fa-right-to-bracket text-xs"></i>登录 / 注册</a>');
+      })();
+      </script>
+    </div>
+  </aside>
+
+  <!-- ═══════════ 主区域 ═══════════ -->
+  <main class="flex-1 flex flex-col min-w-0">
+
+    <!-- 顶部栏 -->
+    <header class="h-16 shrink-0 flex items-center gap-4 px-6 border-b border-zinc-800/80 bg-ink-900/60 glass z-10">
+      <div class="relative flex-1 max-w-xl">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm pointer-events-none"></i>
+        <input id="searchInput" type="search" placeholder="搜索角色、技能、MCP、知识库…"
+          class="w-full h-10 pl-10 pr-9 rounded-xl bg-ink-800 border border-zinc-800 text-sm placeholder-zinc-500 text-zinc-200 outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20 transition">
+        <button id="clearSearch" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300" aria-label="清空搜索">
+          <i class="fa-solid fa-circle-xmark"></i>
+        </button>
+      </div>
+      <div class="flex items-center gap-3 ml-auto">
+        <label class="text-xs text-zinc-500" for="sortSelect">排序</label>
+        <select id="sortSelect" class="h-9 px-3 rounded-lg bg-ink-800 border border-zinc-800 text-sm text-zinc-300 outline-none focus:border-brand-500/60 cursor-pointer">
+          <option value="hot">最热下载</option>
+          <option value="new">最新发布</option>
+          <option value="rate">评分最高</option>
+        </select>
+        <button class="relative w-9 h-9 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition" aria-label="通知">
+          <i class="fa-regular fa-bell"></i>
+          <span class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-brand-400"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 内容滚动区 -->
+    <div class="flex-1 overflow-y-auto" id="scrollArea">
+      <!-- 列表视图 -->
+      <div id="listView" class="max-w-7xl mx-auto px-6 py-6">
+        <!-- 精选 Banner -->
+        <section id="heroSection" class="relative overflow-hidden rounded-2xl border border-zinc-800 mb-8 fade-in">
+          <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1600&q=80" alt="星空背景" class="absolute inset-0 w-full h-full object-cover opacity-40">
+          <div class="absolute inset-0 bg-gradient-to-r from-ink-950 via-ink-950/85 to-ink-950/30"></div>
+          <div class="absolute inset-0 star-field"></div>
+          <div class="relative p-8 lg:p-10 max-w-2xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/15 border border-brand-500/30 text-brand-300 text-xs font-medium mb-4">
+              <i class="fa-solid fa-crown"></i> 本周官方精选
+            </div>
+            <h1 class="text-3xl lg:text-4xl font-bold text-white leading-tight mb-3">「星轨架构师」角色<br>让你的 Agent 学会系统设计</h1>
+            <p class="text-sm text-zinc-400 leading-relaxed mb-6 max-w-lg">内置分布式系统、容量规划与 ADR 决策方法论，附赠 6 套架构评审技能。已有 2.1 万开发者安装。</p>
+            <div class="flex items-center gap-3">
+              <button onclick="openDetail(1)" class="h-10 px-5 rounded-xl bg-brand-500 hover:bg-brand-400 active:scale-95 transition text-ink-950 font-semibold text-sm shadow-lg shadow-brand-500/25">
+                查看详情
+              </button>
+              <button onclick="installAsset(this, 1)" class="h-10 px-5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 active:scale-95 transition text-white font-medium text-sm glass">
+                <i class="fa-solid fa-download mr-1.5"></i>直接安装
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 区块标题 -->
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <h2 id="sectionTitle" class="text-xl font-bold text-zinc-50">推荐资产</h2>
+            <p id="sectionSub" class="text-sm text-zinc-500 mt-1">根据你的使用习惯精选</p>
+          </div>
+          <span id="resultCount" class="text-xs text-zinc-500"></span>
+        </div>
+
+        <!-- 资产网格 -->
+        <section id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-10" aria-live="polite"></section>
+      </div>
+
+
+    </div>
+  </main>
+</div>
+
+
+
+<!-- Toast 容器 -->
+<div id="toastWrap" class="fixed bottom-6 right-6 z-[60] space-y-3"></div>
+
+<script>
+/* ═══════════════ 数据 ═══════════════ */
+const CATS = [
+  { key:'rec',       name:'推荐',   icon:'fa-solid fa-compass' },
+  { key:'character', name:'角色',   icon:'fa-solid fa-user-astronaut', grad:'from-amber-500/80 to-orange-600/80' },
+  { key:'skin',      name:'皮肤',   icon:'fa-solid fa-shirt',          grad:'from-rose-500/80 to-pink-600/80' },
+  { key:'skill',     name:'技能',   icon:'fa-solid fa-wand-magic-sparkles', grad:'from-emerald-500/80 to-teal-600/80' },
+  { key:'tool',      name:'工具',   icon:'fa-solid fa-screwdriver-wrench',  grad:'from-sky-500/80 to-blue-600/80' },
+  { key:'mcp',       name:'MCP',    icon:'fa-solid fa-plug-circle-bolt',    grad:'from-cyan-500/80 to-sky-600/80' },
+  { key:'kb',        name:'知识库', icon:'fa-solid fa-book-open',      grad:'from-indigo-500/80 to-violet-600/80' },
+  { key:'theme',     name:'主题',   icon:'fa-solid fa-palette',        grad:'from-teal-500/80 to-emerald-600/80' },
+  { key:'iconpack',  name:'图标包', icon:'fa-solid fa-icons',          grad:'from-orange-500/80 to-amber-600/80' },
+];
+const AV = [
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=80&q=80',
+  'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=80&q=80',
+  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=80&q=80',
+  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=80&q=80',
+  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=80&q=80',
+];
+let ASSETS = [];
+const SCREENSHOTS = [
+  'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=900&q=80',
+  'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=900&q=80',
+  'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=900&q=80',
+];
+
+/* ═══════════════ 状态 ═══════════════ */
+let curCat = 'rec', curSort = 'hot', curQuery = '';
+const installed = new Set();
+
+/* ═══════════════ 数据加载 ═══════════════ */
+async function loadAssets() {
+  // 从后端拉取资产列表
+  ASSETS = await MarketAPI.assets({ cat: curCat==='rec' ? '' : curCat, q: curQuery, sort: curSort==='hot' ? '' : curSort });
+  // 同步当前用户已安装集合
+  if (MarketAPI.isLoggedIn()) {
+    try {
+      const me = await MarketAPI.me();
+      (me.installed_assets || []).forEach(a => installed.add(a.id));
+      const na = document.getElementById('navAdmin');
+      if (na && me.user && me.user.role === 'admin') na.classList.remove('hidden');
+    } catch (e) { /* 忽略：未登录 */ }
+  }
+  return ASSETS;
+}
+
+/* ═══════════════ 工具 ═══════════════ */
+const $ = s => document.querySelector(s);
+const fmt = n => n >= 10000 ? (n/10000).toFixed(1)+' 万' : n >= 1000 ? (n/1000).toFixed(1)+'k' : n;
+const catOf = k => CATS.find(c => c.key === k);
+function toast(msg, ok=true){
+  const t = document.createElement('div');
+  t.className = 'toast-in flex items-center gap-3 px-4 py-3 rounded-xl border text-sm shadow-2xl shadow-black/50 glass ' + (ok ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/15 border-rose-500/30 text-rose-300');
+  t.innerHTML = `<i class="fa-solid ${ok?'fa-circle-check':'fa-circle-exclamation'}"></i><span>${msg}</span>`;
+  $('#toastWrap').appendChild(t);
+  setTimeout(()=>{ t.style.transition='all .3s'; t.style.opacity='0'; t.style.transform='translateX(24px)'; setTimeout(()=>t.remove(),300); }, 2600);
+}
+function esc(s){ return s.replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ═══════════════ 侧栏渲染 ═══════════════ */
+function renderNav(){
+  const wrap = $('#sideNav');
+  const mine = `
+    <div class="px-2 pt-4 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">我的</div>
+    ${[['fa-solid fa-cloud-arrow-down','我的下载','pages/downloads.html'],['fa-solid fa-arrow-up-from-bracket','我的上传','pages/uploads.html'],['fa-regular fa-heart','我的收藏','pages/favorites.html']].map(([i,n,h])=>`
+      <a href="${h}" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="${i} w-4 text-center"></i><span>${n}</span>
+        <i class="fa-solid fa-chevron-right ml-auto text-[10px] text-zinc-700"></i>
+      </a>`).join('')}
+    <a href="pages/admin.html" id="navAdmin" class="hidden w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+      <i class="fa-solid fa-shield-halved w-4 text-center"></i><span>管理后台</span>
+    </a>`;
+  wrap.innerHTML = CATS.map(c=>{
+    const count = c.key==='rec' ? ASSETS.length : ASSETS.filter(a=>a.cat===c.key).length;
+    const active = curCat===c.key;
+    return `<button onclick="switchCat('${c.key}')" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm transition ${active?'bg-brand-500/15 text-brand-300 font-medium':'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'}">
+      <i class="${c.icon} w-4 text-center"></i><span>${c.name}</span>
+      <span class="ml-auto text-[11px] ${active?'text-brand-400/80':'text-zinc-600'}">${count}</span>
+    </button>`;
+  }).join('') + mine;
+}
+
+/* ═══════════════ 网格渲染 ═══════════════ */
+function getList(){
+  let list = curCat==='rec' ? [...ASSETS] : ASSETS.filter(a=>a.cat===curCat);
+  if (curQuery) list = list.filter(a => (a.name+a.author+a.desc+a.tags.join('')).toLowerCase().includes(curQuery));
+  if (curSort==='hot') list.sort((a,b)=>b.dl-a.dl);
+  if (curSort==='new') list.sort((a,b)=>a.days-b.days);
+  if (curSort==='rate') list.sort((a,b)=>b.rate-a.rate);
+  return list;
+}
+function cardHTML(a, i){
+  const c = catOf(a.cat);
+  const isIn = installed.has(a.id);
+  const relCats = a.rel ? [...new Set(a.rel.map(x=>x.cat))] : [];
+  return `
+  <article class="card-lift fade-in group bg-ink-900 border border-zinc-800 hover:border-brand-500/40 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-brand-500/5" style="animation-delay:${i*40}ms" onclick="openDetail(${a.id})">
+    <div class="h-36 relative overflow-hidden bg-gradient-to-br ${c.grad}">
+      <div class="absolute inset-0 star-field opacity-60"></div>
+      <i class="${c.icon} absolute inset-0 grid place-items-center text-5xl text-white/80 drop-shadow-lg"></i>
+      <span class="absolute top-3 left-3 px-2 py-0.5 rounded-md bg-black/40 glass text-[11px] text-white/90 font-medium">${c.name}</span>
+      ${a.verified?'<span class="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-brand-500/90 text-[11px] text-ink-950 font-semibold"><i class="fa-solid fa-badge-check mr-0.5"></i>官方</span>':''}
+    </div>
+    <div class="p-4">
+      <h3 class="font-semibold text-zinc-100 truncate group-hover:text-brand-300 transition">${esc(a.name)}</h3>
+      <p class="text-xs text-zinc-500 mt-1.5 line-clamp-2 leading-relaxed h-8">${esc(a.desc)}</p>
+      <div class="flex items-center gap-2 mt-3">
+        <img src="${AV[(a.id||0)%AV.length]}" alt="${esc(a.author)}" class="w-5 h-5 rounded-full object-cover">
+        <span class="text-xs text-zinc-500 truncate">${esc(a.author)}</span>
+        <span class="ml-auto flex items-center gap-1 text-xs text-amber-400/90"><i class="fa-solid fa-star text-[10px]"></i>${a.rate}</span>
+      </div>
+      ${a.rel ? `<div class="flex items-center gap-1.5 mt-2.5 px-2.5 py-1.5 rounded-lg bg-brand-500/8 border border-brand-500/20 text-[11px] text-brand-300/90">
+        <i class="fa-solid fa-diagram-project"></i><span>关联 ${a.rel.length} 项资产</span>
+        <span class="flex gap-1.5 ml-auto text-zinc-500">${relCats.map(k=>`<i class="${catOf(k).icon}" title="${catOf(k).name}"></i>`).join('')}</span>
+      </div>` : ''}
+      <div class="flex items-center justify-between mt-3.5 pt-3.5 border-t border-zinc-800/80">
+        <span class="text-xs text-zinc-500"><i class="fa-solid fa-download mr-1"></i>${fmt(a.dl)}</span>
+        <button onclick="event.stopPropagation(); installAsset(this, ${a.id})"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium transition active:scale-95 ${isIn ? 'bg-zinc-800 text-emerald-400 border border-zinc-700' : 'bg-brand-500/15 text-brand-300 border border-brand-500/30 hover:bg-brand-500/25'}">
+          ${isIn ? '<i class="fa-solid fa-check mr-1"></i>已安装' : '安装'}
+        </button>
+      </div>
+    </div>
+  </article>`;
+}
+function skeletonHTML(){
+  return Array.from({length:8}).map(()=>`
+    <div class="bg-ink-900 border border-zinc-800 rounded-2xl overflow-hidden">
+      <div class="h-36 skeleton"></div>
+      <div class="p-4 space-y-3">
+        <div class="h-4 w-2/3 rounded skeleton"></div>
+        <div class="h-3 w-full rounded skeleton"></div>
+        <div class="h-3 w-1/2 rounded skeleton"></div>
+      </div>
+    </div>`).join('');
+}
+function emptyHTML(){
+  return `
+  <div class="col-span-full flex flex-col items-center justify-center py-24 fade-in">
+    <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5">
+      <i class="fa-solid fa-satellite-dish text-2xl text-zinc-600"></i>
+    </div>
+    <h3 class="font-semibold text-zinc-300 mb-2">没有找到相关资产</h3>
+    <p class="text-sm text-zinc-500 mb-6">换个关键词试试，或者清空搜索条件</p>
+    <button onclick="clearAll()" class="h-9 px-5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 transition active:scale-95">清空搜索</button>
+  </div>`;
+}
+async function renderGrid(withSkeleton=false){
+  const grid = $('#grid');
+  const title = $('#sectionTitle'), sub = $('#sectionSub'), count = $('#resultCount');
+  if (withSkeleton){ grid.innerHTML = skeletonHTML(); }
+  setTimeout(async ()=>{
+    let list;
+    try {
+      list = await loadAssets();
+    } catch(e) {
+      grid.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-24">
+        <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5"><i class="fa-solid fa-cloud-arrow-down text-2xl text-zinc-600"></i></div>
+        <h3 class="font-semibold text-zinc-300 mb-2">加载失败</h3>
+        <p class="text-sm text-zinc-500 mb-6">${esc(e.message||'请检查后端服务是否启动')}</p>
+        <button onclick="renderGrid(true)" class="h-9 px-5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 transition active:scale-95">重试</button>
+      </div>`;
+      count.textContent = '';
+      return;
+    }
+    title.textContent = curQuery ? `搜索「${curQuery}」` : (curCat==='rec' ? '推荐资产' : catOf(curCat).name);
+    sub.textContent = curQuery ? '在所有分类中搜索' : (curCat==='rec' ? '根据你的使用习惯精选' : `共 ${list.length} 个${catOf(curCat).name}资产`);
+    count.textContent = list.length ? `${list.length} 个结果` : '';
+    grid.innerHTML = list.length ? list.map(cardHTML).join('') : emptyHTML();
+  }, withSkeleton ? 300 : 0);
+}
+
+/* ═══════════════ 交互 ═══════════════ */
+function switchCat(k){ curCat = k; renderNav(); renderGrid(true); }
+function installAsset(btn, id){
+  const a = ASSETS.find(x=>x.id===id);
+  if (installed.has(id)){
+    // 卸载
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>卸载中';
+    btn.disabled = true;
+    MarketAPI.uninstall(id).then(()=>{
+      installed.delete(id);
+      toast(`已卸载「${a.name}」`);
+      refreshInstallBtns();
+    }).catch(e=>{ toast(e.message, false); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check mr-1"></i>已安装'; });
+    return;
+  }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录后再安装', false); setTimeout(()=>location.href='pages/login.html',800); return; }
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>安装中';
+  btn.disabled = true;
+  MarketAPI.install(id).then(()=>{
+    installed.add(id);
+    toast(`「${a.name}」安装成功`);
+    refreshInstallBtns();
+  }).catch(e=>{ toast(e.message, false); btn.disabled=false; btn.innerHTML='安装'; });
+}
+function refreshInstallBtns(){
+  renderGrid(false);
+}
+function clearAll(){ curQuery=''; $('#searchInput').value=''; $('#clearSearch').classList.add('hidden'); renderGrid(false); }
+
+/* ═══════════════ 关联资产下载 ═══════════════ */
+function relInfo(rid){
+  const m = ASSETS.find(a=>a.id===rid);
+  if (m) return m;
+  for (const a of ASSETS){ const r = (a.rel||[]).find(x=>x.rid===rid); if (r) return r; }
+  return null;
+}
+function installRel(btn, rid){
+  const r = relInfo(rid); if (!r) return;
+  if (installed.has(rid)){
+    // 真实资产卸载
+    if (r.ref != null) {
+      MarketAPI.uninstall(r.ref).then(()=>{
+        installed.delete(rid); toast(`已卸载「${r.name}」`); refreshInstallBtns();
+      }).catch(e=>toast(e.message,false));
+    } else {
+      installed.delete(rid); toast(`已移除「${r.name}」`); refreshInstallBtns();
+    }
+    return;
+  }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录后再安装', false); setTimeout(()=>location.href='../pages/login.html',800); return; }
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+  btn.disabled = true;
+  if (r.ref != null) {
+    MarketAPI.install(r.ref).then(()=>{
+      installed.add(rid); toast(`「${r.name}」安装成功`); refreshInstallBtns();
+    }).catch(e=>{ toast(e.message,false); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-download"></i>'; });
+  } else {
+    // 虚拟关联资产：模拟安装
+    setTimeout(()=>{
+      installed.add(rid); toast(`「${r.name}」安装成功`); refreshInstallBtns();
+    }, 500);
+  }
+}
+function downloadAllRels(btn, id){
+  const a = ASSETS.find(x=>x.id===id);
+  const pending = a.rel.filter(x=>!installed.has(x.ref || x.rid));
+  if (!pending.length){ toast('关联资产已全部安装'); return; }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录后再安装', false); setTimeout(()=>location.href='../pages/login.html',800); return; }
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>下载中';
+  btn.disabled = true;
+  const realOnes = pending.filter(x=>x.ref != null);
+  const promise = realOnes.length
+    ? Promise.all(realOnes.map(x=>MarketAPI.install(x.ref).catch(()=>{})))
+    : Promise.resolve();
+  promise.finally(()=>{
+    pending.forEach(x=>installed.add(x.ref || x.rid));
+    toast(`已一键下载 ${pending.length} 项关联资产`);
+    refreshInstallBtns();
+  });
+}
+
+/* ═══════════════ 详情导航 ═══════════════ */
+function openDetail(id) {
+  // 跳转到独立的资产详情页面
+  window.location.href = `pages/asset-detail.html?id=${id}`;
+}
+
+function closeDetail() {
+  // 返回列表视图
+  window.location.href = '../index.html';
+}
+
+/* ═══════════════ 搜索 & 排序 ═══════════════ */
+let debounce;
+$('#searchInput').addEventListener('input', e=>{
+  clearTimeout(debounce);
+  debounce = setTimeout(()=>{
+    curQuery = e.target.value.trim().toLowerCase();
+    $('#clearSearch').classList.toggle('hidden', !curQuery);
+    renderGrid(!!curQuery);
+  }, 250);
+});
+$('#clearSearch').addEventListener('click', clearAll);
+$('#sortSelect').addEventListener('change', e=>{ curSort = e.target.value; renderGrid(true); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeDetail(); } });
+
+/* ═══════════════ 初始化 ═══════════════ */
+(async function init(){
+  // 支持 ?cat= 定位分类（来自子页面侧边栏的跳转）
+  const catParam = new URLSearchParams(location.search).get('cat');
+  if (catParam && CATS.some(c => c.key === catParam)) curCat = catParam;
+  renderNav();
+  renderGrid(true);
+  const hero = $('#heroSection');
+  if (hero) {
+    // 精选 Banner 联动：标题/描述可保留静态
+  }
+})();
+</script>
+</body>
+</html>

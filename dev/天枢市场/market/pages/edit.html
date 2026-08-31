@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>编辑资产 · 天枢市场</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="../js/api.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 300:'#fcd34d', 400:'#fbbf24', 500:'#f59e0b', 600:'#d97706' },
+        ink: { 950:'#09090b', 900:'#0f0f12', 850:'#141418', 800:'#1c1c21', 700:'#26262d' }
+      },
+      fontFamily: {
+        sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Text"','"Segoe UI"','Roboto','"PingFang SC"','"Microsoft YaHei"','sans-serif']
+      }
+    }
+  }
+}
+</script>
+<style>
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#2e2e36; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#3f3f4a; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  body { font-family:-apple-system,system-ui,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .glass { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  .fade-in { animation: fadeIn .35s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:none;} }
+  .toast-in { animation: toastIn .3s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes toastIn { from { opacity:0; transform:translateX(24px);} to { opacity:1; transform:none;} }
+  .drop-active { border-color:#f59e0b !important; background:rgba(245,158,11,.06) !important; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body class="bg-ink-950 text-zinc-200 antialiased overflow-hidden">
+
+<div class="flex h-screen">
+  <!-- 侧栏 -->
+  <aside class="w-60 shrink-0 flex flex-col border-r border-zinc-800/80 bg-ink-900">
+    <a href="../index.html" class="h-16 flex items-center gap-3 px-5 border-b border-zinc-800/80 hover:bg-zinc-800/40 transition">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center shadow-lg shadow-brand-500/20">
+        <i class="fa-solid fa-star-of-david text-ink-950 text-sm"></i>
+      </div>
+      <div>
+        <div class="font-bold text-zinc-50 leading-tight">天枢市场</div>
+        <div class="text-[11px] text-zinc-500">TianShu Market</div>
+      </div>
+    </a>
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <div class="px-2 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">发现</div>
+      <a href="../index.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-compass w-4 text-center"></i><span>市场首页</span>
+      </a>
+      <div class="px-2 pt-4 pb-2 text-[11px] font-semibold tracking-widest text-zinc-500">我的</div>
+      <a href="downloads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-solid fa-cloud-arrow-down w-4 text-center"></i><span>我的下载</span>
+      </a>
+      <a href="uploads.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm bg-brand-500/15 text-brand-300 font-medium transition">
+        <i class="fa-solid fa-arrow-up-from-bracket w-4 text-center"></i><span>我的上传</span>
+      </a>
+      <a href="favorites.html" class="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition">
+        <i class="fa-regular fa-heart w-4 text-center"></i><span>我的收藏</span>
+      </a>
+    </nav>
+    <div class="p-4 border-t border-zinc-800/80" id="sidebarUser">
+<script>
+      (function(){
+        const wrap = document.getElementById('sidebarUser');
+        MarketAPI.isLoggedIn()
+          ? MarketAPI.me().then(d => {
+              const u = d.user;
+              wrap.innerHTML = '<div class="flex items-center gap-3 px-1"><img src="'+(u.avatar||'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80')+'" alt="头像" class="w-8 h-8 rounded-full object-cover ring-2 ring-zinc-700"><div class="min-w-0 flex-1"><div class="text-sm font-medium text-zinc-200 truncate">'+u.name+'</div><div class="text-[11px] text-zinc-500">已安装 '+u.installed+' 个资产</div></div><button onclick="MarketAPI.logout();location.reload();" class="w-8 h-8 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition" title="退出登录"><i class="fa-solid fa-right-from-bracket text-xs"></i></button><a href="uploads.html" class="w-8 h-8 rounded-lg bg-brand-500/15 border border-brand-500/30 grid place-items-center text-brand-300 hover:bg-brand-500/25 transition" title="上传资产"><i class="fa-solid fa-cloud-arrow-up text-xs"></i></a></div>';
+            }).catch(()=>{ MarketAPI.logout(); location.reload(); })
+          : (wrap.innerHTML = '<a href="login.html" class="flex items-center justify-center gap-2 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 text-brand-300 text-sm font-medium hover:bg-brand-500/25 transition active:scale-95"><i class="fa-solid fa-right-to-bracket text-xs"></i>登录 / 注册</a>');
+      })();
+      </script>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="flex-1 flex flex-col min-w-0">
+    <!-- 顶部栏 -->
+    <header class="h-16 shrink-0 flex items-center gap-4 px-6 border-b border-zinc-800/80 bg-ink-900/60 glass z-10">
+      <button onclick="history.back()" class="w-9 h-9 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition" aria-label="返回">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <div class="flex-1">
+        <h1 id="pageTitle" class="text-lg font-semibold text-zinc-100">编辑资产</h1>
+        <p id="pageSub" class="text-xs text-zinc-500">修改资产信息并重新提交</p>
+      </div>
+      <div class="flex items-center gap-3 ml-auto">
+        <button class="relative w-9 h-9 rounded-lg bg-ink-800 border border-zinc-800 grid place-items-center text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition" aria-label="通知">
+          <i class="fa-regular fa-bell"></i>
+          <span class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-brand-400"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 内容滚动区 -->
+    <div class="flex-1 overflow-y-auto">
+      <div class="max-w-3xl mx-auto px-6 py-6">
+        <div id="editContent" class="fade-in space-y-6">
+          <!-- 加载状态 -->
+          <div class="space-y-6">
+            <div class="h-10 bg-ink-800 rounded-xl skeleton"></div>
+            <div class="h-24 bg-ink-800 rounded-xl skeleton"></div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="h-10 bg-ink-800 rounded-xl skeleton"></div>
+              <div class="h-10 bg-ink-800 rounded-xl skeleton"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast 容器 -->
+<div id="toastWrap" class="fixed bottom-6 right-6 z-[60] space-y-3"></div>
+
+<script>
+const CATS = {
+  character:{ name:'角色',   icon:'fa-solid fa-user-astronaut', grad:'from-amber-500/80 to-orange-600/80' },
+  skin:{     name:'皮肤',   icon:'fa-solid fa-shirt',          grad:'from-rose-500/80 to-pink-600/80' },
+  skill:{    name:'技能',   icon:'fa-solid fa-wand-magic-sparkles', grad:'from-emerald-500/80 to-teal-600/80' },
+  tool:{     name:'工具',   icon:'fa-solid fa-screwdriver-wrench',  grad:'from-sky-500/80 to-blue-600/80' },
+  mcp:{      name:'MCP',    icon:'fa-solid fa-plug-circle-bolt',    grad:'from-cyan-500/80 to-sky-600/80' },
+  kb:{       name:'知识库', icon:'fa-solid fa-book-open',      grad:'from-indigo-500/80 to-violet-600/80' },
+  theme:{    name:'主题',   icon:'fa-solid fa-palette',        grad:'from-teal-500/80 to-emerald-600/80' },
+  iconpack:{ name:'图标包', icon:'fa-solid fa-icons',          grad:'from-orange-500/80 to-amber-600/80' },
+};
+
+// 当前编辑的资产（由 API 加载）
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let currentAsset = null;
+let editType = 'skill';
+
+function toast(msg, ok=true){
+  const t = document.createElement('div');
+  t.className = 'toast-in flex items-center gap-3 px-4 py-3 rounded-xl border text-sm shadow-2xl shadow-black/50 glass ' + (ok ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/15 border-rose-500/30 text-rose-300');
+  t.innerHTML = `<i class=\"fa-solid ${ok?'fa-circle-check':'fa-circle-exclamation'}\"></i><span>${msg}</span>`;
+  $('#toastWrap').appendChild(t);
+  setTimeout(()=>{ t.style.transition='all .3s'; t.style.opacity='0'; t.style.transform='translateX(24px)'; setTimeout(()=>t.remove(),300); }, 2600);
+}
+
+function renderEditForm(asset) {
+  currentAsset = asset;
+  editType = asset.cat;
+  
+  $('#pageTitle').textContent = `编辑 ${asset.name}`;
+  $('#pageSub').textContent = `${CATS[asset.cat].name} · v${asset.ver}`;
+  
+  $('#editContent').innerHTML = `
+    <!-- 资产类型 -->
+    <div>
+      <div class="text-sm font-semibold text-zinc-200 mb-3">资产类型 <span class="text-rose-400">*</span></div>
+      <div id="typeGrid" class="grid grid-cols-4 gap-2.5"></div>
+    </div>
+    
+    <!-- 资产文件 -->
+    <div>
+      <div class="text-sm font-semibold text-zinc-200 mb-3">资产文件</div>
+      <div id="dropZone" class="rounded-xl border-2 border-dashed border-zinc-700 bg-ink-850 p-6 text-center cursor-pointer transition hover:border-zinc-500">
+        <i class="fa-solid fa-file-zipper text-2xl text-zinc-600 mb-2"></i>
+        <p class="text-sm text-zinc-400">当前文件：<span class="text-brand-300 font-medium">${asset.name.toLowerCase().replace(/\s+/g, '-')}-v${asset.ver}.tianshu</span></p>
+        <p class="text-xs text-zinc-600 mt-1">点击此处更换文件</p>
+      </div>
+    </div>
+    
+    <!-- 基本信息 -->
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="text-sm font-semibold text-zinc-200 block mb-2" for="editName">资产名称 <span class="text-rose-400">*</span></label>
+        <input id="editName" value="${asset.name}" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20 transition placeholder-zinc-600">
+      </div>
+      <div class="col-span-2">
+        <label class="text-sm font-semibold text-zinc-200 block mb-2" for="editDesc">简介</label>
+        <textarea id="editDesc" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20 transition placeholder-zinc-600 resize-none">${asset.desc}</textarea>
+      </div>
+      <div>
+        <label class="text-sm font-semibold text-zinc-200 block mb-2" for="editVer">版本号</label>
+        <input id="editVer" value="${asset.ver}" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600">
+      </div>
+      <div>
+        <label class="text-sm font-semibold text-zinc-200 block mb-2" for="editTags">标签</label>
+        <input id="editTags" value="${asset.tags.join(', ')}" class="w-full h-10 px-3.5 rounded-xl bg-ink-800 border border-zinc-800 text-sm outline-none focus:border-brand-500/60 transition placeholder-zinc-600" placeholder="逗号分隔，如：效率,编程">
+      </div>
+    </div>
+    
+    <!-- 协议与提交 -->
+    <div class="flex items-center justify-between pt-4 border-t border-zinc-800/80">
+      <label class="flex items-center gap-2 text-xs text-zinc-500 cursor-pointer select-none">
+        <input type="checkbox" checked class="accent-amber-500 w-3.5 h-3.5"> 我已阅读并同意《资产发布协议》
+      </label>
+      <div class="flex gap-3">
+        <button onclick="history.back()" class="h-9 px-4 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 transition active:scale-95">取消</button>
+        <button onclick="saveChanges()" id="saveBtn" class="h-9 px-5 rounded-lg bg-brand-500 hover:bg-brand-400 text-ink-950 font-semibold text-sm transition active:scale-95 shadow-lg shadow-brand-500/20">保存更改</button>
+      </div>
+    </div>
+  `;
+  
+  renderTypeGrid();
+}
+
+function renderTypeGrid(){
+  const grid = $('#typeGrid');
+  if (!grid) return;
+  
+  grid.innerHTML = Object.entries(CATS).map(([k,c])=>`
+    <button onclick="editType='${k}';renderTypeGrid()" class="flex flex-col items-center gap-1.5 py-3 rounded-xl border transition active:scale-95 ${editType===k?'border-brand-500/60 bg-brand-500/10 text-brand-300':'border-zinc-800 bg-ink-850 text-zinc-400 hover:border-zinc-600'}">
+      <i class="${c.icon} text-lg"></i><span class="text-xs">${c.name}</span>
+    </button>`).join('');
+}
+
+function saveChanges(){
+  const id = currentAsset ? currentAsset.id : null;
+  if (!id) { toast('缺少资产 ID', false); return; }
+  const name = $('#editName').value.trim();
+  if (!name){
+    toast('请填写资产名称', false);
+    $('#editName').focus();
+    return;
+  }
+  if (!MarketAPI.isLoggedIn()) { toast('请先登录', false); setTimeout(()=>location.href='login.html',800); return; }
+
+  // 构造 FormData（可选携带新文件）
+  const fd = new FormData();
+  if (window.__editFile) fd.append('file', window.__editFile);
+  fd.append('name', name);
+  fd.append('desc', $('#editDesc').value.trim());
+  fd.append('ver', $('#editVer').value.trim() || '1.0.0');
+  fd.append('cat', editType);
+  fd.append('tags', $('#editTags').value.trim());
+
+  const btn = $('#saveBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>保存中…'; }
+
+  MarketAPI.updateAsset(id, fd)
+    .then(()=>{
+      toast(`「${name}」的更改已保存并重新提交审核`);
+      setTimeout(()=>{ window.location.href = 'uploads.html'; }, 1200);
+    })
+    .catch(e=>{
+      toast(e.message || '保存失败', false);
+      if (btn) { btn.disabled = false; btn.innerHTML = '保存更改'; }
+    });
+}
+
+// 文件拖拽功能（支持真实文件）
+let __editFile = null;
+function initDropZone() {
+  const dz = $('#dropZone');
+  if (!dz) return;
+
+  ['dragover','dragenter'].forEach(e=>dz.addEventListener(e, ev=>{ev.preventDefault(); dz.classList.add('drop-active');}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e, ev=>{ev.preventDefault(); dz.classList.remove('drop-active');
+    if(e==='drop'){
+      const f = ev.dataTransfer.files[0];
+      if(f){
+        __editFile = f;
+        dz.innerHTML = `
+          <i class="fa-solid fa-file-zipper text-2xl text-zinc-600 mb-2"></i>
+          <p class="text-sm text-zinc-400">新文件：<span class="text-brand-300 font-medium">${f.name}</span>（${(f.size/1024).toFixed(1)} KB）</p>
+          <p class="text-xs text-zinc-600 mt-1">点击此处重新选择</p>
+        `;
+      }
+    }
+  }));
+  dz.addEventListener('click', ()=>{
+    const fi = document.createElement('input');
+    fi.type = 'file'; fi.accept = '*/*';
+    fi.onchange = () => {
+      if (fi.files[0]) {
+        __editFile = fi.files[0];
+        dz.innerHTML = `
+          <i class="fa-solid fa-file-zipper text-2xl text-zinc-600 mb-2"></i>
+          <p class="text-sm text-zinc-400">新文件：<span class="text-brand-300 font-medium">${fi.files[0].name}</span>（${(fi.files[0].size/1024).toFixed(1)} KB）</p>
+          <p class="text-xs text-zinc-600 mt-1">点击此处重新选择</p>
+        `;
+      }
+    };
+    fi.click();
+  });
+}
+
+// 页面初始化
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  const id = parseInt(params.get('id'));
+
+  if (id) {
+    // 从后端加载资产数据
+    try {
+      const asset = await MarketAPI.asset(id);
+      renderEditForm(asset);
+      setTimeout(initDropZone, 100);
+    } catch(e) {
+      $('#editContent').innerHTML = `
+        <div class="flex flex-col items-center justify-center py-24 fade-in">
+          <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5">
+            <i class="fa-solid fa-satellite-dish text-2xl text-zinc-600"></i>
+          </div>
+          <h3 class="font-semibold text-zinc-300 mb-2">资产未找到</h3>
+          <p class="text-sm text-zinc-500 mb-6">${esc(e.message || '该资产可能已下架或不存在')}</p>
+          <button onclick="history.back()" class="h-9 px-5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 transition active:scale-95">返回</button>
+        </div>`;
+    }
+  } else {
+    // 没有ID参数
+    $('#editContent').innerHTML = `
+      <div class="flex flex-col items-center justify-center py-24 fade-in">
+        <div class="w-16 h-16 rounded-2xl bg-ink-800 border border-zinc-800 grid place-items-center mb-5">
+          <i class="fa-solid fa-circle-question text-2xl text-zinc-600"></i>
+        </div>
+        <h3 class="font-semibold text-zinc-300 mb-2">未指定资产</h3>
+        <p class="text-sm text-zinc-500 mb-6">请从"我的上传"页面选择一个资产进行编辑</p>
+        <a href="uploads.html" class="h-9 px-5 rounded-lg bg-brand-500/15 border border-brand-500/30 text-brand-300 text-sm font-medium hover:bg-brand-500/25 transition active:scale-95">返回上传列表</a>
+      </div>`;
+  }
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

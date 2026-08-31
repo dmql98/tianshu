@@ -72,9 +72,10 @@ export function assembleStaticPrompt(
     parts.push(`## Available Skill Packages\n${skillList}\nUse \`skill_manager\` action="describe_package" to inspect a package and action="activate" to load only the child skill needed for this task. Do not replace the character's full skill list.`)
   }
 
-    if (dataDir) {
-      parts.push(`## Data Directory\nSystem config & data root: ${dataDir}  (即 <dataDir>：天枢所有配置与数据的根目录，角色/技能/模型服务/MCP 等均位于其下)`)
-    }
+  if (dataDir) {
+    parts.push(`## Data Directory\nSystem config & data root: ${dataDir}  (即 <dataDir>：天枢所有配置与数据的根目录，角色/技能/模型服务/MCP 等均位于其下)`)
+  }
+
   parts.push(`## Workspace\nProject workspace: ${workspace}\nCreate it if it does not exist.`)
 
   return parts
