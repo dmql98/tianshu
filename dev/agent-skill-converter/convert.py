@@ -392,7 +392,7 @@ def batch_agent_to_tianshu(source_dir: Path, output_dir: Path, category: str = '
                         'dest': str(dest),
                         'status': 'success',
                     })
-                    print(f'  ✓ {item.name} → {dest.name}')
+                    print(f'  [OK] {item.name} -> {dest.name}')
                 except Exception as e:
                     results.append({
                         'source': str(item),
@@ -400,7 +400,7 @@ def batch_agent_to_tianshu(source_dir: Path, output_dir: Path, category: str = '
                         'status': 'error',
                         'error': str(e),
                     })
-                    print(f'  ✗ {item.name}: {e}')
+                    print(f'  [ERR] {item.name}: {e}')
             elif fmt == 'tianshu':
                 results.append({
                     'source': str(item),

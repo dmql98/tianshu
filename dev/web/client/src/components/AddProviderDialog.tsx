@@ -35,7 +35,7 @@ function ProviderIcon({ preset }: { preset: ProviderPreset }) {
 }
 
 export default function AddProviderDialog({ onClose }: Props) {
-  const { load } = useProvidersStore()
+  const { load, fetchModels } = useProvidersStore()
   const t = useI18n()
   const [step, setStep] = useState<'select' | 'config'>('select')
   const [builtinProviders, setBuiltinProviders] = useState<ProviderPreset[]>([])
@@ -116,8 +116,9 @@ export default function AddProviderDialog({ onClose }: Props) {
 
     try {
       const preset = selectedProvider
+      const providerId = preset?.id || `${formData.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
       await createProvider({
-        id: preset?.id || `${formData.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+        id: providerId,
         name: formData.name,
         base_url: formData.baseUrl,
         api_key: formData.apiKey || undefined,
@@ -130,6 +131,8 @@ export default function AddProviderDialog({ onClose }: Props) {
         } : {}),
       })
       await load()
+      // 自动刷新模型列表
+      fetchModels(providerId).catch(() => {})
       onClose()
     } catch (err: any) {
       if (err?.message?.includes('409')) setError(t('该预设服务商已添加'))
