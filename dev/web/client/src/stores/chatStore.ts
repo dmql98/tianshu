@@ -112,13 +112,14 @@ function applyMessageCreated(
     const existing = messages[idx]
     if (existing.role === 'user' && existing.content === content) return messages
     const next = [...messages]
-    next[idx] = { ...existing, role: 'user', content, timestamp: data.occurred_at ?? existing.timestamp }
+    // Preserve client-side attachments (dataUrl thumbnails) when upgrading from optimistic placeholder.
+    next[idx] = { ...existing, role: 'user', content, attachments: existing.attachments || undefined, timestamp: data.occurred_at ?? existing.timestamp }
     return next
   }
   const last = messages[messages.length - 1]
   if (last && last.role === 'user' && last.content === content && !last.id.startsWith('m')) {
     const next = [...messages]
-    next[next.length - 1] = { ...last, id, timestamp: data.occurred_at ?? last.timestamp }
+    next[next.length - 1] = { ...last, id, attachments: last.attachments || undefined, timestamp: data.occurred_at ?? last.timestamp }
     return next
   }
   return [...messages, { id, role: 'user', content, timestamp: data.occurred_at ?? Date.now() }]

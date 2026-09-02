@@ -5,6 +5,7 @@ import { useI18n, useI18nStore } from '@/i18n'
 import ThinkingBlock from './ThinkingBlock'
 import ToolCall from './ToolCall'
 import MarkdownContent from './MarkdownContent'
+import Icon from '@/features/icons/Icon'
 
 const showReasoning = () => localStorage.getItem('tianshu:showReasoning') !== 'false'
 
@@ -28,7 +29,8 @@ export default memo(function MessageItem({ message, sessionId }: Props) {
   const [isForking, setIsForking] = useState(false)
   const isUser = message.role === 'user'
   const isTool = message.role === 'tool'
-  const hasVisibleContent = message.content.trim().length > 0
+  const hasAttachments = isUser && (message.attachments?.length ?? 0) > 0
+  const hasVisibleContent = message.content.trim().length > 0 || hasAttachments
   const time = new Date(message.timestamp).toLocaleTimeString(locale === 'en' ? 'en-US' : 'zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -93,7 +95,7 @@ export default memo(function MessageItem({ message, sessionId }: Props) {
   }
 
   return (
-    <div className={`msg-group ${isUser ? 'user' : 'star'}`}>
+    <div className={`msg-group ${isUser ? 'user' : 'star'}`} data-msg-id={message.id}>
       {!isUser && message.token_speed != null && message.token_speed > 0 && (
         <div className="msg-token-speed" title={message.token_speed_estimated ? t('估算值') : undefined}>
           {message.token_speed_estimated ? '~' : ''}{message.token_speed.toFixed(1)} tok/s
@@ -133,7 +135,21 @@ export default memo(function MessageItem({ message, sessionId }: Props) {
         </div>
       ) : hasVisibleContent ? (
         <div className="msg-bubble">
-          <MarkdownContent content={message.content} streaming={!!message.is_streaming} workspace={sessionWorkspace} />
+          {hasAttachments && (
+            <div className="msg-attachments">
+              {message.attachments!.map((a, i) => (
+                <span key={i} className="msg-attachment">
+                  {a.dataUrl && a.mime?.startsWith('image/')
+                    ? <img src={a.dataUrl} alt={a.name} className="msg-attachment-thumb" />
+                    : <Icon name={a.mime?.startsWith('image/') ? 'image' : 'attach'} size={14} ariaHidden />}
+                  <span className="msg-attachment-name">{a.name}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          {message.content.trim().length > 0 && (
+            <MarkdownContent content={message.content} streaming={!!message.is_streaming} workspace={sessionWorkspace} />
+          )}
         </div>
       ) : null}
       {(hasVisibleContent || isEditing) && (
