@@ -384,7 +384,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       }
 
       // P0-3: a non-overflow LLM error here is a committed failure — transient
-      // errors were already retried (up to 2 attempts) inside streamWithRetry.
+      // errors were already retried (with backoff) inside streamWithRetry.
       // Retrying once more at run level just consumes another turn with no
       // backoff, so fail the Run instead of adding an extra turn.
       console.log(`[session] ${sessionId} failed: ${result.error || 'LLM error'} (${turn} turns)`)

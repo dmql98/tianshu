@@ -13,7 +13,7 @@ import type { TransportBroadcaster } from '../transport/runtime.js'
 import type { MCPClient } from '../tools/mcp-client.js'
 import { resolve as pathResolve } from 'path'
 import { isPathWithin, workspaceApprovalRoot } from '../tools/utils.js'
-import { getDataDir } from '../config.js'
+import { envInt, getDataDir } from '../config.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { planStore, goalStore } from './plan/plan-store.js'
 import { saveAttachment } from './media-store.js'
@@ -214,6 +214,15 @@ export interface InnerResult {
   controlReason?: string
 }
 
+/**
+ * LLM 请求级最大尝试次数：瞬时网络故障（socket 断开 / 空流 / 5xx / 限流）
+ * 会退避重试，直到耗尽该上限才把 run 判失败。
+ * - 默认 3 次尝试 = 最多 2 次重试（间隔 1s → 2s），足以吸收绝大多数瞬断；
+ * - 可用环境变量 LLM_MAX_ATTEMPTS 调大（如本地代理不稳时），1 表示不重试。
+ * 注意：run 级不会再多重试一轮（见 loop-engine 注释），避免重复工具副作用。
+ */
+export const MAX_LLM_STREAM_ATTEMPTS = Math.max(1, envInt('LLM_MAX_ATTEMPTS', 3))
+
 export async function streamWithRetry(
   messages: LLMMessage[],
   tools: any[] | undefined,
@@ -229,7 +238,7 @@ export async function streamWithRetry(
   // arguments can never leak into the successful attempt.
   let committed: { text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null } | null = null
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < MAX_LLM_STREAM_ATTEMPTS; attempt++) {
     if (signal?.aborted) break
     let errorText = ''
     let fullText = ''
@@ -293,12 +302,12 @@ export async function streamWithRetry(
       break
     }
 
-    if (!isTransientLLMError(errorText) || attempt >= 1) {
+    if (!isTransientLLMError(errorText) || attempt >= MAX_LLM_STREAM_ATTEMPTS - 1) {
       throw new Error(errorText)
     }
 
     const delay = Math.min(1000 * Math.pow(2, attempt), 8000)
-    onRetry?.({ attempt: attempt + 2, max_attempts: 2, error: errorText, delay_ms: delay })
+    onRetry?.({ attempt: attempt + 2, max_attempts: MAX_LLM_STREAM_ATTEMPTS, error: errorText, delay_ms: delay })
     await sleep(delay)
   }
 

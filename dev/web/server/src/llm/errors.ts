@@ -39,6 +39,10 @@ export class MalformedSSEError extends Error {
 export function isTransientLLMError(errorText: string): boolean {
   const msg = errorText.toLowerCase()
   return msg.includes('fetch failed') ||
+    // client.ts 空流分支：HTTP 200 但响应体没有任何 data（连接被对端立即
+    // 关闭 / 代理掐断）。transport-level 失败，重试无副作用，必须可重试，
+    // 否则一次瞬断就直接终止整个 run。
+    msg.includes('empty llm stream') ||
     msg.includes('rate limit') ||
     msg.includes('429') ||
     msg.includes('500') ||

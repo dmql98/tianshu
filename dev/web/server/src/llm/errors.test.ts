@@ -20,6 +20,7 @@ function assert(condition: boolean, label: string) {
 
 assert(isTransientLLMError('fetch failed'), 'plain fetch failures are retriable')
 assert(isTransientLLMError('fetch failed [UND_ERR_SOCKET: other side closed]'), 'undici socket failures are retriable')
+assert(isTransientLLMError('Empty LLM stream response'), 'empty stream bodies are retriable')
 assert(isTransientLLMError('connect ETIMEDOUT 203.0.113.1:443'), 'connection timeouts are retriable')
 assert(!isTransientLLMError('LLM API 401: invalid token'), 'authentication failures are terminal')
 assert(!isTransientLLMError('LLM API 400: malformed request'), 'bad requests are terminal')

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NomiFun vs 天枢 — 深度对比与优化方案</title>
+<style>
+  :root{
+    --bg:#070b14; --panel:#0e1526;
+    --line:#1e293b; --line2:#28364d;
+    --text:#d7deea; --muted:#8b98ad; --dim:#5b6a80;
+    --gold:#e8c878; --gold-soft:rgba(232,200,120,.1);
+    --ts-blue:#7db4ff; --nf-pink:#ff7b9c;
+    --amber:#f4c477;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,'Cascadia Code',monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#12203f 0%,transparent 60%),#070b14;color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.75}
+  a{color:var(--ts-blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{display:grid;grid-template-columns:280px minmax(0,920px);gap:32px;max-width:1280px;margin:0 auto;padding:32px 28px 80px}
+  aside{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:28px 6px 28px 0}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .brand .dot{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--gold),#b98a3a);display:grid;place-items:center;font-weight:800;color:#201708;font-size:15px}
+  .brand b{font-size:16px;letter-spacing:.5px}
+  .brand small{display:block;color:var(--dim);font-weight:400;font-size:11px;letter-spacing:1.5px}
+  .toc-h2{display:block;margin:14px 0 4px;color:var(--text);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+  aside ul{list-style:none;margin:0;padding:0 0 0 10px;border-left:1px solid var(--line)}
+  aside li{margin:2px 0}
+  aside ul a{color:var(--muted);font-size:12px}
+  aside ul a:hover{color:var(--gold)}
+  .tagline{color:var(--dim);font-size:11.5px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  main{min-width:0}
+  .hero{padding:34px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px}
+  .hero h1{margin:0 0 12px;font-size:30px;line-height:1.3;font-weight:800}
+  .hero h1 em{font-style:normal;color:var(--nf-pink)}
+  .hero .vs{color:var(--dim);padding:0 6px;font-size:22px}
+  .hero .sub{color:var(--muted);font-size:14px;max-width:760px}
+  .hero .sub b{color:var(--gold)}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .badge{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);background:var(--panel)}
+  .badge b{color:var(--text);font-weight:600}
+  .badge .nf{color:var(--nf-pink)} .badge .ts{color:var(--ts-blue)} .badge.gold{color:var(--gold)}
+  .meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--dim);font-size:12px;margin-top:10px}
+  h2{font-size:21px;font-weight:700;margin:44px 0 14px;padding:10px 0 10px 14px;border-left:3px solid var(--gold);background:linear-gradient(90deg,var(--gold-soft),transparent);border-radius:0 8px 8px 0}
+  h3{font-size:16.5px;font-weight:700;margin:30px 0 10px;color:var(--gold)}
+  h4{font-size:14.5px;margin:22px 0 8px;color:var(--ts-blue)}
+  p{margin:10px 0}
+  strong{color:#f0f4fa}
+  ul,ol{padding-left:22px}
+  li{margin:4px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:#1a2440;border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:#ffd9a8}
+  pre{background:#0d1220;border:1px solid var(--line2);border-radius:10px;padding:14px 16px;overflow-x:auto;line-height:1.55}
+  pre code{background:none;border:none;padding:0;color:#c9d6ec;font-size:12.5px}
+  .tbl-wrap{overflow-x:auto;margin:12px 0;border:1px solid var(--line2);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}
+  th{background:#16203a;color:var(--gold);font-weight:600;text-align:left;padding:9px 12px;white-space:nowrap}
+  td{padding:8px 12px;border-top:1px solid var(--line);vertical-align:top}
+  tbody tr:hover td{background:rgba(125,180,255,.04)}
+  blockquote{border-left:3px solid var(--gold);margin:14px 0;padding:10px 16px;background:var(--gold-soft);border-radius:0 8px 8px 0;color:var(--muted)}
+  blockquote.warn{border-left-color:var(--amber);background:rgba(244,196,119,.07)}
+  blockquote p{margin:4px 0}
+  hr{border:none;border-top:1px solid var(--line);margin:34px 0}
+  @media(max-width:1000px){
+    .wrap{grid-template-columns:1fr;padding:18px 14px 60px}
+    aside{position:static;max-height:none;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:10px}
+    aside ul{columns:2}
+  }
+  @media(max-width:640px){ aside ul{columns:1} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <div class="brand"><div class="dot">枢</div><div><b>NomiFun × 天枢</b><small>对标研究与优化方案</small></div></div>
+    <nav>
+<a class="toc-h2" href="#一-项目画像">一、项目画像</a><a class="toc-h2" href="#二-架构对比">二、架构对比</a><ul><li><a href="#2-1-后端架构">2.1 后端架构</a></li><li><a href="#2-2-前端架构">2.2 前端架构</a></li><li><a href="#2-3-功能矩阵">2.3 功能矩阵</a></li></ul><a class="toc-h2" href="#三-NomiFun-的进化亮点">三、NomiFun 的进化亮点（值得借鉴）</a><ul><li><a href="#3-1-架构层面">3.1 架构层面</a></li><li><a href="#3-2-Companion-系统">3.2 Companion 系统（桌面伙伴）</a></li><li><a href="#3-3-其他功能层面">3.3 其他功能层面</a></li></ul><a class="toc-h2" href="#四-天枢的相对优势">四、天枢的相对优势（值得保留/强化）</a><a class="toc-h2" href="#五-天枢优化方案">五、天枢优化方案</a><ul><li><a href="#P0-架构基础加固">P0 —— 架构基础加固（1-2 周）</a></li><li><a href="#P1-功能追赶">P1 —— 功能追赶（2-4 周）</a></li><li><a href="#P2-差异化增强">P2 —— 差异化增强（4-8 周）</a></li></ul><a class="toc-h2" href="#六-实施优先级路线图">六、实施优先级路线图</a><a class="toc-h2" href="#七-关键决策点">七、关键决策点</a><a class="toc-h2" href="#八-总结">八、总结</a>
+    </nav>
+    <div class="tagline">数据来源：两仓库源码结构 / 架构文档 / Git 历史<br>生成：2026-09-04</div>
+  </aside>
+  <main>
+    <div class="hero">
+      <h1><em>NomiFun</em><span class="vs">VS</span>天枢 TianShu<br>深度对比与优化方案</h1>
+      <div class="sub">从架构、功能矩阵到进化体系逐项对标，产出按 P0 / P1 / P2 分级的天枢优化路线图。核心结论：<b>补齐架构基础（数据层 / 锁 / 适配层），并把天枢已有的进化引擎从「半接线」做成「可见、可配、可干预」的专门页面。</b></div>
+      <div class="badges">
+        <span class="badge"><b>3,770</b> 提交 · <b class="nf">NomiFun</b> Rust 52 crates</span>
+        <span class="badge"><b>190</b> 提交 · <b class="ts">天枢</b> Node TS</span>
+        <span class="badge">对标：<b class="nf">EvolutionTab</b> / <b class="ts">evolution 半接线</b></span>
+        <span class="badge gold">产出：3×P0 · 4×P1 · 5×P2</span>
+      </div>
+      <div class="meta">文档：dev/docs/nomifun-vs-tianshu-对比与优化方案.md · 由 markdown 自动转译</div>
+    </div>
+<h1 id="NomiFun-vs-天枢-TianShu-深度对比与优化方案">NomiFun vs 天枢（TianShu）—— 深度对比与优化方案</h1><blockquote>
+<p>生成时间：2026-09-04 | 数据来源：两个仓库的源码结构、架构文档、Git 历史</p>
+</blockquote>
+<hr>
+<h2 id="一-项目画像">一、项目画像</h2><div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>NomiFun Desktop</th>
+<th>天枢（TianShu）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>定位</strong></td>
+<td>本地优先的&quot;超级 AI 工作站&quot;，覆盖 Agent + 知识库 + 浏览器自动化 + 创意工作台 + 终端 + SSH + 定时任务</td>
+<td>多角色 AI Agent 工作台，覆盖 Agent 会话 + 角色系统 + 技能包 + MCP + 事件系统</td>
+</tr>
+<tr>
+<td><strong>后端语言</strong></td>
+<td><strong>Rust (edition 2024)</strong> — 52 个 crate，约 76,000 行</td>
+<td><strong>TypeScript (Node.js 24)</strong> — 单一 server 包，约 30,500 行</td>
+</tr>
+<tr>
+<td><strong>桌面壳</strong></td>
+<td><strong>Tauri 2</strong>（WebView2/WebKit，原生轻量）</td>
+<td><strong>Electron 43</strong>（Chromium + Node，约 150-250MB 内存基线）</td>
+</tr>
+<tr>
+<td><strong>前端</strong></td>
+<td>React 19 + Vite 6 + Arco Design + UnoCSS + SWR</td>
+<td>React 18 + Vite 6 + Zustand（手写 UI，无组件库）</td>
+</tr>
+<tr>
+<td><strong>前端代码量</strong></td>
+<td>~45,000 行 TS/TSX</td>
+<td>~25,000 行 TS/TSX</td>
+</tr>
+<tr>
+<td><strong>数据库</strong></td>
+<td>SQLite via <code>sqlx</code>（Rust 编译期校验）+ 正式 migration 系统</td>
+<td>SQLite via <code>better-sqlite3</code>（Node）+ <code>ALTER TABLE ADD COLUMN</code> 式增量 schema</td>
+</tr>
+<tr>
+<td><strong>Git 提交数</strong></td>
+<td>~3,770（自 2024 年初至今）</td>
+<td>~190（同一时间段）</td>
+</tr>
+<tr>
+<td><strong>版本</strong></td>
+<td>pre-1.0，当前 v0.7.5</td>
+<td>v0.9.1（Electron 版）</td>
+</tr>
+<tr>
+<td><strong>跨平台</strong></td>
+<td>macOS / Windows / Linux（Tauri 原生打包）</td>
+<td>Windows 为主，macOS/Linux 有脚本但非优先</td>
+</tr>
+<tr>
+<td><strong>开源协议</strong></td>
+<td>Apache 2.0</td>
+<td>未标注</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="二-架构对比">二、架构对比</h2><h3 id="2-1-后端架构">2.1 后端架构</h3><pre><code>NomiFun (Rust)                          天枢 (TypeScript/Node)
+┌─────────────────────────┐             ┌─────────────────────────┐
+│ nomifun-app (composition │             │ app.ts (单一入口)        │
+│ root, axum router)      │             │ Hono HTTP server        │
+│                         │             │ Socket.IO WS            │
+│ 34 nomifun-* crates     │             │                         │
+│   ↕ 接缝 (SEAM)         │             │ 1 个 server 包          │
+│ 15 nomi-* crates        │             │   agent/ loop + tools   │
+│   (AI 引擎, 自包含)      │             │   db/ store 层          │
+│                         │             │   llm/ client            │
+│ SQLx (编译期校验)        │             │   tools/ definitions    │
+│ 正式 migration 系统      │             │ better-sqlite3 (运行时)  │
+│ 排他服务器锁             │             │ ALTER TABLE 迁移        │
+│ Repository trait 模式    │             │ 无排他锁               │
+└─────────────────────────┘             └─────────────────────────┘
+</code></pre>
+<p><strong>NomiFun 的 Rust crate 拆分（52 个）：</strong></p>
+<div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>分组</th>
+<th>数量</th>
+<th>代表 crate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crates/agent/</code> (nomi-*)</td>
+<td>15</td>
+<td>nomi-agent, nomi-providers, nomi-tools, nomi-mcp, nomi-browser, nomi-computer, nomi-a11y, nomi-memory, nomi-skills, nomi-compact</td>
+</tr>
+<tr>
+<td><code>crates/backend/</code> (nomifun-*)</td>
+<td>34</td>
+<td>nomifun-app, nomifun-db, nomifun-conversation, nomifun-ai-agent, nomifun-mcp, nomifun-knowledge, nomifun-terminal, nomifun-ssh, nomifun-cron, nomifun-miniapp, nomifun-robot, nomifun-companion, nomifun-channel, nomifun-extension, nomifun-creation, nomifun-customer-service</td>
+</tr>
+<tr>
+<td><code>crates/shared/</code></td>
+<td>3</td>
+<td>nomifun-common, nomifun-net, nomifun-idmm</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>天枢的 Node.js 模块（扁平目录）：</strong></p>
+<div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>目录</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>agent/</code></td>
+<td>核心 Agent 循环（outer → loop-engine → inner）+ 压缩 + 计划/目标</td>
+</tr>
+<tr>
+<td><code>llm/</code></td>
+<td>LLM 客户端</td>
+</tr>
+<tr>
+<td><code>tools/</code></td>
+<td>工具定义 + MCP 客户端</td>
+</tr>
+<tr>
+<td><code>db/</code></td>
+<td>SQLite store 层（session/message/character/provider/tool/turn）</td>
+</tr>
+<tr>
+<td><code>character/</code></td>
+<td>角色系统</td>
+</tr>
+<tr>
+<td><code>evolution/</code></td>
+<td>角色进化</td>
+</tr>
+<tr>
+<td><code>event/</code></td>
+<td>事件/定时任务</td>
+</tr>
+<tr>
+<td><code>transport/</code></td>
+<td>IPC/WebSocket 广播</td>
+</tr>
+<tr>
+<td><code>routes/</code></td>
+<td>HTTP 路由</td>
+</tr>
+<tr>
+<td><code>config/</code></td>
+<td>配置管理</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="2-2-前端架构">2.2 前端架构</h3><pre><code>NomiFun                                  天枢
+ui/src/                                  web/client/src/
+├── common/        (纯逻辑, 无 React)    ├── api/          (API 客户端)
+│   ├── adapter/   (HTTP/WS/Tauri 适配)  ├── components/   (Chat 相关组件)
+│   ├── types/     (DTO 类型镜像)         ├── features/     (按功能分组)
+│   └── ...                              ├── hooks/        (自定义 hooks)
+├── platform/      (桥接/日志/存储)       ├── pages/        (页面)
+├── renderer/      (React 应用)           ├── stores/       (Zustand store)
+│   ├── pages/     (18 个功能页)          ├── views/        (视图)
+│   ├── components/ (复用组件)            ├── types/        (类型)
+│   ├── hooks/                         │   └── i18n/       (国际化)
+│   └── styles/                        │
+└── shims/                             └──
+
+页面数: 18                              页面/视图: ~8
+组件库: Arco Design                     组件库: 无 (手写)
+CSS 方案: UnoCSS + 主题 CSS             CSS 方案: 单文件 index.css
+路由: react-router v7 HashRouter        路由: react-router v6
+数据获取: SWR                           状态: Zustand
+</code></pre>
+<h3 id="2-3-功能矩阵">2.3 功能矩阵</h3><div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>功能模块</th>
+<th>NomiFun</th>
+<th>天枢</th>
+<th>差距评估</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Agent 会话</strong></td>
+<td>✅ 流式 + 思考 + 工具 + 子Agent</td>
+<td>✅ 流式 + 思考 + 工具 + 子Agent</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>角色系统</strong></td>
+<td>✅ Companion 系统</td>
+<td>✅ 角色 + Soul/User/Memory</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>技能包</strong></td>
+<td>✅ 懒加载 + skill tool</td>
+<td>✅ 懒加载 + 技能包</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>MCP 扩展</strong></td>
+<td>✅ stdio + HTTP + OAuth</td>
+<td>✅ stdio + HTTP</td>
+<td>NomiFun 有 OAuth</td>
+</tr>
+<tr>
+<td><strong>知识库</strong></td>
+<td>✅ 完整 CRUD + 多源 + 持久化树</td>
+<td>⚠️ 前端占位页（KnowledgePage 无 API 调用）+ 无后端路由，设计文档有</td>
+<td><strong>差距大</strong></td>
+</tr>
+<tr>
+<td><strong>浏览器自动化</strong></td>
+<td>✅ 自托管 Chromium + CDP + 4 种身份模式</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>桌面操作</strong></td>
+<td>✅ Computer-use (a11y)</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>终端</strong></td>
+<td>✅ xterm.js + PTY</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>SSH</strong></td>
+<td>✅ 远程 SSH 会话</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>定时任务</strong></td>
+<td>✅ Cron 系统</td>
+<td>✅ 事件系统 (onetime/scheduled)</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>计划/目标</strong></td>
+<td>✅ Plan + Goal</td>
+<td>✅ Plan-first + Goal 模式</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>创意工作台</strong></td>
+<td>✅ Canvas + 图/视频工作台 + 提示词库</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>Mini Apps</strong></td>
+<td>✅ Agent 生成的小应用运行时</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>多渠道接入</strong></td>
+<td>✅ Telegram/Lark/DingTalk/WeChat 插件</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>远程访问</strong></td>
+<td>✅ WebUI + 认证 + 深链接</td>
+<td>✅ Web 客户端可远程</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>模型管理</strong></td>
+<td>✅ 多 Provider + 加密凭证</td>
+<td>✅ Provider + API Key</td>
+<td>NomiFun 有加密存储</td>
+</tr>
+<tr>
+<td><strong>自动更新</strong></td>
+<td>✅ Tauri updater + CrabNebula</td>
+<td>✅ electron-updater</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>跨平台</strong></td>
+<td>✅ macOS/Win/Linux</td>
+<td>⚠️ Windows 为主</td>
+<td><strong>差距大</strong></td>
+</tr>
+<tr>
+<td><strong>主题系统</strong></td>
+<td>✅ 深色/浅色/自定义</td>
+<td>✅ 浅色/深色/图片取色</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>国际化</strong></td>
+<td>✅ i18next (中/英)</td>
+<td>✅ i18n (中/英)</td>
+<td>功能相当</td>
+</tr>
+<tr>
+<td><strong>Companion 进化</strong></td>
+<td>✅ 完整的多层进化体系（详见 §3.2）</td>
+<td>✅ detectInsight + 进化系统</td>
+<td><strong>NomiFun 更深</strong></td>
+</tr>
+<tr>
+<td><strong>Companion 记忆</strong></td>
+<td>✅ 6 维记忆分类 + FTS5 搜索 + 半衰期衰减 + 自动归档</td>
+<td>✅ 跨会话记忆（读/写/归档）</td>
+<td><strong>NomiFun 更深</strong></td>
+</tr>
+<tr>
+<td><strong>Companion 游戏化</strong></td>
+<td>✅ XP 系统 + 等级曲线 + 心情 + 日记</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>Companion 形象</strong></td>
+<td>✅ DIY 自定义形象 + 剪裁上传 + 动画</td>
+<td>✅ 角色立绘 + 皮肤系统</td>
+<td>功能相当，路径不同</td>
+</tr>
+<tr>
+<td><strong>技能自进化</strong></td>
+<td>✅ 从重复工具调用模式挖掘 → LLM 起草 → 评审 → 物化为 SKILL.md</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>OpenAI 兼容 API</strong></td>
+<td>✅ <code>/v1</code> 入站</td>
+<td>❌ 无</td>
+<td><strong>NomiFun 独有</strong></td>
+</tr>
+<tr>
+<td><strong>数据层质量</strong></td>
+<td>✅ 编译期校验 + 正式 migration + 排他锁</td>
+<td>⚠️ 运行时 ALTER TABLE + 无锁</td>
+<td><strong>差距大</strong></td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="三-NomiFun-的进化亮点">三、NomiFun 的进化亮点（值得借鉴）</h2><h3 id="3-1-架构层面">3.1 架构层面</h3><ol>
+<li>
+<p><strong>Rust 后端 + 双宿主模型</strong>：同一份 Rust 后端既能跑 Tauri 桌面，也能跑独立 Web 服务器。前端通过 HTTP/WS 通信，不依赖任何平台 IPC，实现了真正的前后端解耦。</p>
+</li>
+<li>
+<p><strong>52 个 Rust crate 的模块化</strong>：agent 引擎（nomi-<em>）和后端服务（nomifun-</em>）通过明确的&quot;接缝&quot;（SEAM）分离，agent crate 不依赖任何后端框架，边界清晰。</p>
+</li>
+<li>
+<p><strong>适配层（Adapter）</strong>：前端 <code>common/adapter/</code> 将 HTTP/WS/Tauri IPC 抽象为统一的 <code>ipcBridge</code>，应用代码完全不知道自己跑在什么宿主上。这是天枢最应该学习的设计。</p>
+</li>
+<li>
+<p><strong>Repository trait 模式</strong>：数据层通过 trait 定义接口，SQLite 实现具体逻辑，便于测试和未来切换存储引擎。</p>
+</li>
+<li>
+<p><strong>排他服务器锁</strong>：OS 级 advisory lock 防止多实例冲突，崩溃后由 OS 自动释放，不需要清理逻辑。</p>
+</li>
+</ol>
+<h3 id="3-2-Companion-系统">3.2 Companion 系统（桌面伙伴）</h3><p>NomiFun 的 Companion 是一个<strong>完整的 AI 伙伴生态系统</strong>，不仅仅是&quot;角色&quot;，而是有独立生命周期、记忆、技能进化、游戏化的&quot;数字伙伴&quot;。核心文件位于 <code>crates/backend/nomifun-companion/src/</code>，包含 30+ 个 Rust 源文件。</p>
+<h4 id="3-2-1-记忆系统">3.2.1 记忆系统（Learner）</h4><p><strong>定时学习循环</strong>：每个 Companion 有独立的 <code>learn</code> 配置，每 60 秒 tick 一次，读取未消费的工具调用事件，用 LLM 蒸馏成结构化记忆。</p>
+<p><strong>六维记忆分类</strong>：</p>
+<div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>记忆类型</th>
+<th>衰减半衰期</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>profile</code></td>
+<td>不衰减</td>
+<td>画像/稳定事实</td>
+</tr>
+<tr>
+<td><code>preference</code></td>
+<td>60 天</td>
+<td>偏好/风格口味</td>
+</tr>
+<tr>
+<td><code>knowledge</code></td>
+<td>60 天</td>
+<td>可复用结论</td>
+</tr>
+<tr>
+<td><code>episode</code></td>
+<td>7 天</td>
+<td>带时间的经历</td>
+</tr>
+<tr>
+<td><code>task</code></td>
+<td>14 天</td>
+<td>未完成事项/口头承诺</td>
+</tr>
+<tr>
+<td><code>affective</code></td>
+<td>21 天</td>
+<td>情绪轨迹</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>记忆衰减机制</strong>：每条记忆有 <code>strength</code> 字段，随时间衰减，低于阈值（0.05）自动归档。用户可通过 UI 恢复。</p>
+<p><strong>记忆去重</strong>：</p>
+<ul>
+<li><code>reinforce_memory_ids</code>：新事件印证已有记忆时，强化而非重复创建</li>
+<li><code>supersede_memory_ids</code>：新事件与旧记忆矛盾时，生成新记忆并标记旧记忆为被取代</li>
+</ul>
+<p><strong>FTS5 全文搜索</strong>：<code>memory_search.rs</code> 实现 BM25 排序 + 重要性加权（<code>rank = -bm25 + pinned*2.0 + importance*0.5 + strength*0.5</code>），支持 trigram 分词和中文 LIKE 回退。</p>
+<p><strong>独立数据库</strong>：每个 Companion 有自己的 <code>memory.db</code>，与主应用数据库隔离，避免写竞争。</p>
+<h4 id="3-2-2-技能进化系统">3.2.2 技能进化系统（EvolutionEngine）</h4><p><strong>挖矿 → 起草 → 评审 → 物化</strong> 的四步管线：</p>
+<ol>
+<li>
+<p><strong>挖矿（miner.rs，确定性，无 LLM）</strong>：从工具调用事件中挖出&quot;做过多次的多步套路&quot;（2-5 步窗口），按会话分组 → 折叠连续重复 → 滑窗聚合 → 跨会话去重。</p>
+</li>
+<li>
+<p><strong>起草（prompt.rs + engine.rs）</strong>：用 LLM 将挖出的套路蒸馏成 SKILL.md 草稿。支持&quot;重水合&quot;——从会话库中提取真实对话片段作为上下文（最多 40 行）。</p>
+</li>
+<li>
+<p><strong>评审（engine.rs）</strong>：另一个 LLM 调用审查草稿质量，决定是否物化。</p>
+</li>
+<li>
+<p><strong>物化</strong>：生成待审草稿 + <code>create_skill</code> 建议卡，用户确认后正式创建技能。</p>
+</li>
+</ol>
+<p><strong>安全红线</strong>：后台副任务失败只记日志，绝不 <code>emit_error</code> 干扰用户。</p>
+<h4 id="3-2-3-游戏化">3.2.3 游戏化（gamify.rs）</h4><p><strong>等级曲线</strong>：<code>Lv = floor(sqrt(xp/100)) + 1</code></p>
+<div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>XP</th>
+<th>等级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Lv.1</td>
+</tr>
+<tr>
+<td>100</td>
+<td>Lv.2</td>
+</tr>
+<tr>
+<td>400</td>
+<td>Lv.3</td>
+</tr>
+<tr>
+<td>1600</td>
+<td>Lv.5</td>
+</tr>
+</tbody>
+</table></div>
+<p>学习、进化、互动都会产生 XP，驱动 Companion 成长。</p>
+<h4 id="3-2-4-伙伴形态系统">3.2.4 伙伴形态系统（figure.rs + characters/）</h4><ul>
+<li>内置多个伙伴形态：Bolt、Mochi、Ink、CustomFigure</li>
+<li>支持用户上传自定义形象（WebP/PNG，最大 10MB，最大 4096×4096）</li>
+<li>前端抠图管线处理后存储为 <code>figure.webp</code></li>
+<li>每个形态有独立的动画和交互行为</li>
+</ul>
+<h4 id="3-2-5-心情系统">3.2.5 心情系统（prompt.rs）</h4><p>5 种心情：<code>happy</code> / <code>content</code> / <code>sleepy</code> / <code>worried</code> / <code>excited</code></p>
+<p>学习蒸馏时 LLM 会根据事件内容选择心情，前端映射到对应动画。</p>
+<h4 id="3-2-6-日记系统">3.2.6 日记系统</h4><p>每次学习蒸馏生成一句话日记（第一人称），如：&quot;今天主人修了一下午 bug，我记住了他喜欢先看报错&quot;。</p>
+<h3 id="3-3-其他功能层面">3.3 其他功能层面</h3><ol>
+<li>
+<p><strong>内置浏览器自动化</strong>：自托管 Chromium + CDP，支持 headless/可见/匿名/隔离四种模式，Agent 可以直接操作网页。</p>
+</li>
+<li>
+<p><strong>终端 &amp; SSH</strong>：Agent 可以打开 PTY 终端，甚至连接远程 SSH 服务器。</p>
+</li>
+<li>
+<p><strong>知识库系统</strong>：持久化树形结构 + 多源（本地/远程/网页）+ CRUD + 全文搜索。</p>
+</li>
+<li>
+<p><strong>Mini Apps</strong>：Agent 生成的小应用有运行时，不是一次性输出。</p>
+</li>
+<li>
+<p><strong>多渠道接入</strong>：Telegram/Lark/DingTalk/WeChat 作为插件接入。</p>
+</li>
+<li>
+<p><strong>Creative Studio</strong>：Canvas-based 创意工作台，支持图片/视频工作台和提示词库。</p>
+</li>
+</ol>
+<hr>
+<h2 id="四-天枢的相对优势">四、天枢的相对优势（值得保留/强化）</h2><blockquote class="warn"><p>⚠️ <strong>修正</strong>：NomiFun 的 Companion 系统在进化/记忆/游戏化方面远比天枢成熟。天枢的 <code>detectInsight</code> + <code>evolutionConfig</code> 是轻量版实现，差距明显。</p>
+</blockquote>
+<ol>
+<li>
+<p><strong>角色皮肤系统</strong>：完整的皮肤管理 + 取色生成主题。NomiFun 有 figure 系统但风格不同（伙伴形态 vs 皮肤换装）。这是差异化的视觉体验。</p>
+</li>
+<li>
+<p><strong>Agent 执行链路更轻</strong>：Node.js 单进程，启动快，调试方便。对于个人/小团队场景足够。</p>
+</li>
+<li>
+<p><strong>已有子 Agent + 计划/目标系统</strong>：Plan-first / Goal 模式已实现，功能完整度不输 NomiFun。</p>
+</li>
+<li>
+<p><strong>WorkGroup 协作</strong>：主 Agent 委托子 Agent 在独立上下文中执行，NomiFun 也有但天枢的实现更显式。</p>
+</li>
+</ol>
+<hr>
+<h2 id="五-天枢优化方案">五、天枢优化方案</h2><p>基于以上对比，按优先级分为 <strong>P0（必须做）、P1（应该做）、P2（可以做）</strong> 三个层次。</p>
+<h3 id="P0-架构基础加固">P0 —— 架构基础加固（1-2 周）</h3><h4 id="1-数据层迁移-引入正式-Migration-系统">1. 数据层迁移：引入正式 Migration 系统</h4><p><strong>现状</strong>：<code>schema.ts</code> 用 <code>ALTER TABLE ADD COLUMN</code> + <code>try/catch</code> 做增量迁移，已有 30+ 条 ALTER 语句，无版本号，无回滚。</p>
+<p><strong>方案</strong>：</p>
+<pre><code class="language-typescript">// 新建 db/migrator.ts
+interface Migration {
+  version: number
+  up: (db: Database) =&gt; void
+  down?: (db: Database) =&gt; void
+}
+
+const migrations: Migration[] = [
+  { version: 1, up: db =&gt; { /* 原始建表 */ } },
+  { version: 2, up: db =&gt; { db.exec('ALTER TABLE sessions ADD COLUMN parent_id TEXT') } },
+  // ...
+  { version: 31, up: db =&gt; { db.exec('ALTER TABLE messages ADD COLUMN llm_ms INTEGER') } },
+]
+
+export function runMigrations(db: Database) {
+  db.exec('CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY, applied_at TEXT)')
+  const applied = db.prepare('SELECT version FROM _migrations').all().map(r =&gt; r.version)
+  for (const m of migrations) {
+    if (!applied.includes(m.version)) {
+      db.transaction(() =&gt; {
+        m.up(db)
+        db.prepare('INSERT INTO _migrations (version, applied_at) VALUES (?, ?)').run(m.version, new Date().toISOString())
+      })()
+    }
+  }
+}
+</code></pre>
+<p><strong>收益</strong>：可审计、可回滚、可重现的 schema 演进。不再依赖 <code>try/catch ALTER TABLE</code>。</p>
+<h4 id="2-服务器排他锁">2. 服务器排他锁</h4><p><strong>现状</strong>：多实例启动可能同时写同一个 <code>sessions.db</code>。</p>
+<p><strong>方案</strong>：在 <code>app.ts</code> 启动时用 <code>proper-lockfile</code> 或文件锁：</p>
+<pre><code class="language-typescript">import lockfile from 'proper-lockfile'
+import path from 'path'
+
+const lockPath = path.join(getDataDir(), '.server.lock')
+await lockfile.lock(lockPath, { realpath: false, stale: 60_000 })
+</code></pre>
+<p><strong>收益</strong>：防止数据损坏，崩溃后锁自动过期释放。</p>
+<h4 id="3-前端适配层抽离">3. 前端适配层抽离</h4><p><strong>现状</strong>：<code>api/client.ts</code> 直接 fetch，没有宿主抽象。Electron IPC 和 HTTP 混用。</p>
+<p><strong>方案</strong>：参考 NomiFun 的 <code>common/adapter/</code> 设计：</p>
+<pre><code>web/client/src/
+├── adapter/
+│   ├── types.ts          # 统一的 Bridge 接口定义
+│   ├── httpBridge.ts     # HTTP + WebSocket 实现
+│   ├── electronBridge.ts # Electron IPC 实现（桌面壳）
+│   └── ipcBridge.ts      # 根据环境选择实现
+├── api/                  # 基于 ipcBridge 的类型化 API
+└── ...
+</code></pre>
+<p><strong>收益</strong>：未来切换到 Tauri 或纯 Web 部署时，应用代码零改动。</p>
+<hr>
+<h3 id="P1-功能追赶">P1 —— 功能追赶（2-4 周）</h3><h4 id="4-终端集成">4. 终端集成</h4><p><strong>现状</strong>：Agent 无法操作本地终端。</p>
+<p><strong>方案</strong>：在 server 端新增 <code>terminal/</code> 模块，基于 <code>node-pty</code> 开 PTY，前端用 <code>xterm.js</code>：</p>
+<pre><code>web/server/src/terminal/
+├── pty-manager.ts    # PTY 进程管理
+├── routes.ts         # /api/terminal/* 路由
+└── ws-handler.ts     # 终端输出流推送到前端
+
+web/client/src/features/terminal/
+├── TerminalView.tsx   # xterm.js 封装
+└── useTerminal.ts     # WebSocket 连接 hook
+</code></pre>
+<p><strong>收益</strong>：Agent 可以执行命令、查看输出，是&quot;AI 工作站&quot;的基础能力。</p>
+<h4 id="5-知识库系统">5. 知识库系统</h4><p><strong>现状</strong>：<code>docs/知识体系构建/</code> 有设计文档，但 server 端没有独立的知识库模块。</p>
+<p><strong>方案</strong>：</p>
+<pre><code>web/server/src/knowledge/
+├── knowledge-store.ts    # SQLite CRUD
+├── indexer.ts            # 文本索引 (FTS5)
+├── routes.ts             # /api/knowledge/* 路由
+└── sources/              # 数据源适配
+    ├── local-folder.ts   # 本地文件夹
+    └── web-crawler.ts    # 网页抓取
+
+web/client/src/features/knowledge/
+├── KnowledgeList.tsx
+├── KnowledgeDetail.tsx
+└── useKnowledge.ts
+</code></pre>
+<p><strong>收益</strong>：Agent 可以搜索、引用项目文档，减少重复上下文输入。</p>
+<h4 id="6-前端-UI-组件化">6. 前端 UI 组件化</h4><p><strong>现状</strong>：手写 UI，<code>Chat/</code> 下的组件混杂了大量逻辑和样式。</p>
+<p><strong>方案</strong>：引入轻量组件库（如 Radix UI + Tailwind CSS 或 Shadcn/ui），逐步替换：</p>
+<ul>
+<li>优先改造：对话列表、消息气泡、设置面板</li>
+<li>保持现状：ChatInput（已有增量 Markdown 渲染优化）</li>
+</ul>
+<p><strong>收益</strong>：开发效率提升，UI 一致性改善，无障碍支持。</p>
+<h4 id="7-i18n-完善">7. i18n 完善</h4><p><strong>现状</strong>：<code>i18n/</code> 目录存在但覆盖不完整，部分字符串硬编码。</p>
+<p><strong>方案</strong>：扫描所有 <code>zh</code>/<code>en</code> 硬编码字符串，补全语言包。参考 NomiFun 的 <code>i18next</code> + <code>react-i18next</code> 方案。</p>
+<hr>
+<h3 id="P2-差异化增强">P2 —— 差异化增强（4-8 周）</h3><h4 id="8-进化工作台页面">8. 进化工作台页面（对标 NomiFun EvolutionTab）</h4><blockquote class="warn"><p>⚠️ 这是本次对标中<strong>最重要的发现</strong>：NomiFun 把&quot;进化&quot;做成了一整页可配置、可查看、可干预的界面（companion workspace 的 EvolutionTab，约 1,400 行 UI），而天枢的进化引擎<strong>后端有骨架、前端完全隐形</strong>——用户看不到进化发生了什么，也无法配置或把关。</p>
+</blockquote>
+<p><strong>天枢 evolution 现状审计（代码级）：</strong></p>
+<div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>文件</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>在线洞察检测 <code>detectInsight</code></td>
+<td><code>web/server/src/evolution/detectors/onlineDetector.ts</code> (89 行)</td>
+<td>✅ 已接线：run 结束时调用（<code>outer.ts</code> L432），需角色 <code>selfEvolution</code> 开关 + 全局 evolutionConfig 命中</td>
+</tr>
+<tr>
+<td>配置 CRUD</td>
+<td><code>web/server/src/evolution/evolutionConfig.ts</code> + <code>routes/evolution.ts</code></td>
+<td>✅ 有 REST，但只在设置页一个隐藏表单中暴露</td>
+</tr>
+<tr>
+<td>轨迹挖掘 <code>OfflineMiner</code> (LCS 聚类)</td>
+<td><code>detectors/offlineMiner.ts</code> (133 行)</td>
+<td>❌ <strong>从未被调用</strong>（死代码）</td>
+</tr>
+<tr>
+<td>轨迹存储 <code>trajectoryStore</code></td>
+<td><code>storage/trajectoryStore.ts</code> (53 行)</td>
+<td>❌ <strong>无任何 save 调用者</strong> → trajectories 表恒空，miner 无数据可挖</td>
+</tr>
+<tr>
+<td>技能抽取/生成</td>
+<td><code>InsightExtractor</code> / <code>SkillGenerator</code></td>
+<td>❌ 仅被事件 run 间接使用，产物直接落盘 SKILL.md，<strong>无草稿/审批环节</strong></td>
+</tr>
+<tr>
+<td>前端 API</td>
+<td><code>web/client/src/api/evolution.ts</code></td>
+<td>✅ 有 fetch/save/clear 配置</td>
+</tr>
+<tr>
+<td>前端页面</td>
+<td>—</td>
+<td>❌ <strong>无</strong>：仅在 <code>SettingsPage</code> 有孤零零的配置表单；<code>CharacterDetailPage</code> 只有 selfEvolution 布尔开关</td>
+</tr>
+<tr>
+<td>洞察通知</td>
+<td><code>chatStore.evolutionNotification</code></td>
+<td>⚠️ 2 秒 toast，看完即无，无历史记录</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>与 NomiFun EvolutionTab（6 个 Section）的差距</strong>：
+采集来源（CollectionSources）/ 学习模型与开关（Learning + LearningModelRow）/ 休眠时段（QuietHours）/ 记忆保留衰减策略（Retention）/ 技能生成上限（SkillGeneration）/ 一键全停（StopAll）——<strong>天枢一个都没有</strong>，而且 NomiFun 每个 companion 单独配置，天枢是&quot;全局一份 config + 角色布尔开关&quot;，维度少一层。</p>
+<p><strong>方案（先接通后端闭环，再补 UI）：</strong></p>
+<pre><code>A. 后端闭环（1-2 天）
+  1. run 结束时保存轨迹：outer.ts 中调 trajectoryStore.save（session/goal/工具序列/成功率）
+  2. 增加定时任务：每 N 小时跑 OfflineMiner.mine(trajectoryStore.getRecent(7))
+  3. SkillGenerator 产物改为写入「草稿目录」+ 一条 drafts 记录（含 origin run/insight/签名），
+     用户批准后才注册为角色可用技能（对标 NomiFun 的 create_skill 建议卡）
+
+B. 前端页面（对标 EvolutionTab 结构）
+web/client/src/features/evolution/
+├── EvolutionPage.tsx        # 新页面/侧边栏入口（或 ChatPage 右侧 tab）
+├── sections/
+│   ├── LearningSection.tsx      # 开关 + 模型选择 + 窗口/阈值/重复次数等现有 config
+│   ├── InsightHistorySection.tsx# 洞察历史列表（insight_type/描述/时间/跳转会话）
+│   ├── DraftsSection.tsx        # 技能草稿列表：来源 run / 签名 / 内容预览 → 批准 / 驳回
+│   └── MiningSection.tsx        # 离线挖掘出的重复套路（供用户一键固化为技能）
+└── useEvolutionConfig.ts / useInsightHistory.ts / useDrafts.ts
+</code></pre>
+<p><strong>验收标准</strong>：用户能在新页面看到&quot;系统最近进化了什么 / 正在提议哪些新技能&quot;，能配置每个角色的进化参数（模型、窗口、阈值、通知），能批准/驳回技能草稿；洞察触发后不只 2 秒 toast，而是进入历史列表可回溯。</p>
+<p><strong>收益</strong>：把天枢已有的 evolution 后端（416 行）从&quot;半接线状态&quot;变成可见、可配、可干预的完整功能；这是天枢角色系统差异化叙事的关键一环——角色会&quot;长出新技能&quot;，且用户看得到。</p>
+<h4 id="9-浏览器自动化-轻量版-现状-无-NomiFun-有完整的自托管-Chromium">9. 浏览器自动化（轻量版）<strong>现状</strong>：无。NomiFun 有完整的自托管 Chromium。</h4><p><strong>方案</strong>：天枢不需要做到 NomiFun 的程度，可以用更轻的方案：</p>
+<ul>
+<li>集成 <code>Playwright</code> 作为 Agent 工具</li>
+<li>Agent 调用 <code>browser_open</code> / <code>browser_click</code> / <code>browser_extract</code> 工具</li>
+<li>前端提供可选的浏览器预览面板</li>
+</ul>
+<p><strong>收益</strong>：Agent 可以自动化网页操作，但不需要维护 Chromium 进程树。</p>
+<h4 id="10-跨平台优化">10. 跨平台优化</h4><p><strong>现状</strong>：Electron 打包主要面向 Windows。</p>
+<p><strong>方案</strong>：</p>
+<ul>
+<li>验证 macOS/Linux 打包流程</li>
+<li>配置 GitHub Actions 多平台 CI</li>
+<li>考虑未来迁移到 Tauri（Electron → Tauri 是渐进式迁移，适配层已准备好）</li>
+</ul>
+<h4 id="11-多渠道接入">11. 多渠道接入</h4><p><strong>现状</strong>：仅 Web 客户端。</p>
+<p><strong>方案</strong>：参考 NomiFun 的 channel 插件模式：</p>
+<pre><code>web/server/src/channels/
+├── plugin-registry.ts    # 渠道插件注册
+├── telegram.ts           # Telegram Bot
+├── lark.ts               # 飞书
+└── wechat.ts             # 企业微信
+</code></pre>
+<p><strong>收益</strong>：Agent 可以跨平台响应消息，不局限于桌面客户端。</p>
+<h4 id="12-数据加密存储">12. 数据加密存储</h4><p><strong>现状</strong>：Provider API Key 明文存储在 SQLite。</p>
+<p><strong>方案</strong>：</p>
+<ul>
+<li>用 <code>crypto.createCipheriv</code> 加密敏感字段</li>
+<li>密钥从 OS keychain（<code>keytar</code>）或环境变量获取</li>
+<li>NomiFun 的 Rust 版用系统级加密，天枢可以用 Node.js 的 <code>crypto</code> 模块</li>
+</ul>
+<p><strong>收益</strong>：安全性提升，符合企业级要求。</p>
+<hr>
+<h2 id="六-实施优先级路线图">六、实施优先级路线图</h2><pre><code>Week 1-2:  [P0] 数据层 migration + 排他锁 + 适配层抽离
+           ↓
+Week 3-4:  [P1] 终端集成 + 知识库基础 + 进化后端闭环（轨迹保存 + 定时挖掘 + 草稿机制）
+           ↓
+Week 5-6:  [P1] 前端 UI 组件化 + i18n 完善
+           ↓
+Week 7-8:  [P2] 进化工作台页面（对标 EvolutionTab）+ 浏览器自动化轻量版
+           ↓
+Week 9+:   [P2] 跨平台 CI + 多渠道 + 数据加密 + 持续迭代
+</code></pre>
+<hr>
+<h2 id="七-关键决策点">七、关键决策点</h2><div class="tbl-wrap"><table>
+<thead>
+<tr>
+<th>决策</th>
+<th>建议</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>是否从 Electron 迁移到 Tauri？</strong></td>
+<td>短期不迁移，中期评估</td>
+<td>Electron 已经工作，Tauri 迁移需要重写桌面壳 + 引入 Rust 构建链。先用适配层做好隔离，未来迁移成本低。</td>
+</tr>
+<tr>
+<td><strong>是否引入 Rust 后端？</strong></td>
+<td>不建议</td>
+<td>天枢的核心竞争力在 Agent 能力和角色系统，不在性能。Node.js 的 3 万行代码已经够用，引入 Rust 会大幅增加维护成本。</td>
+</tr>
+<tr>
+<td><strong>是否引入完整组件库？</strong></td>
+<td>引入轻量级（Radix/Shadcn）</td>
+<td>不用 Arco Design（太重），手写 UI 维护成本高。Shadcn/ui 是当前趋势，可定制性强。</td>
+</tr>
+<tr>
+<td><strong>知识库用 SQLite FTS5 还是外部搜索引擎？</strong></td>
+<td>先用 FTS5</td>
+<td>本地优先原则，FTS5 够用，不需要额外部署 Elasticsearch。</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="八-总结">八、总结</h2><p><strong>NomiFun 是一个更成熟的项目</strong>（3,770 提交 vs 190 提交，52 个 Rust crate vs 1 个 Node 包，93 万行 Rust + 4.5 万行 TS vs 3 万行 TS + 2.5 万行 TS），在架构模块化、数据层质量、跨平台支持和功能广度上都明显领先。</p>
+<p><strong>但天枢有自己的差异化优势</strong>：角色皮肤系统（NomiFun 是形态换装，路线不同）、更轻的 Agent 执行链路、事件式调度（fireOnceEvent 把洞察转成独立任务）等。<strong>注意：角色进化不再是天枢独有</strong> —— NomiFun 的 Companion 进化（Learner + EvolutionEngine）在深度、可视化与人工把关上都领先，详见 §3.2。天枢已具备 evolution 后端骨架（detectInsight/OfflineMiner/SkillGenerator），缺的是<strong>前端展示与配置入口</strong>（详见 §五-8）。</p>
+<p><strong>优化核心思路</strong>：不做 NomiFun 的复制品，而是在保持天枢轻量特色的同时，补齐架构基础（数据层、锁、适配层）和关键功能短板（终端、知识库、<strong>进化工作台页面</strong>、跨平台）。中期可以通过适配层为未来的 Tauri 迁移做好准备。</p>
+
+  </main>
+</div>
+</body>
+</html>

@@ -2,7 +2,7 @@
  * Run: npx tsx src/agent/inner-retry.test.ts
  */
 
-import { streamWithRetry } from './inner.js'
+import { streamWithRetry, MAX_LLM_STREAM_ATTEMPTS } from './inner.js'
 
 const originalFetch = globalThis.fetch
 let fetchCalls = 0
@@ -45,7 +45,7 @@ try {
 
   if (fetchCalls !== 2) throw new Error(`expected 2 fetch calls, got ${fetchCalls}`)
   if (retries.length !== 1) throw new Error(`expected 1 retry event, got ${retries.length}`)
-  if (retries[0].attempt !== 2 || retries[0].max_attempts !== 2) {
+  if (retries[0].attempt !== 2 || retries[0].max_attempts !== MAX_LLM_STREAM_ATTEMPTS) {
     throw new Error(`unexpected retry metadata: ${JSON.stringify(retries[0])}`)
   }
   if (result.text !== 'recovered') throw new Error(`unexpected result: ${JSON.stringify(result)}`)
@@ -117,3 +117,61 @@ async function attemptIsolation() {
 }
 
 await attemptIsolation()
+
+// ── Empty LLM stream response must retry (was: terminal) ──
+// HTTP 200 with a body that closes before any `data:` line (proxy / socket
+// cut right after headers) previously failed the run on the first attempt —
+// 'Empty LLM stream response' was missing from isTransientLLMError. It must
+// retry like any other transport-level failure.
+async function emptyStreamRecovers() {
+  const originalFetch3 = globalThis.fetch
+  let fetchCalls3 = 0
+  const retries3: Array<{ attempt: number; max_attempts: number; error: string }> = []
+
+  globalThis.fetch = (async () => {
+    fetchCalls3++
+    if (fetchCalls3 === 1) {
+      // Empty body: HTTP 200, EOF immediately, zero `data:` lines.
+      return new Response('', {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      })
+    }
+    const body = [
+      'data: {"choices":[{"delta":{"content":"recovered from empty stream"},"finish_reason":"stop"}]}',
+      'data: [DONE]',
+      '',
+      '',
+    ].join('\n')
+    return new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }) as typeof fetch
+
+  try {
+    const result = await streamWithRetry(
+      [{ role: 'user', content: 'test' }],
+      undefined,
+      { base_url: 'https://example.invalid/v1', api_key: '', api_style: 'chat_completions' },
+      'test-model',
+      undefined,
+      {},
+      undefined,
+      r => retries3.push(r),
+    )
+    if (fetchCalls3 !== 2) throw new Error(`expected 2 fetch calls, got ${fetchCalls3}`)
+    if (retries3.length !== 1) throw new Error(`expected 1 retry, got ${retries3.length}`)
+    if (retries3[0].error !== 'Empty LLM stream response') {
+      throw new Error(`unexpected retry error: ${JSON.stringify(retries3[0].error)}`)
+    }
+    if (result.text !== 'recovered from empty stream') {
+      throw new Error(`unexpected result: ${JSON.stringify(result)}`)
+    }
+    console.log('  OK empty stream response retries and recovers')
+  } finally {
+    globalThis.fetch = originalFetch3
+  }
+}
+
+await emptyStreamRecovers()
