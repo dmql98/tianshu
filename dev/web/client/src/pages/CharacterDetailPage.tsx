@@ -762,8 +762,8 @@ ${entry.content.slice(0, 80)}`)
                 <button key={k} className={`mem-subtab ${memSubTab === k ? 'active' : ''}`} onClick={() => setMemSubTab(k)}>{l}</button>
               ))}
             </div>
-            {memLoading && <div className="mem-note-box" style={{ color: 'var(--ink-light)' }}>{t('加载中…')}</div>}
-            {memError && <div className="mem-note-box" style={{ borderColor: 'var(--cinnabar)', color: 'var(--cinnabar)' }}>{t('加载失败')}：{memError}</div>}
+            {memLoading && <div className="mem-note-box loading">{t('加载中…')}</div>}
+            {memError && <div className="mem-note-box error">{t('加载失败')}：{memError}</div>}
 
             {memSubTab === 'overview' && (
               <>
@@ -777,7 +777,7 @@ ${entry.content.slice(0, 80)}`)
                           <div className="sr-name">{t('记忆字符上限')}</div>
                           <div className="sr-desc">{t('记忆内容的字符上限（≈ system prompt 记忆预算）')}</div>
                         </div>
-                        <div style={{ maxWidth: 160 }}>
+                        <div className="mem-field-wrap">
                           <EditField
                             value={String(charLimit)}
                             onSave={async v => {
@@ -789,9 +789,9 @@ ${entry.content.slice(0, 80)}`)
                               refreshMemory(memCid())
                             }}
                             renderInput={(v, onChange) => (
-                              <input type="number" min={0} step={100} value={v} onChange={e => onChange(e.target.value)} style={{ width: 100, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
+                              <input type="number" min={0} step={100} value={v} onChange={e => onChange(e.target.value)} className="mem-field-input" />
                             )}
-                            display={<div style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{charLimit}</div>}
+                            display={<div className="mem-field-static">{charLimit}</div>}
                           />
                         </div>
                       </div>
@@ -808,19 +808,19 @@ ${entry.content.slice(0, 80)}`)
                             await autoSave({ memory: memoryPayload({ mode }) })
                             refreshMemory(memCid())
                           }}
-                          style={{ padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', fontFamily: 'inherit' }}
+                          className="mem-field-select"
                         >
                           <option value="off">{t('关闭')}</option>
                           <option value="read_only">{t('只读')}</option>
                           <option value="editable">{t('可修改')}</option>
                         </select>
                       </div>
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+                      <div className="mem-toolbar">
                         {memView && (
                           <>
                             <div className="mem-kv">{t('已用')} {memView.overview.used}/{memView.overview.budget} chars</div>
-                            <span className="mem-pill" style={{ cursor: 'default' }}>{memView.stats.active} active · {memView.stats.archived} archived</span>
-                            {memView.overview.overBudget && <span className="mem-pill" style={{ borderColor: 'var(--cinnabar)', color: 'var(--cinnabar)' }}>超预算（保护期内）</span>}
+                            <span className="mem-pill static">{memView.stats.active} active · {memView.stats.archived} archived</span>
+                            {memView.overview.overBudget && <span className="mem-pill warn">超预算（保护期内）</span>}
                           </>
                         )}
                         <button className="mem-btn" onClick={() => refreshMemory(memCid())} disabled={memLoading}>{t('刷新')}</button>
@@ -836,7 +836,7 @@ ${entry.content.slice(0, 80)}`)
                           <div key={i} className="mem-block">• {b}</div>
                         ))}
                         {(!memView || memView.overview.blocks.length === 0) && (
-                          <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>
+                          <div className="mem-empty">
                             {t('暂无记忆条目——对话中产生值得跨会话保留的发现时，模型会通过 memory_snapshot / memory_write 自动写入。')}
                           </div>
                         )}
@@ -864,14 +864,14 @@ ${entry.content.slice(0, 80)}`)
                 <div className="detail-section-title">{t('记忆条目')}</div>
                 <div className="mem-list">
                   {(memView?.entries.filter(x => memFilter === 'all' || (memFilter === 'active' ? !x.archived : x.archived)) ?? []).map(x => (
-                    <div key={x.id} className="mem-item">
+                    <div key={x.id} className={`mem-item ${x.archived ? 'archived' : ''}`}>
                       <div className="mem-top">
                         <span className="mem-type">{x.type}</span>
                         <span className={`mem-status ${x.archived ? 'archived' : 'active'}`}>{x.archived ? 'archived' : 'active'}</span>
                         <span className="mem-meta" style={{ marginLeft: 'auto' }}>{x.ts}</span>
                       </div>
                       <div className="mem-content">{x.content}</div>
-                      <div className="mem-meta"><span style={{ fontFamily: 'monospace', fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{x.id}</span></div>
+                      <div className="mem-meta"><span className="mem-id">{x.id}</span></div>
                       <div className="mem-actions">
                         <button className="mem-btn" onClick={() => handleMemEdit(x)}>{t('编辑')}</button>
                         <button className="mem-btn" onClick={() => handleMemToggleArchive(x)}>
@@ -882,7 +882,7 @@ ${entry.content.slice(0, 80)}`)
                     </div>
                   ))}
                   {(!memView || memView.entries.filter(x => memFilter === 'all' || (memFilter === 'active' ? !x.archived : x.archived)).length === 0) && (
-                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('该状态无记忆')}</div>
+                    <div className="mem-empty">{t('该状态无记忆')}</div>
                   )}
                 </div>
               </>
@@ -893,7 +893,7 @@ ${entry.content.slice(0, 80)}`)
                 <div className="mem-note-box">记忆审计：记录 Agent 的写入/更新/快照/归档操作，以及你在本页面的编辑/归档/恢复/永久删除。不保存完整敏感正文。</div>
                 <div className="mem-kpi-row">
                   {([['Agent', 'Agent'], ['用户', '用户']] as const).map(([k, l]) => (
-                    <div key={k} className="mem-kpi" style={{ minWidth: 104 }}>
+                    <div key={k} className="mem-kpi">
                       <div className="mem-kv">{memAudit.filter(a => a.actor === k).length}</div>
                       <div className="mem-kl">{l}</div>
                     </div>
@@ -913,11 +913,11 @@ ${entry.content.slice(0, 80)}`)
                       <span className="mem-at">{a.ts}</span>
                       <span className="mem-aa">{a.action}</span>
                       <span><b>{a.actor}</b> → {a.target ?? '—'}</span>
-                      <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{a.detail}</span>
+                      <span className="mem-audit-detail">{a.detail}</span>
                     </div>
                   ))}
                   {memAudit.filter(a => auditFilter === 'all' || a.actor === auditFilter).length === 0 && (
-                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('该筛选无记录')}</div>
+                    <div className="mem-empty">{t('该筛选无记录')}</div>
                   )}
                 </div>
               </>

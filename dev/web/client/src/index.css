@@ -1887,3 +1887,38 @@ textarea:focus{border-color:var(--gold)}
 .mem-audit-row{display:flex;align-items:baseline;gap:12px;padding:8px 12px;border:1px solid var(--border-light);border-radius:8px;background:var(--bg-card);font-size:calc(12px * var(--ui-font-scale));color:var(--ink-mid);flex-wrap:wrap}
 .mem-at{min-width:64px;font-family:monospace;color:var(--ink-light);white-space:nowrap}
 .mem-aa{display:inline-block;padding:1px 8px;border-radius:4px;font-size:calc(10px * var(--ui-font-scale));font-weight:600;background:rgba(59,130,246,0.1);color:var(--blue);white-space:nowrap}
+/* ========== 记忆 Tab 样式补强（复用主题令牌、去除内联样式依赖） ========== */
+.mem-subtab{min-height:34px;display:inline-flex;align-items:center}
+.mem-note-box.loading{color:var(--ink-light)}
+.mem-note-box.error{border-color:color-mix(in srgb,var(--cinnabar) 45%,transparent);background:color-mix(in srgb,var(--cinnabar) 6%,transparent);color:var(--cinnabar)}
+.mem-note-box code{background:rgba(124,58,237,.08);color:var(--star-ziwei);padding:1px 5px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
+.mem-panel{box-shadow:0 1px 3px var(--theme-shadow-color,rgba(44,36,24,.06))}
+.mem-panel-head{display:flex;align-items:center;gap:7px}
+.mem-panel-head::before{content:'';flex:none;width:3px;height:13px;border-radius:2px;background:var(--gold)}
+.mem-toolbar{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.mem-field-wrap{max-width:160px;flex-shrink:0}
+.mem-field-input{width:100px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--ink-deep);font-size:calc(13px * var(--ui-font-scale));outline:none}
+.mem-field-input:focus{border-color:var(--gold)}
+.mem-field-select{padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--ink-deep);font-size:calc(13px * var(--ui-font-scale));outline:none;font-family:inherit}
+.mem-field-select:focus{border-color:var(--gold)}
+.mem-field-static{font-size:calc(13px * var(--ui-font-scale));color:var(--ink-mid)}
+.mem-empty{font-size:calc(12px * var(--ui-font-scale));color:var(--ink-faint);padding:8px}
+.mem-pill.static{cursor:default}
+.mem-pill.static:hover{border-color:var(--border);color:var(--ink-light)}
+.mem-pill.warn{background:color-mix(in srgb,var(--cinnabar) 6%,transparent);border-color:var(--cinnabar);color:var(--cinnabar);cursor:default}
+.mem-pill.warn:hover{border-color:var(--cinnabar);color:var(--cinnabar)}
+.mem-item{transition:border-color .15s,box-shadow .15s,transform .15s}
+.mem-item:hover{box-shadow:0 2px 8px var(--theme-shadow-color,rgba(44,36,24,.12));transform:translateY(-1px)}
+.mem-item.archived{background:var(--bg-input)}
+.mem-item.archived .mem-content{color:var(--ink-light)}
+.mem-item .mem-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:calc(11px * var(--ui-font-scale));color:var(--ink-faint);word-break:break-all}
+.mem-btn:disabled{opacity:.5;cursor:not-allowed}
+.mem-btn:disabled:hover{border-color:var(--border);background:transparent;color:var(--ink-mid)}
+.mem-btn.danger:disabled:hover{border-color:var(--cinnabar);color:var(--cinnabar);background:transparent}
+.mem-subtab:focus-visible,.mem-pill:focus-visible,.mem-btn:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.mem-kpi{min-width:104px;padding:10px 12px;border:1px solid var(--border-light);border-radius:10px;background:var(--bg-input)}
+.mem-kv{line-height:1.2}
+.mem-audit-row{transition:border-color .15s,background .15s}
+.mem-audit-row:hover{border-color:var(--border);background:var(--bg-input)}
+.mem-audit-detail{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light)}
+@media(max-width:860px){.mem-overview-grid{grid-template-columns:1fr}}
