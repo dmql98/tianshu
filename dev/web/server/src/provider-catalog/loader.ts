@@ -61,6 +61,7 @@ function latestMtime(root: string): number {
 }
 
 interface CacheEntry {
+  root: string
   mtimeMs: number
   result: CatalogLoadResult
   byId: Map<string, ProviderPreset>
@@ -83,7 +84,7 @@ export function loadCatalog(): CatalogLoadResult {
   }
 
   const mtimeMs = latestMtime(root)
-  if (cache && cache.mtimeMs === mtimeMs) return cache.result
+  if (cache && cache.root === root && cache.mtimeMs === mtimeMs) return cache.result
 
   const presets: ProviderPreset[] = []
   const issues: CatalogIssue[] = []
@@ -169,7 +170,7 @@ export function loadCatalog(): CatalogLoadResult {
     return a.name.localeCompare(b.name)
   })
 
-  cache = { mtimeMs, result: { presets, issues }, byId, iconPaths }
+  cache = { root, mtimeMs, result: { presets, issues }, byId, iconPaths }
   return cache.result
 }
 

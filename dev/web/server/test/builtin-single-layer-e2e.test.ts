@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, cpSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { startTianshuServer } from '../src/app.js'
 import { getDataDir } from '../src/config.js'
+import type { TianshuServer } from '../src/app.js'
 
 // 注意：config 的 getDataDir() 在模块加载时即基于 setup 注入的 TIANSHU_DATA_DIR 缓存，
 // server 运行期只读该缓存目录（单层化）。本测试一律用 getDataDir() 取真实 dataDir，
@@ -11,6 +12,8 @@ import { getDataDir } from '../src/config.js'
 
 let root: string
 let builtinSrc: string
+/** Track servers opened during each test so afterEach can close them even on failure. */
+let openServers: TianshuServer[] = []
 
 const SRC = resolve(process.cwd(), '../../content/builtin')
 
@@ -22,6 +25,15 @@ beforeAll(() => {
 afterAll(() => {
   rmSync(root, { recursive: true, force: true })
   delete process.env.TIANSHU_BUILTIN_CONTENT_DIR
+})
+
+afterEach(async () => {
+  // Close any servers left open by the test (e.g. if it failed midway).
+  // Must happen BEFORE rmSync to release DB file handles on Windows.
+  for (const s of openServers) {
+    try { await s.close() } catch { /* best-effort */ }
+  }
+  openServers = []
 })
 
 beforeEach(() => {
@@ -36,6 +48,7 @@ beforeEach(() => {
 describe('内置内容单层化端到端（验证标准 3/4/5）', () => {
   it('seed→修改→重启保留；篡改→reimport 恢复出厂且用户自建保留', async () => {
     const server = await startTianshuServer({ host: '127.0.0.1', port: 0 })
+    openServers.push(server)
     await (await fetch(`${server.url}/api/dataspace`)).json() // 触发 seed 兜底
     const chars = await (await fetch(`${server.url}/api/characters`)).json()
     const builtin = chars.find((c: any) => c.source === 'builtin')
@@ -53,6 +66,7 @@ describe('内置内容单层化端到端（验证标准 3/4/5）', () => {
 
     // 重启进程（同 dataDir）→ 用户修改保留（文件级持久）
     const server2 = await startTianshuServer({ host: '127.0.0.1', port: 0 })
+    openServers.push(server2)
     await (await fetch(`${server2.url}/api/dataspace`)).json()
     const chars2 = await (await fetch(`${server2.url}/api/characters`)).json()
     const edited = chars2.find((c: any) => c.id === builtin.id)
@@ -93,6 +107,7 @@ describe('内置内容单层化端到端（验证标准 3/4/5）', () => {
 
   it('删除 content/builtin→启动正常且已有 dataDir 内容可读（回归标准4）', async () => {
     const server = await startTianshuServer({ host: '127.0.0.1', port: 0 })
+    openServers.push(server)
     await (await fetch(`${server.url}/api/dataspace`)).json()
     const before = await (await fetch(`${server.url}/api/characters`)).json()
     expect(before.some((c: any) => c.source === 'builtin')).toBe(true)
@@ -103,6 +118,7 @@ describe('内置内容单层化端到端（验证标准 3/4/5）', () => {
 
     // 重启 server（builtin 源缺失）→ 正常启动
     const server2 = await startTianshuServer({ host: '127.0.0.1', port: 0 })
+    openServers.push(server2)
     const health = await fetch(`${server2.url}/health`)
     expect(health.status).toBe(200)
     // 已有 dataDir 内容（单层化副本）仍可读

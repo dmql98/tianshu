@@ -8,7 +8,7 @@
  *
  * 幂等：角色已绑定存在的皮肤时跳过；重复调用安全。
  */
-import { existsSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 import { characterMetaStore } from '../db/characterStore.js'
 import { charactersRoot } from '../data-paths.js'
@@ -54,8 +54,12 @@ export function migrateAllCharacterVisualsToSkin(): { migrated: number; skipped:
       continue
     }
     try {
-      // write 角色（内置角色会自动物化用户副本）。
-      characterMetaStore.update(id, { skinId })
+      // 直接写 skinId 到 character.json，不走 characterMetaStore.update()
+      // 因为 update() 会将 source 强制改为 'user'，破坏内置角色的 builtin 标签。
+      const charFile = resolve(charactersRoot(), id, 'character.json')
+      const raw = JSON.parse(readFileSync(charFile, 'utf-8'))
+      raw.skinId = skinId
+      writeFileSync(charFile, JSON.stringify(raw, null, 2), 'utf-8')
       migrated++
     } catch {
       // 角色写失败不中断其它角色。

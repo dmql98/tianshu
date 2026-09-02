@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "category": "web",
   "description": "跨搜索、社交、开发、职业、网页、RSS 和视频平台进行互联网调研与内容获取",
+  "tags": [],
   "root": "SKILL.md",
   "children": []
 }

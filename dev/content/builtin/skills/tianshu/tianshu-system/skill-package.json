@@ -6,6 +6,7 @@
   "version": "2.0.0",
   "category": "tianshu",
   "description": "天枢角色、会话、模型、MCP、技能和工具约束管理技能包",
+  "tags": [],
   "root": "SKILL.md",
   "children": [
     {

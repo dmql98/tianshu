@@ -34,8 +34,8 @@ description: "设计 TianShu 角色人格，并创建/增量更新角色及其�
 
 ## 操作
 
-1. **列出**：`glob`/`read` `dataDir` 下的 `characters/*/character.json`，确认已有角色的 `id`（自增数字，需唯一且与目录名一致）。
-2. **创建**：新建 `<dataDir>/characters/<id>/character.json`，`id` 取当前最大整数 +1。
+1. **列出**：`glob`/`read` `dataDir` 下的 `characters/*/character.json`，确认已有角色的 `id`（字符串，需唯一且与目录名一致）。
+2. **创建**：新建 `<dataDir>/characters/<id>/character.json`，`id` 使用有意义的字符串标识（如 `xiaoming`、`assistant-01`），同时创建同名目录。
 3. **更新**：`edit` `character.json`，修改 `soul`/`provider`/`model`/`tools`/`skillBindings` 等字段；**增量改绑定**优先只增删 `tools` 数组项或 `skillBindings` 项，不要整体覆盖你没动过的字段。
 4. **工具/技能绑定**：
    - 工具：往 `tools` 数组加/删 `{ "name": "<tool>" }`（含 `mcp:<server>`）。

@@ -20,12 +20,15 @@ Provider 配置是**纯文件**：`<dataDir>/providers.json`（一个 JSON 数�
   "name": "OpenAI",
   "base_url": "https://api.openai.com/v1",
   "api_key": "sk-...",
-  "models": [{ "id": "gpt-4o", "name": "gpt-4o" }],
+  "models": [
+    { "id": "gpt-4o", "name": "gpt-4o", "context_window": 128000, "enabled": true }
+  ],
   "api_style": "auto"
 }
 ```
 
 可选：`api_style`（`auto`/`chat_completions`/`responses`）、`preset_id`、`is_builtin`、`envKey`、`has_api_key`。
+models 元素可选字段：`context_window`（上下文窗口大小）、`enabled`（是否启用）。
 
 ## 操作
 

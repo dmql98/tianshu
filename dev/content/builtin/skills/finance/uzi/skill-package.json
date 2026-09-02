@@ -6,6 +6,7 @@
   "version": "3.9.2",
   "category": "finance",
   "description": "股票深度研究、投资者评审、龙虎榜分析与陷阱检测技能包",
+  "tags": [],
   "root": "SKILL.md",
   "children": [
     {
