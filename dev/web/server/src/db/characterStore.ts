@@ -17,11 +17,29 @@ function ensureCharDir() {
   return dir
 }
 
+/** 记忆系统访问模式（v2）。undefined 老角色 → enabled=true→editable，enabled=false→off。 */
+export type MemoryMode = 'off' | 'read_only' | 'editable'
+
 export interface CharacterMemory {
-  enabled: boolean
+  /**
+   * 旧字段（v1）：是否启用记忆。新逻辑以 `mode` 为准，`enabled` 保留仅为兼容。
+   * 无 `mode` 时按 enabled 推导：false→'off'，其余→'editable'。
+   */
+  enabled?: boolean
+  /** v2：记忆访问模式。缺省按 enabled 向下兼容推导。 */
+  mode?: MemoryMode
   selfEvolution?: boolean
   charLimit?: number
   maxEntries?: number
+  /** 压缩保护：至少保留最近 N 条非归档条目（默认 5）。 */
+  minEntries?: number
+}
+
+/** 推导角色的记忆模式：显式 mode 优先；无 mode 的老角色按 enabled 兼容（enabled=false→off，其余→editable）。 */
+export function resolveMemoryMode(memory?: CharacterMemory | null): MemoryMode {
+  const mode = memory?.mode
+  if (mode === 'off' || mode === 'read_only' || mode === 'editable') return mode
+  return memory?.enabled === false ? 'off' : 'editable'
 }
 
 import type { ToolBinding, ToolConstraint } from '../tools/types.js'

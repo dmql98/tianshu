@@ -6,6 +6,7 @@ import { connectMCPServer, disconnectMCPServer } from '../tools/mcp-client.js'
 import { getAllMCPStatuses } from '../tools/mcp-status.js'
 import { discoverMCPServers } from '../tools/mcp_discovery.js'
 import { readToolMeta } from '../tools/tool-meta.js'
+import { isAutoManagedTool } from '../tools/definitions.js'
 
 const TOOLS_DIR = resolve(import.meta.dirname, '../tools')
 
@@ -16,6 +17,9 @@ function readToolMetas(): Array<{ name: string; description: string; source: str
     if (!e.isDirectory() || e.name === '_template') continue
     const meta = readToolMeta(e.name)
     if (!meta) continue
+    // 自动门控工具（记忆工具 / skill_manager）不进入工具管理列表：它们的注入由
+    // memoryMode / 技能列表自动决定，不是可供用户手动配置的开关。
+    if (isAutoManagedTool(meta.name || e.name)) continue
     results.push({
       name: meta.name || e.name,
       description: meta.description || '',

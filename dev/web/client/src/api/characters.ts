@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete, apiUrl } from './client'
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, apiUrl } from './client'
 import type { Character, CharacterStats } from '@/types'
 
 export const fetchCharacters = () => apiGet<Character[]>('/api/characters')
@@ -6,6 +6,74 @@ export const fetchCharacters = () => apiGet<Character[]>('/api/characters')
 export const fetchCharacter = (id: string) => apiGet<Character>(`/api/characters/${id}`)
 
 export const fetchCharacterStats = (id: string) => apiGet<CharacterStats>(`/api/characters/${id}/stats`)
+
+// ── 记忆浏览器（用户操作 REST：浏览 / 编辑 / 归档恢复 / 永久删除 / 审计）──
+export type MemoryEntryType = 'fact' | 'preference' | 'decision' | 'note'
+
+export interface MemoryEntryItem {
+  id: string
+  ts: string
+  type: MemoryEntryType
+  content: string
+  archived: boolean
+}
+
+export interface MemoryStatsItem {
+  mode: 'off' | 'read_only' | 'editable'
+  total: number
+  active: number
+  archived: number
+  char_usage: number
+  char_limit: number
+}
+
+export interface MemoryOverviewItem {
+  /** 摘要块（活跃条目渲染：`type｜content`）。 */
+  blocks: string[]
+  /** 全部活跃条目渲染总字符。 */
+  used: number
+  /** 生效预算（真实角色配置或后端缺省）。 */
+  budget: number
+  /** 已超预算（触底保护期常见）。 */
+  overBudget: boolean
+}
+
+export interface MemoryView {
+  entries: MemoryEntryItem[]
+  stats: MemoryStatsItem
+  overview: MemoryOverviewItem
+}
+
+export interface MemoryMutationResponse {
+  ok: boolean
+  error?: string
+  entry?: MemoryEntryItem
+  view: MemoryView
+}
+
+export interface MemoryAuditRow {
+  ts: string
+  actor: 'Agent' | '用户'
+  action: string
+  target?: string
+  detail?: string
+}
+
+export const fetchCharacterMemory = (id: string) =>
+  apiGet<MemoryView>(`/api/characters/${encodeURIComponent(id)}/memory`)
+
+export const updateCharacterMemoryEntry = (id: string, entryId: string, patch: { content?: string; type?: MemoryEntryType }) =>
+  apiPatch<MemoryMutationResponse>(`/api/characters/${encodeURIComponent(id)}/memory/${encodeURIComponent(entryId)}`, patch)
+
+export const setCharacterMemoryEntryArchived = (id: string, entryId: string, archived: boolean) =>
+  apiPost<MemoryMutationResponse>(`/api/characters/${encodeURIComponent(id)}/memory/${encodeURIComponent(entryId)}/archive`, { archived })
+
+/** 永久删除：仅用户前端手动操作（Agent 工具无此能力）。 */
+export const deleteCharacterMemoryEntry = (id: string, entryId: string) =>
+  apiDelete<MemoryMutationResponse>(`/api/characters/${encodeURIComponent(id)}/memory/${encodeURIComponent(entryId)}`)
+
+export const fetchCharacterMemoryAudit = (id: string) =>
+  apiGet<{ entries: MemoryAuditRow[] }>(`/api/characters/${encodeURIComponent(id)}/memory/audit`)
 
 export const createCharacter = (data: Partial<Character> & { id?: string }) =>
   apiPost<Character>('/api/characters', data)

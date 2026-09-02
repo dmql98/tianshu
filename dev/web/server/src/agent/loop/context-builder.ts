@@ -302,8 +302,10 @@ export interface SessionContextInput {
   /** 静态系统提示的分块（每个 part 一条 system 消息，按组装顺序）。 */
   systemPrompt: string[]
   memory: string | null
-  /** 记忆是否启用（character.memory.enabled）。启用时附带「记忆使用说明」引导，并在关闭时不注入。 */
+  /** 记忆是否注入（兼容旧字段：off/关闭时不注入；可写时附带写入引导）。 */
   memoryEnabled?: boolean
+  /** v2 记忆模式：决定 ## Memory 段附带的引导文案（read_only 只读 / editable 全量）。 */
+  memoryMode?: import('../../db/characterStore.js').MemoryMode
   compactionSummary: string | null
   rows: MessageRow[]
   compactionUntilId: number
@@ -326,16 +328,23 @@ export async function buildInitialMessages(input: SessionContextInput): Promise<
       content: `## Active Session Skills\n${input.activeSkills.map(skill => `### ${skill.ref}\n${skill.body}`).join('\n\n')}`,
     })
   }
-  if (input.memory && input.memoryEnabled !== false) {
-    // 记忆启用时注入记忆内容，并附带一条「记忆使用说明」，告知模型可以更新记忆、
-    // 有字数上限、超限需压缩。未启用（memoryEnabled=false）时不注入。
+  if (input.memory && input.memoryEnabled !== false && input.memoryMode !== 'off') {
+    // 记忆启用时注入记忆内容，并按模式附带「记忆使用说明」。off/未启用不注入。
+    const mode = input.memoryMode === 'read_only' ? 'read_only' : 'editable'
     let memoryMsg = `## Memory\n${input.memory}`
-    if (input.memoryEnabled) {
+    if (mode === 'read_only') {
       memoryMsg +=
-        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留。你可调用 `character_memory` 工具：' +
-        '用 remember 记下值得留存的信息、用 recall 重读、用 forget 遗忘。' +
-        '只记录有跨会话价值的事实/偏好/约定，不要记录寒暄。' +
-        '记忆有字数上限（charLimit），超限会自动从最旧条目压缩；请留意 recall 返回的剩余空间，必要时主动精简。'
+        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留，当前为只读模式。' +
+        '你可调用 `memory_read` 按 filter/topic 查询，重建对某个话题的完整认知；' +
+        '不能写入、修改或归档记忆。'
+    } else {
+      memoryMsg +=
+        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留。你可以在对话中自主维护它：' +
+        '对话末尾/发现值得跨会话保留的事实、偏好、决定、约定时，优先主动调用 `memory_snapshot` 批量快照；' +
+        '精确记住单条用 `memory_write`；发现旧记忆与现状矛盾时用 `memory_update` 修正；' +
+        '不再需要出现在上下文里的条目用 `memory_archive` 归档。' +
+        '记忆有字数上限（charLimit），超限会自动从最旧条目压缩；请留意工具返回的用量与提示。' +
+        '你作为 Agent 没有永久删除能力——永久删除只能由用户在前端记忆浏览器操作。'
     }
     messages.push({ role: 'system', content: memoryMsg })
   }

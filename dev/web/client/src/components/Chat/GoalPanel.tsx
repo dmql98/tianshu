@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fetchGoals, pauseGoal, resumeGoal, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
+import { fetchGoals, pauseGoal, resumeGoal, cancelGoal, discardActivePlan, fetchActivePlan, type Goal, type Plan } from '@/api/goals'
 import { getEventBus } from '@/api/eventBus'
 import PlanDialog from './PlanDialog'
 import Icon from '@/features/icons/Icon'
@@ -69,6 +69,7 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
     const offConnect = bus.onConnect(() => { scheduleReload() })
     bus.on('plan.created', onChange)
     bus.on('plan.step.updated', onChange)
+    bus.on('plan.cancelled', onChange)
     bus.on('goal.created', onChange)
     bus.on('goal.status.changed', onChange)
     bus.on('goal.paused', onChange)
@@ -76,6 +77,7 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
       if (timer) clearTimeout(timer)
       bus.off('plan.created', onChange)
       bus.off('plan.step.updated', onChange)
+      bus.off('plan.cancelled', onChange)
       bus.off('goal.created', onChange)
       bus.off('goal.status.changed', onChange)
       bus.off('goal.paused', onChange)
@@ -100,6 +102,37 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
       await reload()
     } catch (err) {
       alert(err instanceof Error ? err.message : t('续跑失败'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // User-driven exits: mark the goal / plan as cancelled so the agent loop
+  // stops re-injecting and re-gating them (mirrors the agent-side discard_plan /
+  // cancel_goal control tools).
+  const handleCancelGoal = async () => {
+    if (!activeGoal) return
+    if (!window.confirm(t('确认取消该目标？'))) return
+    setBusy(true)
+    try {
+      await cancelGoal(activeGoal.id)
+      await reload()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('取消目标失败'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDiscardPlan = async () => {
+    if (!plan) return
+    if (!window.confirm(t('确认放弃当前计划？'))) return
+    setBusy(true)
+    try {
+      await discardActivePlan(sessionId)
+      await reload()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('放弃计划失败'))
     } finally {
       setBusy(false)
     }
@@ -131,6 +164,7 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
             ) : (
               <button className="btn sm primary" disabled={busy} onClick={() => void handleResume()}>{t('继续（新 Run）')}</button>
             )}
+            <button className="btn sm danger" disabled={busy} onClick={() => void handleCancelGoal()}>{t('取消')}</button>
           </div>
         </div>
       ) : completedGoals.length > 0 ? (
@@ -144,10 +178,15 @@ export default function GoalPanel({ sessionId }: { sessionId: string }) {
       {plan && plan.steps.length > 0 ? (
         <div className="plan-summary-card">
           <div className="plan-summary-info">
-            <span>计划 v{plan.version}</span>
+            <span>计划 v{plan.version}{plan.status === 'completed' ? ` · ${t('已完成')}` : ''}</span>
             <strong>{plan.steps.filter(s => s.status === 'completed' || s.status === 'skipped').length}/{plan.steps.length} {t('步')}</strong>
           </div>
-          <button className="btn sm" type="button" onClick={() => setShowPlan(true)}>{t('查看完整计划')}</button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn sm" type="button" onClick={() => setShowPlan(true)}>{t('查看完整计划')}</button>
+            {plan.status === 'active' && (
+              <button className="btn sm danger" type="button" disabled={busy} onClick={() => void handleDiscardPlan()}>{t('放弃')}</button>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)', marginTop: 2 }}>{t('当前暂无计划')}</div>

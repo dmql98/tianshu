@@ -59,7 +59,9 @@ export async function apiPatch<T>(path: string, body: unknown, timeoutMs?: numbe
   return res.json()
 }
 
-export async function apiDelete(path: string, timeoutMs?: number): Promise<void> {
+export async function apiDelete<T = void>(path: string, timeoutMs?: number): Promise<T> {
   const res = await fetchWithTimeout(path, { method: 'DELETE' }, timeoutMs)
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text().catch(() => '')}`)
+  if (res.status === 204) return undefined as T
+  return res.json() as Promise<T>
 }

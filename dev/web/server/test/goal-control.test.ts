@@ -189,3 +189,221 @@ describe('submit_result -> goal 自动完成', () => {
     expect(noSummary.unmet.some(u => u.includes('摘要'))).toBe(true)
   })
 })
+
+describe('discard_plan / cancel_goal 主动退出控制工具', () => {
+  async function newSession(sid: string) {
+    const { sessionStore } = await import('../src/db/sessionStore.js')
+    sessionStore.create({ id: sid, character_id: 'char_goal_ctrl' })
+  }
+
+  it('discard_plan 取消活动计划并广播 plan.cancelled', async () => {
+    const sid = 'sess_discard_plan'
+    await newSession(sid)
+    const { planStore } = await import('../src/agent/plan/plan-store.js')
+    const { handleCreatePlan, handleDiscardPlan } = await import('../src/agent/loop/control-router.js')
+    const createStream = fakeStream()
+    await handleCreatePlan({
+      result: {
+        toolCalls: [{ id: 'p1', type: 'function', function: { name: 'create_plan', arguments: '{}' } }],
+        planRequest: { steps: [{ title: '步骤A' }, { title: '步骤B' }] },
+      },
+      sessionId: sid, runId: 'run_p1', stream: createStream as any,
+    })
+    const active = planStore.getActive(sid)
+    expect(active).not.toBeNull()
+
+    const stream = fakeStream()
+    const outcome = await handleDiscardPlan({
+      result: {
+        toolCalls: [{ id: 'd1', type: 'function', function: { name: 'discard_plan', arguments: '{}' } }],
+        controlReason: '方向已变',
+      },
+      sessionId: sid, runId: 'run_p2', stream: stream as any,
+    })
+    expect(outcome.kind).toBe('continue')
+    expect(outcome.discarded).toBe(true)
+    // getActive 无行时返回 undefined（falsy），与既有调用方 if (!plan) 语义一致。
+    expect(planStore.getActive(sid)).toBeFalsy()
+    expect(planStore.get(active!.id)!.status).toBe('cancelled')
+    expect(stream.events.some(([t, a]) => t === 'plan.cancelled' && a[0].status === 'cancelled')).toBe(true)
+    const msg = JSON.parse(outcome.messages[0].content as string)
+    expect((msg.output as string)).toContain('已放弃计划')
+  })
+
+  it('discard_plan 无活动计划时拒绝', async () => {
+    const sid = 'sess_discard_plan_empty'
+    await newSession(sid)
+    const { handleDiscardPlan } = await import('../src/agent/loop/control-router.js')
+    const stream = fakeStream()
+    const outcome = await handleDiscardPlan({
+      result: { toolCalls: [{ id: 'd2', type: 'function', function: { name: 'discard_plan', arguments: '{}' } }] },
+      sessionId: sid, runId: 'run_p3', stream: stream as any,
+    })
+    expect(outcome.discarded).toBe(false)
+    const msg = JSON.parse(outcome.messages[0].content as string)
+    expect(msg.error).toContain('没有活动计划')
+  })
+
+  it('cancel_goal 取消进行中目标并广播 goal.status.changed(cancelled)', async () => {
+    const sid = 'sess_cancel_goal'
+    await newSession(sid)
+    const { goalStore } = await import('../src/agent/plan/plan-store.js')
+    const { handleCreateGoal, handleCancelGoal } = await import('../src/agent/loop/control-router.js')
+    const createStream = fakeStream()
+    await handleCreateGoal({
+      result: {
+        toolCalls: [{ id: 'g1', type: 'function', function: { name: 'create_goal', arguments: '{}' } }],
+        goalRequest: { outcome: '会被取消的目标' },
+      },
+      sessionId: sid, runId: 'run_g1', stream: createStream as any,
+    })
+    const goal = goalStore.listForSession(sid)[0]
+    expect(goal.status).toBe('active')
+
+    const stream = fakeStream()
+    const outcome = await handleCancelGoal({
+      result: {
+        toolCalls: [{ id: 'g2', type: 'function', function: { name: 'cancel_goal', arguments: '{}' } }],
+        controlReason: '需求作废',
+      },
+      sessionId: sid, runId: 'run_g2', stream: stream as any,
+    })
+    expect(outcome.kind).toBe('continue')
+    expect(goalStore.get(goal.id)!.status).toBe('cancelled')
+    expect(stream.events.some(([t, a]) => t === 'goal.status.changed' && a[0].status === 'cancelled')).toBe(true)
+    const msg = JSON.parse(outcome.messages[0].content as string)
+    expect(msg.output).toContain('已取消目标')
+  })
+
+  it('cancel_goal 无进行中目标时拒绝', async () => {
+    const sid = 'sess_cancel_goal_empty'
+    await newSession(sid)
+    const { handleCancelGoal } = await import('../src/agent/loop/control-router.js')
+    const outcome = await handleCancelGoal({
+      result: { toolCalls: [{ id: 'g3', type: 'function', function: { name: 'cancel_goal', arguments: '{}' } }] },
+      sessionId: sid, runId: 'run_g3', stream: undefined as any,
+    })
+    const msg = JSON.parse(outcome.messages[0].content as string)
+    expect(msg.error).toContain('没有进行中的目标')
+  })
+})
+
+describe('Plan-first / Goal 先计划后执行闸门（planGateRefusalFor）', () => {
+  async function newSession(sid: string, execution_mode: string) {
+    const { sessionStore } = await import('../src/db/sessionStore.js')
+    sessionStore.create({ id: sid, character_id: 'char_goal_ctrl', execution_mode: execution_mode as any })
+  }
+
+  it('plan_first：无计划时拒绝普通工具，允许 create_plan', async () => {
+    const sid = 'sess_pf_gate'
+    await newSession(sid, 'plan_first')
+    const { planGateRefusalFor } = await import('../src/agent/inner.js')
+    expect(planGateRefusalFor('plan_first', sid, ['websearch'])).toBeTruthy()
+    expect(planGateRefusalFor('plan_first', sid, ['bash'])).toBeTruthy()
+    expect(planGateRefusalFor('plan_first', sid, ['create_plan'])).toBeNull()
+    expect(planGateRefusalFor('plan_first', sid, ['websearch', 'create_plan'])).toBeNull()
+  })
+
+  it('plan_first：建计划后放行任务工具', async () => {
+    const sid = 'sess_pf_gate_ok'
+    await newSession(sid, 'plan_first')
+    const { planStore } = await import('../src/agent/plan/plan-store.js')
+    const { handleCreatePlan } = await import('../src/agent/loop/control-router.js')
+    const { planGateRefusalFor } = await import('../src/agent/inner.js')
+    const stream = fakeStream()
+    await handleCreatePlan({
+      result: {
+        toolCalls: [{ id: 'p1', type: 'function', function: { name: 'create_plan', arguments: '{}' } }],
+        planRequest: { steps: [{ title: 'S1' }] },
+      },
+      sessionId: sid, runId: 'run_pg1', stream: stream as any,
+    })
+    expect(planStore.getActive(sid)).not.toBeNull()
+    expect(planGateRefusalFor('plan_first', sid, ['websearch'])).toBeNull()
+  })
+
+  it('goal：无计划且无历史完成计划时拒绝普通工具', async () => {
+    const sid = 'sess_goal_gate'
+    await newSession(sid, 'goal')
+    const { planGateRefusalFor } = await import('../src/agent/inner.js')
+    expect(planGateRefusalFor('goal', sid, ['get_time'])).toBeTruthy()
+    expect(planGateRefusalFor('goal', sid, ['create_goal'])).toBeTruthy()
+    expect(planGateRefusalFor('goal', sid, ['create_plan'])).toBeNull()
+  })
+
+  it('goal：计划未关联目标时拒绝，声明目标后放行', async () => {
+    const sid = 'sess_goal_gate_goal'
+    await newSession(sid, 'goal')
+    const { handleCreatePlan, handleCreateGoal } = await import('../src/agent/loop/control-router.js')
+    const { planGateRefusalFor } = await import('../src/agent/inner.js')
+    // 只建计划、不带 goal 字段 → Goal 模式仍应拦截
+    const stream = fakeStream()
+    await handleCreatePlan({
+      result: {
+        toolCalls: [{ id: 'p1', type: 'function', function: { name: 'create_plan', arguments: '{}' } }],
+        planRequest: { steps: [{ title: 'S1' }] },
+      },
+      sessionId: sid, runId: 'run_gg1', mode: 'goal', stream: stream as any,
+    })
+    expect(planGateRefusalFor('goal', sid, ['websearch'])).toBeTruthy()
+    // create_goal 在本轮被放行
+    expect(planGateRefusalFor('goal', sid, ['create_goal', 'websearch'])).toBeNull()
+    await handleCreateGoal({
+      result: {
+        toolCalls: [{ id: 'g1', type: 'function', function: { name: 'create_goal', arguments: '{}' } }],
+        goalRequest: { outcome: '目标' },
+      },
+      sessionId: sid, runId: 'run_gg2', stream: stream as any,
+    })
+    expect(planGateRefusalFor('goal', sid, ['websearch'])).toBeNull()
+  })
+
+  it('goal：create_plan 带 goal 字段自动关联目标后放行', async () => {
+    const sid = 'sess_goal_gate_plan'
+    await newSession(sid, 'goal')
+    const { planStore } = await import('../src/agent/plan/plan-store.js')
+    const { handleCreatePlan } = await import('../src/agent/loop/control-router.js')
+    const { planGateRefusalFor } = await import('../src/agent/inner.js')
+    const stream = fakeStream()
+    await handleCreatePlan({
+      result: {
+        toolCalls: [{ id: 'p1', type: 'function', function: { name: 'create_plan', arguments: '{}' } }],
+        planRequest: { goal: '交付功能', verification: 'tsc 通过', steps: [{ title: 'S1' }] },
+      },
+      sessionId: sid, runId: 'run_gg3', mode: 'goal', stream: stream as any,
+    })
+    expect(planStore.getActive(sid)!.goal_id).not.toBeNull()
+    expect(planGateRefusalFor('goal', sid, ['websearch'])).toBeNull()
+  })
+
+  it('已完成计划的会话（finalize/收尾）放行工具，但新计划创建前仍要求 create_plan', async () => {
+    const sid = 'sess_goal_gate_done'
+    await newSession(sid, 'goal')
+    const { planStore } = await import('../src/agent/plan/plan-store.js')
+    const { handleCreatePlan, handleUpdatePlanStep } = await import('../src/agent/loop/control-router.js')
+    const { planGateRefusalFor } = await import('../src/agent/inner.js')
+    const stream = fakeStream()
+    await handleCreatePlan({
+      result: {
+        toolCalls: [{ id: 'p1', type: 'function', function: { name: 'create_plan', arguments: '{}' } }],
+        planRequest: { goal: '目标', steps: [{ title: 'S1' }] },
+      },
+      sessionId: sid, runId: 'run_gg4', mode: 'goal', stream: stream as any,
+    })
+    const active = planStore.getActive(sid)!
+    const step = planStore.steps(active.id)[0]
+    await handleUpdatePlanStep({
+      result: {
+        toolCalls: [{ id: 'u1', type: 'function', function: { name: 'update_plan_step', arguments: '{}' } }],
+        planStepUpdate: { ordinal: step.ordinal, status: 'completed', evidence: 'done' },
+      },
+      sessionId: sid, runId: 'run_gg5', stream: stream as any,
+    })
+    expect(planStore.get(active.id)!.status).toBe('completed')
+    // 完成态历史：工具放行（finalize 收尾）
+    expect(planGateRefusalFor('goal', sid, ['read'])).toBeNull()
+    // 但真正开启新计划前，create_plan 仍是必须的引导路径（无 active 计划）
+    expect(planGateRefusalFor('goal', sid, [])).toBeNull()
+    expect(planGateRefusalFor('goal', sid, ['websearch'])).toBeNull()
+  })
+})

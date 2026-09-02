@@ -25,7 +25,7 @@ export interface ControlToolDefinition {
  * 并行会被整批拒绝。delegate_to_agent 不在其中——P5 同步 barrier：delegate 可同轮多个
  * 并行（各拉起一个子会话），全部完成后父 LLM 才收到结果继续。
  */
-export const CONTROL_TOOL_NAMES = ['send_message_to_subagent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step', 'create_goal', 'get_goal', 'complete_goal'] as const
+export const CONTROL_TOOL_NAMES = ['send_message_to_subagent', 'submit_result', 'ask_user', 'create_plan', 'update_plan_step', 'discard_plan', 'create_goal', 'get_goal', 'complete_goal', 'cancel_goal'] as const
 
 export const CONTROL_TOOL_SET: ReadonlySet<string> = new Set<string>(CONTROL_TOOL_NAMES)
 
@@ -40,8 +40,8 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
     {
       type: 'function',
       function: {
-        name: 'update_plan_step',
-        description: '更新计划步骤状态：执行 in_progress，验证完成 completed 附 evidence；Plan-first/Goal 模式必须用它推进计划，不能用 create_plan 冒充进度更新。',
+        name: 'update_plan_step',
+        description: '更新计划步骤状态：执行 in_progress，验证完成 completed 附 evidence；Plan-first/Goal 模式必须用它推进计划，不能用 create_plan 冒充进度更新。计划已无必要继续时改用 discard_plan 放弃。',
         parameters: {
           type: 'object',
           properties: {
@@ -80,15 +80,29 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
             },
             verification: { type: 'string' },
           },
-          required: ['steps'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'create_goal',
-        description: '创建会话目标（Goal）：outcome 必填；已有进行中目标会被拒绝（先 complete_goal）；跨 Run 预算/暂停才用。',
+          required: ['steps'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'discard_plan',
+        description: '放弃当前活动计划（置为 cancelled）：立即解除该计划的注入与“继续推进”约束，任务方向已变或不再需要该计划时用它主动退出，不必为完成而完成；之后若仍需执行框架可用 create_plan 重建新计划。',
+        parameters: {
+          type: 'object',
+          properties: {
+            reason: { type: 'string', description: '放弃原因（可选，会随工具结果展示）' },
+          },
+          required: [],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_goal',
+        description: '创建会话目标（Goal）：outcome 必填；已有进行中目标会被拒绝（先 complete_goal 完成或 cancel_goal 取消）；跨 Run 预算/暂停才用。',
         parameters: {
           type: 'object',
           properties: {
@@ -109,20 +123,34 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
         parameters: { type: 'object', properties: {} },
       },
     },
-    {
-      type: 'function',
-      function: {
-        name: 'complete_goal',
-        description: '将当前进行中目标标记为已完成（配合 submit_result）。',
-        parameters: {
-          type: 'object',
-          properties: {
-            summary: { type: 'string' },
-          },
-          required: [],
-        },
-      },
-    },
+    {
+      type: 'function',
+      function: {
+        name: 'complete_goal',
+        description: '将当前进行中目标标记为已完成（配合 submit_result）。',
+        parameters: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+          },
+          required: [],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'cancel_goal',
+        description: '取消当前进行中目标（active/paused → cancelled）：解除该目标的注入与“必须完成”约束；目标已不适用、改为其他任务时用它主动退出，仅完成任务用 complete_goal。',
+        parameters: {
+          type: 'object',
+          properties: {
+            reason: { type: 'string', description: '取消原因（可选，会随工具结果展示）' },
+          },
+          required: [],
+        },
+      },
+    },
     {
       type: 'function',
       function: {
@@ -186,12 +214,25 @@ const BASE_CONTROL_TOOL_DEFINITIONS: ControlToolDefinition[] = [
     },
   ]
 
-export function getControlToolDefinitions(): ControlToolDefinition[] {
-  return BASE_CONTROL_TOOL_DEFINITIONS.map(d => ({
-    ...d,
-    // 互斥约束仅对 CONTROL_TOOL_NAMES 中的控制动作可见；delegate_to_agent 可批量并行，不加 note。
-    function: CONTROL_TOOL_SET.has(d.function.name)
-      ? { ...d.function, description: d.function.description + EXCLUSIVITY_NOTE }
-      : { ...d.function },
-  }))
-}
+export function getControlToolDefinitions(): ControlToolDefinition[] {
+  return BASE_CONTROL_TOOL_DEFINITIONS.map(d => ({
+    ...d,
+    // 互斥约束仅对 CONTROL_TOOL_NAMES 中的控制动作可见；delegate_to_agent 可批量并行，不加 note。
+    function: CONTROL_TOOL_SET.has(d.function.name)
+      ? { ...d.function, description: d.function.description + EXCLUSIVITY_NOTE }
+      : { ...d.function },
+  }))
+}
+
+/**
+ * 按运行时状态选择要注入的控制动作（不纳入「工具管理」开关，由状态自动推导）：
+ * delegate_to_agent / send_message_to_subagent 仅在存在可委托子 agent 列表时注入。
+ */
+export function selectControlToolDefinitions(opts: { hasDelegateTargets: boolean }): ControlToolDefinition[] {
+  const { hasDelegateTargets } = opts
+  return getControlToolDefinitions().filter(d => {
+    const n = d.function.name
+    if (n === 'delegate_to_agent' || n === 'send_message_to_subagent') return hasDelegateTargets
+    return true
+  })
+}

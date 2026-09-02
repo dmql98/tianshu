@@ -1,0 +1,17 @@
+{
+  "name": "memory_archive",
+  "description": "Archive a memory entry (mark [archived], hidden from default read view but recoverable by the user in the frontend). Agents have no permanent delete capability. Injected when memoryMode is editable.",
+  "source": "builtin",
+  "tags": ["memory"],
+  "version": "1.0.0",
+  "author": "TianShu",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string", "description": "Entry id (exact, preferred)" },
+      "match": { "type": "string", "description": "Content substring fallback" }
+    },
+    "required": []
+  }
+}

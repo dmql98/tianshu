@@ -28,6 +28,24 @@ router.get('/plan/:sessionId', (c) => {
   return c.json({ ...plan, steps: planStore.steps(plan.id) })
 })
 
+/**
+ * Discard the active plan (user-driven exit): marks it 'cancelled' so the
+ * agent loop stops injecting/gating it. Pair with cancel goal when the
+ * session also carries an active goal.
+ */
+router.post('/plan/:sessionId/discard', (c) => {
+  const sessionId = c.req.param('sessionId')
+  const cancelled = planStore.cancelActive(sessionId)
+  if (!cancelled) return c.json({ error: 'No active plan' }, 404)
+  broadcasterRef?.emit('plan.cancelled', {
+    session_id: sessionId, plan_id: cancelled.id, version: cancelled.version, status: cancelled.status,
+  })
+  fanOutToSinks('plan.cancelled', {
+    session_id: sessionId, plan_id: cancelled.id, version: cancelled.version, status: cancelled.status,
+  })
+  return c.json(cancelled)
+})
+
 router.post('/', async (c) => {
   const body = await c.req.json()
   const sessionId = body.session_id
@@ -136,6 +154,24 @@ router.post('/:id/resume', async (c) => {
     }
   })
   return c.json({ goal: goalStore.get(goal.id), run_id: runId }, 202)
+})
+
+/** Cancel an active/paused goal (user-driven exit): stops its injection & gating. */
+router.post('/:id/cancel', (c) => {
+  const goal = goalStore.get(c.req.param('id'))
+  if (!goal) return c.json({ error: 'Not found' }, 404)
+  if (goal.status === 'completed' || goal.status === 'cancelled' || goal.status === 'failed') {
+    return c.json({ error: `Goal is ${goal.status}` }, 409)
+  }
+  const updated = goalStore.update(goal.id, { status: 'cancelled' })
+  if (!updated) return c.json({ error: 'Not found' }, 404)
+  broadcasterRef?.emit('goal.status.changed', {
+    session_id: updated.session_id, goal_id: updated.id, status: 'cancelled',
+  })
+  fanOutToSinks('goal.status.changed', {
+    session_id: updated.session_id, goal_id: updated.id, status: 'cancelled',
+  })
+  return c.json(updated)
 })
 
 export default router

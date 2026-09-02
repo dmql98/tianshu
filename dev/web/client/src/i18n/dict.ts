@@ -230,6 +230,11 @@ export const dict: Record<string, DictEntry> = {
   '等待': { zh: '等待', en: 'Pending' },
   '阻塞': { zh: '阻塞', en: 'Blocked' },
   '已跳过': { zh: '已跳过', en: 'Skipped' },
+  '放弃': { zh: '放弃', en: 'Discard' },
+  '确认取消该目标？': { zh: '确认取消该目标？', en: 'Cancel this goal?' },
+  '确认放弃当前计划？': { zh: '确认放弃当前计划？', en: 'Discard the current plan?' },
+  '取消目标失败': { zh: '取消目标失败', en: 'Failed to cancel goal' },
+  '放弃计划失败': { zh: '放弃计划失败', en: 'Failed to discard plan' },
 
   // ── 角色选择器 ──
   '未分组': { zh: '未分组', en: 'Uncategorized' },

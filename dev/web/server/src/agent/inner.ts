@@ -1,8 +1,8 @@
 import { messageStore } from '../db/messageStore.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
-import { characterMetaStore, type ToolBinding } from '../db/characterStore.js'
+import { characterMetaStore, resolveMemoryMode, type ToolBinding } from '../db/characterStore.js'
 import { streamChatCompletion, type LLMMessage, type ToolCall, type ProviderConfig } from '../llm/client.js'
-import { getDangerousTools, validateConstraints } from '../tools/definitions.js'
+import { getDangerousTools, validateConstraints, isMemoryTool } from '../tools/definitions.js'
 import { executeTool } from '../tools/executor.js'
 import type { ToolResult, ToolArgs } from '../tools/types.js'
 import { getSessionState, isToolApprovedForSession, approveToolForSession } from './session.js'
@@ -15,6 +15,7 @@ import { resolve as pathResolve } from 'path'
 import { isPathWithin, workspaceApprovalRoot } from '../tools/utils.js'
 import { getDataDir } from '../config.js'
 import { sessionStore } from '../db/sessionStore.js'
+import { planStore, goalStore } from './plan/plan-store.js'
 import { saveAttachment } from './media-store.js'
 import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, type AttachmentRecord, type ContentPart } from './attachments.js'
 
@@ -26,7 +27,7 @@ import { normalizeToolCalls, buildInvalidToolCall } from './tool-call-normalizer
 import { stableArgsHash, estimateTextTokens } from './loop/loop-policy.js'
 import { decideWorkspaceApproval } from './workspace-approval.js'
 
-const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch', 'get_time', 'debug_sessions'])
+const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch', 'get_time', 'debug_sessions', 'memory_read'])
 
 // R5: 工具行 tool_input 里的 args 只保留截断副本（完整参数由 assistant 行的
 // tool_calls 承载），避免 write 大 content 在 tool 行与 assistant 行重复全量落库。
@@ -40,7 +41,7 @@ function storedToolInput(callId: string, argsStr: string): string {
 function outcomeKindFor(name: string): ToolCallRecord['outcomeKind'] {
   if (READ_ONLY_TOOLS.has(name) || name === 'get_goal') return 'read'
   if (name === 'write' || name === 'edit' || name === 'bash') return 'write'
-  if (name === 'update_plan_step' || name === 'create_plan' || name === 'submit_result' || name === 'create_goal' || name === 'complete_goal') return 'state_change'
+  if (name === 'update_plan_step' || name === 'create_plan' || name === 'submit_result' || name === 'create_goal' || name === 'complete_goal' || name === 'discard_plan' || name === 'cancel_goal') return 'state_change'
   if (name === 'submit_result' || name === 'update_plan_step') return 'verification'
   if (name.startsWith('mcp__')) return 'other'
   return 'other'
@@ -57,12 +58,51 @@ function determineToolChanged(name: string, result: ToolResult): boolean {
   if (status === 'updated' || status === 'created') return true
   if (result.metadata?.changed === true) return true
   if (result.metadata?.changed === false) return false
-  return (name === 'update_plan_step' || name === 'create_plan' || name === 'create_goal' || name === 'complete_goal') && !result.error
+  return (name === 'update_plan_step' || name === 'create_plan' || name === 'create_goal' || name === 'complete_goal' || name === 'discard_plan' || name === 'cancel_goal') && !result.error
 }
 
 // P1-1: token 计量统一走 loop-policy.estimateTextTokens，删除本文件的重复估算器。
 
 export type ToolOutcomeKind = 'read' | 'write' | 'state_change' | 'verification' | 'control' | 'other'
+
+/**
+ * Plan-first / Goal 模式的「先计划后执行」闸门判定（与 loop-engine 的 final-answer
+ * 闸门同一语义，但提前到工具执行边界）。
+ *
+ * 问题：模型在 Goal/Plan-first 下常无视注入的「必须先建计划」提示直接调任务工具，
+ * 而原引擎只在纯文本 final_answer 时才拦截 → 模型可以“先干活、永远不交最终答案”。
+ *
+ * 返回 null = 本批工具允许执行（direct / 已有活动计划 / 本轮自带 create_plan /
+ * Goal 下已关联目标或本轮 create_goal）；返回字符串 = 拒绝原因，调用方须把非
+ * 建纲控制动作（create_plan/create_goal/get_goal/ask_user 之外）全部拦截。
+ */
+export function planGateRefusalFor(
+  mode: 'plan_first' | 'goal',
+  sessionId: string,
+  callNames: string[],
+): string | null {
+  const activePlan = planStore.getActive(sessionId)
+  const creatingPlanNow = callNames.includes('create_plan')
+  const creatingGoalNow = callNames.includes('create_goal')
+  if (activePlan) {
+    if (mode === 'goal') {
+      const goalLinked = !!activePlan.goal_id
+      const goalActive = goalStore.listForSession(sessionId)
+        .some(g => g.status === 'active' || g.status === 'paused')
+      if (goalLinked || goalActive || creatingGoalNow) return null
+      return '[Plan Gate] 当前为 Goal 模式：活动计划尚未关联目标。请调用 create_goal 声明目标（或重新 create_plan 并填写 goal 字段）。目标声明前任务工具不会执行。'
+    }
+    return null
+  }
+  // 会话已有一个完成态计划（含 finalize-only 续跑 / 收尾打磨）时不强制再建计划；
+  // 但 loop-engine 的 final-answer 闸门仍要求新任务建新计划后才能以最终回答结束。
+  const display = planStore.getDisplayPlan(sessionId)
+  if (display && display.status === 'completed') return null
+  if (creatingPlanNow) return null
+  return mode === 'goal'
+    ? '[Plan Gate] 当前为 Goal 模式：执行任务前必须先创建计划与目标。请先单独调用 create_plan（在其中填写 goal 与 verification 即自动声明目标），或先 create_goal 再 create_plan；计划未建立前任务工具不会执行。'
+    : '[Plan Gate] 当前为 Plan-first 模式：执行任务前必须先创建计划。请先单独调用 create_plan 拆解步骤并注明验证方式；计划未建立前任务工具不会执行。'
+}
 
 export interface ToolCallRecord {
   toolName: string
@@ -97,6 +137,16 @@ function sleep(ms: number): Promise<void> {
 function checkToolBinding(characterId: string, toolName: string, args: ToolArgs): string | null {
   const character = characterMetaStore.getById(characterId)
   if (!character) return null
+  // 记忆工具由 memoryMode 门控注入（与角色 tools 绑定列表解耦）：mode 允许即放行。
+  if (isMemoryTool(toolName)) {
+    const mode = resolveMemoryMode(character.memory)
+    const allowed = mode === 'editable'
+      ? true
+      : mode === 'read_only'
+        ? toolName === 'memory_read'
+        : false
+    return allowed ? null : `Memory tool "${toolName}" is not allowed for this character (memoryMode=${mode})`
+  }
   const bindings = character.tools
   if (!bindings || bindings.length === 0) return `No tools are enabled for this character`
   const binding = bindings.find((t: ToolBinding) =>
@@ -136,7 +186,7 @@ export interface SubAgentMessageRequestData {
 }
 
 export interface InnerResult {
-  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'sub_agent_message_request' | 'submit_result' | 'ask_user' | 'create_plan' | 'update_plan_step' | 'create_goal' | 'get_goal' | 'complete_goal'
+  type: 'final_answer' | 'tool_calls_executed' | 'error' | 'aborted' | 'sub_agent_request' | 'sub_agent_message_request' | 'submit_result' | 'ask_user' | 'create_plan' | 'update_plan_step' | 'discard_plan' | 'create_goal' | 'get_goal' | 'complete_goal' | 'cancel_goal'
   messages: LLMMessage[]
   fullText: string
   reasoningText: string
@@ -160,6 +210,8 @@ export interface InnerResult {
   planStepUpdate?: { ordinal: number; status: 'pending' | 'in_progress' | 'blocked' | 'completed' | 'skipped' | 'failed'; evidence?: string }
   goalRequest?: { outcome: string; constraints?: string; verification?: string; budget_tokens?: number }
   goalCompleteSummary?: string
+  /** discard_plan / cancel_goal 携带的原因说明（可选）。 */
+  controlReason?: string
 }
 
 export async function streamWithRetry(
@@ -739,10 +791,56 @@ export async function innerLoop(
     return { type: 'final_answer', messages: newMessages, fullText, reasoningText, toolCalls: [], totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input }
   }
 
-  const controlCalls = toolCallsAcc.filter(tc => CONTROL_TOOL_SET.has(tc.function.name))
-  const delegateCalls = toolCallsAcc.filter(tc => tc.function.name === 'delegate_to_agent')
+  // ── Plan-first / Goal 执行闸门（先计划后执行）──
+  // 拦截“无视必须先建计划的提示、直接调任务工具”的绕过：计划未建立（Goal 还需目标
+  // 关联）前，普通工具 / 子代理委托 / 子会话续跑一律不执行；允许 create_plan /
+  // create_goal / get_goal / ask_user 继续路由以建立计划与目标。
+  let planGateRefusal: string | null = null
+  if (sessionId) {
+    const sessRow = sessionStore.getById(sessionId)
+    const rowMode = sessRow?.execution_mode
+    if (rowMode === 'plan_first' || rowMode === 'goal') {
+      planGateRefusal = planGateRefusalFor(rowMode, sessionId, toolCallsAcc.map(tc => tc.function.name))
+    }
+  }
+  if (planGateRefusal) {
+    const ALLOWED_PRE_PLAN = new Set(['create_plan', 'create_goal', 'get_goal', 'ask_user'])
+    const refused = toolCallsAcc.filter(tc => !ALLOWED_PRE_PLAN.has(tc.function.name))
+    const kept = toolCallsAcc.filter(tc => ALLOWED_PRE_PLAN.has(tc.function.name))
+    if (refused.length > 0) {
+      for (const tc of refused) {
+        const toolMessage: LLMMessage = { role: 'tool', content: JSON.stringify({ error: planGateRefusal }), tool_call_id: tc.id }
+        if (sessionId) {
+          messageStore.addMessage(sessionId, {
+            role: 'tool', content: JSON.stringify({ error: planGateRefusal }),
+            tool_name: tc.function.name, tool_input: storedToolInput(tc.id, tc.function.arguments),
+            tool_output: planGateRefusal, tool_status: 'error', is_error: 1,
+          })
+        }
+        stream?.emit('tool.completed', {
+          session_id: sessionId, run_id: opts.run_id, tool_call_id: tc.id,
+          tool_name: tc.function.name, tool_output: planGateRefusal, tool_status: 'error', duration_ms: 0,
+        })
+        newMessages.push(toolMessage)
+      }
+      // 只保留可建立计划/目标的控制动作继续路由；普通工具本轮不执行。
+      toolCallsAcc.splice(0, toolCallsAcc.length, ...kept)
+      if (toolCallsAcc.length === 0) {
+        return {
+          type: 'tool_calls_executed',
+          messages: newMessages, fullText, reasoningText,
+          toolCalls: [], totalInputTokens, totalOutputTokens,
+          totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
+        }
+      }
+    }
+  }
+
   // P0-3 项3 解独占：toolCallRecords 前移，供混合路径（普通工具先执行）与尾部共用。
   const toolCallRecords: ToolCallRecord[] = []
+  // 控制动作集合在闸门之后重算：被闸门拒绝的调用已从 toolCallsAcc 移除。
+  const controlCalls = toolCallsAcc.filter(tc => CONTROL_TOOL_SET.has(tc.function.name))
+  const delegateCalls = toolCallsAcc.filter(tc => tc.function.name === 'delegate_to_agent')
 
   // 仍整批拒绝（协议语义不可调和）：
   //   - 同轮多个控制动作互斥（submit_result/ask_user/create_plan 等语义冲突）
@@ -938,6 +1036,19 @@ export async function innerLoop(
     }
   }
 
+  const discardPlanCall = toolCallsAcc.find(tc => tc.function.name === 'discard_plan')
+  if (discardPlanCall) {
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(discardPlanCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + discardPlanCall.function.name + '): ' + (err?.message || err)) }
+    return {
+      type: 'discard_plan',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
+      toolCallRecords,
+      controlReason: typeof args.reason === 'string' ? args.reason.trim() : undefined,
+    }
+  }
+
   const createGoalCall = toolCallsAcc.find(tc => tc.function.name === 'create_goal')
   if (createGoalCall) {
     let args: Record<string, unknown> = {}
@@ -976,6 +1087,19 @@ export async function innerLoop(
       toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
       toolCallRecords,
       goalCompleteSummary: typeof args.summary === 'string' ? args.summary.trim() : undefined,
+    }
+  }
+
+  const cancelGoalCall = toolCallsAcc.find(tc => tc.function.name === 'cancel_goal')
+  if (cancelGoalCall) {
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(cancelGoalCall.function.arguments) } catch (err: any) { throw new Error('Internal error: control tool arguments failed to parse after canonicalization (' + cancelGoalCall.function.name + '): ' + (err?.message || err)) }
+    return {
+      type: 'cancel_goal',
+      messages: newMessages, fullText, reasoningText,
+      toolCalls: toolCallsAcc, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, lastInputTokens: result.usage?.input,
+      toolCallRecords,
+      controlReason: typeof args.reason === 'string' ? args.reason.trim() : undefined,
     }
   }
 

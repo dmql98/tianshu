@@ -212,5 +212,5 @@ export const ALL_KNOWN_EVENTS = [
   'message.delta', 'message.metrics', 'message.created', 'tool.started', 'tool.completed', 'tool.output',
   'approval.requested', 'ask_user', 'usage', 'strategy.updated', 'sub_agent.started',
   'session:new', 'event:status_changed', 'evolution:insight_created', 'workspace.updated',
-  'plan.created', 'plan.step.updated', 'goal.created', 'goal.status.changed', 'goal.paused',
+  'plan.created', 'plan.step.updated', 'plan.cancelled', 'goal.created', 'goal.status.changed', 'goal.paused',
 ] as const

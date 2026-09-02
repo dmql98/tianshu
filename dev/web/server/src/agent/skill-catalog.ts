@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, rmSync } from 'fs'
-import { extname, join, relative, resolve, sep } from 'path'
+import { basename, extname, join, relative, resolve, sep } from 'path'
 import { skillsRoot as userSkillsRoot } from '../data-paths.js'
 import { builtinContentRoot, type ContentSource } from '../content/paths.js'
 import { mergeById, type ContentOriginFields } from '../content/catalog.js'
@@ -125,6 +125,42 @@ function readSkill(path: string): { body: string; meta: Record<string, unknown> 
   return { body: stripFrontmatter(content), meta: parseSkillFrontmatter(content) }
 }
 
+/**
+ * 读取无 skill-package.json 的 Agent Skills 标准格式目录。
+ * 从 SKILL.md frontmatter 自动构建 SkillPackageRecord。
+ * 返回 null 表示目录不含有效 Agent Skill。
+ */
+function readAgentSkill(category: string, dir: string): SkillPackageRecord | null {
+  const skillMdPath = join(dir, 'SKILL.md')
+  if (!existsSync(skillMdPath)) return null
+
+  const content = readFileSync(skillMdPath, 'utf-8')
+  const meta = parseSkillFrontmatter(content)
+  const body = stripFrontmatter(content)
+  const name = (meta.name as string) || basename(dir)
+  const slug = name.toLowerCase().replace(/[^\w\s.-]/g, '').replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+
+  const packageFiles = listFiles(dir)
+
+  return {
+    schemaVersion: 1,
+    id: slug,
+    name,
+    version: (meta.version as string) || '1.0.0',
+    category,
+    description: (meta.description as string) || '',
+    tags: strings(meta.tags),
+    root: 'SKILL.md',
+    children: [],
+    dir,
+    rootBody: body,
+    files: packageFiles,
+    source: 'user',
+    readOnly: false,
+    overridesBuiltin: false,
+  }
+}
+
 function readPackage(category: string, dir: string): SkillPackageRecord {
   const raw = JSON.parse(readFileSync(join(dir, 'skill-package.json'), 'utf-8')) as Record<string, any>
   if (raw.schemaVersion !== 1) throw new Error('schemaVersion must be 1')
@@ -197,6 +233,21 @@ export function scanSkillPackages(root: string, source: 'builtin' | 'user'): Ski
         if (!entry.isDirectory()) continue
         const dir = join(categoryDir, entry.name)
         if (!existsSync(join(dir, 'skill-package.json'))) {
+          // Agent Skills 标准格式兼容：无 skill-package.json 时，从 SKILL.md frontmatter 自动构建
+          if (existsSync(join(dir, 'SKILL.md'))) {
+            try {
+              const pkg = readAgentSkill(category.name, dir)
+              if (pkg) {
+                pkg.source = source
+                pkg.readOnly = source === 'builtin'
+                pkg.overridesBuiltin = false
+                packages.push(pkg)
+                continue
+              }
+            } catch (error: any) {
+              console.warn(`[skill-catalog] Agent skill ${category.name}/${entry.name} failed: ${error.message}`)
+            }
+          }
           console.warn(`[skill-catalog] Ignoring non-package directory ${category.name}/${entry.name}`)
           continue
         }

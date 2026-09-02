@@ -18,6 +18,14 @@ import { resolveRunPolicy } from '../agent/loop/run-policy-resolver.js'
 import { normalizeCharacterRunPolicy } from '../agent/loop/run-policy.js'
 import { setHidden, readContentState } from '../content/state.js'
 import { restoreBuiltinCharacter } from '../content/copy-on-write.js'
+import {
+  listMemoryForView,
+  updateMemoryEntryById,
+  setMemoryEntryArchived,
+  permanentlyDeleteEntry,
+  readMemoryAudit,
+  type MemoryType,
+} from '../character/memory-store.js'
 
 /** Effective-policy preview used by the edit UI. True Run still resolves at
  *  creation from the pinned revision (§13.1). */
@@ -485,6 +493,58 @@ router.get('/:id/stats', (c) => {
   const sessionCount = (db.prepare('SELECT COUNT(*) as count FROM sessions WHERE character_id = ?').get(id) as any)?.count || 0
   const lastActive = (db.prepare('SELECT MAX(updated_at) as ts FROM sessions WHERE character_id = ?').get(id) as any)?.ts || null
   return c.json({ sessionCount, lastActive })
+})
+
+// ── 记忆浏览器（用户操作层，REST）────────────────────────────────────────────
+// 只暴露给前端 UI：浏览 / 编辑 / 归档恢复 / 永久删除 / 审计日志。
+// Agent 工具层不暴露 memory_delete；永久删除是「用户在前端手动操作」的专属路径。
+
+/** 记忆视图：全部条目（含归档）+ 统计。 */
+router.get('/:id/memory', (c) => {
+  const id = c.req.param('id')
+  if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
+  return c.json(listMemoryForView(id))
+})
+
+/** 编辑一条记忆（内容 / 类型）。 */
+router.patch('/:id/memory/:entryId', async (c) => {
+  const id = c.req.param('id')
+  const entryId = c.req.param('entryId')
+  if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
+  const body = await c.req.json().catch(() => ({})) as { content?: string; type?: MemoryType }
+  const result = updateMemoryEntryById(id, entryId, { content: body.content, type: body.type })
+  if (!result.ok) return c.json({ error: result.error }, 404)
+  return c.json(result)
+})
+
+/** 归档或恢复：body { archived: boolean }。 */
+router.post('/:id/memory/:entryId/archive', async (c) => {
+  const id = c.req.param('id')
+  const entryId = c.req.param('entryId')
+  if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
+  const body = await c.req.json().catch(() => ({})) as { archived?: boolean }
+  const archived = body.archived === true
+  const result = setMemoryEntryArchived(id, entryId, archived)
+  if (!result.ok) return c.json({ error: result.error }, 404)
+  return c.json(result)
+})
+
+/** 永久删除（仅用户前端操作；Agent 无此能力）。 */
+router.delete('/:id/memory/:entryId', (c) => {
+  const id = c.req.param('id')
+  const entryId = c.req.param('entryId')
+  if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
+  const result = permanentlyDeleteEntry(id, entryId)
+  if (!result.ok) return c.json({ error: result.error }, 404)
+  return c.json(result)
+})
+
+/** 记忆审计日志（Agent 写操作 + 用户操作统一入账）。 */
+router.get('/:id/memory/audit', (c) => {
+  const id = c.req.param('id')
+  if (!characterMetaStore.getById(id)) return c.json({ error: 'Not found' }, 404)
+  const limit = Number(c.req.query('limit')) || 200
+  return c.json({ entries: readMemoryAudit(id, limit) })
 })
 
 export default router

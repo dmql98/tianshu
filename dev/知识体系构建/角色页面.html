@@ -424,7 +424,6 @@ input[type=color].swatch::-moz-color-swatch{border:none;border-radius:6px}
 <div class="modal-mask" id="memModal"><div class="modal"><div class="modal-title">编辑记忆</div>
   <label class="modal-label">主题</label><input id="memEditSubject" class="search-input">
   <label class="modal-label">内容</label><textarea id="memEditContent" class="modal-textarea"></textarea>
-  <label class="modal-label">可见性</label><select id="memEditVis" class="search-input"><option value="private">私有 private</option><option value="group">分组 group</option><option value="user">用户 user</option></select>
   <div class="modal-actions"><button class="btn" data-act="memmodal">取消</button><button class="btn primary" data-act="mem:save">保存</button></div>
 </div></div>
 <script>
@@ -467,14 +466,14 @@ const state = { section:'character', charId:'char-xiaoshu', memChar:'char-xiaosh
 const MEMORIES = {
   'char-xiaoshu': {
     l1:[
-      { id:'m1', type:'preference', subject:'主题', key:'dark-mode', content:'用户偏好深色界面，但白天办公用浅色。', visibility:'private', status:'active', conf:.9, sens:'low', source:'手动设置', rev:1, ts:'3 天前' },
-      { id:'m2', type:'decision', subject:'交付方式', key:'zip-first', content:'知识库原型优先交付零构建单 HTML，确认后再落地 React 组件。', visibility:'private', status:'active', conf:.95, sens:'low', source:'会话 2024-08-24', rev:1, ts:'今天' },
-      { id:'m3', type:'fact', subject:'技术栈', key:'backend', content:'天枢后端为 Node.js + TypeScript（Hono），非 Python。', visibility:'private', status:'active', conf:1, sens:'low', source:'代码核实', rev:1, ts:'2 天前' },
-      { id:'m4', type:'constraint', subject:'依赖', key:'no-heavy-vec', content:'知识库不默认引入 Milvus/Neo4j；向量为可选本地增强。', visibility:'group', status:'active', conf:.95, sens:'low', source:'设计评审', rev:1, ts:'昨天' },
-      { id:'m5', type:'event', subject:'项目', key:'kb-v2', content:'文件知识库二期已开工，覆盖上传/分块/FTS+向量/RRF。', visibility:'group', status:'candidate', conf:.8, sens:'low', source:'提取器', rev:0, ts:'1 小时前' },
-      { id:'m6', type:'experience', subject:'检索', key:'hybrid-better', content:'混合检索（BM25+向量+RRF）优于单一召回，关键词明确场景 BM25 已够。', visibility:'private', status:'conflict', conf:.6, sens:'low', source:'提取器', rev:0, ts:'30 分钟前',
+      { id:'m1', type:'preference', subject:'主题', key:'dark-mode', content:'用户偏好深色界面，但白天办公用浅色。', status:'active', conf:.9, sens:'low', source:'手动设置', rev:1, ts:'3 天前' },
+      { id:'m2', type:'decision', subject:'交付方式', key:'zip-first', content:'知识库原型优先交付零构建单 HTML，确认后再落地 React 组件。', status:'active', conf:.95, sens:'low', source:'会话 2024-08-24', rev:1, ts:'今天' },
+      { id:'m3', type:'fact', subject:'技术栈', key:'backend', content:'天枢后端为 Node.js + TypeScript（Hono），非 Python。', status:'active', conf:1, sens:'low', source:'代码核实', rev:1, ts:'2 天前' },
+      { id:'m4', type:'constraint', subject:'依赖', key:'no-heavy-vec', content:'知识库不默认引入 Milvus/Neo4j；向量为可选本地增强。', status:'active', conf:.95, sens:'low', source:'设计评审', rev:1, ts:'昨天' },
+      { id:'m5', type:'event', subject:'项目', key:'kb-v2', content:'文件知识库二期已开工，覆盖上传/分块/FTS+向量/RRF。', status:'candidate', conf:.8, sens:'low', source:'提取器', rev:0, ts:'1 小时前' },
+      { id:'m6', type:'experience', subject:'检索', key:'hybrid-better', content:'混合检索（BM25+向量+RRF）优于单一召回，关键词明确场景 BM25 已够。', status:'conflict', conf:.6, sens:'low', source:'提取器', rev:0, ts:'30 分钟前',
         conflictWith:'旧结论「向量检索一定更好」' },
-      { id:'m7', type:'preference', subject:'沟通', key:'concise', content:'用户希望直接、务实、最小改动，不啰嗦。', visibility:'private', status:'superseded', conf:.9, sens:'low', source:'早期会话', rev:2, ts:'一周前',
+      { id:'m7', type:'preference', subject:'沟通', key:'concise', content:'用户希望直接、务实、最小改动，不啰嗦。', status:'superseded', conf:.9, sens:'low', source:'早期会话', rev:2, ts:'一周前',
         note:'已被 v2（含「不臆测、遇歧义提问」）取代' },
     ],
     l2:[
@@ -491,8 +490,7 @@ const MEMORIES = {
 };
 const LOADOUT = {
   'char-xiaoshu':[
-    { tool:'character_memory_search', desc:'读取自己的长尾记忆', on:true },
-    { tool:'group_memory_search', desc:'读取同组授权共享记忆', on:true },
+    { tool:'character_memory_search', desc:'读取自己的长尾记忆（角色自有）', on:true },
     { tool:'knowledge_search', desc:'按绑定搜索文件知识库', on:true },
     { tool:'knowledge_read', desc:'按 Chunk/Source 有限读取', on:true },
     { tool:'knowledge_list_sources', desc:'列出可访问知识源', on:true },
@@ -505,7 +503,7 @@ const AUDIT = [
   { ts:'14:02', actor:'用户', action:'批准记忆', target:'m5（知识库二期开工）', detail:'candidate → active' },
   { ts:'13:50', actor:'提取器', action:'写入候选', target:'m6（检索结论）', detail:'与 m4 冲突，留待用户确认' },
   { ts:'13:20', actor:'Run#4821', action:'搜索知识块', target:'退款政策.pdf#chunk_3', detail:'KB=产品手册库，命中 3 块' },
-  { ts:'11:10', actor:'研究员', action:'group_memory_search', target:'小枢/m4（依赖约束）', detail:'visibility=group，已授权' },
+  { ts:'11:10', actor:'研究员', action:'character_memory_search', target:'小枢/m4（依赖约束）', detail:'角色自有记忆，命中 1 条' },
   { ts:'09:31', actor:'用户', action:'删除知识源', target:'kb-research/旧竞品.pdf', detail:'软删除，索引与工具立即不可见' },
   { ts:'昨天', actor:'Provider', action:'外部向量', target:'—', detail:'未启用，无数据外发' },
 ];
@@ -545,7 +543,7 @@ function renderMemOverview(){
         <div class="field" style="margin-top:10px"><label>Memory 模式</label>
           <select data-memcfg="mode">${modes.map(m=>`<option ${c.mode===m[0]?'selected':''}>${m[0]}（${m[1]}）</option>`).join('')}</select></div>
         <div class="field"><label>快照 Token 预算</label><input type="number" value="${c.snapshotTokenBudget}" style="width:100px"><span class="tag">已用 ${c.usedTokens}</span></div>
-        <div class="field"><label>组共享默认</label><select data-memcfg="groupDefault">${['private','group','user'].map(v=>`<option ${c.groupDefault===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div class="merge-note">记忆严格角色自有：从写入起只属于当前角色，无组/项目共享作用域，任何其他角色不可读（01 §3 / §13）。</div>
         <div class="merge-note">新会话固定注入 Snapshot；当前会话产生的新记忆不改变已固定前缀（提升缓存命中，01 §7）。</div>
       </div></div>
       <div class="panel" style="height:auto"><div class="panel-head">L3 Snapshot</div><div class="panel-body">
@@ -563,7 +561,7 @@ function renderMemBrowser(){
   const items = list.map(x=>`
     <div class="mem-item">
       <div class="mem-top"><span class="mem-type">${x.type}</span><span class="mem-status ${x.status}">${x.status}</span>
-        <span class="badge ${x.visibility}">${x.visibility}</span><b>${esc(x.subject)}</b><span class="doc-sub">conf ${x.conf} · rev ${x.rev}</span></div>
+        <b>${esc(x.subject)}</b><span class="doc-sub">conf ${x.conf} · rev ${x.rev}</span></div>
       <div class="mem-content">${esc(x.content)}</div>
       ${x.conflictWith?`<div class="merge-note" style="color:var(--danger)">⚠ 与「${esc(x.conflictWith)}」冲突，未进入稳定 Snapshot，待用户确认。</div>`:''}
       ${x.note?`<div class="merge-note">${esc(x.note)}</div>`:''}
@@ -572,7 +570,6 @@ function renderMemBrowser(){
         ${x.status==='candidate'?`<button class="mini-btn on" data-act="mem:act:approve:${x.id}">${ic('check',12)} 批准</button>`:''}
         ${x.status==='conflict'?`<button class="mini-btn on" data-act="mem:act:resolve:${x.id}">解决冲突</button>`:''}
         <button class="mini-btn" data-act="mem:act:edit:${x.id}">编辑</button>
-        <button class="mini-btn" data-act="mem:act:visibility:${x.id}">可见性</button>
         <button class="mini-btn danger" data-act="mem:act:forget:${x.id}">${ic('trash',12)} 遗忘</button>
       </div>
     </div>`).join('');
@@ -594,26 +591,22 @@ function renderMemBinding(){
       <label class="switch"><input type="checkbox" data-loadout="${t.tool}" ${t.on?'checked':''}><span class="slider"></span></label>
     </div>`).join('');
   const bound = KBS.filter(k=>k.access==='global'||k.binding.includes(c.role)||c.id==='char-xiaoshu').map(k=>`<span class="badge ${k.access}">${esc(k.name)}</span>`).join('')||'<span class="muted">无</span>';
-  const groupRead = c.groupDefault==='group' || c.groupDefault==='user';
   const matrix = [
-    { scope:'自己的 private 记忆', ok:true },
-    { scope:'自己的 group 记忆', ok:true },
-    { scope:`同组 group 记忆（当前${groupRead?'已授权':'未授权'}）`, ok:groupRead },
-    { scope:'其他角色 private 记忆', ok:false },
-    { scope:'其他角色组（默认隔离）', ok:false },
+    { scope:'本角色的记忆（角色自有，唯一作用域）', ok:true },
+    { scope:'其他角色的记忆', ok:false },
     { scope:'已绑定知识库文件', ok:true },
     { scope:'未绑定知识库文件', ok:false },
   ];
   const mrows = matrix.map(r=>`<tr><td style="text-align:left">${esc(r.scope)}</td>
     <td class="${r.ok?'eval-good':'eval-bad'}">${r.ok?'✓ 允许':'✗ 禁止'}</td></tr>`).join('');
-  return `<div class="note-box">${ic('shield',14)} 角色工具按权限装配（03 §2）；权限过滤发生在 Repository/Retrieval 层，不依赖模型遵守提示词（03 §3）。禁止把组记忆或知识库正文默认注入系统提示词。</div>
+  return `<div class="note-box">${ic('shield',14)} 角色工具按权限装配（03 §2）；权限过滤发生在 Repository/Retrieval 层，不依赖模型遵守提示词（03 §3）。记忆为角色自有，不存在组/项目共享作用域；知识库正文不默认注入系统提示词。</div>
     <div class="section-title">${ic('robot',14)} Character Tool Loadout</div>
     <div class="loadout">${rows}</div>
     <div class="section-title" style="margin-top:16px">${ic('knowledge',14)} 已绑定知识库</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${bound}</div>
     <div class="section-title" style="margin-top:18px">${ic('shield',14)} 权限矩阵（03 §3）</div>
     <table class="eval-table"><thead><tr><th style="text-align:left">访问范围</th><th>结果</th></tr></thead><tbody>${mrows}</tbody></table>
-    <div class="note-box" style="margin-top:14px">跨角色越权率为零验收项：B 无权限时无法读取 A 的 private 记忆；B 需经 Binding 才能搜索知识文件（03 §9）。</div>`;
+    <div class="note-box" style="margin-top:14px">跨角色越权率为零验收项：B 无权限时无法读取 A 的任何记忆；B 需经 Binding 才能搜索知识文件（03 §9）。</div>`;
 }
 function renderMemAudit(){
   const filts=[['all','全部'],['用户','用户'],['提取器','提取器'],['Run','Run'],['Provider','Provider']];
@@ -622,7 +615,7 @@ function renderMemAudit(){
   const rows = list.map(a=>`
     <div class="audit-row"><span class="at">${esc(a.ts)}</span><span class="aa">${esc(a.action)}</span>
       <span><b>${esc(a.actor)}</b> → ${esc(a.target)}</span><span class="doc-sub">${esc(a.detail)}</span></div>`).join('');
-  return `<div class="note-box">${ic('shield',14)} 统一审计（03 §5）：记录创建/批准/删除、组工具读取、Run 搜索命中、Provider 外发。不保存密钥与完整敏感正文。</div>
+  return `<div class="note-box">${ic('shield',14)} 统一审计（03 §5）：记录创建/批准/删除、工具读取、Run 搜索命中、Provider 外发。不保存密钥与完整敏感正文。</div>
     <div class="kpi-row">${sum}</div>
     <div class="seg" style="margin-bottom:12px">${filts.map(f=>`<button class="${state.auditFilter===f[0]?'active':''}" data-act="audit:filter:${f[0]}">${f[1]}（${f[0]==='all'?AUDIT.length:AUDIT.filter(a=>a.actor.startsWith(f[0])).length}）</button>`).join('')}</div>
     <div class="section-title">审计日志</div>
@@ -630,37 +623,37 @@ function renderMemAudit(){
 }
 /* ===================== 数据：角色 / 皮肤 ===================== */
 const CHARACTERS = [
-  { id:'char-xiaoshu', name:'小枢', description:'天枢默认通用助手，负责跨模块协调与记忆管理演示。', color:'#c8960a', role:'both', enabled:true, default_strategy:'Review', groups:['general'], groupDefault:'group', skinId:'xiaohong', snapshotTokenBudget:1200, usedTokens:842, lastSnapshot:'v12 · 2 小时前',
+  { id:'char-xiaoshu', name:'小枢', description:'天枢默认通用助手，负责跨模块协调与记忆管理演示。', color:'#c8960a', role:'both', enabled:true, default_strategy:'Review', groups:['general'], skinId:'xiaohong', snapshotTokenBudget:1200, usedTokens:842, lastSnapshot:'v12 · 2 小时前',
     tools:[{name:'bash'},{name:'read'},{name:'write'},{name:'websearch'},{name:'get_time'},{name:'skill_manager'}],
     skills:['content-writer'], skillBindings:['content-writer'],
     memory:{enabled:true,charLimit:2000,selfEvolution:false},
     soul:'你是天枢的通用助手小枢，耐心、严谨、以用户目标为先。', userProfile:'用户偏好简洁直接的沟通。', memoryContent:'', customPrompt:'',
     stats:{sessionCount:342, lastActive:Date.now()-1800e3} },
-  { id:'xiaohong', name:'小红', description:'营销内容创作助手。', color:'#ef4444', role:'main', enabled:true, default_strategy:'Auto Approve', groups:['marketing'], groupDefault:'group', skinId:'xiaohong',
+  { id:'xiaohong', name:'小红', description:'营销内容创作助手。', color:'#ef4444', role:'main', enabled:true, default_strategy:'Auto Approve', groups:['marketing'], skinId:'xiaohong',
     tools:[{name:'bash'},{name:'read'},{name:'write'},{name:'websearch'}], skills:[], skillBindings:[],
     memory:{enabled:true,charLimit:2000,selfEvolution:false}, soul:'', userProfile:'', memoryContent:'', customPrompt:'',
     stats:{sessionCount:88, lastActive:Date.now()-86400e3} },
-  { id:'ram', name:'雷姆', description:'rezero 组蓝发女仆，家务全能、战斗力爆表。', color:'#ec4899', role:'both', enabled:true, default_strategy:'Auto Approve', groups:['rezero'], groupDefault:'group', skinId:'ram',
+  { id:'ram', name:'雷姆', description:'rezero 组蓝发女仆，家务全能、战斗力爆表。', color:'#ec4899', role:'both', enabled:true, default_strategy:'Auto Approve', groups:['rezero'], skinId:'ram',
     tools:[{name:'bash'},{name:'read'},{name:'write'},{name:'websearch'},{name:'get_time'}], skills:[], skillBindings:[],
     memory:{enabled:true,charLimit:1500,selfEvolution:true}, soul:'', userProfile:'', memoryContent:'', customPrompt:'',
     stats:{sessionCount:210, lastActive:Date.now()-7200e3} },
-  { id:'taro', name:'太郎', description:'研究型子 Agent，负责资料检索与综述。', color:'#3b82f6', role:'sub', enabled:true, default_strategy:'Read Only', groups:['research'], groupDefault:'private', skinId:null,
+  { id:'taro', name:'太郎', description:'研究型子 Agent，负责资料检索与综述。', color:'#3b82f6', role:'sub', enabled:true, default_strategy:'Read Only', groups:['research'], skinId:null,
     tools:[{name:'websearch'},{name:'webfetch'},{name:'read'}], skills:['web-researcher'], skillBindings:['web-researcher'],
     memory:{enabled:false,charLimit:2000,selfEvolution:false}, soul:'', userProfile:'', memoryContent:'', customPrompt:'',
     stats:{sessionCount:54, lastActive:Date.now()-3600e3*5} },
-  { id:'ui-designer', name:'UI设计师', description:'前端与界面设计专家。', color:'#8b5cf6', role:'main', enabled:true, default_strategy:'Review', groups:['design'], groupDefault:'group', skinId:'ui-designer',
+  { id:'ui-designer', name:'UI设计师', description:'前端与界面设计专家。', color:'#8b5cf6', role:'main', enabled:true, default_strategy:'Review', groups:['design'], skinId:'ui-designer',
     tools:[{name:'read'},{name:'write'},{name:'bash'}], skills:['code-reviewer'], skillBindings:['code-reviewer'],
     memory:{enabled:true,charLimit:2000,selfEvolution:false}, soul:'', userProfile:'', memoryContent:'', customPrompt:'',
     stats:{sessionCount:131, lastActive:Date.now()-3600e3*12} },
-  { id:'yi', name:'易', description:'数据分析与报表助手。', color:'#14b8a6', role:'both', enabled:true, default_strategy:'Review', groups:['data'], groupDefault:'group', skinId:'yi',
+  { id:'yi', name:'易', description:'数据分析与报表助手。', color:'#14b8a6', role:'both', enabled:true, default_strategy:'Review', groups:['data'], skinId:'yi',
     tools:[{name:'bash'},{name:'read'},{name:'write'}], skills:['data-analyst'], skillBindings:['data-analyst'],
     memory:{enabled:true,charLimit:2000,selfEvolution:false}, soul:'', userProfile:'', memoryContent:'', customPrompt:'',
     stats:{sessionCount:77, lastActive:Date.now()-3600e3*3} },
-  { id:'ziwei', name:'紫微', description:'知识治理与权限审计助手。', color:'#d4a017', role:'both', enabled:false, default_strategy:'Review', groups:['governance'], groupDefault:'private', skinId:null,
+  { id:'ziwei', name:'紫微', description:'知识治理与权限审计助手。', color:'#d4a017', role:'both', enabled:false, default_strategy:'Review', groups:['governance'], skinId:null,
     tools:[{name:'read'},{name:'grep'}], skills:[], skillBindings:[],
     memory:{enabled:true,charLimit:2000,selfEvolution:false}, soul:'', userProfile:'', memoryContent:'', customPrompt:'',
     stats:{sessionCount:19, lastActive:Date.now()-3600e3*30} },
-  { id:'coder', name:'程序员', description:'通用编码助手。', color:'#0ea5e9', role:'both', enabled:true, default_strategy:'Auto Approve', groups:['eng'], groupDefault:'group', skinId:null,
+  { id:'coder', name:'程序员', description:'通用编码助手。', color:'#0ea5e9', role:'both', enabled:true, default_strategy:'Auto Approve', groups:['eng'], skinId:null,
     tools:[{name:'bash'},{name:'read'},{name:'write'},{name:'edit'},{name:'glob'}], skills:['code-reviewer'], skillBindings:['code-reviewer'],
     memory:{enabled:true,charLimit:2000,selfEvolution:false}, soul:'', userProfile:'', memoryContent:'', customPrompt:'',
     stats:{sessionCount:265, lastActive:Date.now()-600e3} },
@@ -769,7 +762,7 @@ function renderCharBasic(c){
               <span class="color-preview"><span class="cp-avatar" style="background:${esc(c.color)}">${esc(charInitial(c))}</span><span class="cp-tag" style="color:${esc(c.color)};border-color:${esc(c.color)}66;background:${esc(c.color)}14">${esc(c.id)}</span></span>
             </div>
           </div>
-          <div class="field full"><label>分组<span class="label-hint">影响记忆共享范围与知识库绑定</span></label>
+          <div class="field full"><label>分组<span class="label-hint">角色归类标签，不影响记忆访问（记忆严格角色自有）</span></label>
             <div class="chips">${(c.groups||[]).map(g=>`<span class="chip">${esc(g)} <button data-act="char:group:remove:${g}">×</button></span>`).join('')}<input class="chip-input" placeholder="输入后回车" data-act="char:group:add"></div>
           </div>
         </div>
@@ -935,11 +928,10 @@ document.addEventListener('click', e=>{
       if(sub==='approve'){ x.status='active'; x.note='已由用户批准，进入稳定 Snapshot。'; }
       else if(sub==='resolve'){ x.status='active'; x.conflictWith=null; x.note='用户已解决冲突，采纳新结论。'; }
       else if(sub==='forget'){ m.l1=m.l1.filter(z=>z.id!==mid); }
-      else if(sub==='visibility'){ const order=['private','group','user']; x.visibility=order[(order.indexOf(x.visibility)+1)%3]; }
       else if(sub==='edit'){ openMemEdit(mid); return; }
       renderBody();
     }
-    else if(a1==='save'){ const id=$('memModal').dataset.id; const x=MEMORIES[state.memChar].l1.find(z=>z.id===id); if(x){ x.subject=$('memEditSubject').value; x.content=$('memEditContent').value; x.visibility=$('memEditVis').value; } $('memModal').classList.remove('show'); renderBody(); }
+    else if(a1==='save'){ const id=$('memModal').dataset.id; const x=MEMORIES[state.memChar].l1.find(z=>z.id===id); if(x){ x.subject=$('memEditSubject').value; x.content=$('memEditContent').value; } $('memModal').classList.remove('show'); renderBody(); }
   }
   else if(act==='memmodal'){ $('memModal').classList.remove('show'); }
   else if(act==='theme'){ const r=document.documentElement; r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'; }
@@ -950,7 +942,6 @@ function openMemEdit(id){
   const x=m.l1.find(z=>z.id===id); if(!x) return;
   $('memEditSubject').value=x.subject||'';
   $('memEditContent').value=x.content||'';
-  $('memEditVis').value=x.visibility||'private';
   $('memModal').dataset.id=id;
   $('memModal').classList.add('show');
 }

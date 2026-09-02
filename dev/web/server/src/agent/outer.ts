@@ -1,7 +1,7 @@
 import { sessionStore } from '../db/sessionStore.js'
 import { messageStore } from '../db/messageStore.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
-import { characterMetaStore, type CharacterRecord } from '../db/characterStore.js'
+import { characterMetaStore, resolveMemoryMode, type CharacterRecord } from '../db/characterStore.js'
 import { providerStore, resolveProviderApiStyle } from '../db/providerStore.js'
 import { characterContentStore } from '../character/store.js'
 import { detectInsight } from '../evolution/index.js'
@@ -32,7 +32,7 @@ import {
 } from './loop/context-builder.js'
 import { compactWithRetries } from './loop/context-compactor.js'
 import { runLoopEngine } from './loop/loop-engine.js'
-import { getControlToolDefinitions } from './loop/control-registry.js'
+import { selectControlToolDefinitions } from './loop/control-registry.js'
 import { goalStore } from './plan/plan-store.js'
 import { sessionSkillStore } from './session-skill-store.js'
 import { resolveRunPolicy } from './loop/run-policy-resolver.js'
@@ -106,7 +106,9 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   }
   const maxTurns = runPolicy.effective.absoluteTurns
 
-  const toolDefs = getCharacterToolDefinitions(charMeta.tools)
+  // 普通工具：记忆工具由 memoryMode、skill_manager 由技能列表，统一在
+  // definitions.ts 内按状态门控（均不纳入「工具管理」开关）。
+  const toolDefs = getCharacterToolDefinitions(charMeta.tools, resolveMemoryMode(charMeta.memory), charMeta.skills)
 
   const mcpClients = new Map<string, MCPClient>()
   const mcpFailedServers: string[] = []
@@ -171,8 +173,11 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     return targets.includes(c.id)
   })
   // Control actions (delegate_to_agent / submit_result / ask_user) are always
-  // visible to the model, separate from the ordinary tool registry.
-  toolDefs.push(...getControlToolDefinitions() as any[])
+  // visible to the model, separate from the ordinary tool registry. 其中依赖
+  // 运行时能力的两项按状态门控（selectControlToolDefinitions，不纳入「工具管理」开关）：
+  //   - delegate_to_agent / send_message_to_subagent：可委托列表为空 → 不注入
+  //     （没有可委托角色时，模型不应看到委派工具）。
+  toolDefs.push(...selectControlToolDefinitions({ hasDelegateTargets: delegateTargets.length > 0 }) as any[])
   if (delegateTargets.length > 0) {
     for (const t of toolDefs) {
       if (t.function.name === 'delegate_to_agent') {
@@ -213,12 +218,14 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   // Memory + compaction summary at fixed positions so prefix cache stays stable
   // P2-8: 按 compaction_until_id 水位读取，取消 2000 行硬上限（未被压缩的旧消息
   // 超过 2000 条时不得被静默丢弃）。
-  const memoryEnabled = charMeta.memory?.enabled !== false
+  const memoryMode = resolveMemoryMode(charMeta.memory)
+  const memoryEnabled = memoryMode !== 'off'
   const messages: LLMMessage[] = await buildInitialMessages({
     characterId: sessionId,
     systemPrompt,
     memory: memoryEnabled ? (charContent.memory || null) : null,
     memoryEnabled,
+    memoryMode,
     compactionSummary: session.compaction_summary || null,
     rows: messageStore.getMessagesAfter(sessionId, session.compaction_until_id || 0, 100000),
     compactionUntilId: session.compaction_until_id || 0,
@@ -301,6 +308,7 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     session,
     executionMode,
     goal: activeGoal,
+    hasDelegateTargets: delegateTargets.length > 0,
   })
   const { totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn } = loopResult
   let limitSummary = loopResult.limitSummary

@@ -11,7 +11,7 @@ import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-c
 import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults, MAX_OVERFLOW_COMPACTS, type CompactPolicy } from './loop-policy.js'
 import { compactWithRetries, selectAndSummarize } from './context-compactor.js'
 import { isContextOverflowError } from '../../llm/client.js'
-import { handleSubAgentBatchRequest, handleSubAgentMessageRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleCreateGoal, handleGetGoal, handleCompleteGoal } from './control-router.js'
+import { handleSubAgentBatchRequest, handleSubAgentMessageRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleDiscardPlan, handleCreateGoal, handleGetGoal, handleCompleteGoal, handleCancelGoal } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
 import type { RunPolicySnapshot } from './run-policy.js'
@@ -55,6 +55,8 @@ export interface LoopEngineContext {
   opts: { thinking?: boolean; reasoning_effort?: string }
   executionMode: 'direct' | 'plan_first' | 'goal'
   goal?: GoalRow | null
+  /** 可委托子 agent 列表是否非空（outer.ts 按角色过滤后传入，驱动委派提示注入）。 */
+  hasDelegateTargets: boolean
   session: {
     id: string
     character_id: string
@@ -128,7 +130,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     sessionId, runId, stream, broadcaster, signal, provider, model, characterId,
     workspace, workspaces, cap, tools, mcpClients,
     contextWindow, compactPolicy, maxTurns, policy, messages, composeCtx, opts, session,
-    executionMode, goal,
+    executionMode, goal, hasDelegateTargets,
   } = ctx
 
   let turn = 0
@@ -158,9 +160,6 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     '[Policy Delegation] 你已配置可委托角色（详见 delegate_to_agent 工具的 targets 列表，含各角色简介）。' +
     '遇到可自包含、可并行的子任务时，主动用 delegate_to_agent 把子任务委派给子 agent 并行处理——这是处理大任务最快的方式；是否委派、委派给谁由你判断。'
   const sessRow0 = sessionStore.getById(sessionId)
-  const delegatableTargets = !!sessRow0?.targets && (() => {
-    try { return (JSON.parse(sessRow0.targets) as unknown[]).length > 0 } catch { return false }
-  })()
   const isTopLevelSession = !sessRow0?.parent_id
   // Pin the plan to this Run. Once its last step completes its DB status is no
   // longer "active", but submit_result must still validate that same plan.
@@ -240,8 +239,8 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     } else {
       const steps = planStore.steps(plan.id)
       const planRule = policyLabel === 'Direct'
-        ? '\n这是可选计划：可以继续按计划推进，也可以直接完成任务；若推进计划，请用 update_plan_step 同步状态。'
-        : '\n开始步骤前调用 update_plan_step 标记 in_progress；验证完成后调用 update_plan_step 标记 completed 并附 evidence。'
+        ? '\n这是可选计划：可以继续按计划推进，也可以直接完成任务；若推进计划请用 update_plan_step 同步状态。若任务方向已变、不再需要该计划，可用 discard_plan 放弃（挂起中的目标用 cancel_goal 取消），不必为完成而完成。'
+        : '\n开始步骤前调用 update_plan_step 标记 in_progress；验证完成后调用 update_plan_step 标记 completed 并附 evidence。若该计划已不适用，可用 discard_plan 放弃后重建新计划。'
       const planAlert =
         `[Policy ${policyLabel}] 当前计划 v${plan.version}：\n` +
         steps.map(step => `${step.ordinal}. [${step.status}] ${step.title}${step.verification ? `（验证：${step.verification}）` : ''}`).join('\n') +
@@ -257,8 +256,8 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       composeCtx.systemAlerts!.push(directModeAlert)
       lastModeAlert = directModeAlert
     }
-    // 委派策略提示：仅顶层会话 + 配置了可委托 targets 时，任何执行模式都注入（变化才注入）。
-    if (delegatableTargets && isTopLevelSession && delegationPolicyAlert !== lastDelegationAlert) {
+    // 委派策略提示：仅顶层会话 + 存在可委托 targets（与 delegate 工具注入一致）时，任何执行模式都注入（变化才注入）。
+    if (hasDelegateTargets && isTopLevelSession && delegationPolicyAlert !== lastDelegationAlert) {
       composeCtx.systemAlerts!.push(delegationPolicyAlert)
       lastDelegationAlert = delegationPolicyAlert
     }
@@ -507,6 +506,26 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
       continue
     }
 
+    if (result.type === 'discard_plan') {
+      const outcome = await handleDiscardPlan({ result, sessionId, runId, stream })
+      messages.push(...outcome.messages)
+      if (outcome.discarded) {
+        // Drop the pinned plan so the cancelled plan stops being re-injected
+        // this run; the next run pins nothing (getActive → null).
+        currentPlanId = null
+        lastPlanAlert = ''
+        planSnapshot = new Map()
+        // A deliberate exit from the plan is progress, not a stall.
+        if (dynamic) {
+          runtime.consecutiveNoProgress = 0
+          runtime.consecutiveWeakOnly = 0
+          runtime.lastStrongProgressTurn = turn
+          prevFingerprint = undefined
+        }
+      }
+      continue
+    }
+
     if (result.type === 'update_plan_step') {
       const outcome = await handleUpdatePlanStep({ result, sessionId, runId, stream })
       messages.push(...outcome.messages)
@@ -541,6 +560,18 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
 
     if (result.type === 'complete_goal') {
       const outcome = await handleCompleteGoal({ result, sessionId, runId, stream })
+      messages.push(...outcome.messages)
+      if (dynamic) {
+        runtime.consecutiveNoProgress = 0
+        runtime.consecutiveWeakOnly = 0
+        runtime.lastStrongProgressTurn = turn
+        prevFingerprint = undefined
+      }
+      continue
+    }
+
+    if (result.type === 'cancel_goal') {
+      const outcome = await handleCancelGoal({ result, sessionId, runId, stream })
       messages.push(...outcome.messages)
       if (dynamic) {
         runtime.consecutiveNoProgress = 0

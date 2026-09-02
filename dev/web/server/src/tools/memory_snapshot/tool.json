@@ -1,0 +1,19 @@
+{
+  "name": "memory_snapshot",
+  "description": "Batch-write the current conversation's valuable discoveries into memory (dedup + compact + format inside). Preferred write entry. Injected when memoryMode is editable.",
+  "source": "builtin",
+  "tags": ["memory"],
+  "version": "1.0.0",
+  "author": "TianShu",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "string",
+        "description": "One memory item per line; optional type| prefix (fact|preference|decision|note)"
+      }
+    },
+    "required": []
+  }
+}

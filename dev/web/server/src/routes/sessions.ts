@@ -4,7 +4,7 @@ import { messageStore } from '../db/messageStore.js'
 import { getDb } from '../db/schema.js'
 import { withTransaction } from '../db/sqlite-db.js'
 import { providerStore, resolveProviderApiStyle } from '../db/providerStore.js'
-import { characterMetaStore } from '../db/characterStore.js'
+import { characterMetaStore, resolveMemoryMode } from '../db/characterStore.js'
 import { characterContentStore } from '../character/store.js'
 import { getDataDir } from '../config.js'
 import { fallbackSessionTitle, generateSessionTitle } from '../agent/session-title.js'
@@ -204,7 +204,7 @@ router.post('/:id/compact', async (c) => {
   const contextWindow = modelConfig?.context_window || DEFAULT_CONTEXT_WINDOW
   const compactPolicy = resolveCompactPolicy(modelConfig)
   const cap = resolveCapability(model, modelConfig?.supports_vision)
-  const toolDefs = getCharacterToolDefinitions(charMeta.tools)
+  const toolDefs = getCharacterToolDefinitions(charMeta.tools, resolveMemoryMode(charMeta.memory), charMeta.skills)
 
   const systemPrompt = assembleStaticPrompt(
     charMeta,
@@ -213,12 +213,14 @@ router.post('/:id/compact', async (c) => {
     resolveWorkspace(session.workspace),
     getDataDir(),
   )
-  const memoryEnabled = charMeta.memory?.enabled !== false
+  const memoryMode = resolveMemoryMode(charMeta.memory)
+  const memoryEnabled = memoryMode !== 'off'
   const messages = await buildInitialMessages({
     characterId: session.id,
     systemPrompt,
     memory: memoryEnabled ? (charContent.memory || null) : null,
     memoryEnabled,
+    memoryMode,
     compactionSummary: session.compaction_summary || null,
     rows: messageStore.getMessagesAfter(id, session.compaction_until_id || 0, 100000),
     compactionUntilId: session.compaction_until_id || 0,

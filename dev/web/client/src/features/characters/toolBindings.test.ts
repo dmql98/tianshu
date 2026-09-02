@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { dedupeToolBindings, getUnboundTools, toToolBindingName } from './toolBindings'
+import { dedupeToolBindings, getUnboundTools, isAutoManagedTool, toToolBindingName } from './toolBindings'
 
 describe('character tool bindings', () => {
+  it('marks auto-managed tools (memory / skill_manager) so UI can hide them', () => {
+    for (const name of ['memory_read', 'memory_write', 'memory_update', 'memory_archive', 'memory_snapshot']) {
+      expect(isAutoManagedTool(name)).toBe(true)
+    }
+    expect(isAutoManagedTool('skill_manager')).toBe(true)
+    expect(isAutoManagedTool('read')).toBe(false)
+    expect(isAutoManagedTool('bash')).toBe(false)
+  })
+
+  it('excludes auto-managed tools from unbound candidates', () => {
+    const candidates = [
+      { name: 'read', source: 'builtin' },
+      { name: 'skill_manager', source: 'builtin' },
+      { name: 'memory_read', source: 'builtin' },
+      { name: 'bash', source: 'builtin' },
+    ]
+    const unbound = getUnboundTools(candidates, []).filter(c => !isAutoManagedTool(c.name))
+    expect(unbound.map(c => c.name)).toEqual(['read', 'bash'])
+  })
+
   it('uses the persisted mcp: prefix for MCP candidates', () => {
     expect(toToolBindingName('filesystem', 'mcp')).toBe('mcp:filesystem')
     expect(toToolBindingName('mcp:filesystem', 'mcp')).toBe('mcp:filesystem')

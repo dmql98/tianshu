@@ -423,6 +423,62 @@ export async function handleCreatePlan(input: {
   return { kind: 'continue', messages: [toolMessage], planCreated: true, planId: plan.id }
 }
 
+export interface DiscardPlanOutcome {
+  kind: 'continue'
+  messages: LLMMessage[]
+  discarded: boolean
+}
+
+/**
+ * discard_plan: cancel the active plan (status → 'cancelled'). The loop then
+ * drops its pinned plan reference, so the plan render stops being injected and
+ * no longer gates the run. Emits plan.cancelled for client-side refresh.
+ */
+export async function handleDiscardPlan(input: {
+  result: InnerResult
+  sessionId: string
+  runId: string
+  stream: TransportBroadcaster
+}): Promise<DiscardPlanOutcome> {
+  const { result, sessionId, runId, stream } = input
+  const discardCall = result.toolCalls?.find(tc => tc.function.name === 'discard_plan')
+  const toolCallId = discardCall?.id || `plan_discard_${Date.now()}`
+  const reason = result.controlReason || ''
+  const activePlan = planStore.getActive(sessionId)
+  if (!activePlan) {
+    const errMsg = 'discard_plan rejected: 当前没有活动计划可放弃'
+    const toolMessage: LLMMessage = { role: 'tool', content: JSON.stringify({ error: errMsg }), tool_call_id: toolCallId }
+    messageStore.addMessage(sessionId, {
+      role: 'tool', content: JSON.stringify({ error: errMsg }),
+      tool_name: 'discard_plan', tool_input: JSON.stringify({ call_id: toolCallId }),
+      tool_output: errMsg, tool_status: 'error',
+    })
+    stream?.emit('tool.completed', {
+      session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
+      tool_name: 'discard_plan', tool_output: errMsg, tool_status: 'error', duration_ms: 0,
+    })
+    return { kind: 'continue', messages: [toolMessage], discarded: false }
+  }
+  const cancelled = planStore.cancelActive(sessionId)
+  const reasonSuffix = reason ? `：${reason}` : ''
+  const output = `已放弃计划 v${activePlan.version}（${planStore.steps(activePlan.id).length} 步，置为 cancelled）${reasonSuffix}。该计划不再注入上下文，也不再约束后续执行；需要时可重新 create_plan。`
+  const toolMessage: LLMMessage = { role: 'tool', content: JSON.stringify({ output }), tool_call_id: toolCallId }
+  messageStore.addMessage(sessionId, {
+    role: 'tool', content: JSON.stringify({ output }),
+    tool_name: 'discard_plan', tool_input: JSON.stringify({ call_id: toolCallId }),
+    tool_output: output, tool_status: 'success',
+  })
+  stream?.emit('tool.completed', {
+    session_id: sessionId, run_id: runId, tool_call_id: toolCallId,
+    tool_name: 'discard_plan', tool_output: output, tool_status: 'success', duration_ms: 0,
+  })
+  stream?.emit('plan.cancelled', {
+    session_id: sessionId, run_id: runId, plan_id: activePlan.id, version: activePlan.version,
+    status: cancelled?.status || 'cancelled', reason: reason || null,
+  })
+  return { kind: 'continue', messages: [toolMessage], discarded: true }
+}
+
 export interface GoalOutcome {
   kind: 'continue'
   messages: LLMMessage[]
@@ -528,6 +584,35 @@ export function handleCompleteGoal(input: {
   })
   const summary = result.goalCompleteSummary ? `\n摘要：${result.goalCompleteSummary}` : ''
   return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'complete_goal', toolCallId, `目标已完成：${latest.outcome}${summary}`)] }
+}
+
+/**
+ * cancel_goal: cancel the active/paused goal (status → 'cancelled'). The goal
+ * stops being injected and no longer gates final answers. Emits
+ * goal.status.changed so clients can refresh the goal card.
+ */
+export function handleCancelGoal(input: {
+  result: InnerResult
+  sessionId: string
+  runId: string
+  stream: TransportBroadcaster
+}): GoalOutcome {
+  const { result, sessionId, runId, stream } = input
+  const goalCall = result.toolCalls?.find(tc => tc.function.name === 'cancel_goal')
+  const toolCallId = goalCall?.id || `goal_cancel_${Date.now()}`
+  const reason = result.controlReason || ''
+  const goal = goalStore.listForSession(sessionId).find(g => g.status === 'active' || g.status === 'paused')
+  if (!goal) {
+    const errMsg = 'cancel_goal rejected: 当前没有进行中的目标（active/paused）'
+    return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'cancel_goal', toolCallId, errMsg, errMsg)] }
+  }
+  goalStore.update(goal.id, { status: 'cancelled' })
+  const reasonSuffix = reason ? `：${reason}` : ''
+  const summary = `已取消目标：${goal.outcome}${reasonSuffix}。该目标不再注入上下文，也不再要求完成；需要时可重新 create_goal 或 create_plan。`
+  stream?.emit('goal.status.changed', {
+    session_id: sessionId, run_id: runId, goal_id: goal.id, status: 'cancelled',
+  })
+  return { kind: 'continue', messages: [goalToolMessage(sessionId, runId, stream, 'cancel_goal', toolCallId, summary)] }
 }
 
 export interface SubmitResultOutcome {

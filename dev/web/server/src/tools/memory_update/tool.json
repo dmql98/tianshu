@@ -1,0 +1,19 @@
+{
+  "name": "memory_update",
+  "description": "Update an existing memory entry by id or content substring. Injected when memoryMode is editable.",
+  "source": "builtin",
+  "tags": ["memory"],
+  "version": "1.0.0",
+  "author": "TianShu",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string", "description": "Entry id (exact, preferred)" },
+      "match": { "type": "string", "description": "Content substring fallback" },
+      "content": { "type": "string", "description": "New content" },
+      "type": { "type": "string", "enum": ["fact", "preference", "decision", "note"] }
+    },
+    "required": ["content"]
+  }
+}

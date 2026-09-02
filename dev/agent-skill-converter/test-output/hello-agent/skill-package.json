@@ -1,0 +1,12 @@
+{
+  "source": "agent-skills",
+  "schemaVersion": 1,
+  "id": "hello-agent",
+  "name": "hello-agent",
+  "version": "1.0.0",
+  "category": "community",
+  "description": "A simple greeting skill for testing Agent Skills → 天枢 conversion",
+  "tags": [],
+  "root": "SKILL.md",
+  "children": []
+}

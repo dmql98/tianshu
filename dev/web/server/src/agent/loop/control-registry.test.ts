@@ -9,7 +9,7 @@
  * turn are allowed and run in parallel).
  */
 
-import { CONTROL_TOOL_NAMES, getControlToolDefinitions } from './control-registry.js'
+import { CONTROL_TOOL_NAMES, getControlToolDefinitions, selectControlToolDefinitions } from './control-registry.js'
 
 function assert(cond: unknown, message: string): asserts cond {
   if (!cond) throw new Error(`FAIL: ${message}`)
@@ -33,5 +33,18 @@ const delegate = defs.find(d => d.function.name === 'delegate_to_agent')
 assert(!!delegate, 'delegate_to_agent is defined')
 assert(!delegate!.function.description.includes('不能与其他控制动作或 delegate_to_agent'), 'delegate_to_agent must NOT carry exclusivity constraint')
 assert(delegate!.function.description.includes('连续调用'), 'delegate description mentions batched parallel calls')
+
+// ── 按运行时状态门控：无可委托列表时不注入委派工具（由状态自动推导，不属工具管理开关）──
+const noTargetDefs = selectControlToolDefinitions({ hasDelegateTargets: false })
+assert(!noTargetDefs.some(d => d.function.name === 'delegate_to_agent'), 'delegate_to_agent NOT injected when delegate targets empty')
+assert(!noTargetDefs.some(d => d.function.name === 'send_message_to_subagent'), 'send_message_to_subagent NOT injected when delegate targets empty')
+for (const name of CONTROL_TOOL_NAMES) {
+  if (name === 'send_message_to_subagent') continue
+  assert(noTargetDefs.some(d => d.function.name === name), `${name} still injected when delegate targets empty`)
+}
+
+const withTargetDefs = selectControlToolDefinitions({ hasDelegateTargets: true })
+assert(withTargetDefs.some(d => d.function.name === 'delegate_to_agent'), 'delegate_to_agent injected when delegate targets present')
+assert(withTargetDefs.some(d => d.function.name === 'send_message_to_subagent'), 'send_message_to_subagent injected when delegate targets present')
 
 console.log('ALL CONTROL-REGISTRY TESTS PASSED')

@@ -51,8 +51,14 @@ export const pauseGoal = (id: string) =>
 export const resumeGoal = (id: string) =>
   apiPost<{ goal: Goal; run_id: string }>(`/api/goals/${id}/resume`)
 
+export const cancelGoal = (id: string) =>
+  apiPost<Goal>(`/api/goals/${id}/cancel`)
+
 export const fetchActivePlan = (sessionId: string) =>
   apiGet<Plan | null>(`/api/goals/plan/${encodeURIComponent(sessionId)}`)
+
+export const discardActivePlan = (sessionId: string) =>
+  apiPost<Plan>(`/api/goals/plan/${encodeURIComponent(sessionId)}/discard`)
 
 export const patchGoal = (id: string, patch: Partial<Goal>) =>
   apiPatch<Goal>(`/api/goals/${id}`, patch)

@@ -1,4 +1,4 @@
-import { characterMetaStore, type CharacterRecord } from '../db/characterStore.js'
+import { characterMetaStore, resolveMemoryMode, type CharacterRecord } from '../db/characterStore.js'
 import { characterContentStore } from '../character/store.js'
 import { sessionStore } from '../db/sessionStore.js'
 import { innerLoop, type InnerResult } from './inner.js'
@@ -99,20 +99,25 @@ function buildSubAgentSystemPrompt(
   charContent: { soul: string; user: string; memory: string },
   taskHeader: string,
   hasTools: boolean,
-  memoryEnabled = true,
+  memoryMode: import('../db/characterStore.js').MemoryMode = 'editable',
 ): string[] {
   // 与主代理组装逻辑一致：每个 part 一条独立 system 消息（组装顺序即发送顺序）。
   const systemParts: string[] = []
   if (charContent.soul) systemParts.push(`## Character\n${charContent.soul}`)
   if (charContent.user) systemParts.push(`## User Info\n${charContent.user}`)
-  if (charContent.memory && memoryEnabled) {
+  if (charContent.memory && memoryMode !== 'off') {
     let memoryMsg = `## Memory\n${charContent.memory}`
-    if (memoryEnabled) {
+    if (memoryMode === 'read_only') {
       memoryMsg +=
-        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留。你可调用 `character_memory` 工具：' +
-        '用 remember 记下值得留存的信息、用 recall 重读、用 forget 遗忘。' +
-        '只记录有跨会话价值的事实/偏好/约定，不要记录寒暄。' +
-        '记忆有字数上限（charLimit），超限会自动从最旧条目压缩；请留意剩余空间，必要时主动精简。'
+        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留，当前为只读模式。' +
+        '你可调用 `memory_read` 重建对某个话题的完整认知；不能写入、修改或归档记忆。'
+    } else {
+      memoryMsg +=
+        '\n\n[Memory] 这是本角色的长期记忆，跨会话保留。你可以在任务中自主维护它：' +
+        '发现值得跨会话保留的事实/偏好/决定时优先调用 `memory_snapshot` 批量快照；' +
+        '单条精确写入用 `memory_write`；旧记忆与现状矛盾用 `memory_update` 修正；' +
+        '不再需要出现的条目用 `memory_archive` 归档。超限会自动从最旧压缩。' +
+        '你作为 Agent 没有永久删除能力——永久删除只能由用户在前端操作。'
     }
     systemParts.push(memoryMsg)
   }
@@ -294,7 +299,7 @@ export async function spawnAndRunSubAgent(
 
   // Child sessions never receive delegation capability, so grandchildren are
   // impossible even if the model fabricates the control call.
-  const toolDefs = getCharacterToolDefinitions(targetChar.tools)
+  const toolDefs = getCharacterToolDefinitions(targetChar.tools, resolveMemoryMode(targetChar.memory), targetChar.skills)
     .filter(tool => tool.function.name !== 'delegate_to_agent')
   const hasTools = toolDefs.length > 0
 
@@ -303,7 +308,7 @@ export async function spawnAndRunSubAgent(
     charContent,
     `You are being delegated a sub-task by a parent agent. Complete the following task and report your findings.\n\nTask: ${task}`,
     hasTools,
-    targetChar.memory?.enabled !== false,
+    resolveMemoryMode(targetChar.memory),
   )
 
   const messages: LLMMessage[] = [
@@ -441,7 +446,7 @@ export async function continueSubAgentWithMessage(input: {
   const charContent = characterContentStore.get(subSession.character_id)
 
   // 子会话同样无 delegate/send_message 能力（层级硬控终点节点）。
-  const toolDefs = getCharacterToolDefinitions(targetChar.tools)
+  const toolDefs = getCharacterToolDefinitions(targetChar.tools, resolveMemoryMode(targetChar.memory), targetChar.skills)
     .filter(tool => tool.function.name !== 'delegate_to_agent' && tool.function.name !== 'send_message_to_subagent')
   const hasTools = toolDefs.length > 0
 
@@ -497,20 +502,23 @@ export async function continueSubAgentWithMessage(input: {
   const childStream = createDurableStream(rawStream, childRun.id)
 
   // 从 DB 重建子会话完整上下文（首轮消息全部落库），system 用「继续委托」模板。
+  // memory 已由 buildSubAgentSystemPrompt 注入到 system 前缀中，这里不再重复注入。
   const cap = resolveCapability(model, undefined)
   const rows = messageStore.getMessagesAfter(subSessionId, subSession.compaction_until_id || 0, 100000)
+  const subMemoryMode = resolveMemoryMode(targetChar.memory)
   const systemPrompt = buildSubAgentSystemPrompt(
     targetChar,
     charContent,
     'You are a sub-agent continuing an existing delegated session. Follow the conversation history; the latest user message is your new instruction from the parent agent. Complete it and report your findings.',
     hasTools,
-    targetChar.memory?.enabled !== false,
+    subMemoryMode,
   )
   const messages = await buildInitialMessages({
     characterId: subSession.character_id,
     systemPrompt,
-    memory: targetChar.memory?.enabled !== false ? (charContent.memory || null) : null,
-    memoryEnabled: targetChar.memory?.enabled !== false,
+    memory: null,
+    memoryEnabled: false,
+    memoryMode: 'off',
     compactionSummary: subSession.compaction_summary || null,
     rows,
     compactionUntilId: subSession.compaction_until_id || 0,

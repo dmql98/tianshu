@@ -1,0 +1,17 @@
+{
+  "name": "memory_write",
+  "description": "Write one memory entry (explicit remember). Injected when memoryMode is editable.",
+  "source": "builtin",
+  "tags": ["memory"],
+  "version": "1.0.0",
+  "author": "TianShu",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "content": { "type": "string", "description": "Memory content" },
+      "type": { "type": "string", "enum": ["fact", "preference", "decision", "note"] }
+    },
+    "required": ["content"]
+  }
+}

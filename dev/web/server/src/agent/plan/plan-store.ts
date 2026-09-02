@@ -23,7 +23,7 @@ export interface PlanRow {
   session_id: string
   goal_id: string | null
   version: number
-  status: 'active' | 'completed' | 'superseded' | 'failed'
+  status: 'active' | 'completed' | 'superseded' | 'cancelled' | 'failed'
   created_at: number
   updated_at: number
 }
@@ -181,6 +181,15 @@ export const planStore = {
     getDb().prepare(
       "UPDATE plans SET status = 'superseded', updated_at = ? WHERE session_id = ? AND status = 'active' AND id != ?",
     ).run(Date.now(), sessionId, keepPlanId || '')
+  },
+  /** Discard the active plan (status → 'cancelled') so it stops being injected and gating. */
+  cancelActive(sessionId: string): PlanRow | null {
+    const active = this.getActive(sessionId)
+    if (!active) return null
+    getDb().prepare(
+      "UPDATE plans SET status = 'cancelled', updated_at = ? WHERE id = ?",
+    ).run(Date.now(), active.id)
+    return this.get(active.id)
   },
   setStepStatus(stepId: string, status: PlanStepStatus, evidence?: string | null): PlanStepRow | null {
     const row = getDb().prepare('SELECT * FROM plan_steps WHERE id = ?').get(stepId) as PlanStepRow | undefined

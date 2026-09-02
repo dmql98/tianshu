@@ -1,6 +1,11 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { fetchCharacter, fetchCharacterStats, fetchCharacters, createCharacter, updateCharacter, updateCharacterSkillBinding, deleteCharacter, type CharacterMotion } from '@/api/characters'
+import {
+  fetchCharacterMemory, fetchCharacterMemoryAudit,
+  updateCharacterMemoryEntry, setCharacterMemoryEntryArchived, deleteCharacterMemoryEntry,
+  type MemoryView, type MemoryEntryItem, type MemoryAuditRow,
+} from '@/api/characters'
 import { fetchTools } from '@/api/tools'
 import { fetchSkillPackages } from '@/api/skills'
 import { normalizeStrategy, STRATEGIES, type Character, type CharacterStats, type Strategy } from '@/types'
@@ -8,7 +13,7 @@ import type { ToolMeta } from '@/api/tools'
 import type { SkillPackageMeta } from '@/api/skills'
 import CharacterSkinBinder from '@/features/skins/CharacterSkinBinder'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
-import { dedupeToolBindings, getUnboundTools, toToolBindingName } from '@/features/characters/toolBindings'
+import { dedupeToolBindings, getUnboundTools, isAutoManagedTool, toToolBindingName } from '@/features/characters/toolBindings'
 import EditField from '@/components/EditField'
 import type { I18nState } from '@/i18n'
 import { useI18n } from '@/i18n'
@@ -25,6 +30,7 @@ const previewMotions: Array<{ id: CharacterMotion; label: string }> = [
   { id: 'success', label: '完成' },
   { id: 'error', label: '出错' },
 ]
+
 
 export default function CharacterDetailPage() {
   const t = useI18n()
@@ -64,13 +70,79 @@ export default function CharacterDetailPage() {
   // Content fields
   const [soul, setSoul] = useState('')
   const [userProfile, setUserProfile] = useState('')
-  const [memoryContent, setMemoryContent] = useState('')
   const [customPromptEnabled, setCustomPromptEnabled] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
 
-  // Memory
-  const [memoryEnabled, setMemoryEnabled] = useState(false)
-  const [charLimit, setCharLimit] = useState(2000)
+  // Memory（charLimit 缺省 2200，与后端 memoryConfig 缺省值一致，避免保存时误写 2000）
+  const [charLimit, setCharLimit] = useState(2200)
+  const [memoryMode, setMemoryMode] = useState<'off' | 'read_only' | 'editable'>('off')
+
+  /** v2：角色 memory 配置统一以 memoryMode 为准；enabled 仅作兼容镜像（mode !== 'off'）。 */
+  function memoryPayload(extra?: { mode?: typeof memoryMode; selfEvolution?: boolean; charLimit?: number }) {
+    const mode = extra?.mode ?? memoryMode
+    return { enabled: mode !== 'off', mode, selfEvolution: extra?.selfEvolution ?? selfEvolution, charLimit: extra?.charLimit ?? charLimit }
+  }
+  // 记忆子 Tab 状态
+  const [memSubTab, setMemSubTab] = useState<'overview' | 'browser' | 'audit'>('overview')
+  const [memFilter, setMemFilter] = useState<'all' | 'active' | 'archived'>('all')
+  const [auditFilter, setAuditFilter] = useState<'all' | 'Agent' | '用户'>('all')
+  // 真实记忆数据（memory REST API）
+  const [memView, setMemView] = useState<MemoryView | null>(null)
+  const [memAudit, setMemAudit] = useState<MemoryAuditRow[]>([])
+  const [memLoading, setMemLoading] = useState(false)
+  const [memError, setMemError] = useState('')
+
+  /** 刷新角色记忆（条目 + 统计 + 审计）。cid 缺省用当前角色 id。 */
+  const refreshMemory = useCallback(async (cidOverride?: string) => {
+    const cid = cidOverride || currentIdRef.current
+    if (!cid || cid === 'new') return
+    setMemLoading(true)
+    try {
+      const [view, audit] = await Promise.all([
+        fetchCharacterMemory(cid),
+        fetchCharacterMemoryAudit(cid),
+      ])
+      setMemView(view)
+      setMemAudit(audit.entries)
+      setMemError('')
+    } catch (e: any) {
+      setMemError(e?.message || String(e))
+    } finally {
+      setMemLoading(false)
+    }
+  }, [])
+
+  /** 记忆操作统一入口：执行后刷新视图与审计。 */
+  const memCid = () => currentIdRef.current || charIdRef.current
+  const runMemMutation = useCallback(async (op: () => Promise<unknown>) => {
+    try {
+      await op()
+      await refreshMemory(memCid())
+    } catch (e: any) {
+      alert(e?.message || String(e))
+    }
+  }, [refreshMemory])
+
+  const handleMemEdit = useCallback((entry: MemoryEntryItem) => {
+    const next = window.prompt(t('编辑记忆内容'), entry.content)
+    if (next == null) return
+    const content = next.trim()
+    if (!content || content === entry.content) return
+    runMemMutation(() => updateCharacterMemoryEntry(memCid(), entry.id, { content }))
+  }, [runMemMutation])
+
+  const handleMemToggleArchive = useCallback((entry: MemoryEntryItem) => {
+    runMemMutation(() => setCharacterMemoryEntryArchived(memCid(), entry.id, !entry.archived))
+  }, [runMemMutation])
+
+  /** 永久删除：Agent 无此能力，此处为用户在前端手动操作（需二次确认）。 */
+  const handleMemDelete = useCallback((entry: MemoryEntryItem) => {
+    const ok = window.confirm(`${t('永久删除该记忆？')}
+
+${entry.content.slice(0, 80)}`)
+    if (!ok) return
+    runMemMutation(() => deleteCharacterMemoryEntry(memCid(), entry.id))
+  }, [runMemMutation])
 
   // Tools & Skills
   const [boundTools, setBoundTools] = useState<{ name: string }[]>([])
@@ -148,24 +220,28 @@ export default function CharacterDetailPage() {
       setSelfEvolution(c.memory?.selfEvolution ?? false)
       setSoul(c.soul ?? '')
       setUserProfile(c.userProfile ?? '')
-      setMemoryContent(c.memoryContent ?? '')
       setCustomPromptEnabled(!!c.customPrompt)
       setCustomPrompt(c.customPrompt ?? '')
-      setMemoryEnabled(c.memory?.enabled ?? false)
-      setCharLimit(c.memory?.charLimit ?? 2000)
-      const tools = dedupeToolBindings(c.tools || [])
+      setMemoryMode(c.memory?.mode ?? (c.memory?.enabled === false ? 'off' : 'editable'))
+      setCharLimit(c.memory?.charLimit ?? 2200)
+      // 自动门控工具（记忆工具 / skill_manager）由状态决定注入，不纳入工具管理；
+      // 加载时一并剔除历史残留绑定（再次保存后即被清理）。
+      const tools = dedupeToolBindings(c.tools || []).filter(b => !isAutoManagedTool(b.name))
       boundToolsRef.current = tools
       setBoundTools(tools)
       setBoundSkills(c.skillBindings?.map(binding => binding.packageId) || c.skills || [])
     }).catch(() => { if (seq === loadSeqRef.current) setChar(null) }).finally(() => { if (seq === loadSeqRef.current) setLoading(false) })
   }, [id, isNew])
 
-  // Load stats, tools, skills, characters list
+  // Load stats, tools, skills, characters list + 记忆视图/审计
   useEffect(() => {
     fetchTools().then(d => setAllTools(d.tools)).catch(() => {})
     fetchSkillPackages().then(d => setAllSkills(d.packages)).catch(() => {})
     fetchCharacters().then(setAllChars).catch(() => {})
-    if (id && !isNew) fetchCharacterStats(id).then(setStats).catch(() => {})
+    if (id && !isNew) {
+      fetchCharacterStats(id).then(setStats).catch(() => {})
+      refreshMemory(id)
+    }
   }, [id, isNew])
 
   const unboundTools = getUnboundTools(allTools, boundTools)
@@ -220,10 +296,9 @@ export default function CharacterDetailPage() {
       default_strategy: strategy,
       groups,
       helpers,
-      memory: { enabled: memoryEnabled, selfEvolution, charLimit },
+      memory: memoryPayload(),
       soul,
       userProfile,
-      memoryContent,
       customPrompt: customPromptEnabled ? customPrompt : '',
       tools: boundTools,
       skills: boundSkills,
@@ -324,6 +399,7 @@ export default function CharacterDetailPage() {
 
   function addTool(name: string, source?: string) {
     const toolName = toToolBindingName(name, source)
+    if (isAutoManagedTool(toolName)) return
     const current = dedupeToolBindings(boundToolsRef.current)
     if (current.some(tool => tool.name === toolName)) return
     const next = [...current, { name: toolName }]
@@ -598,7 +674,7 @@ export default function CharacterDetailPage() {
                         <div className="setting-hint">{t('允许角色在会话结束后沉淀、更新自身记忆')}</div>
                       </div>
                       <div className="setting-control">
-                        <div className={`toggle ${selfEvolution ? 'on' : ''}`} onClick={() => { setSelfEvolution(!selfEvolution); autoSave({ memory: { enabled: memoryEnabled, selfEvolution: !selfEvolution, charLimit } }) }}></div>
+                        <div className={`toggle ${selfEvolution ? 'on' : ''}`} onClick={() => { const next = !selfEvolution; setSelfEvolution(next); autoSave({ memory: memoryPayload({ selfEvolution: next }) }) }}></div>
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', marginTop: 4 }}>
@@ -681,37 +757,171 @@ export default function CharacterDetailPage() {
 
           {/* 记忆 */}
           <div className={`tab-page ${activeTab === 'memory' ? 'active' : ''}`}>
-            <div className="detail-section">
-              <div className="detail-section-title">{t('记忆设置')}</div>
-              <div className="tool-list">
-                <div className="tool-item">
-                  <div className="tool-name">{t('启用记忆')}</div>
-                  <div className={`toggle ${memoryEnabled ? 'on' : ''}`} onClick={() => { setMemoryEnabled(!memoryEnabled); autoSave({ memory: { enabled: !memoryEnabled, selfEvolution, charLimit } }) }}></div>
-                </div>
-                <div className="tool-item">
-                  <div className="tool-name">{t('记忆字符上限')}</div>
-                  <EditField
-                    value={String(charLimit)}
-                    onSave={v => { const n = Number(v); const limit = Number.isFinite(n) && n >= 0 ? n : 0; setCharLimit(limit); autoSave({ memory: { enabled: memoryEnabled, selfEvolution, charLimit: limit } }) }}
-                    renderInput={(v, onChange) => (
-                      <input type="number" min={0} step={100} value={v} onChange={e => onChange(e.target.value)} style={{ width: 120, marginTop: 4, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
-                    )}
-                    display={<div style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{charLimit}</div>}
-                  />
-                </div>
-              </div>
+            <div className="mem-subtabs" role="tablist">
+              {([['overview', '概览'], ['browser', '记忆浏览器'], ['audit', '审计']] as const).map(([k, l]) => (
+                <button key={k} className={`mem-subtab ${memSubTab === k ? 'active' : ''}`} onClick={() => setMemSubTab(k)}>{l}</button>
+              ))}
             </div>
-            <div className="detail-section">
-              <EditField
-                label="Memory（记忆内容）"
-                value={memoryContent}
-                onSave={v => { setMemoryContent(v); autoSave({ memoryContent: v }) }}
-                renderInput={(v, onChange) => (
-                  <textarea className="md-box" value={v} placeholder={t('(空)')} onChange={e => onChange(e.target.value)} style={{ minHeight: 450, width: '100%', resize: 'vertical' }} />
-                )}
-                display={<div className="md-box" style={{ minHeight: 450, color: memoryContent ? 'var(--ink-mid)' : 'var(--ink-faint)' }}>{memoryContent || t('(空)')}</div>}
-              />
-            </div>
+            {memLoading && <div className="mem-note-box" style={{ color: 'var(--ink-light)' }}>{t('加载中…')}</div>}
+            {memError && <div className="mem-note-box" style={{ borderColor: 'var(--cinnabar)', color: 'var(--cinnabar)' }}>{t('加载失败')}：{memError}</div>}
+
+            {memSubTab === 'overview' && (
+              <>
+                <div className="mem-note-box">角色记忆为独立 bounded context：条目存于 <code>memory.md</code>（v2 单层条目），与知识库存储/UI/工具/删除路径完全分离。</div>
+                <div className="mem-overview-grid">
+                  <div className="mem-panel">
+                    <div className="mem-panel-head">{t('策略')}</div>
+                    <div className="mem-panel-body">
+                      <div className="setting-row">
+                        <div className="sr-main">
+                          <div className="sr-name">{t('记忆字符上限')}</div>
+                          <div className="sr-desc">{t('记忆内容的字符上限（≈ system prompt 记忆预算）')}</div>
+                        </div>
+                        <div style={{ maxWidth: 160 }}>
+                          <EditField
+                            value={String(charLimit)}
+                            onSave={async v => {
+                              const n = Number(v)
+                              // 与后端 memoryConfig 语义一致：<=0 视为未配置 → 走缺省 2200
+                              const limit = Number.isFinite(n) && n > 0 ? n : 2200
+                              setCharLimit(limit)
+                              await autoSave({ memory: memoryPayload({ charLimit: limit }) })
+                              refreshMemory(memCid())
+                            }}
+                            renderInput={(v, onChange) => (
+                              <input type="number" min={0} step={100} value={v} onChange={e => onChange(e.target.value)} style={{ width: 100, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none' }} />
+                            )}
+                            display={<div style={{ fontSize: 'calc(13px * var(--ui-font-scale))', color: 'var(--ink-mid)' }}>{charLimit}</div>}
+                          />
+                        </div>
+                      </div>
+                      <div className="setting-row" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                        <div className="sr-main">
+                          <div className="sr-name">{t('Memory 模式')}</div>
+                          <div className="sr-desc">{t('off=无记忆工具；read_only=仅读取；editable=读写+快照')}</div>
+                        </div>
+                        <select
+                          value={memoryMode}
+                          onChange={async e => {
+                            const mode = e.target.value as typeof memoryMode
+                            setMemoryMode(mode)
+                            await autoSave({ memory: memoryPayload({ mode }) })
+                            refreshMemory(memCid())
+                          }}
+                          style={{ padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 'calc(13px * var(--ui-font-scale))', background: 'var(--bg-input)', color: 'var(--ink-deep)', outline: 'none', fontFamily: 'inherit' }}
+                        >
+                          <option value="off">{t('关闭')}</option>
+                          <option value="read_only">{t('只读')}</option>
+                          <option value="editable">{t('可修改')}</option>
+                        </select>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+                        {memView && (
+                          <>
+                            <div className="mem-kv">{t('已用')} {memView.overview.used}/{memView.overview.budget} chars</div>
+                            <span className="mem-pill" style={{ cursor: 'default' }}>{memView.stats.active} active · {memView.stats.archived} archived</span>
+                            {memView.overview.overBudget && <span className="mem-pill" style={{ borderColor: 'var(--cinnabar)', color: 'var(--cinnabar)' }}>超预算（保护期内）</span>}
+                          </>
+                        )}
+                        <button className="mem-btn" onClick={() => refreshMemory(memCid())} disabled={memLoading}>{t('刷新')}</button>
+                      </div>
+                      <div className="mem-note-box" style={{ marginTop: 14 }}>记忆严格角色自有：写入起只属于当前角色，任何其他角色不可读；system prompt 的 `## Memory` 段在新会话开始时固定注入。</div>
+                    </div>
+                  </div>
+                  <div className="mem-panel">
+                    <div className="mem-panel-head">{t('记忆概览（从 memory.md 生成）')}</div>
+                    <div className="mem-panel-body">
+                      <div className="mem-snapshot-blocks">
+                        {(memView?.overview.blocks ?? []).map((b, i) => (
+                          <div key={i} className="mem-block">• {b}</div>
+                        ))}
+                        {(!memView || memView.overview.blocks.length === 0) && (
+                          <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>
+                            {t('暂无记忆条目——对话中产生值得跨会话保留的发现时，模型会通过 memory_snapshot / memory_write 自动写入。')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mem-note-box">摘要块由后端从真实 <code>memory.md</code> 活跃条目渲染；归档条目不参与。Agent 没有永久删除能力，删除请到「记忆浏览器」手动操作。</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {memSubTab === 'browser' && (
+              <>
+                <div className="mem-note-box">记忆为单层条目（fact / preference / decision / note）。归档条目默认不出现在 read 视图，可随时恢复；「永久删除」仅限你手动操作（Agent 无此工具）。</div>
+                <div className="mem-pill-row">
+                  {([['all', '全部'], ['active', 'active'], ['archived', 'archived']] as const).map(([k, l]) => {
+                    const count = k === 'all' ? (memView?.entries.length ?? 0) : k === 'active' ? (memView?.stats.active ?? 0) : (memView?.stats.archived ?? 0)
+                    return (
+                      <button key={k} className={`mem-pill ${memFilter === k ? 'active' : ''}`} onClick={() => setMemFilter(k)}>
+                        {l}（{count}）
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="detail-section-title">{t('记忆条目')}</div>
+                <div className="mem-list">
+                  {(memView?.entries.filter(x => memFilter === 'all' || (memFilter === 'active' ? !x.archived : x.archived)) ?? []).map(x => (
+                    <div key={x.id} className="mem-item">
+                      <div className="mem-top">
+                        <span className="mem-type">{x.type}</span>
+                        <span className={`mem-status ${x.archived ? 'archived' : 'active'}`}>{x.archived ? 'archived' : 'active'}</span>
+                        <span className="mem-meta" style={{ marginLeft: 'auto' }}>{x.ts}</span>
+                      </div>
+                      <div className="mem-content">{x.content}</div>
+                      <div className="mem-meta"><span style={{ fontFamily: 'monospace', fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{x.id}</span></div>
+                      <div className="mem-actions">
+                        <button className="mem-btn" onClick={() => handleMemEdit(x)}>{t('编辑')}</button>
+                        <button className="mem-btn" onClick={() => handleMemToggleArchive(x)}>
+                          {x.archived ? t('恢复') : t('归档')}
+                        </button>
+                        <button className="mem-btn danger" onClick={() => handleMemDelete(x)}>{t('永久删除')}</button>
+                      </div>
+                    </div>
+                  ))}
+                  {(!memView || memView.entries.filter(x => memFilter === 'all' || (memFilter === 'active' ? !x.archived : x.archived)).length === 0) && (
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('该状态无记忆')}</div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {memSubTab === 'audit' && (
+              <>
+                <div className="mem-note-box">记忆审计：记录 Agent 的写入/更新/快照/归档操作，以及你在本页面的编辑/归档/恢复/永久删除。不保存完整敏感正文。</div>
+                <div className="mem-kpi-row">
+                  {([['Agent', 'Agent'], ['用户', '用户']] as const).map(([k, l]) => (
+                    <div key={k} className="mem-kpi" style={{ minWidth: 104 }}>
+                      <div className="mem-kv">{memAudit.filter(a => a.actor === k).length}</div>
+                      <div className="mem-kl">{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mem-pill-row">
+                  {([['all', '全部'], ['Agent', 'Agent'], ['用户', '用户']] as const).map(([k, l]) => (
+                    <button key={k} className={`mem-pill ${auditFilter === k ? 'active' : ''}`} onClick={() => setAuditFilter(k)}>
+                      {l}（{k === 'all' ? memAudit.length : memAudit.filter(a => a.actor === k).length}）
+                    </button>
+                  ))}
+                </div>
+                <div className="detail-section-title">{t('审计日志')}</div>
+                <div className="mem-audit-list">
+                  {memAudit.filter(a => auditFilter === 'all' || a.actor === auditFilter).map((a, i) => (
+                    <div key={i} className="mem-audit-row">
+                      <span className="mem-at">{a.ts}</span>
+                      <span className="mem-aa">{a.action}</span>
+                      <span><b>{a.actor}</b> → {a.target ?? '—'}</span>
+                      <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{a.detail}</span>
+                    </div>
+                  ))}
+                  {memAudit.filter(a => auditFilter === 'all' || a.actor === auditFilter).length === 0 && (
+                    <div style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-faint)', padding: 8 }}>{t('该筛选无记录')}</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* 工具 */}

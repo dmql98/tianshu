@@ -1,8 +1,46 @@
 import { getAll, getFilteredDefinitions } from './registry.js'
 import type { ToolBinding } from './types.js'
+import type { MemoryMode } from '../db/characterStore.js'
 
 export { PathEscapeError } from './utils.js'
 export type { ToolConstraint, ToolBinding, ToolResult } from './types.js'
+export type { MemoryMode } from '../db/characterStore.js'
+
+/** 记忆系统工具（v2，与文件系统 read/write 完全解耦）。 */
+const MEMORY_TOOLS = {
+  read: ['memory_read'],
+  editable: ['memory_read', 'memory_write', 'memory_update', 'memory_archive', 'memory_snapshot'],
+} as const
+
+/** 按 memoryMode 返回应注入的记忆工具名（off → []，read_only → 仅 memory_read，editable/undefined → 全部）。 */
+export function memoryToolNamesForMode(mode?: MemoryMode): string[] {
+  if (mode === 'read_only') return [...MEMORY_TOOLS.read]
+  if (mode === 'off') return []
+  return [...MEMORY_TOOLS.editable]
+}
+
+/** 记忆写工具集合（read_only 之外的工具名，供执行层门控参考）。 */
+export const MEMORY_WRITE_TOOLS = new Set(['memory_write', 'memory_update', 'memory_archive', 'memory_snapshot'])
+
+export function isMemoryTool(name: string): boolean {
+  return name === 'memory_read' || MEMORY_WRITE_TOOLS.has(name)
+}
+
+/**
+ * 自动门控工具：不纳入「工具管理」开关，由运行时状态自动决定注入——
+ * 记忆工具由 memoryMode、skill_manager 由技能列表门控。工具管理元数据
+ * （/api/tools）不返回它们，避免在界面出现可勾选项。
+ */
+export function isAutoManagedTool(name: string): boolean {
+  return isMemoryTool(name) || name === 'skill_manager'
+}
+
+/** v1 时代的旧记忆工具名：v2 已拆分为 memory_read/write/update/archive/snapshot，绑定里残留的旧名直接忽略。 */
+export const LEGACY_MEMORY_TOOL = 'character_memory'
+
+function isLegacyOrMemoryTool(name: string): boolean {
+  return name === LEGACY_MEMORY_TOOL || isMemoryTool(name)
+}
 
 export function getDangerousTools(): string[] {
   return getAll().filter(t => t.dangerous).map(t => t.name)
@@ -15,7 +53,7 @@ export function getDangerousTools(): string[] {
  */
 export const DEFAULT_TOOL_NAMES = new Set([
   'read', 'edit', 'write', 'grep', 'glob', 'bash', 'pwsh', 'webfetch', 'websearch', 'get_time',
-  'skill_manager', 'debug_sessions', 'character_memory',
+  'skill_manager', 'debug_sessions',
 ])
 
 function matchPath(pattern: string, target: string): boolean {
@@ -135,6 +173,7 @@ export function resolveCharacterTools(characterTools?: ToolBinding[]): ToolBindi
   }
   const result: ToolBinding[] = []
   for (const ct of characterTools) {
+    if (isLegacyOrMemoryTool(ct.name)) continue
     const registered = getAll().find(t => t.name === ct.name)
     if (registered) {
       if (registered.signal) continue
@@ -146,23 +185,35 @@ export function resolveCharacterTools(characterTools?: ToolBinding[]): ToolBindi
   return result
 }
 
-export function getCharacterToolDefinitions(characterTools?: ToolBinding[]) {
+export function getCharacterToolDefinitions(characterTools?: ToolBinding[], memoryMode?: MemoryMode, skills?: string[]) {
+  const memoryTools = memoryToolNamesForMode(memoryMode)
+  const hasSkills = (skills || []).length > 0
+  const names = new Set<string>()
+
   if (!characterTools || characterTools.length === 0) {
     // 默认只暴露白名单工具。
-    return Array.from(DEFAULT_TOOL_NAMES)
-      .map(name => getAll().find(t => t.name === name))
-      .filter((t): t is NonNullable<typeof t> => !!t && !t.signal)
-      .map(t => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }))
+    for (const name of DEFAULT_TOOL_NAMES) names.add(name)
+  } else {
+    for (const ct of characterTools) {
+      // 记忆工具由 memoryMode 统一门控注入，不从角色工具绑定列表单独纳入。
+      if (isLegacyOrMemoryTool(ct.name)) continue
+      names.add(ct.name)
+    }
   }
+  // memoryMode 门控：注入对应记忆工具（off → []，read_only → memory_read，editable/undefined → 全部）。
+  for (const name of memoryTools) names.add(name)
+
   const result: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, any> } }> = []
-  for (const ct of characterTools) {
-    const t = getAll().find(t => t.name === ct.name)
+  for (const name of names) {
+    // skill_manager 由角色技能列表自动门控（技能为空 → 不注入，无技能包可管理），不纳入「工具管理」开关。
+    if (name === 'skill_manager' && !hasSkills) continue
+    const t = getAll().find(t => t.name === name)
     if (t) {
       if (t.signal) continue
       result.push({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })
     } else {
-      if (ct.name.startsWith('mcp:')) continue
-      result.push({ type: 'function', function: { name: ct.name, description: `External tool`, parameters: { type: 'object', properties: {} } } })
+      if (name.startsWith('mcp:')) continue
+      result.push({ type: 'function', function: { name, description: `External tool`, parameters: { type: 'object', properties: {} } } })
     }
   }
   return result
