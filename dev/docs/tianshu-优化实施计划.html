@@ -205,54 +205,63 @@ hr{border:none;border-top:1px solid var(--line);margin:34px 0}
 <th>主题</th>
 <th>对应对比报告</th>
 <th>预计工时</th>
+<th>状态</th>
 </tr></thead><tbody>
 <tr>
 <td>M0</td>
 <td>数据层地基：正式 Migration 系统 + 排他服务器锁</td>
 <td>P0-1 / P0-2</td>
 <td>2–3 天</td>
+<td>✅ 已完成（2026-09-03）</td>
 </tr>
 <tr>
 <td>M1</td>
 <td>进化解耦 + 后端闭环（轨迹保存 / 定时挖掘 / 技能草稿）</td>
 <td>P1-8 后端部分 + <code>04-0期 M0.3</code></td>
 <td>3–5 天</td>
+<td>待做</td>
 </tr>
 <tr>
 <td>M2</td>
 <td>进化工作台前端（EvolutionPage）</td>
 <td>P2-8 前端部分</td>
 <td>3–5 天</td>
+<td>待做</td>
 </tr>
 <tr>
 <td>M3</td>
 <td>知识库最小可用（FTS5 + CRUD + 前端接线）</td>
 <td>P1-5 + <code>04-0期 M0.2</code></td>
 <td>5–7 天</td>
+<td>待做</td>
 </tr>
 <tr>
 <td>M4</td>
 <td>终端集成（node-pty + xterm.js 工具能力）</td>
 <td>P1-4</td>
 <td>4–5 天</td>
+<td>待做</td>
 </tr>
 <tr>
 <td>M5</td>
 <td>浏览器自动化轻量版（Playwright 工具）</td>
 <td>P2-9</td>
 <td>3–4 天</td>
+<td>待做</td>
 </tr>
 <tr>
 <td>M6</td>
 <td>跨平台 CI（GitHub Actions 三平台构建）</td>
 <td>P2-10</td>
 <td>2–3 天</td>
+<td>待做</td>
 </tr>
 <tr>
 <td>M7</td>
 <td>Provider 密钥加密 + HTTP 适配层收口</td>
 <td>P2-12 / P0-3</td>
 <td>2–3 天</td>
+<td>待做</td>
 </tr>
 </tbody></table></div>
 <blockquote>依赖：M0 → M1 → M2（数据层先行，进化闭环依赖 trajectories 表/migration）；M3 可与 M1/M2 并行；M4/M5 独立；M6/M7 收尾。</blockquote>
@@ -282,8 +291,8 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 </ul>
 <h4 id="M0.2-把现有-50-条-ALTER-固化进-migration-清单">M0.2 把现有 50 条 ALTER 固化进 migration 清单</h4>
 <ul>
-<li>新建 <code>web/server/src/db/migrations/</code>，按 <code>0001_init.ts ... 0050_*.ts</code> 组织；<code>0001_init</code> = 现有全部 <code>CREATE TABLE IF NOT EXISTS</code>（sessions/messages/events/trajectories/runs/run_events/…），其余每条 ALTER/回填一个文件。</li>
-<li>迁移顺序 = 原 <code>schema.ts</code> 的执行顺序；新增列迁移全部写成<strong>幂等</strong>（<code>ADD COLUMN</code> 前先查 <code>PRAGMA table_info</code> 或依赖 migrator 的版本记录，二选一，不要再用 <code>try/catch</code> 掩盖错误）。</li>
+<li>新建 <code>web/server/src/db/migrations/</code>（已落地为 <code>migrations/index.ts</code>，见 §2 完成记录），把现有建表 + ALTER/回填固化为<strong>有序 migration</strong>（按语义分组合并，等价覆盖原 50 条 ALTER；不再一条一个文件）。</li>
+<li>迁移顺序 = 原 <code>schema.ts</code> 的执行顺序；新增列迁移全部写成<strong>幂等</strong>（<code>ADD COLUMN</code> 前先查 <code>PRAGMA table_info</code>，不要再用 <code>try/catch</code> 掩盖错误）。</li>
 <li>迁移入口：<code>getDb()</code> 中先 <code>runMigrations(db, migrations)</code> 再走业务初始化。</li>
 </ul>
 <h4 id="M0.3-排他服务器锁">M0.3 排他服务器锁</h4>
@@ -312,6 +321,64 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 <ul>
 <li>迁移顺序写错会导致已有用户库打不开 → 用 <code>db-compatibility.test.ts</code> + 一份旧库快照做回归。</li>
 <li><code>node-pty</code>/锁这类 native 依赖在 Electron 打包下要进 <code>extraResources</code>，注意随包体积。</li>
+</ul>
+<h3 id="✅-完成记录（2026-09-03）">✅ 完成记录（2026-09-03）</h3>
+<ul>
+<li><strong>M0.1 <code>db/migrator.ts</code></strong>（已落地）：<code>_migrations (version, name, applied_at)</code> 版本表；每个 migration 在<strong>同一事务</strong>内执行 <code>up(db)</code> + 回写版本，失败回滚并抛错（启动即失败，不再静默吞错）；提供 <code>runMigrations / listApplied / getPendingMigrations / isApplied / addColumnIfMissing</code>，幂等、可续跑、可审计。</li>
+<li><strong>M0.2 <code>db/migrations/index.ts</code></strong>（已落地）：不再按「一条 ALTER 一个文件 0050_*.ts」，改为<strong>按语义分组的 5 个有序 migration</strong>，等价覆盖原 schema.ts 全部演进：</li>
+</ul>
+<div class="tbl-wrap"><table>
+<thead><tr>
+<th>版本</th>
+<th>名称</th>
+<th>内容</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td><code>init</code></td>
+<td>全部 <code>CREATE TABLE IF NOT EXISTS</code> + 索引（sessions/messages/events/trajectories/runs/run_events/…）</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>session_domain_columns</code></td>
+<td>sessions/events 列补齐（含 schema.ts 顶部 28 条遗留列）+ 策略归一 + dataspace 清理</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>message_domain_columns</code></td>
+<td>messages 列补齐（turn_id/run_id/status/supersedes + 遗留列）</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>events_legacy_status_rebuild</code></td>
+<td>旧 status CHECK 识别 → 归一旧值 → 重建 events 表（无 CHECK）</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>run_policy_backfill</code></td>
+<td>run_policy 列补齐 + snapshot 回填 + auto-continuation 唯一索引</td>
+</tr>
+</tbody></table></div>
+<ul>
+<li>所有 <code>ADD COLUMN</code> 改用 <code>addColumnIfMissing</code>（<code>PRAGMA table_info</code> 判重），不再 <code>try/catch</code> 掩盖错误。</li>
+<ul>
+<li><code>db/schema.ts</code> 从 545 行瘦身为 44 行：<code>getDb()</code> 只做 <code>PRAGMA(WAL/foreign_keys)</code> + <code>runMigrations(db, migrations)</code>。</li>
+</ul>
+<li><strong>M0.3 <code>db/server-lock.ts</code></strong>（已落地）：<strong>零依赖</strong>实现（<code>fs.openSync('wx')</code> 原子抢占，未引入 proper-lockfile，规避 native 打包负担）；持锁进程存活则拒绝并友好提示；陈旧锁（进程已死/超 60s）自动清除重试；<code>release()</code> 幂等；进程 <code>exit</code> 兜底释放。接入 <code>app.ts</code>：<code>startTianshuServer</code> 开头获取、<code>close()</code> 释放；测试进程经 <code>TIANSHU_DISABLE_SERVER_LOCK=1</code> 跳过（见 <code>test/setup-data-dir.ts</code>）。</li>
+<li><strong>涉及文件</strong>：</li>
+<ul>
+<li>新增：<code>web/server/src/db/migrator.ts</code>、<code>web/server/src/db/server-lock.ts</code>、<code>web/server/src/db/migrations/index.ts</code>、<code>web/server/test/migrator.test.ts</code>、<code>web/server/test/server-lock.test.ts</code></li>
+<li>修改：<code>web/server/src/db/schema.ts</code>（迁移接入点）、<code>web/server/src/app.ts</code>（锁）、<code>web/server/test/setup-data-dir.ts</code>（测试跳过锁）</li>
+</ul>
+<li><strong>验证结果</strong>：</li>
+<ul>
+<li><code>migrator.test.ts</code>（6 用例）：空库全量迁移版本齐全；重跑幂等 0；失败 migration 事务回滚（版本不回写、表结构不变）；迁移中断可续跑；非法清单（版本不连续/重复）启动即抛错。</li>
+<li><code>server-lock.test.ts</code>（4 用例）：获取/释放幂等；活锁拒绝；陈旧锁自动抢占；<strong>双开真实 server 进程被锁拦截并以 code 1 退出</strong>。</li>
+<li><code>npm test --prefix web/server</code>：<strong>41 文件 / 317 用例全绿</strong>（含 db-compatibility 旧库回归、db-sqlite-contract、lifecycle、builtin 单层化等）。</li>
+<li><code>tsc --noEmit</code> 通过。</li>
+<li><strong>真实 devdata 库（55MB，30 sessions/836 messages/71 runs/1721 run_events/356 llm_calls）副本迁移成功</strong>，<code>_migrations</code> 版本 1–5 齐全，数据完好。</li>
+</ul>
+<li><strong>后续里程碑新增表</strong>：只需在 <code>migrations</code> 数组追加新版本（如 M1 的 <code>skill_drafts</code>、M3 的 <code>knowledge_docs</code>/FTS）即可。</li>
 </ul>
 <hr>
 <h2 id="3.-M1-—-进化解耦-+-后端闭环（3–5-天）">3. M1 — 进化解耦 + 后端闭环（3–5 天）</h2>
@@ -372,7 +439,7 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 </ul>
 <h3 id="涉及文件">涉及文件</h3>
 <ul>
-<li>新增：<code>evolution/run-trajectory-recorder.ts</code>、<code>evolution/evolution-scheduler.ts</code>、<code>character/migrate-self-evolution.ts</code>、<code>db/migrations/0051_skill_drafts.ts</code>、<code>routes/evolution.ts</code>（扩展）、<code>test/self-evolution-migration.test.ts</code>、<code>test/evolution-closed-loop.test.ts</code></li>
+<li>新增：<code>evolution/run-trajectory-recorder.ts</code>、<code>evolution/evolution-scheduler.ts</code>、<code>character/migrate-self-evolution.ts</code>、<code>db/migrations</code>（追加版本 6：<code>skill_drafts</code> 表）、<code>routes/evolution.ts</code>（扩展）、<code>test/self-evolution-migration.test.ts</code>、<code>test/evolution-closed-loop.test.ts</code></li>
 <li>修改：<code>agent/outer.ts</code>、<code>db/characterStore.ts</code>、<code>evolution/generators/skillGenerator.ts</code>、<code>app.ts</code>、内置角色 JSON</li>
 </ul>
 <h3 id="验收">验收</h3>
@@ -484,7 +551,7 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 </ul>
 <h3 id="涉及文件">涉及文件</h3>
 <ul>
-<li>新增：<code>web/server/src/knowledge/**</code>、<code>db/migrations/0052_knowledge.ts</code>、<code>web/client/src/api/knowledge.ts</code>、<code>test/fts5-contract.test.ts</code>、<code>test/knowledge-store.test.ts</code>、<code>test/knowledge-api.test.ts</code></li>
+<li>新增：<code>web/server/src/knowledge/**</code>、<code>db/migrations</code>（追加版本 7：<code>knowledge_docs</code> + FTS）、<code>web/client/src/api/knowledge.ts</code>、<code>test/fts5-contract.test.ts</code>、<code>test/knowledge-store.test.ts</code>、<code>test/knowledge-api.test.ts</code></li>
 <li>修改：<code>KnowledgePage.tsx</code>、<code>app.ts</code>、<code>i18n/dict.ts</code></li>
 </ul>
 <h3 id="验收">验收</h3>
@@ -647,7 +714,7 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 </ul>
 <h2 id="11.-各里程碑验收汇总（可勾选）">11. 各里程碑验收汇总（可勾选）</h2>
 <ul>
-<li class="todo"><span class="box"></span>M0：<code>_migrations</code> 表存在且版本齐全；双开被锁拦截；<code>migrator.test.ts</code> 绿</li>
+<li class="todo"><span class="box" style="background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 2px var(--panel)"></span><span style="color:var(--green);font-weight:600">✓</span> M0：<code>_migrations</code> 表存在且版本齐全；双开被锁拦截；<code>migrator.test.ts</code> 绿（✅ 2026-09-03 完成：317 用例全绿，详见 §2 完成记录）</li>
 <li class="todo"><span class="box"></span>M1：<code>selfEvolution</code> 全仓无残留；<code>trajectories</code> 有数据；定时挖掘产出 <code>skill_drafts</code>；批准/驳回 API 生效且 <code>skills/</code> 只在批准后变化</li>
 <li class="todo"><span class="box"></span>M2：<code>/evolution</code> 页面可用，配置可存、洞察可回溯、草稿可审</li>
 <li class="todo"><span class="box"></span>M3：FTS5 探针绿；知识库 CRUD+搜索（中英）通过；<code>KnowledgePage</code> 不再占位</li>

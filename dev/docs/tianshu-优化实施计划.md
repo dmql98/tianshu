@@ -32,16 +32,16 @@
 
 ## 1. 里程碑总览
 
-| 里程碑 | 主题 | 对应对比报告 | 预计工时 |
-|---|---|---|---|
-| M0 | 数据层地基：正式 Migration 系统 + 排他服务器锁 | P0-1 / P0-2 | 2–3 天 |
-| M1 | 进化解耦 + 后端闭环（轨迹保存 / 定时挖掘 / 技能草稿） | P1-8 后端部分 + `04-0期 M0.3` | 3–5 天 |
-| M2 | 进化工作台前端（EvolutionPage） | P2-8 前端部分 | 3–5 天 |
-| M3 | 知识库最小可用（FTS5 + CRUD + 前端接线） | P1-5 + `04-0期 M0.2` | 5–7 天 |
-| M4 | 终端集成（node-pty + xterm.js 工具能力） | P1-4 | 4–5 天 |
-| M5 | 浏览器自动化轻量版（Playwright 工具） | P2-9 | 3–4 天 |
-| M6 | 跨平台 CI（GitHub Actions 三平台构建） | P2-10 | 2–3 天 |
-| M7 | Provider 密钥加密 + HTTP 适配层收口 | P2-12 / P0-3 | 2–3 天 |
+| 里程碑 | 主题 | 对应对比报告 | 预计工时 | 状态 |
+|---|---|---|---|---|
+| M0 | 数据层地基：正式 Migration 系统 + 排他服务器锁 | P0-1 / P0-2 | 2–3 天 | ✅ 已完成（2026-09-03） |
+| M1 | 进化解耦 + 后端闭环（轨迹保存 / 定时挖掘 / 技能草稿） | P1-8 后端部分 + `04-0期 M0.3` | 3–5 天 | 待做 |
+| M2 | 进化工作台前端（EvolutionPage） | P2-8 前端部分 | 3–5 天 | 待做 |
+| M3 | 知识库最小可用（FTS5 + CRUD + 前端接线） | P1-5 + `04-0期 M0.2` | 5–7 天 | 待做 |
+| M4 | 终端集成（node-pty + xterm.js 工具能力） | P1-4 | 4–5 天 | 待做 |
+| M5 | 浏览器自动化轻量版（Playwright 工具） | P2-9 | 3–4 天 | 待做 |
+| M6 | 跨平台 CI（GitHub Actions 三平台构建） | P2-10 | 2–3 天 | 待做 |
+| M7 | Provider 密钥加密 + HTTP 适配层收口 | P2-12 / P0-3 | 2–3 天 | 待做 |
 
 > 依赖：M0 → M1 → M2（数据层先行，进化闭环依赖 trajectories 表/migration）；M3 可与 M1/M2 并行；M4/M5 独立；M6/M7 收尾。
 
@@ -74,8 +74,8 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 - 提供 `getPendingMigrations` / `listApplied` 供审计与测试。
 
 #### M0.2 把现有 50 条 ALTER 固化进 migration 清单
-- 新建 `web/server/src/db/migrations/`，按 `0001_init.ts ... 0050_*.ts` 组织；`0001_init` = 现有全部 `CREATE TABLE IF NOT EXISTS`（sessions/messages/events/trajectories/runs/run_events/…），其余每条 ALTER/回填一个文件。
-- 迁移顺序 = 原 `schema.ts` 的执行顺序；新增列迁移全部写成**幂等**（`ADD COLUMN` 前先查 `PRAGMA table_info` 或依赖 migrator 的版本记录，二选一，不要再用 `try/catch` 掩盖错误）。
+- 新建 `web/server/src/db/migrations/`（已落地为 `migrations/index.ts`，见 §2 完成记录），把现有建表 + ALTER/回填固化为**有序 migration**（按语义分组合并，等价覆盖原 50 条 ALTER；不再一条一个文件）。
+- 迁移顺序 = 原 `schema.ts` 的执行顺序；新增列迁移全部写成**幂等**（`ADD COLUMN` 前先查 `PRAGMA table_info`，不要再用 `try/catch` 掩盖错误）。
 - 迁移入口：`getDb()` 中先 `runMigrations(db, migrations)` 再走业务初始化。
 
 #### M0.3 排他服务器锁
@@ -98,6 +98,30 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 ### 风险
 - 迁移顺序写错会导致已有用户库打不开 → 用 `db-compatibility.test.ts` + 一份旧库快照做回归。
 - `node-pty`/锁这类 native 依赖在 Electron 打包下要进 `extraResources`，注意随包体积。
+
+### ✅ 完成记录（2026-09-03）
+- **M0.1 `db/migrator.ts`**（已落地）：`_migrations (version, name, applied_at)` 版本表；每个 migration 在**同一事务**内执行 `up(db)` + 回写版本，失败回滚并抛错（启动即失败，不再静默吞错）；提供 `runMigrations / listApplied / getPendingMigrations / isApplied / addColumnIfMissing`，幂等、可续跑、可审计。
+- **M0.2 `db/migrations/index.ts`**（已落地）：不再按「一条 ALTER 一个文件 0050_*.ts」，改为**按语义分组的 5 个有序 migration**，等价覆盖原 schema.ts 全部演进：
+  | 版本 | 名称 | 内容 |
+  |---|---|---|
+  | 1 | `init` | 全部 `CREATE TABLE IF NOT EXISTS` + 索引（sessions/messages/events/trajectories/runs/run_events/…） |
+  | 2 | `session_domain_columns` | sessions/events 列补齐（含 schema.ts 顶部 28 条遗留列）+ 策略归一 + dataspace 清理 |
+  | 3 | `message_domain_columns` | messages 列补齐（turn_id/run_id/status/supersedes + 遗留列） |
+  | 4 | `events_legacy_status_rebuild` | 旧 status CHECK 识别 → 归一旧值 → 重建 events 表（无 CHECK） |
+  | 5 | `run_policy_backfill` | run_policy 列补齐 + snapshot 回填 + auto-continuation 唯一索引 |
+  - 所有 `ADD COLUMN` 改用 `addColumnIfMissing`（`PRAGMA table_info` 判重），不再 `try/catch` 掩盖错误。
+  - `db/schema.ts` 从 545 行瘦身为 44 行：`getDb()` 只做 `PRAGMA(WAL/foreign_keys)` + `runMigrations(db, migrations)`。
+- **M0.3 `db/server-lock.ts`**（已落地）：**零依赖**实现（`fs.openSync('wx')` 原子抢占，未引入 proper-lockfile，规避 native 打包负担）；持锁进程存活则拒绝并友好提示；陈旧锁（进程已死/超 60s）自动清除重试；`release()` 幂等；进程 `exit` 兜底释放。接入 `app.ts`：`startTianshuServer` 开头获取、`close()` 释放；测试进程经 `TIANSHU_DISABLE_SERVER_LOCK=1` 跳过（见 `test/setup-data-dir.ts`）。
+- **涉及文件**：
+  - 新增：`web/server/src/db/migrator.ts`、`web/server/src/db/server-lock.ts`、`web/server/src/db/migrations/index.ts`、`web/server/test/migrator.test.ts`、`web/server/test/server-lock.test.ts`
+  - 修改：`web/server/src/db/schema.ts`（迁移接入点）、`web/server/src/app.ts`（锁）、`web/server/test/setup-data-dir.ts`（测试跳过锁）
+- **验证结果**：
+  - `migrator.test.ts`（6 用例）：空库全量迁移版本齐全；重跑幂等 0；失败 migration 事务回滚（版本不回写、表结构不变）；迁移中断可续跑；非法清单（版本不连续/重复）启动即抛错。
+  - `server-lock.test.ts`（4 用例）：获取/释放幂等；活锁拒绝；陈旧锁自动抢占；**双开真实 server 进程被锁拦截并以 code 1 退出**。
+  - `npm test --prefix web/server`：**41 文件 / 317 用例全绿**（含 db-compatibility 旧库回归、db-sqlite-contract、lifecycle、builtin 单层化等）。
+  - `tsc --noEmit` 通过。
+  - **真实 devdata 库（55MB，30 sessions/836 messages/71 runs/1721 run_events/356 llm_calls）副本迁移成功**，`_migrations` 版本 1–5 齐全，数据完好。
+- **后续里程碑新增表**：只需在 `migrations` 数组追加新版本（如 M1 的 `skill_drafts`、M3 的 `knowledge_docs`/FTS）即可。
 
 ---
 
@@ -153,7 +177,7 @@ export function runMigrations(db: TianshuDatabase, migrations: Migration[]): voi
 - `app.ts` 挂载 `/api/evolution`。
 
 ### 涉及文件
-- 新增：`evolution/run-trajectory-recorder.ts`、`evolution/evolution-scheduler.ts`、`character/migrate-self-evolution.ts`、`db/migrations/0051_skill_drafts.ts`、`routes/evolution.ts`（扩展）、`test/self-evolution-migration.test.ts`、`test/evolution-closed-loop.test.ts`
+- 新增：`evolution/run-trajectory-recorder.ts`、`evolution/evolution-scheduler.ts`、`character/migrate-self-evolution.ts`、`db/migrations`（追加版本 6：`skill_drafts` 表）、`routes/evolution.ts`（扩展）、`test/self-evolution-migration.test.ts`、`test/evolution-closed-loop.test.ts`
 - 修改：`agent/outer.ts`、`db/characterStore.ts`、`evolution/generators/skillGenerator.ts`、`app.ts`、内置角色 JSON
 
 ### 验收
@@ -259,7 +283,7 @@ web/client/src/features/evolution/
 - `tools/definitions` 加 `knowledge_search(query)` 工具（复用检索服务），让 Agent 能引用知识库。
 
 ### 涉及文件
-- 新增：`web/server/src/knowledge/**`、`db/migrations/0052_knowledge.ts`、`web/client/src/api/knowledge.ts`、`test/fts5-contract.test.ts`、`test/knowledge-store.test.ts`、`test/knowledge-api.test.ts`
+- 新增：`web/server/src/knowledge/**`、`db/migrations`（追加版本 7：`knowledge_docs` + FTS）、`web/client/src/api/knowledge.ts`、`test/fts5-contract.test.ts`、`test/knowledge-store.test.ts`、`test/knowledge-api.test.ts`
 - 修改：`KnowledgePage.tsx`、`app.ts`、`i18n/dict.ts`
 
 ### 验收
@@ -414,7 +438,7 @@ M0 数据地基 ──► M1 进化解耦+闭环 ──► M2 进化工作台
 
 ## 11. 各里程碑验收汇总（可勾选）
 
-- [ ] M0：`_migrations` 表存在且版本齐全；双开被锁拦截；`migrator.test.ts` 绿
+- [x] M0：`_migrations` 表存在且版本齐全；双开被锁拦截；`migrator.test.ts` 绿（✅ 2026-09-03 完成：317 用例全绿，详见 §2 完成记录）
 - [ ] M1：`selfEvolution` 全仓无残留；`trajectories` 有数据；定时挖掘产出 `skill_drafts`；批准/驳回 API 生效且 `skills/` 只在批准后变化
 - [ ] M2：`/evolution` 页面可用，配置可存、洞察可回溯、草稿可审
 - [ ] M3：FTS5 探针绿；知识库 CRUD+搜索（中英）通过；`KnowledgePage` 不再占位

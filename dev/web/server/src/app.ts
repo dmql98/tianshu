@@ -28,6 +28,8 @@ import { providerOAuthRoutes, createProviderOAuthService } from './routes/provid
 import { setTransportBroadcaster, createBroadcaster } from './transport/runtime.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
 import { getDb, closeDb } from './db/schema.js'
+import { acquireServerLock, type ServerLock } from './db/server-lock.js'
+import { getDataDir } from './config.js'
 import { init as initTools } from './tools/registry.js'
 import { startEventScheduler, stopEventScheduler } from './event/event-scheduler.js'
 import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
@@ -161,6 +163,15 @@ export async function startTianshuServer(
   const corsOrigins = options.corsOrigins && options.corsOrigins.length > 0
     ? options.corsOrigins
     : DEV_CORS_ORIGINS
+
+  // M0.3：独立启动（node dist/index.js / desktop shell）时获取 dataDir 排他锁，
+  // 防止两个实例同时打开并写同一个 sessions.db（WAL 多连接 + 启动 sweep 互踩）。
+  // 测试进程经 TIANSHU_DISABLE_SERVER_LOCK=1 跳过（见 test/setup-data-dir.ts）；
+  // 获取失败会抛错 → 启动即失败并给出友好提示（见 server-lock.ts）。
+  let serverLock: ServerLock | null = null
+  if (process.env.TIANSHU_DISABLE_SERVER_LOCK !== '1') {
+    serverLock = acquireServerLock(getDataDir())
+  }
 
   // Initialize DB and tool registry before serving traffic.
   getDb()
@@ -333,6 +344,8 @@ export async function startTianshuServer(
         }
       }, 5000)
       closeDb()
+      // 释放排他锁（幂等；close 多次/并发调用安全）。
+      serverLock?.release()
     },
   }
 }

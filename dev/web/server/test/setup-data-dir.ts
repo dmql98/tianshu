@@ -8,3 +8,9 @@ import { join } from 'path'
 if (!process.env.TIANSHU_DATA_DIR && !process.env.DATA_DIR) {
   process.env.TIANSHU_DATA_DIR = mkdtempSync(join(tmpdir(), 'tianshu-test-'))
 }
+// 测试进程默认跳过排他服务器锁：大量用例共享/接力同一个 dataDir，
+// 锁会让并行与顺序用例（尤其 ipc-contract 的 fork 子进程）误伤。
+// 锁自身的单元测试显式重新开启（见 server-lock.test.ts）。
+if (!process.env.TIANSHU_DISABLE_SERVER_LOCK) {
+  process.env.TIANSHU_DISABLE_SERVER_LOCK = '1'
+}

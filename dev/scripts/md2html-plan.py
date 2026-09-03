@@ -173,6 +173,9 @@ def parse(md):
                 if re.match(r'^\[ \]', item):
                     rest = item[3:].strip()
                     out.append('<li class="todo"><span class="box"></span>%s</li>' % inline(rest))
+                elif re.match(r'^\[x\]', item):
+                    rest = item[3:].strip()
+                    out.append('<li class="todo"><span class="box" style="background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 2px var(--panel)"></span><span style="color:var(--green);font-weight:600">✓</span> %s</li>' % inline(rest))
                 else:
                     out.append('<li>%s</li>' % inline(item))
                 i += 1
