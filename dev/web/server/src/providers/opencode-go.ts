@@ -6,6 +6,7 @@ export const baseUrl = 'https://opencode.ai/zen/go/v1/'
 export const envKey = 'OPENCODE_API_KEY'
 export const desc = 'OpenCode 订阅服务'
 
+// 价目表不再内嵌插件（避免两处数据源），统一走 provider 目录下的 pricing.json。
 export const plugin: ProviderPlugin = {
   id, name, baseUrl, envKey, desc, format: 'openai',
   models: [

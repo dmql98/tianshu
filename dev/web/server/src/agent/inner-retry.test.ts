@@ -175,3 +175,117 @@ async function emptyStreamRecovers() {
 }
 
 await emptyStreamRecovers()
+
+// ── 429 rate limit: longer backoff + Retry-After header ──
+// 429 errors must use the extended retry budget (MAX_429_ATTEMPTS) and the
+// longer 5s → 10s → 20s → 30s backoff instead of the normal 1s → 2s.
+// When the provider sends a Retry-After header, that value is used directly.
+async function rateLimitBackoff() {
+  const originalFetch4 = globalThis.fetch
+  let fetchCalls4 = 0
+  const retries4: Array<{ attempt: number; max_attempts: number; error: string; delay_ms: number }> = []
+  const delays: number[] = []
+
+  globalThis.fetch = (async () => {
+    fetchCalls4++
+    if (fetchCalls4 <= 3) {
+      // First 3 attempts: 429 with Retry-After: 2
+      return new Response('{"error":{"code":"RateLimitExceeded"}}', {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': '2' },
+      })
+    }
+    // 4th attempt: success
+    const body = [
+      'data: {"choices":[{"delta":{"content":"rate limit recovered"},"finish_reason":"stop"}]}',
+      'data: [DONE]',
+      '',
+    ].join('\n')
+    return new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }) as typeof fetch
+
+  try {
+    const result = await streamWithRetry(
+      [{ role: 'user', content: 'test' }],
+      undefined,
+      { base_url: 'https://example.invalid/v1', api_key: '', api_style: 'chat_completions' },
+      'test-model',
+      undefined,
+      {},
+      undefined,
+      r => { retries4.push(r); delays.push(r.delay_ms) },
+    )
+    if (fetchCalls4 !== 4) throw new Error(`expected 4 fetch calls, got ${fetchCalls4}`)
+    if (retries4.length !== 3) throw new Error(`expected 3 retry events, got ${retries4.length}`)
+    // All retries should report max_attempts = MAX_429_ATTEMPTS (not MAX_LLM_STREAM_ATTEMPTS)
+    for (const r of retries4) {
+      if (r.max_attempts < MAX_LLM_STREAM_ATTEMPTS) {
+        throw new Error(`429 retry should use extended budget: ${JSON.stringify(r)}`)
+      }
+    }
+    // Delays should come from Retry-After header (2000ms = 2s)
+    for (const d of delays) {
+      if (d !== 2000) throw new Error(`expected Retry-After delay 2000ms, got ${d}`)
+    }
+    if (result.text !== 'rate limit recovered') {
+      throw new Error(`unexpected result: ${JSON.stringify(result.text)}`)
+    }
+    console.log('  OK 429 rate limit uses Retry-After header and extended retry budget')
+  } finally {
+    globalThis.fetch = originalFetch4
+  }
+}
+
+await rateLimitBackoff()
+
+// ── 429 without Retry-After: exponential backoff 5s → 10s → 20s ──
+async function rateLimitBackoffNoHeader() {
+  const originalFetch5 = globalThis.fetch
+  let fetchCalls5 = 0
+  const delays5: number[] = []
+
+  globalThis.fetch = (async () => {
+    fetchCalls5++
+    if (fetchCalls5 <= 2) {
+      return new Response('{"error":{"message":"too many requests"}}', {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' }, // no Retry-After
+      })
+    }
+    const body = [
+      'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}',
+      'data: [DONE]',
+      '',
+    ].join('\n')
+    return new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }) as typeof fetch
+
+  try {
+    await streamWithRetry(
+      [{ role: 'user', content: 'test' }],
+      undefined,
+      { base_url: 'https://example.invalid/v1', api_key: '', api_style: 'chat_completions' },
+      'test-model',
+      undefined,
+      {},
+      undefined,
+      r => { delays5.push(r.delay_ms) },
+    )
+    if (fetchCalls5 !== 3) throw new Error(`expected 3 fetch calls, got ${fetchCalls5}`)
+    if (delays5.length !== 2) throw new Error(`expected 2 retries, got ${delays5.length}`)
+    // Without Retry-After: 5s → 10s
+    if (delays5[0] !== 5000) throw new Error(`expected 5000ms delay, got ${delays5[0]}`)
+    if (delays5[1] !== 10000) throw new Error(`expected 10000ms delay, got ${delays5[1]}`)
+    console.log('  OK 429 without Retry-After uses 5s→10s exponential backoff')
+  } finally {
+    globalThis.fetch = originalFetch5
+  }
+}
+
+await rateLimitBackoffNoHeader()

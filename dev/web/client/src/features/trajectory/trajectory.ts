@@ -115,6 +115,10 @@ function lifecycleDetail(ev: TrajectoryEvent): string {
   if (ev.type === 'run.retrying') {
     const attempt = typeof ev.attempt === 'number' ? String(ev.attempt) : ''
     const error = typeof ev.error === 'string' ? ev.error : ''
+    // run-level 恢复重试（上游 503/网络不可用）：与服务端等待重试语义对齐。
+    if (ev.scope === 'run_recovery') {
+      return ['上游不可用，等待重试', attempt ? `第 ${attempt} 次` : '', error].filter(Boolean).join(' · ')
+    }
     return [attempt ? `第 ${attempt} 次` : '', error].filter(Boolean).join(' · ')
   }
   if (ev.type === 'approval.requested') return typeof ev.tool_name === 'string' ? `工具 ${ev.tool_name}` : ''

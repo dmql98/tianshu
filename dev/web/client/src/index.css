@@ -1253,6 +1253,12 @@ textarea:focus{border-color:var(--gold)}
   50% { transform: scale(.55); opacity: .5; }
 }
 
+/* 上游恢复重试提示中的旋转箭头 */
+@keyframes recover-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .character-visual-editor {
   display: flex;
   flex-direction: column;

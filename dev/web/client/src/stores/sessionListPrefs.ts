@@ -183,5 +183,11 @@ interface SessionListPrefsStore extends SessionListPrefs {
 
 export const useSessionListPrefs = create<SessionListPrefsStore>((set) => ({
   ...safeLoad(),
-  setPrefs: (p) => set(safeSave(p)),
+  setPrefs: (p) => {
+    // 先持久化到 localStorage，再更新 store 状态。
+    // zustand 的 set 可能批量延迟更新，若仅依赖 set 回调内的写入，
+    // 组件卸载或 HMR 热重载时置顶/排序偏好会丢失。
+    safeSave(p)
+    set(p)
+  },
 }))

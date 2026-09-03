@@ -23,6 +23,7 @@ const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const McpPage = lazy(() => import('./pages/McpPage'))
 const KnowledgePage = lazy(() => import('./pages/KnowledgePage'))
 const MarketPage = lazy(() => import('./pages/MarketPage'))
+const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
 const EventsPage = lazy(() => import('./pages/EventsPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/mcp', icon: 'nav-mcp', label: 'MCP' },
   { to: '/knowledge', icon: 'nav-knowledge', label: '知识' },
   { to: '/market', icon: 'nav-market', label: '市场' },
+  { to: '/stats', icon: 'nav-stats', label: '统计' },
 ]
 
 export default function App() {
@@ -160,6 +162,7 @@ export default function App() {
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/market" element={<MarketPage />} />
+        <Route path="/stats" element={<StatisticsPage />} />
         <Route path="/mcp" element={<McpPage />} />
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/settings" element={<SettingsPage />} />

@@ -150,6 +150,8 @@ export interface LLMChunk {
   tool_calls?: ToolCall[]
   /** Present on `done`: how the stream reached its terminal state. */
   completion?: StreamCompletion
+  /** 429 限流时从 Retry-After 头提取的建议等待毫秒数，供上层退避使用。 */
+  retryAfterMs?: number
 }
 
 /** How a provider stream reached its end — callers must not infer success
@@ -183,6 +185,15 @@ export interface LLMOptions {
   apiStyle?: ProviderApiStyle
   /** 输出 token 上限（P1-5：摘要等辅助调用用；不设置则不携带）。 */
   max_tokens?: number
+}
+
+/** 从 HTTP 响应中提取 Retry-After 头（秒），返回毫秒。仅处理数字格式，返回 undefined 表示无/无效。 */
+function parseRetryAfter(res: Response): number | undefined {
+  const raw = res.headers.get('retry-after')
+  if (!raw) return undefined
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0) return undefined
+  return Math.round(n * 1000)
 }
 
 function parseUsage(raw: any): LLMUsage {
@@ -256,8 +267,9 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     })
 
     if (!res.ok) {
+      const retryAfterMs = parseRetryAfter(res)
       const text = await res.text().catch(() => '')
-      yield { type: 'error', text: `LLM API ${res.status}: ${text}` }
+      yield { type: 'error', text: `LLM API ${res.status}: ${text}`, ...(retryAfterMs != null ? { retryAfterMs } : {}) }
       return
     }
 
@@ -519,8 +531,9 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
     })
 
     if (!res.ok) {
+      const retryAfterMs = parseRetryAfter(res)
       const text = await res.text().catch(() => '')
-      yield { type: 'error', text: `LLM API ${res.status}: ${text}` }
+      yield { type: 'error', text: `LLM API ${res.status}: ${text}`, ...(retryAfterMs != null ? { retryAfterMs } : {}) }
       return
     }
 

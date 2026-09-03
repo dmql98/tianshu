@@ -240,7 +240,7 @@ export interface RunEvent {
   attempt?: number
   max_attempts?: number
   delay_ms?: number
-  scope?: 'request' | 'run'
+  scope?: 'request' | 'run' | 'run_recovery'
   cache?: { hitTokens: number; missTokens: number; hitRatio: string }
   context_window?: number
   message_id?: number

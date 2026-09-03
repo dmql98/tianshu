@@ -1,0 +1,44 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g clip-path="url(#clip)">
+    <!-- Left bar - cyan -->
+    <mask id="m0" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="20" width="12" height="18">
+      <path d="M0.579 37.09H11.153L6.366 22.033c-.086-.25-.392-.356-.583-.235-.13.082-.21.21-.235.366L.579 37.09Z" fill="white"/>
+    </mask>
+    <g mask="url(#m0)">
+      <rect x="0" y="21" width="12" height="18" fill="#00DCFF"/>
+    </g>
+    <!-- Right bar - cyan -->
+    <mask id="m1" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="26" y="18" width="14" height="20">
+      <path d="M26.289 37.109H38.559L32.929 19.374c-.086-.25-.392-.356-.583-.235-.13.082-.21.21-.235.366L26.289 37.109Z" fill="white"/>
+    </mask>
+    <g mask="url(#m1)">
+      <rect x="25.716" y="18.346" width="14.115" height="19.354" fill="#00DCFF"/>
+    </g>
+    <!-- Center tall bar - blue -->
+    <mask id="m2" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="12" y="2" width="16" height="36">
+      <path d="M11.686 37.109H34.32L23.509 3.26c-.094-.334-.654-.334-.747 0L11.686 37.109Z" fill="white"/>
+    </mask>
+    <g mask="url(#m2)">
+      <rect x="11.113" y="2.233" width="17.243" height="37.131" fill="#006AFF"/>
+    </g>
+    <!-- Left-center bar - blue -->
+    <mask id="m3" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="4" y="10" width="16" height="28">
+      <path d="M4.81 37.112H21.943L13.879 11.854c-.094-.334-.654-.334-.747 0L4.81 37.112Z" fill="white"/>
+    </mask>
+    <g mask="url(#m3)">
+      <rect x="4.232" y="10.827" width="16.285" height="26.367" fill="#006AFF"/>
+    </g>
+    <!-- Right-center bar - cyan -->
+    <mask id="m4" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="9" y="15" width="14" height="23">
+      <path d="M9.557 37.112H24.047L17.307 16.132c-.094-.334-.654-.334-.747 0L9.557 37.112Z" fill="white"/>
+    </mask>
+    <g mask="url(#m4)">
+      <rect x="8.991" y="15.111" width="14.642" height="21.535" fill="#00DCFF"/>
+    </g>
+  </g>
+  <defs>
+    <clipPath id="clip">
+      <rect width="40" height="40" fill="white"/>
+    </clipPath>
+  </defs>
+</svg>

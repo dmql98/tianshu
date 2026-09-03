@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "amd",
+  "name": "AMD Token Factory",
+  "description": "AMD Token Factory（AMD Radeon）API",
+  "format": "openai",
+  "runtime": {
+    "plugin": "openai"
+  },
+  "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+  "env": [
+    "AMD_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://developer.amd.com.cn/",
+  "docsUrl": "https://developer.amd.com.cn/",
+  "popular": false,
+  "sortOrder": 55,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "rc-..."
+    }
+  ]
+}

@@ -105,3 +105,8 @@ export function configIconPackFile(): string {
 export function configModelUsageFile(): string {
   return resolve(configDir(), 'model-usage.json')
 }
+
+/** 汇率配置：<dataDir>/config/exchange-rate.json（USD→CNY 参考换算，可维护）。 */
+export function configExchangeRateFile(): string {
+  return resolve(configDir(), 'exchange-rate.json')
+}

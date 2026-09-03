@@ -219,9 +219,12 @@ export interface InnerResult {
  * 会退避重试，直到耗尽该上限才把 run 判失败。
  * - 默认 3 次尝试 = 最多 2 次重试（间隔 1s → 2s），足以吸收绝大多数瞬断；
  * - 可用环境变量 LLM_MAX_ATTEMPTS 调大（如本地代理不稳时），1 表示不重试。
+ * - 429 限流有独立上限（LLM_MAX_429_ATTEMPTS，默认 5 次 = 最多 4 次重试，
+ *   退避 5s → 10s → 20s → 30s），因为限流恢复通常需要几十秒。
  * 注意：run 级不会再多重试一轮（见 loop-engine 注释），避免重复工具副作用。
  */
 export const MAX_LLM_STREAM_ATTEMPTS = Math.max(1, envInt('LLM_MAX_ATTEMPTS', 3))
+export const MAX_429_ATTEMPTS = Math.max(1, envInt('LLM_MAX_429_ATTEMPTS', 5))
 
 export async function streamWithRetry(
   messages: LLMMessage[],
@@ -236,11 +239,13 @@ export async function streamWithRetry(
   // Accumulators are attempt-local: a retry must start from a clean slate so
   // the previous attempt's partial text, reasoning, or half-built tool
   // arguments can never leak into the successful attempt.
-  let committed: { text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null } | null = null
+let committed: { text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null } | null = null
+let hit429 = false
 
-  for (let attempt = 0; attempt < MAX_LLM_STREAM_ATTEMPTS; attempt++) {
+for (let attempt = 0; attempt < (hit429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTEMPTS); attempt++) {
     if (signal?.aborted) break
     let errorText = ''
+    let retryAfterMs: number | undefined
     let fullText = ''
     let reasoningText = ''
     let toolCallsAcc: ToolCall[] = []
@@ -283,6 +288,7 @@ export async function streamWithRetry(
 
       if (chunk.type === 'error') {
         errorText = chunk.text || 'LLM error'
+        retryAfterMs = chunk.retryAfterMs
         break
       }
 
@@ -302,12 +308,23 @@ export async function streamWithRetry(
       break
     }
 
-    if (!isTransientLLMError(errorText) || attempt >= MAX_LLM_STREAM_ATTEMPTS - 1) {
+    // 429 限流退避策略：
+    // - 有 Retry-After 头时直接使用（provider 指定的等待时间）
+    // - 否则用更长的退避：5s → 10s → 20s → 30s（上限 30s），比普通错误的 1s → 2s 宽松得多
+    const is429 = errorText.includes('429')
+    if (is429) hit429 = true
+    const maxAttempts = is429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTEMPTS
+
+    if (!isTransientLLMError(errorText) || attempt >= maxAttempts - 1) {
       throw new Error(errorText)
     }
 
-    const delay = Math.min(1000 * Math.pow(2, attempt), 8000)
-    onRetry?.({ attempt: attempt + 2, max_attempts: MAX_LLM_STREAM_ATTEMPTS, error: errorText, delay_ms: delay })
+    const delay = retryAfterMs != null
+      ? retryAfterMs
+      : is429
+        ? Math.min(5000 * Math.pow(2, attempt), 30_000)
+        : Math.min(1000 * Math.pow(2, attempt), 8000)
+    onRetry?.({ attempt: attempt + 2, max_attempts: maxAttempts, error: errorText, delay_ms: delay })
     await sleep(delay)
   }
 

@@ -1,0 +1,147 @@
+/* ═══ 用量统计页（StatisticsPage） ═══ */
+
+/* ── 内容区 ── */
+/* 整页滚动：让 main 自身滚动，而非 .content 内部容器滚动（对齐 demo 页面整体下翻）。 */
+.main.stats-main{overflow-y:auto;overflow-x:hidden}
+/* 覆盖 .content 的 flex:1+overflow-y:auto，让内容自然撑开 */
+.stats-main > .content.stats-content{flex:0 0 auto;overflow:visible}
+.stats-content{display:flex;flex-direction:column;gap:14px;padding-bottom:40px}
+.stats-error{color:var(--cinnabar);font-size:calc(12px*var(--ui-font-scale));background:color-mix(in srgb,var(--cinnabar) 8%,transparent);border:1px solid color-mix(in srgb,var(--cinnabar) 30%,transparent);border-radius:10px;padding:10px 14px}
+.stats-rate-hint{font-size:calc(11px*var(--ui-font-scale));color:var(--ink-faint);font-variant-numeric:tabular-nums}
+
+/* ── 工具栏 ── */
+.stats-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:10px 12px}
+.stats-date{display:flex;align-items:center;gap:6px;font-size:calc(11px*var(--ui-font-scale));color:var(--ink-light)}
+.stats-date input{background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--ink-deep);padding:4px 8px;font-size:calc(11px*var(--ui-font-scale));outline:none;font-family:inherit;transition:border-color .15s}
+.stats-date input:focus{border-color:var(--gold)}
+.stats-divider{width:1px;height:22px;background:var(--border)}
+
+/* chip active：TSX 用 .chip.active，全局只定义了 .chip.on */
+.chip:hover{color:var(--ink-mid)}
+.stats-toolbar .chip.active,
+.stats-mid .chip.active,
+.stats-card-head .chip.active{
+  background:var(--bg-input);color:var(--gold);font-weight:600;
+  box-shadow:0 1px 3px var(--theme-shadow-color);
+}
+
+/* select 筛选 */
+.stats-toolbar .sel{background:var(--bg-input);border:1px solid var(--border);color:var(--ink-mid);border-radius:8px;padding:6px 10px;font-size:calc(12px*var(--ui-font-scale));outline:none;max-width:190px;font-family:inherit;cursor:pointer;transition:border-color .15s}
+.stats-toolbar .sel:focus{border-color:var(--gold)}
+
+/* ── KPI ── */
+.stats-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.stats-kpi{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:14px 16px;min-width:0;position:relative;overflow:hidden;
+}
+/* 装饰光晕（对齐 demo） */
+.stats-kpi::after{
+  content:'';position:absolute;right:-22px;top:-22px;width:80px;height:80px;
+  border-radius:50%;background:var(--gold-mist);pointer-events:none;
+}
+.stats-kpi-label{font-size:calc(11px*var(--ui-font-scale));color:var(--ink-light);letter-spacing:.4px;display:flex;align-items:center;gap:6px}
+.stats-kpi-value{font-size:calc(22px*var(--ui-font-scale));font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.3px}
+.stats-kpi-value.gold{color:var(--gold)}
+.stats-kpi-value.green{color:var(--jade)}
+.stats-kpi-value.stats-kpi-small{font-size:calc(15px*var(--ui-font-scale))}
+.stats-kpi-sub{display:block;font-size:calc(10px*var(--ui-font-scale));color:var(--ink-faint);font-weight:500;margin-top:2px}
+.stats-kpi-foot{font-size:calc(11px*var(--ui-font-scale));color:var(--ink-light);margin-top:4px;line-height:1.5;display:flex;gap:10px;flex-wrap:wrap}
+.stats-kpi-foot b{color:var(--ink-mid);font-weight:500}
+.stats-loading{grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:26px 0}
+
+/* ── 中部网格 ── */
+.stats-mid{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;align-items:stretch}
+@media(max-width:980px){.stats-mid{grid-template-columns:1fr}}
+
+/* ── 卡片 ── */
+.stats-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.stats-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border-light);flex-wrap:wrap}
+.stats-card-title{font-size:calc(13px*var(--ui-font-scale));font-weight:600;color:var(--ink-mid);letter-spacing:.4px}
+.stats-card-count{font-size:calc(11px*var(--ui-font-scale));color:var(--ink-faint)}
+
+/* ── 柱状图 ── */
+.stats-bars{display:flex;align-items:flex-end;gap:6px;height:200px;padding:14px 14px 6px;position:relative}
+.stats-bar-col{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.stats-bar-area{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;position:relative}
+.stats-bar{
+  width:min(32px,60%);border-radius:5px 5px 2px 2px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 88%,#fff),var(--gold));
+  transition:height .45s ease;min-height:2px;position:relative;
+}
+.stats-bar:hover{filter:brightness(1.08)}
+.stats-bar.zero{background:repeating-linear-gradient(180deg,var(--border) 0 2px,transparent 2px 5px);min-height:8px}
+.stats-bar-x{font-size:calc(10px*var(--ui-font-scale));color:var(--ink-faint);white-space:nowrap;transform:scale(.92)}
+.stats-bars-legend{padding:6px 14px 10px;font-size:calc(11px*var(--ui-font-scale));color:var(--ink-light);display:flex;gap:14px;flex-wrap:wrap}
+.stats-bars-legend .lg{display:flex;align-items:center;gap:5px}
+.stats-bars-legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* ── 免费/付费构成（环形图 + 分段条 + 图例） ── */
+.stats-chart-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px}
+.stats-donut-box{display:flex;align-items:center;justify-content:center;height:150px}
+.stats-donut{width:150px;height:150px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.stats-donut-hole{
+  width:76px;height:76px;border-radius:50%;background:var(--bg-card);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  box-shadow:0 0 20px var(--theme-shadow-color);
+}
+.stats-donut-hole b{font-size:calc(19px*var(--ui-font-scale));font-weight:700}
+.stats-donut-hole span{font-size:calc(10px*var(--ui-font-scale));color:var(--ink-faint)}
+
+/* 分段条 */
+.stats-stack{height:26px;border-radius:7px;overflow:hidden;display:flex;width:100%;background:var(--bg-hover)}
+.stats-stack .stats-stack-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:calc(10px*var(--ui-font-scale));color:#fff;font-weight:600;min-width:0;transition:width .4s ease}
+
+/* 图例（垂直列在环下方） */
+.stats-donut-legend{display:flex;flex-direction:column;gap:7px;font-size:calc(12px*var(--ui-font-scale));color:var(--ink-mid);width:100%}
+.stats-donut-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.stats-donut-legend em{font-style:normal;color:var(--ink-faint);font-size:calc(11px*var(--ui-font-scale))}
+.stats-donut-legend b{color:var(--ink-deep);font-weight:600}
+
+/* ── 表格 ── */
+.stats-table-scroll{overflow-x:auto;min-height:80px}
+.tbl{width:100%;border-collapse:collapse;font-size:calc(12.5px*var(--ui-font-scale))}
+.tbl th{font-size:calc(11px*var(--ui-font-scale));color:var(--ink-light);font-weight:500;text-align:left;padding:9px 14px;border-bottom:1px solid var(--border);white-space:nowrap;letter-spacing:.3px}
+.tbl td{padding:9px 14px;border-bottom:1px solid var(--border-light);color:var(--ink-mid);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr{transition:background .12s}
+.tbl tbody tr:hover{background:var(--bg-hover)}
+.tbl tbody tr.clickable{cursor:pointer}
+.tbl .num,.tbl th.num{text-align:right}
+.tbl .strong{color:var(--ink-deep);font-weight:600}
+.tbl .mono{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:calc(11.5px*var(--ui-font-scale))}
+.tbl .green{color:var(--jade)}
+.stats-tbl td,.stats-tbl th{white-space:nowrap;padding:9px 14px}
+.stats-ellipsis{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.stats-tbl .sub{display:block;font-size:calc(9.5px*var(--ui-font-scale));color:var(--ink-faint);font-weight:400}
+.stats-tbl em{font-style:normal;color:var(--gold);font-size:calc(11px*var(--ui-font-scale))}
+.stats-tbl .ref em{color:var(--jade);font-weight:600}
+
+/* 模型表「用量/费用」段：token 在上、金额在下，两行紧凑 */
+.stats-seg-cell span{display:inline-flex;flex-direction:column;gap:1px;line-height:1.4}
+.stats-seg-cell em{font-size:calc(10px*var(--ui-font-scale))}
+
+/* 排名徽章 */
+.th-sub{display:block;font-weight:400;font-size:calc(9px*var(--ui-font-scale));color:var(--ink-faint);letter-spacing:.2px}
+.rank{display:inline-flex;width:22px;height:22px;border-radius:6px;align-items:center;justify-content:center;font-size:calc(10.5px*var(--ui-font-scale));font-weight:700;background:var(--bg-hover);color:var(--ink-light)}
+.rank.r1{background:var(--gold);color:var(--theme-text-on-accent)}
+.rank.r2{background:color-mix(in srgb,var(--gold) 55%,#fff);color:var(--theme-text-on-accent)}
+.rank.r3{background:color-mix(in srgb,var(--gold) 30%,#fff);color:var(--theme-text-on-accent)}
+
+/* badge */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:5px;font-size:calc(10px*var(--ui-font-scale));font-weight:600;letter-spacing:.3px}
+.badge.free{background:color-mix(in srgb,var(--jade) 14%,transparent);color:var(--jade)}
+.badge.paid{background:var(--gold-soft);color:var(--gold)}
+
+/* 免费/删除线 */
+.ref-del{color:var(--jade);opacity:.8;text-decoration-thickness:1.5px}
+.free-0{color:var(--jade);font-weight:700}
+
+/* ── 分页 ── */
+.stats-pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid var(--border-light);font-size:calc(11px*var(--ui-font-scale));color:var(--ink-light)}
+.stats-pager button{border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);border-radius:7px;padding:3px 10px;font-size:calc(11px*var(--ui-font-scale));font-family:inherit;cursor:pointer;transition:all .12s}
+.stats-pager button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+.stats-pager button:disabled{opacity:.4;cursor:default}
+
+/* ── 空态 ── */
+.stats-empty{color:var(--ink-faint);text-align:center;padding:44px;font-size:calc(13px*var(--ui-font-scale))}

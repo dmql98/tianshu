@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "volcengine",
+  "name": "火山方舟",
+  "description": "火山引擎方舟（Volcano Ark）API，豆包（Doubao）系列模型",
+  "format": "openai",
+  "runtime": {
+    "plugin": "openai"
+  },
+  "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+  "env": [
+    "ARK_API_KEY"
+  ],
+  "icon": "icon.svg",
+  "website": "https://www.volcengine.com/product/ark",
+  "docsUrl": "https://www.volcengine.com/docs/82379",
+  "popular": true,
+  "sortOrder": 25,
+  "enabled": true,
+  "fields": [
+    {
+      "key": "apiKey",
+      "type": "password",
+      "label": "API Key",
+      "required": true,
+      "placeholder": "ark-..."
+    }
+  ]
+}

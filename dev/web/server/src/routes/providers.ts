@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { readFileSync, statSync } from 'fs'
 import { providerStore } from '../db/providerStore.js'
 import { loadCatalog, getPreset, getIconPath } from '../provider-catalog/loader.js'
+import { invalidatePricingCache } from '../pricing/calculator.js'
 
 const router = new Hono()
 
@@ -106,16 +107,19 @@ router.post('/', async (c) => {
   }
   const { conflict, record: created } = providerStore.create(record)
   if (conflict) return c.json({ error: '该预设服务商已添加', conflict: true }, 409)
+  invalidatePricingCache()
   return c.json(created, 201)
 })
 router.put('/:id', async (c) => {
   const body = await c.req.json()
   const updated = providerStore.update(c.req.param('id'), body)
   if (!updated) return c.json({ error: 'Not found' }, 404)
+  invalidatePricingCache()
   return c.json(updated)
 })
 router.delete('/:id', (c) => {
   if (!providerStore.delete(c.req.param('id'))) return c.json({ error: 'Not found' }, 404)
+  invalidatePricingCache()
   return c.json({ ok: true })
 })
 

@@ -11,6 +11,8 @@ import { capturePrefixShape, compareShapes, type PrefixShape } from '../system-c
 import { estimateTokens, shouldSnipTokens, shouldCompactTokens, trimToolResults, MAX_OVERFLOW_COMPACTS, type CompactPolicy } from './loop-policy.js'
 import { compactWithRetries, selectAndSummarize } from './context-compactor.js'
 import { isContextOverflowError } from '../../llm/client.js'
+import { isTransientLLMError } from '../../llm/errors.js'
+import { envInt } from '../../config.js'
 import { handleSubAgentBatchRequest, handleSubAgentMessageRequest, handleTaskComplete, handleAskUser, handleCreatePlan, handleUpdatePlanStep, handleDiscardPlan, handleCreateGoal, handleGetGoal, handleCompleteGoal, handleCancelGoal } from './control-router.js'
 import { planStore } from '../plan/plan-store.js'
 import { goalStore, type GoalRow } from '../plan/plan-store.js'
@@ -21,6 +23,20 @@ import { assessProgress, createRuntimeState, type RunLimitSummary, type RunLimit
  * Loop engine: the bounded model/tool turn loop. Migrated from the body of
  * agent/outer.ts sessionLoop.
  */
+
+/**
+ * Run-level transient-error recovery: when streamWithRetry exhausts its
+ * request-level retries (default 3) and the error is still transient (503,
+ * 502, 500, network failure, etc.), the loop engine waits and retries the
+ * whole turn instead of failing the run immediately.
+ *
+ * - Default 2 extra attempts (total 3 tries at run level), enough to ride out
+ *   a provider restart (typically 1-10 minutes).
+ * - Backoff: 10s → 30s (fixed, no exponential — the request-level retry
+ *   already applies its own 1s→2s backoff on each attempt).
+ * - Set LLM_RUN_RECOVERY_ATTEMPTS=0 to disable (old behavior: fail fast).
+ */
+const MAX_RUN_RECOVERY_ATTEMPTS = Math.max(0, envInt('LLM_RUN_RECOVERY_ATTEMPTS', 2))
 
 // Reasoning models (DeepSeek-style) always emit `reasoning_content` regardless
 // of the client's `thinking` toggle. Once thinking is active upstream, every
@@ -139,6 +155,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
   let totalCacheHitTokens = 0
   let totalCacheMissTokens = 0
   let overflowCompacts = 0
+  let runRecoveryAttempts = 0
   const toolCallHistory: ToolCallRecord[] = []
   let prevPrefixShape: PrefixShape | undefined
   let limitSummary: RunLimitSummary | undefined
@@ -383,10 +400,30 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
         return { status: 'stop', sessionId, totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn }
       }
 
-      // P0-3: a non-overflow LLM error here is a committed failure — transient
-      // errors were already retried (with backoff) inside streamWithRetry.
-      // Retrying once more at run level just consumes another turn with no
-      // backoff, so fail the Run instead of adding an extra turn.
+      // P0-3: a non-overflow LLM error here is normally a committed failure —
+      // transient errors were already retried (with backoff) inside
+      // streamWithRetry. However, when the upstream is fully down (503, 502,
+      // network failure), request-level retries (default 3, ~3s total) are too
+      // short. Run-level recovery waits longer and retries the whole turn.
+      if (isTransientLLMError(errMsg) && runRecoveryAttempts < MAX_RUN_RECOVERY_ATTEMPTS) {
+        runRecoveryAttempts++
+        const delay = runRecoveryAttempts === 1 ? 10_000 : 30_000
+        console.log(`[session] ${sessionId} transient error (attempt ${runRecoveryAttempts}/${MAX_RUN_RECOVERY_ATTEMPTS}): ${result.error}, retrying in ${delay / 1000}s...`)
+        stream?.emit('run.retrying', {
+          session_id: sessionId,
+          run_id: runId,
+          scope: 'run_recovery',
+          attempt: runRecoveryAttempts,
+          max_attempts: MAX_RUN_RECOVERY_ATTEMPTS,
+          error: result.error || '',
+          delay_ms: delay,
+        })
+        await new Promise(r => setTimeout(r, delay))
+        if (signal?.aborted) break
+        turn-- // don't count this as a consumed turn
+        continue
+      }
+
       console.log(`[session] ${sessionId} failed: ${result.error || 'LLM error'} (${turn} turns)`)
       stream?.emit('run.failed', { session_id: sessionId, run_id: runId, error: result.error })
       for (const [, client] of mcpClients) {

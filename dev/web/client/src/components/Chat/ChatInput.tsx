@@ -49,7 +49,7 @@ export default function ChatInput() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounter = useRef(0)
   const [isDragging, setIsDragging] = useState(false)
-  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, setStrategy } = useChatStore()
+  const { sendMessage, isStreaming, abortRun, sessions, activeSessionId, attachments, addAttachment, removeAttachment, activeRun, limitNotice, clearLimitNotice, runRecoveryNotice, setStrategy } = useChatStore()
   const { providers } = useProvidersStore()
   const t = useI18n()
   const session = sessions.find(s => s.id === activeSessionId)
@@ -291,6 +291,10 @@ export default function ChatInput() {
     }
   }
 
+  // 模型选项的显示文本：模型名（服务商名），方便在列表中区分同名模型。
+  const modelOptionLabel = (o: { providerName: string; modelName: string }) =>
+    `${o.modelName} (${o.providerName})`
+
   const currentModelKey = `${session?.provider_id || ''}::${session?.model || ''}`
 
   return (
@@ -376,6 +380,25 @@ export default function ChatInput() {
               </button>
             )}
           </div>
+          {runRecoveryNotice && (
+            <div
+              onClick={() => useChatStore.getState().setRunRecoveryNotice(null)}
+              style={{
+                position: 'absolute', bottom: 'calc(100% + 8px)', left: 16, right: 16,
+                padding: '6px 12px', borderRadius: 8, fontSize: 'calc(12px * var(--ui-font-scale))',
+                background: 'rgba(200,150,40,0.12)',
+                border: '1px solid rgba(200,150,40,0.35)',
+                color: 'var(--amber, #b8892e)',
+                cursor: 'pointer',
+                zIndex: 21,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+              title={t('点击关闭')}
+            >
+              <span style={{ display: 'inline-block', animation: 'recover-spin 1.2s linear infinite' }}>⟳</span>
+              <span>{runRecoveryNotice}</span>
+            </div>
+          )}
           {limitNotice && (
             <div
               onClick={clearLimitNotice}
@@ -432,7 +455,7 @@ export default function ChatInput() {
           title={t('模型')}
           value={currentModelKey}
           onChange={handleModelChange}
-          options={modelOptions.map(o => ({ value: o.modelId, label: o.modelName, group: o.providerName }))}
+          options={modelOptions.map(o => ({ value: o.modelId, label: modelOptionLabel(o), group: o.providerName }))}
         />
         <PickerSelect
           title={t('思考强度')}

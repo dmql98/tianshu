@@ -181,6 +181,10 @@
     "warning": {
       "file": "warning.svg",
       "tint": true
+    },
+    "nav-stats": {
+      "file": "nav-stats.svg",
+      "tint": true
     }
   },
   "createdAt": "2026-08-17T06:20:18.192Z",

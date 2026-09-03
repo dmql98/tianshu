@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢云远程 · 开发计划（HTML 版）</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1e2230; --line: #2a2f3f;
+    --text: #e6e9f0; --muted: #9aa3b5; --accent: #4f8cff; --accent2: #22c3a6;
+    --warn: #f5a524; --danger: #f45b69; --ok: #2fd57e;
+    --mono: "SF Mono", Consolas, "JetBrains Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.7 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 32px 16px 80px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 30px; letter-spacing: .5px; }
+  h2 {
+    font-size: 21px; margin: 44px 0 16px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line); color: #fff;
+  }
+  h2 .tag { color: var(--accent); font-family: var(--mono); font-size: 14px; margin-right: 10px; }
+  h3 { font-size: 16px; margin: 22px 0 10px; color: var(--accent2); }
+  p, li { color: var(--text); }
+  .sub { color: var(--muted); font-size: 14px; }
+  .hero {
+    background: linear-gradient(135deg, #141a2b, #0f1117);
+    border: 1px solid var(--line); border-radius: 14px; padding: 26px 28px;
+    margin-bottom: 8px;
+  }
+  .hero .badges { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--muted);
+    border-radius: 999px; padding: 3px 12px; font-size: 12.5px;
+  }
+  .badge.b { color: var(--accent); border-color: #3b5fa8; }
+  .badge.g { color: var(--ok); border-color: #1e7a4d; }
+  .badge.o { color: var(--warn); border-color: #8a641f; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; margin: 14px 0;
+  }
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--panel2); color: #c9d2e0; font-weight: 600; white-space: nowrap; }
+  tr:hover td { background: #1a1e2b; }
+
+  code, pre { font-family: var(--mono); }
+  code { background: #1d2230; border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: 13px; }
+  pre {
+    background: #12141c; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 12px 0;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  .hl { color: var(--accent2); }
+  .dim { color: var(--muted); }
+
+  /* 架构图 */
+  .arch { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 18px 8px; }
+  .node {
+    background: var(--panel2); border: 1px solid #39415a; border-radius: 10px;
+    padding: 10px 18px; text-align: center; min-width: 210px;
+  }
+  .node .t { font-weight: 700; font-size: 15px; }
+  .node .s { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
+  .node.cloud { border-color: var(--accent); }
+  .node.phone { border-color: var(--ok); }
+  .node.pc { border-color: var(--warn); }
+  .line { display: flex; flex-direction: column; align-items: center; color: var(--muted); font-size: 12px; padding: 6px 0; }
+  .line .bar { width: 2px; height: 18px; background: #39415a; }
+  .line .cap { background: #1e2230; border: 1px solid var(--line); padding: 2px 12px; border-radius: 999px; font-family: var(--mono); }
+
+  .ms { display: grid; grid-template-columns: 64px 1fr; gap: 0; margin: 10px 0; }
+  .ms .m { font-family: var(--mono); font-weight: 700; color: var(--accent); padding-top: 10px; text-align: center; }
+  .ms .body { border-left: 2px solid var(--line); padding: 6px 0 14px 18px; position: relative; }
+  .ms .body::before {
+    content: ""; position: absolute; left: -7px; top: 16px; width: 10px; height: 10px;
+    background: var(--bg); border: 2px solid var(--accent); border-radius: 50%;
+  }
+  .ms.done .body::before { border-color: var(--ok); }
+  .ms .body h4 { color: #fff; font-size: 15px; margin-bottom: 4px; }
+  .ms .body h4 .est { color: var(--muted); font-weight: 400; font-size: 12.5px; margin-left: 10px; }
+  .ms .body ul { margin: 6px 0 0 18px; }
+  .ms .body ul li { margin: 3px 0; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; font-family: var(--mono); font-size: 13px; }
+  .flow .step { background: #1a1e2b; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; }
+  .flow .arrow { color: var(--muted); }
+
+  .todo { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .todo .item { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font-size: 13px; }
+  .todo .item b { color: var(--warn); }
+  .foot { margin-top: 60px; color: var(--muted); font-size: 12.5px; text-align: center; border-top: 1px solid var(--line); padding-top: 18px; }
+  a { color: var(--accent); }
+  @media print { body { background: #fff; color: #111; } .card, .hero, pre { background: #f7f8fa; border-color: #ddd; color: #111; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <div class="hero">
+    <div class="sub" style="margin-bottom:6px">Tianshu Cloud Remote · 开发计划</div>
+    <h1>📱 天枢手机远程管理 <span style="color:var(--accent)">/remote</span> + <span style="color:var(--accent2)">/auth</span> 统一登录</h1>
+    <p class="sub" style="margin-top:10px">版本 v1.0 · 2026-09-03 · 配套文档：<code>docs/mobile-cloud-architecture-plan.md</code>（架构定稿）· <code>docs/mobile-cloud-implementation-plan.md</code>（执行细则）</p>
+    <div class="badges">
+      <span class="badge">手机 → 云中继 → 多电脑</span>
+      <span class="badge b">云端只转发，不存业务数据</span>
+      <span class="badge g">所有服务共用一个登录</span>
+      <span class="badge o">天枢 server 零改动</span>
+      <span class="badge">域名：www.tianshuapp.tech</span>
+    </div>
+  </div>
+
+  <!-- ============ 一句话 ============ -->
+  <div class="card">
+    <b>一句话概括：</b>手机 App 通过 <code>www.tianshuapp.tech</code> 上的账号中心登录，选中自己的一台电脑后，所有请求经云端 <code>/remote</code> 沿「电脑主动建立的 WSS 隧道」透传到本机天枢
+    <code>127.0.0.1:3456</code>——电脑常开在线，云只当中转，<span class="hl">数据永远留在自己电脑上</span>。
+  </div>
+
+  <!-- ============ 0. 架构总览 ============ -->
+  <h2><span class="tag">0</span>架构总览</h2>
+  <div class="card">
+    <div class="arch">
+      <div class="node phone"><div class="t">📱 手机 App / 手机 Web（PWA）</div>
+        <div class="s">登录 /auth → 设备列表 → 会话聊天<br>上行 REST + 下行 SSE</div></div>
+      <div class="line"><div class="cap">HTTPS / SSE · JWT + 设备选择</div><div class="bar"></div></div>
+      <div class="node cloud"><div class="t">☁️ cloud-server（云端，127.0.0.1:8787）</div>
+        <div class="s"><code>/auth</code> 统一账号中心 · <code>/remote</code> 设备目录 + 隧道汇聚 + 双向转发<br><span class="dim">不跑 agent · 不存会话 · 不做计算</span></div></div>
+      <div class="line"><div class="cap">WSS 出站隧道（电脑主动连云，NAT 免穿透）</div><div class="bar"></div></div>
+      <div class="node pc"><div class="t">🖥️ 电脑 A / B / C（天枢桌面端）</div>
+        <div class="s">cloud-tunnel（新）→ 本地 server <code>127.0.0.1:3456</code><br>agent / 会话 / SQLite 全在本地 · 电脑常开</div></div>
+    </div>
+    <p class="sub" style="text-align:center;margin-top:8px">官网 Nginx 按前缀分流：<code>/auth/*</code>、<code>/remote/*</code> → cloud-server，其余 → 官网原静态站</p>
+  </div>
+
+  <!-- ============ 1. 三大模块 ============ -->
+  <h2><span class="tag">1</span>要开发的三大块</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3>① cloud-server（云端）</h3>
+      <p class="sub">独立项目，与官网同机部署</p>
+      <ul style="margin:8px 0 0 18px">
+        <li><code>/auth</code>：注册 / 登录 / 刷新 / me / jwks（唯一账号库）</li>
+        <li><code>/remote</code>：设备目录 + WSS 隧道 + HTTP/SSE 透传</li>
+        <li>技术：Hono + ws + jose + node:sqlite，零外部基础设施</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>② 桌面端 cloud-tunnel</h3>
+      <p class="sub">Electron main 增量（天枢 server 不改）</p>
+      <ul style="margin:8px 0 0 18px">
+        <li>cloud-auth：/auth 登录，token 存 safeStorage</li>
+        <li>cloud-tunnel：WSS 连云 + 本地 HTTP 透传 + 心跳重连</li>
+        <li>设置页「云远程」开关；开机自启；本地模式不变</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>③ 手机 App（Android APK）</h3>
+      <p class="sub">Electron 不支持 Android → 用 Capacitor（WebView 壳，思路同款）</p>
+      <ul style="margin:8px 0 0 18px">
+        <li>mobile-web（复用 web/client 组件）→ <code>npx cap sync android</code> → APK</li>
+        <li>登录（与桌面同一账号）→ 设备列表 → 聊天</li>
+        <li>壳加载 <code>/mobile</code>（同源无 CORS，SSE 原生可用）</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ 2. URL 布局 ============ -->
+  <h2><span class="tag">2</span>URL 布局（同域子路径，Nginx 分流）</h2>
+  <div class="grid g2">
+    <div class="card">
+      <pre><code>www.tianshuapp.tech/<span class="dim">*</span>                官网现有内容（不动）
+www.tianshuapp.tech/<span class="hl">auth</span><span class="dim">/*</span>            统一账号中心
+www.tianshuapp.tech/<span class="hl">remote</span><span class="dim">/*</span>          远程服务
+  /remote/ws                  <span class="dim">电脑 WSS 隧道接入点</span>
+  /remote/d/<span class="dim">&lt;deviceId&gt;</span>/api/<span class="dim">*</span>  <span class="dim">转发面（REST+SSE）</span></code></pre>
+    </div>
+    <div class="card">
+      <p><b>为什么要 www？</b></p>
+      <p class="sub">官网现在 <code>tianshuapp.tech</code>（裸域）301 → <code>www</code>，而
+      <b>WebSocket 不跟随 301</b>——客户端全部写死 www 避免断连。证书由官网现有 certbot 管理，只加
+      Nginx location，不碰证书配置。</p>
+      <p style="margin-top:10px"><b>未来演进：</b>拆子域 <code>account./remote.tianshuapp.tech</code> 只是改反代，代码零改。</p>
+    </div>
+  </div>
+
+  <!-- ============ 3. 里程碑 ============ -->
+  <h2><span class="tag">3</span>里程碑与验收</h2>
+
+  <div class="ms"><div class="m">M0</div><div class="body">
+    <h4>基建：项目骨架 + 服务器 + Nginx 分流<span class="est">0.5~1 天</span></h4>
+    <ul>
+      <li>本机建 <code>cloud-server/</code>；服务器装 Node 24</li>
+      <li>改官网 Nginx conf：443 块加 <code>/auth/</code>、<code>/remote/</code>、<code>=/remote/ws</code> 三段（www + 裸域都加）</li>
+    </ul>
+    <div class="sub" style="margin-top:6px">✅ 验收：<code>https://www.tianshuapp.tech/remote/health</code> → 200；<code>/auth/me</code> → 401（分流生效）；官网不受影响</div>
+  </div></div>
+
+  <div class="ms"><div class="m">M1</div><div class="body">
+    <h4>cloud-server：统一登录 + 远程转发<span class="est">3~4 天</span></h4>
+    <ul>
+      <li><code>/auth</code>：register / login / refresh / me / jwks；JWT access 30min + refresh 30d（可撤销）；scrypt 加盐</li>
+      <li><code>/remote</code>：设备 CRUD、WSS 隧道（心跳 25s / 超时 70s）、REST 透传 + SSE 桥接</li>
+      <li>单测 + 本机「伪电脑」端到端链路</li>
+    </ul>
+    <div class="sub" style="margin-top:6px">✅ 验收：curl 经 /remote 打到本地天枢真实 API；同一 token 可同时访问 /auth/me 与 /remote/devices（统一登录互通）</div>
+  </div></div>
+
+  <div class="ms"><div class="m">M2</div><div class="body">
+    <h4>桌面 cloud-tunnel + 登录 UI<span class="est">3~5 天</span></h4>
+    <ul>
+      <li>cloud-auth（fetch /auth，token 存 safeStorage 自动续期）</li>
+      <li>cloud-tunnel（WSS → 本地 <code>127.0.0.1:3456</code> 透传，指数退避重连）</li>
+      <li>Electron main/preload IPC + 设置页「云远程」面板</li>
+    </ul>
+    <div class="sub" style="margin-top:6px">✅ 验收：桌面登录上线 → /remote/devices 显示 online；云上 curl 调电脑真实数据；关掉中继本地照常</div>
+  </div></div>
+
+  <div class="ms"><div class="m">M3</div><div class="body">
+    <h4>手机 App：mobile-web + Capacitor → <span style="color:var(--ok)">MVP</span><span class="est">1~2 周</span></h4>
+    <ul>
+      <li>mobile-web 复用 web/client store/api/eventBus；路由：登录 → 设备列表 → 会话 → 聊天</li>
+      <li><code>npx cap add android</code> 出 APK；壳加载 <code>www.tianshuapp.tech/mobile</code>（同源）</li>
+      <li>流式 markdown、中止、approval 按钮；设备离线横幅</li>
+    </ul>
+    <div class="sub" style="margin-top:6px">✅ 验收（MVP 判定）：Android 真机装 APK → 登录 → 选在线电脑 → 发消息 → 逐字收到流式回复 → 中止生效；离线有明确提示</div>
+  </div></div>
+
+  <div class="ms"><div class="m">M4</div><div class="body">
+    <h4>端到端打磨<span class="est">2~3 天</span></h4>
+    <ul>
+      <li>第二台电脑接入、路由切换不串会话</li>
+      <li>断网 / 关 app / 休眠恢复 / 服务器重启全自动恢复（≤30s）</li>
+      <li>错误码规范化 + 转发层防护（超时 / 并发 / body 上限 / SSE 泄漏清理）</li>
+    </ul>
+  </div></div>
+
+  <div class="ms"><div class="m">M5</div><div class="body">
+    <h4>Android 发布版 + 原生能力<span class="est">2 周，可裁剪</span></h4>
+    <ul>
+      <li>keystore 自签 release APK（不上架则放官网下载）</li>
+      <li>本地通知：approval 需确认时 App 后台也提醒（@capacitor/local-notifications）</li>
+      <li>文档化 Android 后台限制（前台保 SSE；FCM 后置）</li>
+    </ul>
+  </div></div>
+
+  <div class="ms"><div class="m">M6</div><div class="body">
+    <h4>上线加固<span class="est">1 周</span></h4>
+    <ul>
+      <li>登录限流、审计日志、systemd 守护、DB 备份、/health 拨测告警、安全自查</li>
+    </ul>
+  </div></div>
+
+  <!-- ============ 4. API 契约 ============ -->
+  <h2><span class="tag">4</span>API 契约（<code>/auth</code> + <code>/remote</code>）</h2>
+  <div class="card">
+<pre><code><span class="dim"># ── 统一账号中心（所有服务共用一个登录）──</span>
+POST /auth/register    {username, password}            → {user}
+POST /auth/login       {username, password}            → {access_token, refresh_token, user}
+POST /auth/refresh     {refresh_token}                 → {access_token}
+GET  /auth/me         (Bearer)                         → {user}
+GET  /auth/jwks                                          → 公钥（未来服务验签）
+
+<span class="dim"># ── 远程服务（Bearer 必须 = 设备 owner）──</span>
+POST /remote/devices/register   (Bearer) {hostname, os, machine_id} → {device}
+GET  /remote/devices            (Bearer)                → [{id,name,os,online,last_seen}]
+PATCH|DELETE /remote/devices/:id (Bearer)
+POST /remote/d/:deviceId/api/events<span class="dim">        # 上行透传 chat-run/abort/…</span>
+GET  /remote/d/:deviceId/api/events/stream?token=<span class="dim"> # SSE 下行</span>
+GET|POST|PATCH|DELETE /remote/d/:deviceId/api/*<span class="dim">   # 其余 REST 透传</span></code></pre>
+  </div>
+  <div class="card">
+    <p><b>隧道帧（WSS JSON）</b></p>
+    <div class="grid g2" style="margin-top:8px">
+      <div>
+        <p class="sub" style="margin-bottom:4px">电脑 → 云</p>
+        <code>register</code> · <code>response{id,status,…}</code> · <code>sse-event</code> · <code>heartbeat</code>
+      </div>
+      <div>
+        <p class="sub" style="margin-bottom:4px">云 → 电脑</p>
+        <code>request{id,method,path,…}</code> · <code>sse-subscribe</code> · <code>sse-close</code> · <code>heartbeat</code>
+      </div>
+    </div>
+    <p style="margin-top:10px"><b>登录态</b>：access 30min + refresh 30d；两端只存 refresh 于本地安全区；401 静默 refresh 一次，失败才踢回登录。</p>
+  </div>
+
+  <!-- ============ 5. 仓库结构 ============ -->
+  <h2><span class="tag">5</span>代码位置</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>云端（新，独立于 dev/）</h3>
+      <pre><code>C:\Users\dmql\Desktop\腾讯云\腾讯云\
+├─ tianshuapp/            <span class="dim">官网（已有，别动）</span>
+└─ cloud-server/          <span class="hl">新项目</span>
+   ├─ src/contracts/      <span class="dim">契约唯一权威</span>
+   ├─ src/auth/           <span class="dim">账号中心</span>
+   ├─ src/remote/         <span class="dim">设备+隧道+转发</span>
+   ├─ deploy/             <span class="dim">nginx 片段+systemd+部署脚本</span>
+   └─ test/</code></pre>
+    </div>
+    <div class="card">
+      <h3>桌面 / 手机（dev/ 仓库增量）</h3>
+      <pre><code>dev/
+├─ desktop/src/remote/    <span class="dim">cloud-auth+tunnel</span>
+├─ desktop/src/main.ts    <span class="dim">装配（改）</span>
+├─ web/client/features/remote/  <span class="dim">设置页（改）</span>
+└─ mobile-web/            <span class="dim">手机 Web 版（新，M3）</span></code></pre>
+      <p class="sub">契约同步：desktop/mobile 持 <code>cloud-server/src/contracts/</code> 副本，脚本 hash 校验防漂移；<b>web/server 天枢本体零改动</b></p>
+    </div>
+  </div>
+
+  <!-- ============ 6. 数据模型 ============ -->
+  <h2><span class="tag">6</span>数据模型（云端仅元数据）</h2>
+  <div class="card">
+<pre><code>users            (id, username UNIQUE, password_hash, created_at)
+devices          (id, user_id, name, os, machine_id UNIQUE, created_at, last_seen)
+refresh_tokens   (token_hash, user_id, expires_at)   <span class="dim">-- 可撤销</span>
+<span class="dim">-- 在线状态只存内存（隧道断即掉）· 业务数据永不落云</span></code></pre>
+  </div>
+
+  <!-- ============ 7. 风险 ============ -->
+  <h2><span class="tag">7</span>风险与对策</h2>
+  <div class="card" style="padding:6px 20px">
+    <table>
+      <tr><th>风险</th><th>对策</th></tr>
+      <tr><td>SSE 跨隧道桥接丢帧/断流（核心体验）</td><td>M1 起脚本压测；断流自动重订阅；M3 优先验收</td></tr>
+      <tr><td>电脑休眠/断电 → 设备离线</td><td>桌面开机自启 + 引导关睡眠；离线明确提示</td></tr>
+      <tr><td>云服务器被攻击</td><td>只开 80/443；HTTPS；登录限流；JWT_SECRET 强随机；token 可撤销</td></tr>
+      <tr><td>中继看到明文流量（隐私）</td><td>本期信任模型明示；后续隧道 payload 加 E2EE</td></tr>
+      <tr><td>官网 Nginx 改动影响 cloud-server</td><td>/auth、/remote location 配置进版本管理（nginx-cloud.include）</td></tr>
+      <tr><td>服务器归属不明（阿里云 43.161.198.188 vs "腾讯云"）</td><td>已确认 43.161.198.188（README 为准）；cloud-server 与官网同机</td></tr>
+      <tr><td>Electron 不支持 Android</td><td>手机端用 Capacitor（WebView 壳）；Electron 只用于桌面 cloud-tunnel</td></tr>
+    </table>
+  </div>
+
+  <!-- ============ 8. 待办 ============ -->
+  <h2><span class="tag">8</span>待确认 / 下一步</h2>
+  <div class="card">
+    <div class="todo">
+      <div class="item">✅ <b>服务器已确认</b>：43.161.198.188 / ubuntu / SSH 密码（SSH_PASS 环境变量，勿入 git）</div>
+      <div class="item">✅ 路径已定：www.tianshuapp.tech/remote + /auth</div>
+      <div class="item">✅ 手机端：mobile-web + Capacitor → Android APK 优先</div>
+      <div class="item">✅ 仓库位置：C:\Users\dmql\Desktop\腾讯云\腾讯云\cloud-server</div>
+    </div>
+    <h3 style="margin-top:20px">下一步：开工 M0 + M1</h3>
+    <div class="flow">
+      <span class="step">cloud-server 骨架</span><span class="arrow">→</span>
+      <span class="step">/auth 账号中心</span><span class="arrow">→</span>
+      <span class="step">/remote 隧道转发</span><span class="arrow">→</span>
+      <span class="step">单测</span><span class="arrow">→</span>
+      <span class="step">本机伪电脑 e2e</span><span class="arrow">→</span>
+      <span class="step">部署脚本 + Nginx 片段</span>
+    </div>
+  </div>
+
+  <div class="foot">天枢 Tianshu · 云远程开发计划 HTML v1.0 · 由码仔生成 · 配套 md 详见 dev/docs/</div>
+</div>
+</body>
+</html>

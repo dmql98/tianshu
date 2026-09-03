@@ -37,6 +37,7 @@ export const ICON_SLOTS: readonly IconSlot[] = [
   { key: 'nav-mcp', name: 'MCP', group: '导航栏' },
   { key: 'nav-knowledge', name: '知识', group: '导航栏' },
   { key: 'nav-market', name: '市场', group: '导航栏' },
+  { key: 'nav-stats', name: '统计', group: '导航栏' },
   { key: 'nav-events', name: '事件', group: '导航栏' },
   { key: 'nav-settings', name: '设置', group: '导航栏' },
 

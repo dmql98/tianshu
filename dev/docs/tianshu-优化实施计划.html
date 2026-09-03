@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢优化·详细实施计划</title>
+<style>
+:root{
+  --bg:#070b14; --panel:#0e1526;
+  --line:#1e293b; --line2:#28364d;
+  --text:#d7deea; --muted:#8b98ad; --dim:#5b6a80;
+  --gold:#e8c878; --gold-soft:rgba(232,200,120,.1);
+  --ts-blue:#7db4ff; --green:#7bd88f; --red:#ff7b7b; --amber:#f4c477;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,'Cascadia Code',monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#12203f 0%,transparent 60%),#070b14;color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.75}
+a{color:var(--ts-blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{display:grid;grid-template-columns:280px minmax(0,920px);gap:32px;max-width:1280px;margin:0 auto;padding:32px 28px 80px}
+aside{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:28px 6px 28px 0}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.brand .dot{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--gold),#b98a3a);display:grid;place-items:center;font-weight:800;color:#201708;font-size:15px}
+.brand b{font-size:16px;letter-spacing:.5px}
+.brand small{display:block;color:var(--dim);font-weight:400;font-size:11px;letter-spacing:1.5px}
+.toc-h2{display:block;margin:14px 0 4px;color:var(--text);font-weight:600;font-size:12.5px;letter-spacing:.3px}
+aside ul{list-style:none;margin:0;padding:0 0 0 10px;border-left:1px solid var(--line)}
+aside li{margin:2px 0}
+aside ul a{color:var(--muted);font-size:12px}
+aside ul a:hover{color:var(--gold)}
+.tagline{color:var(--dim);font-size:11.5px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+main{min-width:0}
+.hero{padding:34px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px}
+.hero h1{margin:0 0 12px;font-size:30px;line-height:1.3;font-weight:800}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero .sub{color:var(--muted);font-size:14px;max-width:780px}
+.hero .sub b{color:var(--gold)}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.badge{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);background:var(--panel)}
+.badge b{color:var(--text);font-weight:600}
+.badge .p0{color:var(--red)} .badge .p1{color:var(--amber)} .badge.gold{color:var(--gold)} .badge .grn{color:var(--green)}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--dim);font-size:12px;margin-top:10px}
+h1.doc{margin:0 0 12px;font-size:24px;line-height:1.35}
+h2{font-size:21px;font-weight:700;margin:44px 0 14px;padding:10px 0 10px 14px;border-left:3px solid var(--gold);background:linear-gradient(90deg,var(--gold-soft),transparent);border-radius:0 8px 8px 0}
+h3{font-size:16.5px;font-weight:700;margin:30px 0 10px;color:var(--gold)}
+h4{font-size:14.5px;margin:22px 0 8px;color:var(--ts-blue)}
+p{margin:10px 0}
+strong{color:#f0f4fa}
+ul,ol{padding-left:22px}
+li{margin:4px 0}
+li.todo{list-style:none;margin-left:-18px}
+li.todo .box{display:inline-block;width:13px;height:13px;border:1.5px solid var(--gold);border-radius:3px;margin-right:8px;vertical-align:-1px}
+code{font-family:var(--mono);font-size:12.5px;background:#1a2440;border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:#ffd9a8}
+pre{background:#0d1220;border:1px solid var(--line2);border-radius:10px;padding:14px 16px;overflow-x:auto;line-height:1.55}
+pre code{background:none;border:none;padding:0;color:#c9d6ec;font-size:12.5px}
+.tbl-wrap{overflow-x:auto;margin:12px 0;border:1px solid var(--line2);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}
+th{background:#16203a;color:var(--gold);font-weight:600;text-align:left;padding:9px 12px;white-space:nowrap}
+td{padding:8px 12px;border-top:1px solid var(--line);vertical-align:top}
+tbody tr:hover td{background:rgba(125,180,255,.04)}
+blockquote{border-left:3px solid var(--gold);margin:14px 0;padding:10px 16px;background:var(--gold-soft);border-radius:0 8px 8px 0;color:var(--muted)}
+blockquote.warn{border-left-color:var(--amber);background:rgba(244,196,119,.07)}
+blockquote p{margin:4px 0}
+hr{border:none;border-top:1px solid var(--line);margin:34px 0}
+.milestones{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.ms{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px}
+.ms .k{color:var(--gold);font-weight:700;font-size:14px}
+.ms .t{font-size:12.5px;color:var(--muted)}
+.ms .d{font-size:11px;color:var(--dim);margin-top:2px}
+.ms .chip{display:inline-block;font-size:10.5px;border-radius:999px;padding:1px 8px;border:1px solid var(--line2);color:var(--muted);margin-top:4px}
+.chip.p0{color:var(--red);border-color:rgba(255,123,123,.4)}
+.chip.p1{color:var(--amber);border-color:rgba(244,196,119,.4)}
+.chip.dep{color:var(--ts-blue);border-color:rgba(125,180,255,.4)}
+@media(max-width:1000px){
+  .wrap{grid-template-columns:1fr;padding:18px 14px 60px}
+  aside{position:static;max-height:none;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:10px}
+  aside ul{columns:2}
+  .milestones{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){ aside ul{columns:1} .milestones{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <div class="brand"><div class="dot">枢</div><div><b>天枢优化</b><small>实施里程碑 M0–M7</small></div></div>
+    <nav><a class="toc-h2" href="#0.-执行摘要">0. 执行摘要</a>
+<ul>
+<li><a href="#0.1-一句话结论">0.1 一句话结论</a></li>
+<li><a href="#0.2-对对比报告的代码级纠偏（写计划前先对齐事实）">0.2 对对比报告的代码级纠偏（写计划前先对齐事实）</a></li>
+<li><a href="#0.3-优先级重排理由">0.3 优先级重排理由</a></li>
+</ul>
+<a class="toc-h2" href="#1.-里程碑总览">1. 里程碑总览</a>
+<a class="toc-h2" href="#2.-M0-—-数据层地基（2–3-天）">2. M0 — 数据层地基（2–3 天）</a>
+<ul>
+<li><a href="#M0.1-抽-db/migrator.ts">M0.1 抽 db/migrator.ts</a></li>
+<li><a href="#M0.2-把现有-50-条-ALTER-固化进-migration-清单">M0.2 把现有 50 条 ALTER 固化进 migration 清单</a></li>
+<li><a href="#M0.3-排他服务器锁">M0.3 排他服务器锁</a></li>
+</ul>
+<a class="toc-h2" href="#3.-M1-—-进化解耦-+-后端闭环（3–5-天）">3. M1 — 进化解耦 + 后端闭环（3–5 天）</a>
+<ul>
+<li><a href="#M1.1-进化解耦（照-04-0期-M0.3）">M1.1 进化解耦（照 04-0期 M0.3）</a></li>
+<li><a href="#M1.2-run-结束保存轨迹">M1.2 run 结束保存轨迹</a></li>
+<li><a href="#M1.3-定时离线挖掘">M1.3 定时离线挖掘</a></li>
+<li><a href="#M1.4-批准/驳回-API">M1.4 批准/驳回 API</a></li>
+</ul>
+<a class="toc-h2" href="#4.-M2-—-进化工作台前端（3–5-天）">4. M2 — 进化工作台前端（3–5 天）</a>
+<ul>
+<li><a href="#M2.1-新增-features/evolution/">M2.1 新增 features/evolution/</a></li>
+<li><a href="#M2.2-后端补两个只读接口">M2.2 后端补两个只读接口</a></li>
+<li><a href="#M2.3-洞察通知可回溯">M2.3 洞察通知可回溯</a></li>
+<li><a href="#M2.4-路由与导航">M2.4 路由与导航</a></li>
+</ul>
+<a class="toc-h2" href="#5.-M3-—-知识库最小可用（5–7-天）">5. M3 — 知识库最小可用（5–7 天）</a>
+<ul>
+<li><a href="#M3.1-FTS5-探针（先卡门槛，照-04-0期-2.1）">M3.1 FTS5 探针（先卡门槛，照 04-0期 2.1）</a></li>
+<li><a href="#M3.2-数据层">M3.2 数据层</a></li>
+<li><a href="#M3.3-路由">M3.3 路由</a></li>
+<li><a href="#M3.4-前端接线">M3.4 前端接线</a></li>
+<li><a href="#M3.5-Agent-工具（可选，P1-加分项）">M3.5 Agent 工具（可选，P1 加分项）</a></li>
+</ul>
+<a class="toc-h2" href="#6.-M4-—-终端集成（4–5-天，工具能力优先）">6. M4 — 终端集成（4–5 天，工具能力优先）</a>
+<a class="toc-h2" href="#7.-M5-—-浏览器自动化轻量版（3–4-天）">7. M5 — 浏览器自动化轻量版（3–4 天）</a>
+<a class="toc-h2" href="#8.-M6-—-跨平台-CI（2–3-天）">8. M6 — 跨平台 CI（2–3 天）</a>
+<a class="toc-h2" href="#9.-M7-—-密钥加密-+-HTTP-适配层收口（2–3-天）">9. M7 — 密钥加密 + HTTP 适配层收口（2–3 天）</a>
+<ul>
+<li><a href="#M7.1-密钥加密">M7.1 密钥加密</a></li>
+<li><a href="#M7.2-HTTP-适配层收口（轻量）">M7.2 HTTP 适配层收口（轻量）</a></li>
+</ul>
+<a class="toc-h2" href="#10.-依赖与并行关系">10. 依赖与并行关系</a>
+<a class="toc-h2" href="#11.-各里程碑验收汇总（可勾选）">11. 各里程碑验收汇总（可勾选）</a>
+<a class="toc-h2" href="#12.-未纳入本期（明确不做）">12. 未纳入本期（明确不做）</a></nav>
+    <div class="tagline">上游对比报告<br>dev/docs/nomifun-vs-tianshu-对比与优化方案.md<br>生成：2026-09-03</div>
+  </aside>
+  <main>
+    <div class="hero"><h1>天枢优化 · 详细实施计划</h1>
+      <div class="sub">把《NomiFun vs 天枢》对比报告落成 <b>M0–M7</b> 八个可执行里程碑。每项含<b>目标 / 现状（代码实测）/ 任务 / 涉及文件 / 验收 / 风险</b>。动手前先对仓库做代码级核对，纠正了对比报告中 5 处与实测不符之处。</div>
+      <div class="badges">
+        <span class="badge"><b>8</b> 里程碑 · <b class="grn">3–5 周</b></span>
+        <span class="badge"><b class="p0">先修地基</b> Migration + 排他锁</span>
+        <span class="badge"><b class="p1">再补差异化</b> 进化解耦 + 进化工作台</span>
+        <span class="badge gold">主线：M0→M1→M2</span>
+      </div>
+      <div class="meta">文档：dev/docs/tianshu-优化实施计划.md · 上游：nomifun-vs-tianshu-对比与优化方案.md · 由 markdown 自动转译</div></div>
+<h1 id="天枢优化·详细实施计划">天枢优化·详细实施计划</h1>
+<blockquote>上游文档：<code>docs/nomifun-vs-tianshu-对比与优化方案.md</code>（战略层对比） 本文件：把对比报告的 P0/P1/P2 落成<strong>可执行的里程碑（M0–M7）</strong>，每项含目标 / 现状（代码实测）/ 具体任务 / 涉及文件 / 验收标准 / 工时。 核对日期：2026-09-03（本机仓库 <code>web/server</code> + <code>web/client</code> + <code>desktop</code>，Node 24 / Electron 43 / better-sqlite3）</blockquote>
+<hr>
+<h2 id="0.-执行摘要">0. 执行摘要</h2>
+<h3 id="0.1-一句话结论">0.1 一句话结论</h3>
+<p><strong>先修地基（migration + 锁），再补差异化（进化解耦 + 进化工作台），然后按收益从高到低补功能（知识库 → 终端 → 浏览器 → 跨平台/加密）。不引入 Rust，不换 Tauri（短期）。</strong></p>
+<h3 id="0.2-对对比报告的代码级纠偏（写计划前先对齐事实）">0.2 对对比报告的代码级纠偏（写计划前先对齐事实）</h3>
+<p>以下 5 处是<strong>代码实测</strong>与对比报告不一致/需补充的地方，直接影响了优先级：</p>
+<div class="tbl-wrap"><table>
+<thead><tr>
+<th>#</th>
+<th>对比报告说法</th>
+<th>代码实测</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>P0-1「schema 已有 30+ 条 ALTER」</td>
+<td><code>db/schema.ts</code>（544 行）共 <strong>50 条 <code>ALTER TABLE</code></strong>，全部 <code>try/catch</code> 包裹，<strong>无版本号、无回滚、无审计</strong></td>
+<td>方向不变，工作量比报告预估略大；需把现有 50 条固化进 migration 清单</td>
+</tr>
+<tr>
+<td>2</td>
+<td>§五-8「SkillGenerator 仅被事件 run 间接使用」</td>
+<td><code>OfflineMiner</code> / <code>InsightExtractor</code> / <code>SkillGenerator</code> / <code>trajectoryStore.save</code> 在 <code>web/server/src</code> 中<strong>均无任何调用者</strong>（<code>trajectories</code> 表已建但恒空）——纯死代码</td>
+<td>后端闭环不是「接通」而是「从头接线」，工作量为中等</td>
+</tr>
+<tr>
+<td>3</td>
+<td>§五-8「需角色 <code>selfEvolution</code> 开关」</td>
+<td><code>outer.ts:429</code> 确实读 <code>charMeta.memory?.selfEvolution</code>（<code>characterStore.ts:31</code>），且还要 <code>evolutionConfig.character_id</code> 非空才进分支</td>
+<td>与 <code>知识体系构建/04-0期</code> 的 <strong>M0.3 进化解耦</strong>高度重合，应合并执行</td>
+</tr>
+<tr>
+<td>4</td>
+<td>P0-3「前端没有宿主抽象，Electron IPC 和 HTTP 混用」</td>
+<td>已有 <code>api/eventBus.ts</code> 做了 <strong>ipc / SSE 传输抽象</strong>（<code>window.tianshuDesktop</code> 优先）；但 <strong>HTTP 层仍是裸 fetch</strong>（<code>api/client.ts</code>）</td>
+<td>适配层工作收窄：只需把 HTTP 也纳入传输接口，不必新建整套 adapter</td>
+</tr>
+<tr>
+<td>5</td>
+<td>P1-5「知识库无后端路由」</td>
+<td>确认：<code>routes/</code> 无 knowledge 路由，<code>KnowledgePage.tsx</code> 仅 59 行纯占位；但 <code>知识体系构建/02-第二期</code> 与 <code>04-0期 M0.2（FTS5/Embedding 探针）</code> 已有较完整设计</td>
+<td>直接复用既有设计文档，按 M0.2 → CRUD → 前端接线推进</td>
+</tr>
+</tbody></table></div>
+<h3 id="0.3-优先级重排理由">0.3 优先级重排理由</h3>
+<ol>
+<li><strong>进化工作台从 P1 提到与「进化解耦」合并做（M1–M2）</strong>：天枢的差异化叙事核心是「角色会长出新技能」，而后端骨架已存在、改动量小、收益（可见/可配/可干预）最大；对比报告也承认这是「本次对标中最重要的发现」。</li>
+<li><strong>知识库用「最小可用」而非全量</strong>：先 FTS5 探针 + 文件夹/文本检索跑通闭环，再补分块/向量（向量留到后续），避免 0 期贪大。</li>
+<li><strong>终端、浏览器自动化降为 P2</strong>：<code>node-pty</code> 在 Electron 打包下的原生依赖成本和 Playwright 的 Chromium 下载都是额外负担，先以「工具能力」形式落地，暂不做独立页面。</li>
+<li><strong>数据加密排到 M7</strong>：本地单机场景风险可控，且需要 keychain 依赖决策，放最后不阻塞主线。</li>
+</ol>
+<hr>
+<h2 id="1.-里程碑总览">1. 里程碑总览</h2>
+<div class="tbl-wrap"><table>
+<thead><tr>
+<th>里程碑</th>
+<th>主题</th>
+<th>对应对比报告</th>
+<th>预计工时</th>
+</tr></thead><tbody>
+<tr>
+<td>M0</td>
+<td>数据层地基：正式 Migration 系统 + 排他服务器锁</td>
+<td>P0-1 / P0-2</td>
+<td>2–3 天</td>
+</tr>
+<tr>
+<td>M1</td>
+<td>进化解耦 + 后端闭环（轨迹保存 / 定时挖掘 / 技能草稿）</td>
+<td>P1-8 后端部分 + <code>04-0期 M0.3</code></td>
+<td>3–5 天</td>
+</tr>
+<tr>
+<td>M2</td>
+<td>进化工作台前端（EvolutionPage）</td>
+<td>P2-8 前端部分</td>
+<td>3–5 天</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>知识库最小可用（FTS5 + CRUD + 前端接线）</td>
+<td>P1-5 + <code>04-0期 M0.2</code></td>
+<td>5–7 天</td>
+</tr>
+<tr>
+<td>M4</td>
+<td>终端集成（node-pty + xterm.js 工具能力）</td>
+<td>P1-4</td>
+<td>4–5 天</td>
+</tr>
+<tr>
+<td>M5</td>
+<td>浏览器自动化轻量版（Playwright 工具）</td>
+<td>P2-9</td>
+<td>3–4 天</td>
+</tr>
+<tr>
+<td>M6</td>
+<td>跨平台 CI（GitHub Actions 三平台构建）</td>
+<td>P2-10</td>
+<td>2–3 天</td>
+</tr>
+<tr>
+<td>M7</td>
+<td>Provider 密钥加密 + HTTP 适配层收口</td>
+<td>P2-12 / P0-3</td>
+<td>2–3 天</td>
+</tr>
+</tbody></table></div>
+<blockquote>依赖：M0 → M1 → M2（数据层先行，进化闭环依赖 trajectories 表/migration）；M3 可与 M1/M2 并行；M4/M5 独立；M6/M7 收尾。</blockquote>
+<hr>
+<h2 id="2.-M0-—-数据层地基（2–3-天）">2. M0 — 数据层地基（2–3 天）</h2>
+<h3 id="目标">目标</h3>
+<p>把 <code>ALTER TABLE ... try/catch</code> 的隐式 schema 演进，升级为<strong>有版本号、可审计、可回滚、可重现</strong>的正式 migration；并给多实例启动加<strong>排他锁</strong>，防止写同一个 <code>sessions.db</code>。</p>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li><code>web/server/src/db/schema.ts</code>（544 行）：<code>getDb()</code> 里 50 条 <code>try { db.exec('ALTER TABLE ...') } catch {}</code>，无版本表、无顺序保证、无幂等清单；同文件还混着建表 + 数据回填 + 历史兼容。</li>
+<li>多实例可同时打开同一 WAL 数据库，存在并发写风险；无 advisory lock。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<h4 id="M0.1-抽-db/migrator.ts">M0.1 抽 <code>db/migrator.ts</code></h4>
+<pre><code>// web/server/src/db/migrator.ts
+export interface Migration {
+  version: number
+  name: string
+  up: (db: TianshuDatabase) =&gt; void
+  down?: (db: TianshuDatabase) =&gt; void
+}
+export function runMigrations(db: TianshuDatabase, migrations: Migration[]): void</code></pre>
+<ul>
+<li>建 <code>_migrations (version INTEGER PRIMARY KEY, name TEXT, applied_at TEXT)</code> 表。</li>
+<li>逐个执行未应用 migration，在<strong>同一事务</strong>内 <code>up(db)</code> + 记录版本；失败回滚并抛错（启动即失败，不静默）。</li>
+<li>提供 <code>getPendingMigrations</code> / <code>listApplied</code> 供审计与测试。</li>
+</ul>
+<h4 id="M0.2-把现有-50-条-ALTER-固化进-migration-清单">M0.2 把现有 50 条 ALTER 固化进 migration 清单</h4>
+<ul>
+<li>新建 <code>web/server/src/db/migrations/</code>，按 <code>0001_init.ts ... 0050_*.ts</code> 组织；<code>0001_init</code> = 现有全部 <code>CREATE TABLE IF NOT EXISTS</code>（sessions/messages/events/trajectories/runs/run_events/…），其余每条 ALTER/回填一个文件。</li>
+<li>迁移顺序 = 原 <code>schema.ts</code> 的执行顺序；新增列迁移全部写成<strong>幂等</strong>（<code>ADD COLUMN</code> 前先查 <code>PRAGMA table_info</code> 或依赖 migrator 的版本记录，二选一，不要再用 <code>try/catch</code> 掩盖错误）。</li>
+<li>迁移入口：<code>getDb()</code> 中先 <code>runMigrations(db, migrations)</code> 再走业务初始化。</li>
+</ul>
+<h4 id="M0.3-排他服务器锁">M0.3 排他服务器锁</h4>
+<ul>
+<li>新增 <code>web/server/src/db/server-lock.ts</code>：</li>
+<ul>
+<li>打开 <code>&lt;dataDir&gt;/.server.lock</code>，用 <code>proper-lockfile</code> 或 <code>fs.openSync('wx')</code> 抢占；失败时等待/提示「已有实例在运行」并退出。</li>
+<li>锁带 <code>stale</code>（如 60s），崩溃后自动过期；进程退出/<code>close()</code> 时释放。</li>
+<li>只在<strong>独立启动</strong>（<code>node dist/index.js</code>）时强制，避免影响测试进程。</li>
+</ul>
+<li>在 <code>app.ts</code> 的 <code>startTianshuServer()</code> 开头获取，<code>close()</code> 里释放。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>web/server/src/db/migrator.ts</code>、<code>web/server/src/db/server-lock.ts</code>、<code>web/server/src/db/migrations/*.ts</code></li>
+<li>修改：<code>web/server/src/db/schema.ts</code>（迁移接入点）、<code>web/server/src/app.ts</code>（锁）、<code>web/server/package.json</code>（+<code>proper-lockfile</code>）</li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li><code>web/server/test/migrator.test.ts</code>：空库全量迁移 → 版本表齐全；重跑幂等；注入一个失败 migration → 事务回滚且版本不回写。</li>
+<li>新库与旧库（含历史 devdata）打开均正常，<code>PRAGMA user_version</code> 或 <code>_migrations</code> 版本一致。</li>
+<li>双开 <code>node dist/index.js</code> 第二个实例被锁拦截并友好退出。</li>
+<li><code>npm test --prefix web/server</code> 全绿。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li>迁移顺序写错会导致已有用户库打不开 → 用 <code>db-compatibility.test.ts</code> + 一份旧库快照做回归。</li>
+<li><code>node-pty</code>/锁这类 native 依赖在 Electron 打包下要进 <code>extraResources</code>，注意随包体积。</li>
+</ul>
+<hr>
+<h2 id="3.-M1-—-进化解耦-+-后端闭环（3–5-天）">3. M1 — 进化解耦 + 后端闭环（3–5 天）</h2>
+<blockquote>直接复用 <code>知识体系构建/04-0期-地基与进化解耦-可执行步骤.md</code> 的 <strong>M0.3</strong> 设计，二者合并执行。</blockquote>
+<h3 id="目标">目标</h3>
+<ol>
+<li>把进化开关 <code>memory.selfEvolution</code> 解耦到顶层 <code>skillMining</code>（进化解耦，与记忆配置分离）。</li>
+<li>把 evolution 后端从<strong>死代码</strong>变成<strong>闭环</strong>：run 结束存轨迹 → 定时离线挖掘 → 生成技能<strong>草稿</strong>（不直接落盘）→ 用户批准后才物化为技能。</li>
+</ol>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li>触发点 <code>outer.ts:429</code>：<code>toolCallHistory.length &gt; 0 &amp;&amp; charMeta.memory?.selfEvolution</code>，且需 <code>evolutionConfig.character_id</code> 非空。产出是 <code>fireOnceEvent</code>（丢给角色自动跑），<strong>用户无任何把关</strong>。</li>
+<li><code>trajectoryStore.save</code> / <code>OfflineMiner.mine</code> / <code>InsightExtractor.extract</code> / <code>SkillGenerator.generate</code> 均无调用者；<code>trajectories</code> 表已建、恒空。</li>
+<li><code>SkillGenerator.generate</code> 直接写 <code>&lt;dataDir&gt;/skills/&lt;slug&gt;/SKILL.md</code>，无草稿/审批。</li>
+<li><code>event-scheduler</code> 已有 <code>start/stop/scheduleImmediate</code>，可复用作定时挖掘载体。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<h4 id="M1.1-进化解耦（照-04-0期-M0.3）">M1.1 进化解耦（照 04-0期 M0.3）</h4>
+<ul>
+<li><code>characterStore.ts</code>：<code>CharacterMemory</code> 删 <code>selfEvolution</code>，<code>CharacterRecord</code> 加 <code>skillMining?: { enabled: boolean; charLimit?: number; maxEntries?: number }</code>。</li>
+<li><code>outer.ts:429</code> 改读 <code>charMeta.skillMining?.enabled</code>。</li>
+<li>新增 <code>character/migrate-self-evolution.ts</code> 一次性迁移（值搬移 + 物理删除旧字段），在 <code>app.ts</code> 启动链调用；内置角色 <code>content/builtin/characters/*/character.json</code> 同步清理。</li>
+<li>新增 <code>web/server/test/self-evolution-migration.test.ts</code>。</li>
+</ul>
+<h4 id="M1.2-run-结束保存轨迹">M1.2 run 结束保存轨迹</h4>
+<ul>
+<li>新增 <code>evolution/run-trajectory-recorder.ts</code>：run 结束时（<code>outer.ts</code> 收尾段，与现有 insight 检测同一位置）从 <code>run_events</code>/<code>messages</code>/<code>llm_calls</code> 汇总该 run 的工具调用序列 + user 目标 + 成功率，调 <code>trajectoryStore.save()</code>。</li>
+<li>去重：同一 session 多次 run 各自存一条（<code>trajectories</code> 按 <code>session_id</code> + <code>id</code> 区分）。</li>
+</ul>
+<h4 id="M1.3-定时离线挖掘">M1.3 定时离线挖掘</h4>
+<ul>
+<li>新增 <code>evolution/evolution-scheduler.ts</code>：复用 <code>startEventScheduler</code> 的 tick 模式，每 N 小时（N 可配，默认 12h）执行 <code>OfflineMiner.mine(trajectoryStore.getRecent(7))</code>。</li>
+<li>挖掘产物（<code>TrajectoryCluster[]</code>）写入新表 <code>skill_drafts</code>：</li>
+</ul>
+<pre><code>  CREATE TABLE IF NOT EXISTS skill_drafts (
+    id TEXT PRIMARY KEY,
+    character_id TEXT,
+    origin_run_id TEXT,
+    signature TEXT,
+    skill_name TEXT,
+    content TEXT,            -- SKILL.md 草稿全文
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending|approved|rejected
+    created_at INTEGER NOT NULL,
+    decided_at INTEGER
+  );</code></pre>
+<ul>
+<li><code>SkillGenerator.generate</code> 改为<strong>写 <code>&lt;dataDir&gt;/evolution-drafts/&lt;id&gt;/SKILL.md</code> + 插一条 <code>skill_drafts</code></strong>，不再直接进 <code>skills/</code>。</li>
+</ul>
+<h4 id="M1.4-批准/驳回-API">M1.4 批准/驳回 API</h4>
+<ul>
+<li>扩展 <code>routes/evolution.ts</code>：</li>
+<ul>
+<li><code>GET /api/evolution/drafts</code>（列表 + 预览）</li>
+<li><code>POST /api/evolution/drafts/:id/approve</code>（批准 → 调 <code>createSkillPackage</code>（已有 <code>agent/skill-package-writer.ts</code>）物化到 <code>&lt;dataDir&gt;/skills/</code>，状态置 approved）</li>
+<li><code>POST /api/evolution/drafts/:id/reject</code></li>
+</ul>
+<li><code>app.ts</code> 挂载 <code>/api/evolution</code>。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>evolution/run-trajectory-recorder.ts</code>、<code>evolution/evolution-scheduler.ts</code>、<code>character/migrate-self-evolution.ts</code>、<code>db/migrations/0051_skill_drafts.ts</code>、<code>routes/evolution.ts</code>（扩展）、<code>test/self-evolution-migration.test.ts</code>、<code>test/evolution-closed-loop.test.ts</code></li>
+<li>修改：<code>agent/outer.ts</code>、<code>db/characterStore.ts</code>、<code>evolution/generators/skillGenerator.ts</code>、<code>app.ts</code>、内置角色 JSON</li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li><code>grep -rn &quot;selfEvolution&quot; web/server/src content/</code> 除迁移脚本与 <code>skillMining</code> 外无残留。</li>
+<li>跑一个带工具调用的会话 → <code>trajectories</code> 有数据；手动触发 scheduler → 产生 <code>skill_drafts</code> 草稿行 + <code>evolution-drafts/</code> 文件，<code>skills/</code> <strong>不新增</strong>。</li>
+<li><code>POST /approve</code> 后 <code>skills/</code> 出现包，<code>drafts</code> 状态变 approved；<code>/reject</code> 不变物化。</li>
+<li><code>npm test --prefix web/server</code> 全绿。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li>定时挖掘是后台任务，<strong>失败只记日志不得干扰前台</strong>（沿用 NomiFun 的安全红线，也符合天枢事件系统惯例）。</li>
+<li>草稿物化要校验 SKILL.md 格式合法（走 <code>createSkillPackage</code> 既有校验），避免产出坏技能包。</li>
+</ul>
+<hr>
+<h2 id="4.-M2-—-进化工作台前端（3–5-天）">4. M2 — 进化工作台前端（3–5 天）</h2>
+<h3 id="目标">目标</h3>
+<p>把 evolution 从「设置页隐藏表单 + 2 秒 toast」升级为<strong>可见、可配、可干预</strong>的一整页，对标 NomiFun EvolutionTab。</p>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li>前端 <code>api/evolution.ts</code> 已有 <code>fetchEvolutionConfig/saveEvolutionConfig/clearEvolutionConfig</code>，<strong>可直接复用</strong>。</li>
+<li>无 <code>EvolutionPage</code>；<code>chatStore.ts</code> 有 <code>evolutionNotification</code>（2 秒 toast，<code>evolution:insight_created</code> 事件驱动）。</li>
+<li>路由在 <code>App.tsx</code>（react-router v6，页面已按 <code>lazy</code> 分包）。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<h4 id="M2.1-新增-features/evolution/">M2.1 新增 <code>features/evolution/</code></h4>
+<pre><code>web/client/src/features/evolution/
+├── EvolutionPage.tsx        # 新页面（路由 /evolution）
+├── sections/
+│   ├── LearningSection.tsx      # 开关(notify_enabled) + 模型/窗口/阈值/重复次数等 config 表单
+│   ├── InsightHistorySection.tsx# 洞察历史（insight_type/描述/时间 → 跳转会话）
+│   ├── DraftsSection.tsx        # 技能草稿：来源 run/签名/内容预览 → 批准/驳回
+│   └── MiningSection.tsx        # 离线挖掘出的套路列表（可选一键固化为技能）
+└── hooks.ts                     # useEvolutionConfig / useDrafts / useInsightHistory</code></pre>
+<ul>
+<li>样式沿用现有手写 CSS（<code>index.css</code>），组件风格与 <code>SettingsPage</code>/<code>EventsPage</code> 一致，<strong>不引入组件库</strong>。</li>
+</ul>
+<h4 id="M2.2-后端补两个只读接口">M2.2 后端补两个只读接口</h4>
+<ul>
+<li><code>GET /api/evolution/insights</code>：洞察历史（可从 <code>run_events</code> 里筛 <code>evolution:insight_created</code> 事件，或落一张 <code>insights</code> 表——优先复用 run_events，少建表）。</li>
+<li><code>GET /api/evolution/drafts</code>（M1.4 已有）。</li>
+</ul>
+<h4 id="M2.3-洞察通知可回溯">M2.3 洞察通知可回溯</h4>
+<ul>
+<li><code>chatStore</code> 收到 <code>evolution:insight_created</code> 时，除现有 toast 外，写入本地 store 的 <code>insightHistory[]</code>（上限如 50 条），页面可查；toast 增加「查看详情」跳转 <code>/evolution</code>。</li>
+</ul>
+<h4 id="M2.4-路由与导航">M2.4 路由与导航</h4>
+<ul>
+<li><code>App.tsx</code> 加 <code>/evolution</code> 路由（lazy），侧边栏加入口（与 知识库/事件 同级）。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>web/client/src/features/evolution/**</code>、<code>web/client/src/api/evolution.ts</code>（扩展 insights/drafts）</li>
+<li>修改：<code>web/client/src/App.tsx</code>、<code>web/client/src/stores/chatStore.ts</code>、侧边栏组件、<code>i18n/dict.ts</code>（新增条目）</li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li>手动制造一次 insight（或 mock 事件）→ toast + 历史列表都出现，历史可回溯、可跳转。</li>
+<li>页面能改 evolution 配置并 <code>PUT</code> 成功，重启后配置保留。</li>
+<li>有草稿时能在页面预览内容并批准/驳回，<code>skills/</code> 变化符合预期。</li>
+<li><code>npm run build --prefix web/client</code>（tsc + vite）通过。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li>这是纯增量页面，风险低；注意懒加载分包避免首屏体积增加。</li>
+</ul>
+<hr>
+<h2 id="5.-M3-—-知识库最小可用（5–7-天）">5. M3 — 知识库最小可用（5–7 天）</h2>
+<blockquote>复用 <code>知识体系构建/02-第二期-独立文件知识库.md</code> 与 <code>04-0期 M0.2</code>。本期只做 <strong>FTS5 + 文件/文本检索</strong> 的闭环，<strong>不做</strong> Embedding 向量（留到后续）。</blockquote>
+<h3 id="目标">目标</h3>
+<p>把 <code>KnowledgePage</code> 从占位页变成可用功能：文件夹树 + 文档上传 + 全文搜索 + 预览，Agent 侧提供 <code>knowledge_search</code> 工具。</p>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li><code>KnowledgePage.tsx</code> 59 行纯占位，无 API 调用；<code>routes/</code> 无 knowledge 路由。</li>
+<li>已具备：<code>better-sqlite3</code>、<code>@mozilla/readability</code>（网页提取）、<code>turndown</code>（HTML→MD）、<code>htmlparser2</code> —— 文件转换/网页抓取的基础能力<strong>已在依赖里</strong>。</li>
+<li><code>04-0期 M0.2</code> 已定义 <code>EmbeddingProvider</code> / <code>VectorStore</code> / <code>KnowledgeRetrievalService</code> 接口与 <code>createLexicalOnlyRetrieval(fts)</code> 回退设计（未实现）。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<h4 id="M3.1-FTS5-探针（先卡门槛，照-04-0期-2.1）">M3.1 FTS5 探针（先卡门槛，照 04-0期 2.1）</h4>
+<ul>
+<li><code>web/server/test/fts5-contract.test.ts</code>：通过 <code>sqlite-db.ts</code> 门面建临时库执行 <code>CREATE VIRTUAL TABLE ... USING fts5(...)</code> + <code>MATCH</code>，确认打包版 better-sqlite3 支持 FTS5。<strong>不过则先升级 SQLite 构建再继续。</strong></li>
+</ul>
+<h4 id="M3.2-数据层">M3.2 数据层</h4>
+<ul>
+<li>新表（随 migration 增加）：</li>
+</ul>
+<pre><code>  CREATE TABLE IF NOT EXISTS knowledge_docs (
+    id TEXT PRIMARY KEY, path TEXT NOT NULL, title TEXT,
+    content TEXT NOT NULL, source TEXT, size_bytes INTEGER,
+    hash TEXT, created_at INTEGER, updated_at INTEGER
+  );
+  CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_docs_fts USING fts5(title, content, content='knowledge_docs', content_rowid='rowid');</code></pre>
+<ul>
+<li><code>web/server/src/knowledge/knowledge-store.ts</code>：CRUD + upsert（写库 + 同步 FTS 索引）+ 删除。</li>
+<li>文本抽取：<code>knowledge/extract.ts</code>，支持 md/txt/html（readability+turndown）/pdf 先行 PDF 文本，其余类型登记不支持。</li>
+</ul>
+<h4 id="M3.3-路由">M3.3 路由</h4>
+<ul>
+<li><code>web/server/src/knowledge/routes.ts</code>：<code>GET /api/knowledge/tree</code>（文件夹树）、<code>GET /api/knowledge/docs</code>、<code>POST /api/knowledge/upload</code>（multipart 或 base64）、<code>GET /api/knowledge/docs/:id</code>（含 FTS 摘要）、<code>DELETE /api/knowledge/docs/:id</code>、<code>GET /api/knowledge/search?q=</code>（BM25，lexical-only 回退）。</li>
+<li><code>app.ts</code> 挂载 <code>/api/knowledge</code>。</li>
+</ul>
+<h4 id="M3.4-前端接线">M3.4 前端接线</h4>
+<ul>
+<li>改 <code>KnowledgePage.tsx</code>：用 <code>api/knowledge.ts</code> 拉真实数据，替换占位树/列表/预览；上传走 <code>POST /upload</code>。</li>
+</ul>
+<h4 id="M3.5-Agent-工具（可选，P1-加分项）">M3.5 Agent 工具（可选，P1 加分项）</h4>
+<ul>
+<li><code>tools/definitions</code> 加 <code>knowledge_search(query)</code> 工具（复用检索服务），让 Agent 能引用知识库。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>web/server/src/knowledge/**</code>、<code>db/migrations/0052_knowledge.ts</code>、<code>web/client/src/api/knowledge.ts</code>、<code>test/fts5-contract.test.ts</code>、<code>test/knowledge-store.test.ts</code>、<code>test/knowledge-api.test.ts</code></li>
+<li>修改：<code>KnowledgePage.tsx</code>、<code>app.ts</code>、<code>i18n/dict.ts</code></li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li>FTS5 探针绿。</li>
+<li>上传若干 md/txt → 树/列表/预览正常，搜索中文与英文关键词均命中（中文需确认 FTS5 默认分词是否够用，不够则加 <code>unicode61</code> tokenizer 或 LIKE 回退）。</li>
+<li>删除文档后 FTS 同步清除（无悬挂索引）。</li>
+<li><code>npm test --prefix web/server</code> + <code>npm run build --prefix web/client</code> 通过。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li><strong>中文分词</strong>是最大不确定点：FTS5 默认 tokenizer 对中文按整句切分效果差。M3 里先做「FTS5 + LIKE 回退」双通道，后续再评估 jieba/ngram。这与 <code>04-0期</code> 的判断一致。</li>
+</ul>
+<hr>
+<h2 id="6.-M4-—-终端集成（4–5-天，工具能力优先）">6. M4 — 终端集成（4–5 天，工具能力优先）</h2>
+<h3 id="目标">目标</h3>
+<p>Agent 能执行 shell 命令并流式拿到输出，先以<strong>工具</strong>形式落地（不承诺完整 PTY 页面）。</p>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li>server 无 terminal 模块；<code>agent/</code> 的工具体系成熟（<code>tools/registry.ts</code> + 各工具定义），加工具是既有模式。</li>
+<li>Electron 打包需要 native 模块，<code>node-pty</code> 需随 <code>extraResources</code> 进包。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<ul>
+<li><code>web/server/src/terminal/pty-manager.ts</code>：<code>node-pty</code> 启动会话（按 workspace 目录）、超时/配额（防无限运行）、kill 清理。</li>
+<li><code>web/server/src/tools/terminal.ts</code>：注册工具 <code>terminal_run(cmd, cwd?, timeout?)</code> / <code>terminal_kill(id)</code>，输出截断到上限。</li>
+<li>工具纳入角色可用工具白名单（默认<strong>关闭</strong>，角色启用才可见——安全默认）。</li>
+<li>前端<strong>暂不做</strong>独立终端页（P2 后置）；输出通过既有 tool 消息展示。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>web/server/src/terminal/**</code>、<code>web/server/src/tools/terminal.ts</code>、<code>test/terminal-tool.test.ts</code></li>
+<li>修改：<code>web/server/package.json</code>（+<code>node-pty</code>）、<code>tools/registry.ts</code>、角色工具默认配置</li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li>单测：<code>terminal_run('echo hi')</code> 返回输出；超时命令被 kill；危险命令需 approval（走既有 approval 机制）。</li>
+<li><code>npm test --prefix web/server</code> 绿；桌面打包产物能加载 node-pty（打包冒烟）。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li><code>node-pty</code> 在 Windows/mac/Linux 需对应预编译二进制；若打包失败，降级为 <code>child_process.spawn</code> + <code>shell:true</code>（丧失真实 TTY，但命令执行闭环可先成立）。</li>
+</ul>
+<hr>
+<h2 id="7.-M5-—-浏览器自动化轻量版（3–4-天）">7. M5 — 浏览器自动化轻量版（3–4 天）</h2>
+<h3 id="目标">目标</h3>
+<p>Agent 可打开网页、点击、抽取文本，用 Playwright（脚本化）而非维护常驻 Chromium 进程树。</p>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li>server <code>tools/</code> 无浏览器工具；根 <code>package.json</code> 已有 <code>@playwright/cli</code> 依赖（预留信号）。</li>
+<li>对比报告建议即「Playwright 作为 Agent 工具」，本期照做。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<ul>
+<li><code>web/server/src/browser/browser-manager.ts</code>：Playwright 启动（headless，默认拒绝下载/弹窗，注入超时与并发上限，每个 run 结束强制 close）。</li>
+<li><code>web/server/src/tools/browser.ts</code>：<code>browser_open(url)</code> / <code>browser_snapshot()</code>（文本化页面）/ <code>browser_click(selector)</code> / <code>browser_type(selector,text)</code> / <code>browser_close()</code>，上下文按 run 隔离。</li>
+<li>安全：默认只放行 http/https，<code>file://</code> 与局域网跳转记录并提示；纳入 approval 风险级别。</li>
+<li>前端：可选只读「浏览器快照」视图（Markdown 渲染即可），不做实时预览。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>web/server/src/browser/**</code>、<code>web/server/src/tools/browser.ts</code>、<code>test/browser-tool.test.ts</code></li>
+<li>修改：<code>web/server/package.json</code>（+<code>playwright</code>）、<code>tools/registry.ts</code></li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li>单测/冒烟：打开本地测试页 → snapshot 含标题文本 → click/type 生效 → close 后无残留进程。</li>
+<li>打包冒烟确认 Chromium 可随包/或按平台下载并缓存。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li>包体积（Chromium ~150MB）。对策：<code>playwright-core</code> + 按需下载，或让用户首次使用时在设置页触发下载（对标 NomiFun「自托管但可按需」）。</li>
+</ul>
+<hr>
+<h2 id="8.-M6-—-跨平台-CI（2–3-天）">8. M6 — 跨平台 CI（2–3 天）</h2>
+<h3 id="目标">目标</h3>
+<p>三平台（win/mac/linux）构建与发布自动化，避免手工出包。</p>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li><strong>无 <code>.github/workflows</code></strong>。</li>
+<li><code>desktop/electron-builder.yml</code> 已含 win(nsis)/mac(dmg+zip)/linux(AppImage+deb) 配置与发布源（官网 + GitHub）；<code>electron-builder.yml</code> 注释已声明 mac 需要 <code>-c.mac.notarize=true</code> 与 <code>icon.icns</code>（当前缺）。</li>
+<li>根 <code>package.json</code> 已有 <code>dist:win/mac:x64/mac:arm64/linux:x64</code> 脚本；<code>scripts/assemble-desktop-release.mjs</code> 等发布辅助脚本已存在。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<ul>
+<li>新增 <code>.github/workflows/build-release.yml</code>：三平台矩阵 job，各自 <code>npm ci</code> → <code>build</code> → <code>prepare-desktop-runtime</code> → <code>electron-builder --publish never</code> → 上传 artifact；<code>release</code> 标签触发 <code>gh release upload</code>（沿用 electron-builder.yml 的 publish 配置与 assemble 脚本）。</li>
+<li>mac job：<code>-c.mac.notarize=true</code>，凭据走 secrets（<code>APPLE_ID</code>/<code>APPLE_APP_SPECIFIC_PASSWORD</code>/<code>APPLE_TEAM_ID</code>）；生成 <code>assets/icon.icns</code> 前置任务（或用 electron-builder 自动转 png→icns）。</li>
+<li>加一个 <code>smoke</code> job：win 上跑 <code>scripts/smoke-packaged.mjs</code> 验证打包产物可启动。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>.github/workflows/build-release.yml</code></li>
+<li>修改：<code>desktop/electron-builder.yml</code>（若需调整 icns 生成/notarize 开关）、<code>docs/</code> 发布清单</li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li>push 后三平台 artifact 出现；<code>release</code> tag 后产物发布到 GitHub + 官网源。</li>
+<li><code>scripts/verify-desktop-release.mjs</code> / <code>verify-release-version.mjs</code> 在 CI 上通过。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li>mac 构建需 macOS runner + 签名证书（付费）；无证书时先出<strong>未签名</strong>包并在 README 标注，不阻塞其他平台。</li>
+</ul>
+<hr>
+<h2 id="9.-M7-—-密钥加密-+-HTTP-适配层收口（2–3-天）">9. M7 — 密钥加密 + HTTP 适配层收口（2–3 天）</h2>
+<h3 id="目标">目标</h3>
+<ol>
+<li>Provider API Key 不再明文落盘。</li>
+<li>HTTP 层也纳入传输抽象，为将来 Tauri/纯 Web 部署铺路。</li>
+</ol>
+<h3 id="现状（实测）">现状（实测）</h3>
+<ul>
+<li><code>providerStore.ts</code> 的 Provider 记录 <code>api_key</code> <strong>明文</strong>存 SQLite；<code>has_api_key</code> 只是布尔标记。</li>
+<li><code>api/eventBus.ts</code> 已有 ipc/SSE 传输抽象；<code>api/client.ts</code> 的 HTTP 仍是裸 <code>fetch</code> + <code>VITE_API_URL</code>。</li>
+</ul>
+<h3 id="任务">任务</h3>
+<h4 id="M7.1-密钥加密">M7.1 密钥加密</h4>
+<ul>
+<li><code>web/server/src/providers/crypto.ts</code>：<code>crypto.createCipheriv('aes-256-gcm')</code>，密钥来源优先级：<code>TIANSHU_MASTER_KEY</code> 环境变量 → <code>&lt;dataDir&gt;/config/.master-key</code>（首次生成，chmod 600）→ keychain（可选）。</li>
+<li><code>providerStore</code>：<code>api_key</code> 列存密文（<code>enc:v1:&lt;iv&gt;:&lt;tag&gt;:&lt;cipher&gt;</code>），读取时仅回显掩码 + <code>has_api_key</code>；真正用 key 只在 LLM 调用内解密。</li>
+<li>迁移：已有明文 key 启动时一次性加密（<code>db/migrations</code> 或启动迁移）。</li>
+<li><code>provider-oauth.ts</code> 的 token 同样加密。</li>
+</ul>
+<h4 id="M7.2-HTTP-适配层收口（轻量）">M7.2 HTTP 适配层收口（轻量）</h4>
+<ul>
+<li>新增 <code>web/client/src/adapter/types.ts</code> 定义最小 <code>HttpBridge</code> 接口（<code>request(method, path, body)</code>）；<code>httpBridge.ts</code> 实现 fetch 逻辑（把 <code>client.ts</code> 的超时/JSON 逻辑搬入）；<code>ipcBridge.ts</code> 在桌面壳时把 <code>window.tianshuDesktop</code> 的可用能力映射进来（如打开目录/读取本地文件）。</li>
+<li><code>api/client.ts</code> 改为消费 <code>HttpBridge</code>，其余 api 文件<strong>零改动</strong>。</li>
+</ul>
+<h3 id="涉及文件">涉及文件</h3>
+<ul>
+<li>新增：<code>web/server/src/providers/crypto.ts</code>、<code>web/client/src/adapter/**</code></li>
+<li>修改：<code>db/providerStore.ts</code>、<code>llm/</code> 调用链、<code>api/client.ts</code>、<code>desktop</code> preload（如需暴露文件能力）</li>
+</ul>
+<h3 id="验收">验收</h3>
+<ul>
+<li>存库后直接 <code>SELECT api_key</code> 看到密文；UI 显示掩码；LLM 调用用密钥正常。</li>
+<li>重启/换机后配置了 <code>TIANSHU_MASTER_KEY</code> 仍可解密；未配置时用本机 <code>.master-key</code>。</li>
+<li><code>npm run build</code>（server+client+desktop）通过；既有 <code>provider-api.test.ts</code> 等测试按新加解密适配后全绿。</li>
+</ul>
+<h3 id="风险">风险</h3>
+<ul>
+<li>密钥丢失 = 数据不可读。对策：<code>.master-key</code> 备份提示 + 设置页「导出/导入密钥」的提示文案，不做自动找回。</li>
+</ul>
+<hr>
+<h2 id="10.-依赖与并行关系">10. 依赖与并行关系</h2>
+<pre><code>M0 数据地基 ──► M1 进化解耦+闭环 ──► M2 进化工作台
+    │
+    ├──────────► M3 知识库最小可用（可与 M1/M2 并行）
+    │
+    ├──────────► M4 终端（独立）
+    │
+    ├──────────► M5 浏览器（独立）
+    │
+    └── M6 跨平台 CI（不依赖代码，随时可做）
+        └── M7 加密 + 适配层（依赖 M0 的 migration 基座）</code></pre>
+<ul>
+<li><strong>必须串行</strong>：M1 依赖 M0（trajectories/skill_drafts 走 migration）；M2 依赖 M1（草稿 API）。</li>
+<li><strong>可并行</strong>：M3、M4、M5、M6 彼此独立，也与 M1/M2 解耦。</li>
+<li><strong>建议节奏</strong>（单人）：M0→M1→M2 连做（地基+差异化主线），期间穿插 M6（CI 早建早用）；M3 排在 M2 后；M4/M5 按兴趣与打包风险选择先后；M7 最后收口。</li>
+</ul>
+<h2 id="11.-各里程碑验收汇总（可勾选）">11. 各里程碑验收汇总（可勾选）</h2>
+<ul>
+<li class="todo"><span class="box"></span>M0：<code>_migrations</code> 表存在且版本齐全；双开被锁拦截；<code>migrator.test.ts</code> 绿</li>
+<li class="todo"><span class="box"></span>M1：<code>selfEvolution</code> 全仓无残留；<code>trajectories</code> 有数据；定时挖掘产出 <code>skill_drafts</code>；批准/驳回 API 生效且 <code>skills/</code> 只在批准后变化</li>
+<li class="todo"><span class="box"></span>M2：<code>/evolution</code> 页面可用，配置可存、洞察可回溯、草稿可审</li>
+<li class="todo"><span class="box"></span>M3：FTS5 探针绿；知识库 CRUD+搜索（中英）通过；<code>KnowledgePage</code> 不再占位</li>
+<li class="todo"><span class="box"></span>M4：<code>terminal_run</code> 工具可执行、可超时 kill、危险命令走审批</li>
+<li class="todo"><span class="box"></span>M5：浏览器工具能开页/点击/抽取，无残留进程</li>
+<li class="todo"><span class="box"></span>M6：三平台 artifact + release 自动发布</li>
+<li class="todo"><span class="box"></span>M7：<code>api_key</code> 存储为密文；HTTP 走 <code>HttpBridge</code></li>
+</ul>
+<hr>
+<h2 id="12.-未纳入本期（明确不做）">12. 未纳入本期（明确不做）</h2>
+<ul>
+<li><strong>Electron → Tauri 迁移</strong>：只在 M7 把适配层收口，为将来零成本切换做准备，不在本期动手。</li>
+<li><strong>Rust 后端</strong>：不引入。</li>
+<li><strong>Embedding/向量检索</strong>：M3 只做 lexical-only，向量接口（<code>04-0期</code> 已定义）留待后续。</li>
+<li><strong>多渠道接入（Telegram/Lark/微信）</strong>：对比报告 P2-11，本期不做（依赖事件系统的入站适配，另立专题）。</li>
+<li><strong>创意工作台 / Mini Apps / Companion 游戏化</strong>：属于产品方向决策，超出「优化」范畴，另行立项。</li>
+</ul>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢 Token 用量统计与费用计算 — 实施计划</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --text2: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149;
+    --purple: #bc8cff; --orange: #f0883e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height: 1.6; padding: 32px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--text2); font-size: 14px; margin-bottom: 32px; }
+  h2 { font-size: 20px; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--accent); }
+  h3 { font-size: 16px; margin: 20px 0 10px; color: var(--purple); }
+  p, li { color: var(--text); font-size: 14px; }
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin: 4px 0; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin: 12px 0; }
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .card-header h3 { margin: 0; }
+
+  .status { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .status-done { background: rgba(63,185,80,0.15); color: var(--green); }
+  .status-todo { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .status-new { background: rgba(188,140,255,0.15); color: var(--purple); }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: rgba(88,166,255,0.08); color: var(--accent); border-bottom: 1px solid var(--border); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+  code { background: rgba(110,118,129,0.2); padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: 'SF Mono', Menlo, monospace; color: var(--orange); }
+  pre { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 12px; line-height: 1.5; margin: 12px 0; }
+  pre code { background: none; padding: 0; color: var(--text); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 768px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
+
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .stat-card .value { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-card .label { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .flow-step { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px; }
+  .flow-arrow { color: var(--text2); font-size: 18px; }
+
+  .file-tree { font-family: 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.8; }
+  .file-tree .dir { color: var(--accent); }
+  .file-tree .file { color: var(--text); }
+  .file-tree .new { color: var(--green); }
+  .file-tree .mod { color: var(--yellow); }
+
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-api { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .tag-core { background: rgba(248,81,73,0.15); color: var(--red); }
+  .tag-fe { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tag-data { background: rgba(240,136,62,0.15); color: var(--orange); }
+
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 2px; background: var(--border); }
+  .timeline-item { position: relative; margin: 16px 0; }
+  .timeline-item::before { content: ''; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent); background: var(--bg); }
+  .timeline-item.done::before { background: var(--green); border-color: var(--green); }
+</style>
+</head>
+<body>
+
+<h1>天枢 <span>Token 用量统计</span>与费用计算</h1>
+<p class="subtitle">实施计划 v1.0 — 2025-07-14</p>
+
+<!-- ──────────── 概览 ──────────── -->
+<h2>📊 概览</h2>
+<div class="grid-3">
+  <div class="stat-card"><div class="value">6</div><div class="label">统计 API 端点</div></div>
+  <div class="stat-card"><div class="value">2</div><div class="label">价格 API 端点</div></div>
+  <div class="stat-card"><div class="value">14</div><div class="label">涉及文件</div></div>
+</div>
+
+<!-- ──────────── 已完成 ──────────── -->
+<h2>✅ 已完成</h2>
+
+<div class="card">
+  <div class="card-header"><h3>类型系统扩展</h3><span class="status status-done">DONE</span></div>
+  <table>
+    <tr><th>文件</th><th>改动</th></tr>
+    <tr>
+      <td><code>providers/types.ts</code></td>
+      <td><code>ModelDefinition</code> 新增 <code>pricing?: ModelPricing</code> 字段，插件可携带价格</td>
+    </tr>
+    <tr>
+      <td><code>db/providerStore.ts</code></td>
+      <td>新增 <code>HourlyPrice</code>（24小时按小时定价）和 <code>ModelPricing</code>（含 is_free / currency / ref_hourly_prices）类型；<code>ModelInfo</code> 新增 <code>pricing?</code></td>
+    </tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>OpenCode 价目表</h3><span class="status status-done">DONE</span></div>
+  <table>
+    <tr><th>文件</th><th>模型</th><th>价格</th></tr>
+    <tr>
+      <td rowspan="3"><code>providers/opencode-go.ts</code></td>
+      <td>DeepSeek V4 Flash</td>
+      <td>Peak(01-04,06-10 UTC): $0.44/$1.32 · Off-Peak: $0.22/$0.66</td>
+    </tr>
+    <tr><td>Qwen3.7 Plus</td><td>统一: $0.40/$1.60</td></tr>
+    <tr><td>MiniMax M2.5</td><td><strong>免费</strong> · 参考价 $0.30/$1.20</td></tr>
+    <tr>
+      <td><code>providers/opencode-free.ts</code></td>
+      <td>big-pickle, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3.5-lightning-free, laguna-s-2.1-free</td>
+      <td>全部 <strong>免费</strong></td>
+    </tr>
+  </table>
+</div>
+
+<!-- ──────────── 核心架构 ──────────── -->
+<h2>🏗️ 核心架构</h2>
+
+<h3>数据流转</h3>
+<div class="flow">
+  <div class="flow-step">插件文件<br><small>定价规则源头</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">providers.json<br><small>运行时持久化</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">calculator.ts<br><small>内存匹配价格</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">statistics API<br><small>聚合 + 费用</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">前端页面<br><small>展示</small></div>
+</div>
+
+<h3>价格匹配优先级</h3>
+<div class="card">
+<pre><code>1. provider + model 精确匹配     → 用该模型的 hourly_prices
+2. provider + model 通配匹配     → 用 "deepseek*" 规则
+3. "*" 通用 provider + model     → 兜底服务商的价格
+4. "*" 通用 provider + 通配      → 最终兜底
+5. 无匹配                        → 免费（费用=0）</code></pre>
+</div>
+
+<h3>费用计算公式</h3>
+<div class="card">
+<pre><code>// 取调用时间的小时
+hour = new Date(created_at).getHours()  // 0-23
+
+if (pricing.is_free === true) {
+  actual_cost  = 0
+  savings      = Σ (token[t] × ref_hourly_prices[hour][t] / 1_000_000)
+} else {
+  actual_cost  = Σ (token[t] × hourly_prices[hour][t] / 1_000_000)
+  savings      = 0
+}
+
+// token[t] ∈ { usage_input, usage_output, usage_cache_hit, usage_cache_miss }</code></pre>
+</div>
+
+<!-- ──────────── 待实施 ──────────── -->
+<h2>🔨 待实施</h2>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Step 1 — 价格匹配与费用计算核心</h3>
+    <span class="status status-todo">TODO</span>
+  </div>
+  <p><span class="tag tag-core">核心模块</span> <code>pricing/calculator.ts</code></p>
+  <ul>
+    <li><code>loadPricingRules()</code> — 从 providerStore 加载所有 provider + model 的 pricing</li>
+    <li><code>matchPricing(providerId, modelId, createdAt)</code> — 按优先级匹配</li>
+    <li><code>calculateCost(pricing, usage, createdAt)</code> — 计算单次费用 + 节省</li>
+  </ul>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Step 2 — 统计聚合 API</h3>
+    <span class="status status-todo">TODO</span>
+  </div>
+  <p><span class="tag tag-api">API</span> <code>routes/statistics.ts</code></p>
+  <table>
+    <tr><th>端点</th><th>用途</th><th>核心逻辑</th></tr>
+    <tr><td><code>GET /overview</code></td><td>全局汇总</td><td>SUM + 内存匹配价格</td></tr>
+    <tr><td><code>GET /by-model</code></td><td>按模型聚合</td><td>GROUP BY request_model</td></tr>
+    <tr><td><code>GET /by-character</code></td><td>按角色聚合</td><td>JOIN sessions → GROUP BY character_id</td></tr>
+    <tr><td><code>GET /by-provider</code></td><td>按服务商聚合</td><td>JOIN sessions → GROUP BY provider_id</td></tr>
+    <tr><td><code>GET /by-day</code></td><td>按天趋势</td><td>GROUP BY date(created_at)</td></tr>
+    <tr><td><code>GET /detail</code></td><td>明细列表</td><td>SELECT + JOIN sessions + 分页</td></tr>
+  </table>
+  <p style="margin-top:8px; color:var(--text2);">所有端点支持查询参数: <code>from</code> <code>to</code> <code>model</code> <code>character_id</code> <code>provider_id</code></p>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Step 3 — 价格配置 API</h3>
+    <span class="status status-todo">TODO</span>
+  </div>
+  <p><span class="tag tag-api">API</span> <code>routes/pricing.ts</code></p>
+  <ul>
+    <li><code>GET /api/pricing</code> — 读取所有 provider 的 pricing 配置（含 model 级）</li>
+    <li><code>PUT /api/pricing</code> — 保存价格配置（更新 providerStore）</li>
+  </ul>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Step 4 — 路由注册 + Provider 创建合并</h3>
+    <span class="status status-todo">TODO</span>
+  </div>
+  <p><span class="tag tag-api">API</span> 修改 <code>app.ts</code> 和 <code>routes/providers.ts</code></p>
+  <ul>
+    <li><code>app.ts</code> — 注册 <code>/api/statistics</code> 和 <code>/api/pricing</code> 路由</li>
+    <li><code>routes/providers.ts</code> — POST 创建时从 plugin.models 合并 pricing 到新记录</li>
+  </ul>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Step 5 — 前端统计页面</h3>
+    <span class="status status-todo">TODO</span>
+  </div>
+  <p><span class="tag tag-fe">前端</span> <span class="tag tag-data">数据</span></p>
+  <ul>
+    <li><code>client/api/statistics.ts</code> — 统计 API 封装</li>
+    <li><code>client/api/pricing.ts</code> — 价格 API 封装</li>
+    <li><code>client/pages/StatisticsPage.tsx</code> — 统计主页面（待 UI 设计）</li>
+    <li><code>client/App.tsx</code> — 新增路由 <code>/statistics</code></li>
+    <li>价格配置集成到服务商卡片中</li>
+  </ul>
+</div>
+
+<!-- ──────────── 文件清单 ──────────── -->
+<h2>📁 文件改动清单</h2>
+
+<div class="card file-tree">
+  <div><span class="tag tag-core">核心</span></div>
+  <div class="new">+ web/server/src/pricing/calculator.ts</div>
+  <div style="margin-top:8px"><span class="tag tag-api">API</span></div>
+  <div class="new">+ web/server/src/routes/statistics.ts</div>
+  <div class="new">+ web/server/src/routes/pricing.ts</div>
+  <div class="mod">~ web/server/src/routes/providers.ts</div>
+  <div class="mod">~ web/server/src/app.ts</div>
+  <div style="margin-top:8px"><span class="tag tag-data">数据</span></div>
+  <div class="mod">~ web/server/src/providers/types.ts</div>
+  <div class="mod">~ web/server/src/db/providerStore.ts</div>
+  <div class="mod">~ web/server/src/providers/opencode-go.ts</div>
+  <div class="mod">~ web/server/src/providers/opencode-free.ts</div>
+  <div style="margin-top:8px"><span class="tag tag-fe">前端</span></div>
+  <div class="new">+ web/client/src/api/statistics.ts</div>
+  <div class="new">+ web/client/src/api/pricing.ts</div>
+  <div class="new">+ web/client/src/pages/StatisticsPage.tsx</div>
+  <div class="mod">~ web/client/src/App.tsx</div>
+</div>
+
+<!-- ──────────── 验证 ──────────── -->
+<h2>✅ 验证方式</h2>
+<div class="grid">
+  <div class="card">
+    <h3>编译检查</h3>
+    <pre><code>npx tsc --noEmit</code></pre>
+  </div>
+  <div class="card">
+    <h3>构建验证</h3>
+    <pre><code>npm run build</code></pre>
+  </div>
+</div>
+
+<div class="card">
+  <h3>API 手动验证</h3>
+<pre><code># 统计概览
+curl http://127.0.0.1:3456/api/statistics/overview
+
+# 按模型
+curl http://127.0.0.1:3456/api/statistics/by-model
+
+# 按角色
+curl http://127.0.0.1:3456/api/statistics/by-character
+
+# 按服务商
+curl http://127.0.0.1:3456/api/statistics/by-provider
+
+# 按天
+curl http://127.0.0.1:3456/api/statistics/by-day
+
+# 明细
+curl "http://127.0.0.1:3456/api/statistics/detail?limit=10"
+
+# 价格配置
+curl http://127.0.0.1:3456/api/pricing</code></pre>
+</div>
+
+<!-- ──────────── 时段价格示意 ──────────── -->
+<h2>⏰ 时段价格示意（DeepSeek V4 Flash）</h2>
+<div class="card">
+<pre><code>         Input ($/1M)    Output ($/1M)    Cache Read
+00:00    $0.22           $0.66            $0.007      ← Off-Peak
+01:00    $0.44           $1.32            $0.014      ← Peak
+02:00    $0.44           $1.32            $0.014      ← Peak
+03:00    $0.44           $1.32            $0.014      ← Peak
+04:00    $0.22           $0.66            $0.007      ← Off-Peak
+05:00    $0.22           $0.66            $0.007      ← Off-Peak
+06:00    $0.44           $1.32            $0.014      ← Peak
+07:00    $0.44           $1.32            $0.014      ← Peak
+08:00    $0.44           $1.32            $0.014      ← Peak
+09:00    $0.44           $1.32            $0.014      ← Peak
+10:00    $0.22           $0.66            $0.007      ← Off-Peak
+...      (Off-Peak)      (Off-Peak)       (Off-Peak)
+23:00    $0.22           $0.66            $0.007      ← Off-Peak</code></pre>
+</div>
+
+</body>
+</html>

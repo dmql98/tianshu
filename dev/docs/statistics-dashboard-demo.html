@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用量统计 · 天枢</title>
+<style>
+  /* ═══ 主题令牌（对齐天枢 tianshu-light / tianshu-dark） ═══ */
+  :root{
+    --ui-font-family:"霞鹜文楷","LXGW WenKai","Kaiti SC","STKaiti",system-ui,serif;
+    --ui-font-scale:1;
+    --theme-canvas:#f5f0e8;--theme-surface-1:#ede6da;--theme-surface-2:#e0d8cc;--theme-surface-hover:#e0d8cc;
+    --theme-input:#faf8f4;--theme-border:rgba(180,160,130,0.15);--theme-border-subtle:rgba(180,160,130,0.08);
+    --theme-text-primary:#2c2418;--theme-text-secondary:#5c5040;--theme-text-muted:#8a7d68;--theme-text-faint:#b8a890;--theme-text-on-accent:#ffffff;
+    --theme-accent:#c8960a;--theme-accent-hover:#b08508;--theme-accent-soft:rgba(200,150,10,0.10);
+    --theme-success:#2a9d5c;--theme-danger:#c45c3c;--theme-info:#2563eb;--theme-shadow-color:rgba(44,36,24,0.2);
+    --bg-main:var(--theme-canvas);--bg-card:var(--theme-surface-1);--bg-hover:var(--theme-surface-hover);--bg-input:var(--theme-input);
+    --border:var(--theme-border);--border-light:var(--theme-border-subtle);
+    --gold:var(--theme-accent);--gold-light:color-mix(in srgb,var(--theme-accent) 35%,#fff);--gold-soft:var(--theme-accent-soft);
+    --gold-border:color-mix(in srgb,var(--theme-accent) 30%,transparent);
+    --ink-deep:var(--theme-text-primary);--ink-mid:var(--theme-text-secondary);--ink-light:var(--theme-text-muted);--ink-faint:var(--theme-text-faint);
+    --jade:var(--theme-success);--cinnabar:var(--theme-danger);--blue:var(--theme-info);
+    color-scheme:light;
+  }
+  [data-scheme="dark"]{
+    --theme-canvas:#17130e;--theme-surface-1:#201b14;--theme-surface-2:#2a2319;--theme-surface-hover:#32291d;
+    --theme-input:#1c1710;--theme-border:rgba(255,235,200,0.12);--theme-border-subtle:rgba(255,235,200,0.07);
+    --theme-text-primary:#f2ead9;--theme-text-secondary:#c9bda6;--theme-text-muted:#998d78;--theme-text-faint:#6b6253;--theme-text-on-accent:#17130e;
+    --theme-accent:#e0b341;--theme-accent-hover:#f0c35c;--theme-accent-soft:rgba(224,179,65,0.16);
+    --theme-success:#4caf7d;--theme-danger:#e0735a;--theme-info:#6b9ff3;--theme-shadow-color:rgba(0,0,0,0.5);
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--ui-font-family);background:var(--bg-main);color:var(--ink-deep);overflow:hidden;font-size:calc(14px * var(--ui-font-scale))}
+  ::selection{background:var(--gold-light);color:var(--ink-deep)}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:var(--theme-scrollbar,#b8a890);border-radius:5px;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-track{background:transparent}
+  button{font-family:inherit;cursor:pointer}
+  select,input{font-family:inherit}
+
+  .app{display:flex;height:100vh}
+  /* 左侧导航（示意，模拟天枢 nav-rail） */
+  .nav-rail{width:64px;min-width:64px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;z-index:10}
+  .nav-logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,var(--gold),var(--theme-accent-hover));color:var(--theme-text-on-accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;margin-bottom:12px}
+  .nav-item{width:46px;height:46px;border-radius:12px;border:none;background:transparent;color:var(--ink-faint);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:17px;transition:all .15s;position:relative}
+  .nav-item span{font-size:calc(9px * var(--ui-font-scale));line-height:1}
+  .nav-item:hover{background:var(--bg-hover);color:var(--ink-mid)}
+  .nav-item.active{background:var(--gold-soft);color:var(--gold)}
+  .nav-item.active::before{content:'';position:absolute;left:-14px;top:50%;transform:translateY(-50%);width:3px;height:22px;border-radius:2px;background:var(--gold)}
+  .nav-spacer{flex:1}
+  /* 主体 */
+  .main{flex:1;overflow-y:auto;padding:22px 28px 40px;min-width:0}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .page-title{font-size:calc(21px * var(--ui-font-scale));font-weight:700;letter-spacing:.5px}
+  .page-sub{font-size:calc(12px * var(--ui-font-scale));color:var(--ink-light);margin-top:3px}
+  .head-actions{display:flex;gap:8px;align-items:center}
+  .icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-light);font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .icon-btn:hover{border-color:var(--gold);color:var(--gold)}
+  /* 控件条 */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:10px 12px;margin-bottom:16px}
+  .chip-group{display:flex;gap:4px;background:var(--bg-hover);padding:3px;border-radius:9px}
+  .chip{border:none;background:transparent;color:var(--ink-light);font-size:calc(12px * var(--ui-font-scale));padding:5px 12px;border-radius:7px;transition:all .15s}
+  .chip:hover{color:var(--ink-mid)}
+  .chip.active{background:var(--bg-input);color:var(--gold);font-weight:600;box-shadow:0 1px 3px var(--theme-shadow-color)}
+  .range-input{display:flex;align-items:center;gap:6px;color:var(--ink-light);font-size:calc(12px * var(--ui-font-scale))}
+  .range-input input{background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--ink-deep);padding:4px 8px;font-size:calc(12px * var(--ui-font-scale));outline:none}
+  .range-input input:focus{border-color:var(--gold)}
+  .sel{background:var(--bg-input);border:1px solid var(--border);color:var(--ink-mid);border-radius:8px;padding:6px 10px;font-size:calc(12px * var(--ui-font-scale));outline:none;max-width:190px}
+  .sel:focus{border-color:var(--gold)}
+  .toolbar-sep{width:1px;height:22px;background:var(--border)}
+  .reset-btn{border:1px solid var(--border);background:transparent;color:var(--ink-light);border-radius:8px;padding:6px 10px;font-size:calc(12px * var(--ui-font-scale))}
+  .reset-btn:hover{border-color:var(--cinnabar);color:var(--cinnabar)}
+  .src-badge{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-faint);display:flex;align-items:center;gap:5px}
+  .src-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--jade)}
+  .src-badge.live .dot{background:var(--jade);box-shadow:0 0 0 3px color-mix(in srgb,var(--jade) 20%,transparent)}
+  /* KPI */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+  .kpi::after{content:'';position:absolute;right:-22px;top:-22px;width:80px;height:80px;border-radius:50%;background:var(--gold-mist,color-mix(in srgb,var(--gold) 6%,transparent));pointer-events:none}
+  .kpi .k-label{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);letter-spacing:.4px;display:flex;align-items:center;gap:6px}
+  .kpi .k-ico{width:16px;height:16px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+  .kpi .k-value{font-size:calc(24px * var(--ui-font-scale));font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:.3px}
+  .kpi .k-value small{font-size:calc(13px * var(--ui-font-scale));font-weight:500;color:var(--ink-light);margin-left:3px}
+  .kpi .k-sub{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+  .kpi .k-sub b{color:var(--ink-mid);font-weight:500}
+  .kpi .accent{color:var(--gold)}
+  .kpi .ok{color:var(--jade)}
+  .kpi .warn{color:var(--cinnabar)}
+  /* 卡片 */
+  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-light)}
+  .card-title{font-size:calc(13px * var(--ui-font-scale));font-weight:600;color:var(--ink-mid);letter-spacing:.4px}
+  .card-title .hint{font-weight:400;color:var(--ink-faint);margin-left:8px;font-size:calc(11px * var(--ui-font-scale))}
+  .chart-wrap{padding:16px 16px 10px}
+  .mid-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  @media(max-width:1100px){.mid-grid{grid-template-columns:1fr}}
+  /* 柱状图 */
+  .bars{display:flex;align-items:flex-end;gap:6px;height:190px;padding:4px 2px 0}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;min-width:0}
+  .bar-area{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;position:relative}
+  .bar{width:min(38px,62%);border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 88%,#fff),var(--gold));transition:height .5s ease;position:relative;min-height:2px}
+  .bar.zero{background:repeating-linear-gradient(180deg,var(--theme-border) 0 2px,transparent 2px 5px);min-height:8px}
+  .bar.free{background:linear-gradient(180deg,color-mix(in srgb,var(--jade) 80%,#fff),var(--jade))}
+  .bar:hover{filter:brightness(1.08)}
+  .bar-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) scale(.9);background:var(--ink-deep);color:var(--bg-main);font-size:calc(11px * var(--ui-font-scale));padding:3px 8px;border-radius:6px;opacity:0;pointer-events:none;transition:all .15s;white-space:nowrap;z-index:5}
+  .bar-col:hover .bar-tip{opacity:1;transform:translateX(-50%) scale(1)}
+  .bar-x{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint);white-space:nowrap;transform:scale(.92)}
+  .axis-y{display:flex;flex-direction:column;justify-content:space-between;height:190px;color:var(--ink-faint);font-size:calc(10px * var(--ui-font-scale));padding-right:8px;text-align:right}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);padding:6px 4px 0}
+  .legend .lg{display:flex;align-items:center;gap:5px}
+  .legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* 分段条 */
+  .stack-bar{height:26px;border-radius:7px;overflow:hidden;display:flex;margin-top:10px;background:var(--theme-surface-2)}
+  .stack-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:calc(10px * var(--ui-font-scale));color:#fff;font-weight:600;min-width:0}
+  /* 表格 */
+  .table-scroll{overflow-x:auto}
+  table.tbl{width:100%;border-collapse:collapse;font-size:calc(12.5px * var(--ui-font-scale))}
+  .tbl th{font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light);font-weight:500;text-align:left;padding:9px 14px;border-bottom:1px solid var(--border);white-space:nowrap;letter-spacing:.3px}
+  .tbl td{padding:9px 14px;border-bottom:1px solid var(--border-light);color:var(--ink-mid);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl tbody tr{transition:background .12s}
+  .tbl tbody tr:hover{background:var(--bg-hover)}
+  .tbl tbody tr.clickable{cursor:pointer}
+  .tbl .num{text-align:right}
+  .tbl th.num{text-align:right}
+  .mono{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:calc(11.5px * var(--ui-font-scale))}
+  .tbl .strong{color:var(--ink-deep);font-weight:600}
+  .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:calc(10px * var(--ui-font-scale));font-weight:600;letter-spacing:.3px}
+  .badge.free{background:color-mix(in srgb,var(--jade) 14%,transparent);color:var(--jade)}
+  .badge.paid{background:var(--gold-soft);color:var(--gold)}
+  .badge.soft{background:var(--bg-hover);color:var(--ink-light)}
+  .badge.accent-bg{background:var(--gold);color:var(--theme-text-on-accent)}
+  .rank{display:inline-flex;width:20px;height:20px;border-radius:6px;align-items:center;justify-content:center;font-size:calc(10.5px * var(--ui-font-scale));font-weight:700;background:var(--bg-hover);color:var(--ink-light)}
+  .rank.r1{background:var(--gold);color:var(--theme-text-on-accent)}
+  .rank.r2{background:color-mix(in srgb,var(--gold) 55%,#fff);color:var(--theme-text-on-accent)}
+  .rank.r3{background:color-mix(in srgb,var(--gold) 30%,#fff);color:var(--theme-text-on-accent)}
+  .avatar{width:24px;height:24px;border-radius:8px;background:linear-gradient(145deg,var(--theme-surface-hover),var(--theme-surface-2));display:inline-flex;align-items:center;justify-content:center;font-size:calc(12px * var(--ui-font-scale));color:var(--ink-mid);font-weight:600}
+  .dots{display:inline-flex;flex-direction:column;gap:2px;padding:2px 6px;border:none;background:transparent;color:var(--ink-faint)}
+  .dots i{width:3px;height:3px;border-radius:50%;background:currentColor}
+  .dots:hover{color:var(--ink-mid)}
+  /* tabs */
+  .tabs{display:flex;gap:2px}
+  .tab{padding:6px 14px;border:none;background:transparent;color:var(--ink-light);font-size:calc(12.5px * var(--ui-font-scale));border-radius:8px;transition:all .15s}
+  .tab:hover{color:var(--ink-mid);background:var(--bg-hover)}
+  .tab.active{color:var(--gold);background:var(--gold-soft);font-weight:600}
+  /* 明细行内双行 */
+  .cell2{display:flex;flex-direction:column;gap:2px;max-width:280px;min-width:0}
+  .cell2 .t1{color:var(--ink-deep);overflow:hidden;text-overflow:ellipsis}
+  .cell2 .t2{font-size:calc(10.5px * var(--ui-font-scale));color:var(--ink-faint)}
+  .empty{padding:44px;text-align:center;color:var(--ink-faint);font-size:calc(13px * var(--ui-font-scale))}
+  .pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid var(--border-light);font-size:calc(11px * var(--ui-font-scale));color:var(--ink-light)}
+  .pager button{border:1px solid var(--border);background:var(--bg-input);color:var(--ink-mid);border-radius:7px;padding:3px 10px;font-size:calc(11px * var(--ui-font-scale))}
+  .pager button:disabled{opacity:.4;cursor:default}
+  .row{display:flex;align-items:center;gap:8px;min-width:0}
+  .model-name{font-weight:600;color:var(--ink-deep)}
+  .h-bar-bg{width:110px;height:5px;border-radius:3px;background:var(--theme-surface-2);overflow:hidden;display:inline-block;vertical-align:middle}
+  .h-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--theme-accent-hover))}
+  .modal-bg{position:fixed;inset:0;background:var(--theme-overlay,rgba(0,0,0,.4));display:none;align-items:center;justify-content:center;z-index:50}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:min(560px,92vw);max-height:82vh;overflow:auto;box-shadow:0 24px 80px var(--theme-shadow-color);padding:22px}
+  .modal h3{font-size:calc(15px * var(--ui-font-scale));margin-bottom:14px}
+  .api-row{display:flex;gap:8px;margin-bottom:10px}
+  .api-row input{flex:1;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--ink-deep);font-size:calc(12.5px * var(--ui-font-scale));outline:none;font-family:ui-monospace,monospace}
+  .api-row input:focus{border-color:var(--gold)}
+  .btn{padding:8px 16px;border-radius:8px;font-size:calc(12.5px * var(--ui-font-scale));font-weight:500;border:1px solid var(--border)}
+  .btn.primary{background:var(--gold);color:var(--theme-text-on-accent);border-color:var(--gold)}
+  .btn.primary:hover{background:var(--theme-accent-hover)}
+  .btn.ghost{background:transparent;color:var(--ink-mid)}
+  .btn.ghost:hover{background:var(--bg-hover)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink-deep);color:var(--bg-main);padding:9px 18px;border-radius:10px;font-size:calc(12.5px * var(--ui-font-scale));opacity:0;transition:all .3s;z-index:99;box-shadow:0 8px 30px var(--theme-shadow-color)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .sub-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:900px){.sub-grid{grid-template-columns:repeat(2,1fr)}}
+  /* —— 统计页增补：段费用 / 双行表头 —— */
+  .uq{white-space:nowrap;font-variant-numeric:tabular-nums}
+  .uq em{font-style:normal;font-size:calc(10px * var(--ui-font-scale));margin-left:2px}
+  .uq.pay em{color:var(--gold)}
+  .uq.ref{color:var(--ink-mid)}
+  .uq.ref em{color:var(--jade);font-weight:600}
+  .uq.none{color:var(--ink-mid)}
+  .uq.none em{color:var(--ink-faint);opacity:.8}
+  .th-sub{display:block;font-weight:400;font-size:calc(9px * var(--ui-font-scale));color:var(--ink-faint);letter-spacing:.2px}
+  .f-total{color:var(--gold);font-weight:700}
+  .f-total .cu{color:var(--gold)}
+  .f-save{color:var(--jade);font-weight:600}
+  .f-save .cu{color:var(--jade)}
+  .eq{font-style:normal;font-weight:400;color:var(--ink-faint);font-size:calc(10px * var(--ui-font-scale))}
+  .plus{font-style:normal;color:var(--ink-light);margin:0 1px;font-size:calc(11px * var(--ui-font-scale))}
+  .k-value small.real{display:block;font-size:calc(12px * var(--ui-font-scale));color:var(--ink-light);font-weight:500;margin-top:2px}
+  .f-0{color:var(--ink-faint)}
+  .f-ref del{color:var(--jade);opacity:.8;text-decoration-thickness:1.5px;margin-right:5px;font-weight:600}
+  .f-free{color:var(--jade);font-weight:700;margin-left:2px}
+  /* KPI 小注（≈USD 换算） */
+  .k-value small{font-size:calc(12px * var(--ui-font-scale));font-weight:500;color:var(--ink-faint);margin-left:4px}
+  .model-cell{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .model-cell .model-name{font-weight:600;color:var(--ink-deep);overflow:hidden;text-overflow:ellipsis}
+  .sub-prov{font-size:calc(10px * var(--ui-font-scale));color:var(--ink-faint)}
+  .cur-tag{font-weight:600;color:var(--ink-light);font-family:ui-monospace,monospace;font-size:calc(9.5px * var(--ui-font-scale))}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <nav class="nav-rail" aria-label="主导航">
+    <div class="nav-logo">枢</div>
+    <button class="nav-item"><span>⌂</span><span>会话</span></button>
+    <button class="nav-item"><span>◈</span><span>角色</span></button>
+    <button class="nav-item"><span>✧</span><span>技能</span></button>
+    <button class="nav-item"><span>⚒</span><span>工具</span></button>
+    <button class="nav-item"><span>⛓</span><span>MCP</span></button>
+    <button class="nav-item active"><span>▦</span><span>统计</span></button>
+    <div class="nav-spacer"></div>
+    <button class="nav-item"><span>⚙</span><span>设置</span></button>
+  </nav>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <div class="page-title">用量统计</div>
+        <div class="page-sub">Token 用量与费用总览 · 价格按服务商价目表（pricing.json）实时计算</div>
+      </div>
+      <div class="head-actions">
+        <span class="src-badge" id="srcBadge"><span class="dot"></span><span id="srcLabel">演示数据</span></span>
+        <button class="icon-btn" id="themeBtn" title="切换深浅色">◐</button>
+        <button class="icon-btn" id="liveBtn" title="连接本地服务">⇄</button>
+      </div>
+    </div>
+
+    <!-- 时间范围 & 筛选 -->
+    <div class="toolbar">
+      <div class="chip-group" id="rangeChips">
+        <button class="chip" data-range="7">近 7 天</button>
+        <button class="chip" data-range="30">近 30 天</button>
+        <button class="chip active" data-range="all">全部</button>
+      </div>
+      <div class="range-input">自 <input type="date" id="fromInput"> 至 <input type="date" id="toInput"></div>
+      <div class="toolbar-sep"></div>
+      <select class="sel" id="characterSel"><option value="">全部角色</option></select>
+      <select class="sel" id="providerSel"><option value="">全部服务商</option></select>
+      <select class="sel" id="modelSel"><option value="">全部模型</option></select>
+      <div class="toolbar-sep"></div>
+      <div class="chip-group" id="curGroup" title="切换金额显示币种（换算汇率 1 USD = 7.2 CNY）">
+        <button class="chip" data-cur="CNY">¥ CNY</button>
+        <button class="chip active" data-cur="USD">$ USD</button>
+      </div>
+      <button class="reset-btn" id="resetBtn">✕ 重置</button>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- 中间：趋势图 + 分段 -->
+    <div class="mid-grid">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title" id="chartTitle">每日趋势<span class="hint" id="chartHint"></span></div>
+          <div class="tabs" id="chartTabs">
+            <button class="tab active" data-metric="cost">费用</button>
+            <button class="tab" data-metric="tokens">Tokens</button>
+            <button class="tab" data-metric="calls">调用次数</button>
+          </div>
+        </div>
+        <div class="chart-wrap" id="chartWrap"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">免费 / 付费构成<span class="hint">按调用次数</span></div></div>
+        <div class="chart-wrap">
+          <div id="pieWrap"></div>
+          <div class="stack-bar" id="freeStack"></div>
+          <div class="legend" id="pieLegend"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 排行 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="tabs" id="tableTabs">
+          <button class="tab active" data-view="model">按模型</button>
+          <button class="tab" data-view="character">按角色</button>
+          <button class="tab" data-view="provider">按服务商</button>
+          <button class="tab" data-view="day">按天</button>
+          <button class="tab" data-view="detail">最近调用</button>
+        </div>
+        <div class="card-title"><span style="font-weight:400" id="tableCount"></span></div>
+      </div>
+      <div class="table-scroll" id="tableWrap"></div>
+      <div class="pager" id="pager" style="display:none">
+        <span id="pagerInfo"></span>
+        <span><button id="prevPage">‹ 上一页</button> <button id="nextPage">下一页 ›</button></span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-bg" id="liveModal">
+  <div class="modal">
+    <h3>连接本地服务（真实数据）</h3>
+    <div class="api-row"><input id="apiBase" placeholder="http://127.0.0.1:3456" spellcheck="false"></div>
+    <p style="font-size:calc(12px*var(--ui-font-scale));color:var(--ink-light);margin-bottom:14px">
+      天枢服务运行后即可拉取真实统计；未填写或失败时自动回退到演示数据。演示数据为真实统计的近似形态。
+    </p>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn ghost" id="closeModal">取消</button>
+      <button class="btn primary" id="connectBtn">连接</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ═════════════════════ 数据层 ═════════════════════ */
+// —— 真实统计形状（2026-08-19 ~ 09-03）：每日调用数 / 付费金额(分) ——
+const SHAPE = {
+  '2026-08-19':{calls:11, paid:0},
+  '2026-08-21':{calls:61, paid:0},
+  '2026-08-24':{calls:314,paid:0},
+  '2026-08-25':{calls:227,paid:722},
+  '2026-08-26':{calls:196,paid:403},
+  '2026-08-27':{calls:299,paid:1465},
+  '2026-08-28':{calls:98, paid:292},
+  '2026-08-31':{calls:948,paid:467},
+  '2026-09-01':{calls:104,paid:0},
+  '2026-09-02':{calls:906,paid:129},
+  '2026-09-03':{calls:541,paid:0},
+};
+const CHARS = ['coder','xiaohong','worker','taro'];
+const CHAR_W = {'coder':.46,'xiaohong':.30,'worker':.16,'taro':.08};
+// model 池：[model, provider, free, weight, 计费单价(分/1M, 按该模型币种), ref参考价(免费快照), cur(币种)]
+//   单价 = {i:输入(未命中)价, o:输出价, h:缓存命中价}；免费档模型计费单价 0
+const MODELS = [
+  // USD 付费（OpenCode Go）
+  ['deepseek-v4-flash','opencode-go',false,.30,{i:22,o:66,h:1},null,'USD'],
+  ['qwen3.7-plus','opencode-go',false,.03,{i:30,o:90,h:2},null,'USD'],
+  ['minimax-m2.5','opencode-go',false,.025,{i:16,o:52,h:1},null,'USD'],
+  // CNY 付费（火山方舟 按量报价人民币）
+  ['deepseek-v4-flash-260425','volcengine',false,.09,{i:1600,o:4800,h:300},null,'CNY'],
+  ['deepseek-v4-flash','火山方舟-1788404037225',false,.03,{i:2000,o:6000,h:400},null,'CNY'],
+  // 免费档（真免费：big-pickle 等无参考价）
+  ['big-pickle','opencode-free',true,.20,{i:0,o:0,h:0},null,'USD'],
+  ['tokendance','tokendance',true,.12,{i:0,o:0,h:0},null,'USD'],
+  ['oc/hy3-free','9router-1787535607249',true,.06,{i:0,o:0,h:0},null,'USD'],
+  // 免费档快照模型：ref 为付费模型的真实价目 → 算"节省"
+  ['deepseek-v4-flash','opencode-free',true,.04,{i:0,o:0,h:0},{i:22,o:66,h:1},'USD'],
+  ['gpt-5.6-luna','opencode-free',true,.03,{i:0,o:0,h:0},{i:20,o:120,h:2},'USD'],
+  ['claude-fable-5','opencode-free',true,.02,{i:0,o:0,h:0},{i:1000,o:5000,h:25},'USD'],
+  ['gemini-3.5-flash','opencode-free',true,.015,{i:0,o:0,h:0},{i:8,o:35,h:1},'USD'],
+  ['kimi-k2.5','opencode-free',true,.01,{i:0,o:0,h:0},{i:12,o:60,h:1},'USD'],
+];
+
+const PROVIDER_LABEL = {
+  'opencode-go':'OpenCode Go','opencode-free':'OpenCode Free','tokendance':'TokenDance',
+  'volcengine':'火山方舟','9router-1787535607249':'9Router'
+};
+const pa = x => (PROVIDER_LABEL[x]||x);
+
+// —— 生成演示数据：每调用一条记录 ——
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function pickWeighted(rnd, arr){
+  let total=arr.reduce((s,m)=>s+m[3],0), r=rnd()*total;
+  for(const m of arr){r-=m[3];if(r<=0)return m} return arr[arr.length-1];
+}
+function buildMock(){
+  const rnd = mulberry32(20260903);
+  const rows=[];
+  for(const [date,shape] of Object.entries(SHAPE)){
+    // 付费日约 25% 调用走付费模型（与真实 paid/free ≈ 27% 接近）
+    const paidRate = shape.paid>0 ? 0.25 : 0;
+    for(let i=0;i<shape.calls;i++){
+      const isPaid = rnd()<paidRate;   // 付费调用均匀散布在一天中
+      const m = pickWeighted(rnd, isPaid ? MODELS.filter(x=>!x[2]) : MODELS.filter(x=>x[2]));
+      const [model,provider,free]=m;
+      const price=m[4]||{i:0,o:0,h:0};
+      const ref=m[5]; // 免费快照模型的真实参考价 → 算"节省"
+      const cur=m[6]||'USD'; // 该模型价目表币种
+      const ts = new Date(date+'T'+String(6+Math.floor(rnd()*16)).padStart(2,'0')+':'+String(Math.floor(rnd()*60)).padStart(2,'0')+':00').getTime();
+      // 角色分配
+      let cr=rnd(); let character='coder';
+      for(const c of CHARS){ if(cr<CHAR_W[c]){character=c;break} cr-=CHAR_W[c]; }
+      // 用量（tokens）：总输入 20K~1M（偏态）、命中占比 55-90%、输出 150~4K
+      const input=Math.round(20000+Math.pow(rnd(),2)*980000);
+      const cacheHit=Math.round(input*(0.55+rnd()*0.35));
+      const cacheMiss=Math.max(0,input-cacheHit);
+      const output=Math.round(150+Math.pow(rnd(),2)*12000);
+      // 分项计费（tokens × 分/1M ÷ 1e6 → 分，币种 = 该模型价目表币种）
+      const costMiss=cacheMiss*price.i/1e6;
+      const costHit=cacheHit*price.h/1e6;
+      const costOut=output*price.o/1e6;
+      const cost=costMiss+costHit+costOut;
+      // 免费模型"参考价"（绿色显示，表示本应付多少）：按真实参考价估算
+      const refMiss=free&&ref?cacheMiss*ref.i/1e6:0;
+      const refHit=free&&ref?cacheHit*ref.h/1e6:0;
+      const refOut=free&&ref?output*ref.o/1e6:0;
+      const refTotal=refMiss+refHit+refOut;
+      rows.push({ts,date,character,provider,model,isFree:free,cur,input,output,cacheHit,cacheMiss,
+        costMiss,costHit,costOut,cost,savings:free?refTotal:0,
+        refMiss,refHit,refOut,refTotal});
+    }
+  }
+  rows.sort((a,b)=>a.ts-b.ts);
+  return rows;
+}
+
+let DETAIL = buildMock();
+let LIVE = false;
+
+/* ═════════════════════ 状态与筛选 ═════════════════════ */
+const state = { range:'all', from:null, to:null, character:'', provider:'', model:'', chartMetric:'cost', view:'model', page:1, PAGE:14, currency:'USD' };
+
+function inRange(ts){
+  if(state.range==='custom'){
+    if(state.from && ts < state.from) return false;
+    if(state.to && ts > state.to) return false;
+  } else if(state.range==='7'||state.range==='30'){
+    const days = state.range==='7'?7:30;
+    // mock 数据都是过去日期（2026-08/09），用「相对数据末尾」判断更符合演示
+    const maxTs = Math.max(...DETAIL.map(r=>r.ts));
+    if(ts < maxTs - (days-1)*86400000) return false;
+  }
+  return true;
+}
+function filtered(){
+  return DETAIL.filter(r=>inRange(r.ts)
+    && (!state.character || r.character===state.character)
+    && (!state.provider || r.provider===state.provider)
+    && (!state.model || r.model===state.model));
+}
+
+/* ═════════════════════ 格式化 ═════════════════════ */
+const money = (cents,cur='USD')=>{
+  const s = cur==='CNY'?'¥':'$'; const neg=cents<0?'-':''; const a=Math.abs(Math.round(cents));
+  return neg+s+Math.floor(a/100)+'.'+String(a%100).padStart(2,'0');
+};
+const fmtMoney = cents => cents>=100 ? money(cents) : (cents>0 ? '$'+cents.toFixed(2).replace(/\.?0+$/,'') : '$0.00');
+const nf = n => n.toLocaleString('en-US');
+const tkn = n => { if(n>=1e9)return (n/1e9).toFixed(2)+'B'; if(n>=1e6)return (n/1e6).toFixed(1)+'M'; if(n>=1e3)return (n/1e3).toFixed(1)+'K'; return String(n); };
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// —— 双币种金额（真实分桶：USD 分 / CNY 分；换算仅用于展示合计）——
+// 真实换算参考汇率（demo；接入服务时以 exchange-rate.json 为准）
+const FX_RATE = 7.2;
+const R = FX_RATE;
+// 当前显示币种的合计（分）：把 usd/cny 两桶折算成 state.currency 的分
+const mixCents=(u,c)=> state.currency==='CNY' ? u*R + c : u + c/R;
+// 分 → 文本（当前币种）
+function curMoney(c){
+  const v=c/100, sym=state.currency==='CNY'?'¥':'$';
+  if(!(c>0)) return sym+'0.00';
+  if(v<0.01) return sym+'<0.01';
+  return sym+v.toFixed(2);
+}
+const curZero=()=> state.currency==='CNY'?'¥0.00':'$0.00';
+// 真实段（原币种符号，不换算）：$34.78 / ¥231.00
+function realPart(c,cur){ return cur==='CNY' ? '¥'+(c/100).toFixed(2) : '$'+(c/100).toFixed(2); }
+function realHtml(usd,cny){ const p=[]; if(usd>0)p.push('<b class="cu">'+realPart(usd,'USD')+'</b>'); if(cny>0)p.push('<b class="cu">'+realPart(cny,'CNY')+'</b>'); return p.join('<i class="plus">+</i>'); }
+// 金额格：真实原币种金额；双币种或与原币种不同时补 ≈换算合计（跟随当前显示币种）
+function amountHtml(usd,cny,cls,withEq=true){
+  const hasUsd=usd>0, hasCny=cny>0;
+  if(hasUsd&&hasCny){
+    return '<span class="'+cls+'">'+realHtml(usd,cny)+(withEq?' <em class="eq">≈'+curMoney(mixCents(usd,cny))+'</em>':'')+'</span>';
+  }
+  const v=hasUsd?usd:cny, cur=hasUsd?'USD':'CNY';
+  if(!v) return '<span class="'+cls+'">'+curZero()+'</span>';
+  const txt=realPart(v,cur);
+  const eq = cur!==state.currency&&withEq
+    ? ' <em class="eq">≈'+curMoney(cur==='USD'?v*R:v/R)+'</em>'
+    : '';
+  return '<span class="'+cls+'">'+txt+eq+'</span>';
+}
+// 免费行总费用：绿色删除线参考价（真实分桶）+ 绿色 0
+function freeTotalHtml(refUsd,refCny){
+  if(refUsd>0||refCny>0){
+    const del = '<del>'+realHtml(refUsd,refCny)+'</del>';
+    return '<span class="f-ref">'+del+'</span><span class="f-free">'+curZero()+'</span>';
+  }
+  return '<span class="f-free">'+curZero()+'</span>';
+}
+// 费用格（段/行，单行单币种 → 原币种真实展示）：mode pay/ref/none
+function feeCell(tokens,costCents,mode='none',baseCur='USD'){
+  const pay = mode==='pay' && costCents>0;
+  const ref = mode==='ref' && costCents>0;
+  const c = (pay||ref) ? realPart(costCents,baseCur) : (baseCur==='CNY'?'¥0.00':'$0.00');
+  return '<span class="uq '+(pay?'pay':(ref?'ref':'none'))+'">'+tkn(tokens)+'<em>/'+c+'</em></span>';
+}
+
+/* ═════════════════════ 聚合 ═════════════════════ */
+function sumRows(rows){
+  const acc={input:0,output:0,cacheHit:0,cacheMiss:0,freeCalls:0,paidCalls:0,
+    // 真实分桶（按各行结算币种）
+    costUsd:0,costCny:0,refUsd:0,refCny:0,
+    inUsd:0,outUsd:0,hitUsd:0, inCny:0,outCny:0,hitCny:0,
+    refInUsd:0,refOutUsd:0,refHitUsd:0, refInCny:0,refOutCny:0,refHitCny:0};
+  rows.forEach(r=>{
+    acc.input+=r.input;acc.output+=r.output;acc.cacheHit+=r.cacheHit;acc.cacheMiss+=r.cacheMiss;
+    const cny = r.cur==='CNY';
+    if(cny){
+      acc.costCny+=r.cost; acc.refCny+=r.refTotal||0;
+      acc.inCny+=r.costMiss||0; acc.outCny+=r.costOut||0; acc.hitCny+=r.costHit||0;
+      acc.refInCny+=r.refMiss||0; acc.refOutCny+=r.refOut||0; acc.refHitCny+=r.refHit||0;
+    }else{
+      acc.costUsd+=r.cost; acc.refUsd+=r.refTotal||0;
+      acc.inUsd+=r.costMiss||0; acc.outUsd+=r.costOut||0; acc.hitUsd+=r.costHit||0;
+      acc.refInUsd+=r.refMiss||0; acc.refOutUsd+=r.refOut||0; acc.refHitUsd+=r.refHit||0;
+    }
+    r.isFree?acc.freeCalls++:acc.paidCalls++});
+  acc.totalTokens=acc.input+acc.output+acc.cacheHit+acc.cacheMiss;
+  acc.rate=acc.input+acc.cacheMiss>0 ? acc.cacheHit/(acc.input+acc.cacheHit+acc.cacheMiss)*100 : 0;
+  // 兼容单值视图：当前显示币种的换算合计（分）
+  acc.cost = mixCents(acc.costUsd, acc.costCny);
+  acc.savings = mixCents(acc.refUsd, acc.refCny);
+  acc.refTotal = acc.savings;
+  return acc;
+}
+
+function groupBy(rows,key){
+  const map=new Map();
+  for(const r of rows){
+    const k=r[key]; if(!map.has(k))map.set(k,[]); map.get(k).push(r);
+  }
+  return [...map.entries()].map(([k,rs])=>({key:k, rows:rs, sum:sumRows(rs)}));
+}
+function byDay(rows){
+  const map=new Map();
+  for(const r of rows){ if(!map.has(r.date))map.set(r.date,[]); map.get(r.date).push(r); }
+  return [...map.entries()].map(([d,rs])=>({date:d, sum:sumRows(rs)})).sort((a,b)=>a.date<b.date?-1:1);
+}
+
+/* ═════════════════════ 渲染 ═════════════════════ */
+const $=s=>document.querySelector(s);
+function renderAll(){ populateSels(); renderKpi(); renderChart(); renderPie(); renderTable(); }
+
+function populateSels(){
+  const rows=filtered();
+  const chars=[...new Set(DETAIL.map(r=>r.character))].sort();
+  const provs=[...new Set(DETAIL.map(r=>r.provider))].sort();
+  const mods=[...new Set(rows.map(r=>r.provider+'|'+r.model))].sort();
+  fillSel('#characterSel',chars,state.character,v=>v,'全部角色');
+  fillSel('#providerSel',provs,state.provider,v=>pa(v),'全部服务商');
+  fillSel('#modelSel',mods,state.model?state.provider+'|'+state.model:'',v=>v.split('|')[1],'全部模型',state.provider?'':'（受服务商联动）');
+}
+function fillSel(selSel,vals,cur,fmt,allLabel){
+  const sel=$(selSel); const curVal=cur;
+  sel.innerHTML='<option value="">'+allLabel+'</option>'+vals.map(v=>'<option value="'+esc(v)+'"'+(v===curVal?' selected':'')+'>'+esc(fmt(v))+'</option>').join('');
+}
+
+function kpiCard(label,ico,value,sub,cls=''){
+  return '<div class="kpi"><div class="k-label"><span class="k-ico" style="background:var(--gold-soft);color:var(--gold)">'+ico+'</span>'+label+'</div>'+
+    '<div class="k-value '+cls+'">'+value+'</div><div class="k-sub">'+sub+'</div></div>';
+}
+function kpiValue(u,c,cls){
+  const m=mixCents(u,c);
+  const big='<span class="'+cls+'">'+curMoney(m)+'</span>';
+  if(u>0&&c>0) return big+'<small class="real">'+realHtml(u,c)+'</small>';
+  if(u>0) return big+'<small>≈ ¥'+(u*R/100).toFixed(2)+'</small>';
+  if(c>0) return big+'<small>≈ $'+(c/R/100).toFixed(2)+'</small>';
+  return big;
+}
+function renderKpi(){
+  const rows=filtered(), s=sumRows(rows);
+  const freePct=s.totalTokens?Math.round((rows.filter(r=>r.isFree).length/rows.length)*100):0;
+  $('#kpiGrid').innerHTML=
+    kpiCard('总费用','￥',kpiValue(s.costUsd,s.costCny,'accent'), '付费调用 <b>'+nf(s.paidCalls)+'</b> · 免费 <b>'+nf(s.freeCalls)+'</b> · 按分项单价逐段计费')+
+    kpiCard('节省金额','◎',kpiValue(s.refUsd,s.refCny,'ok'),'免费模型按真实参考价折算')+
+    kpiCard('Token 用量','▤',tkn(s.totalTokens), '输入 <b>'+tkn(s.input)+'</b> · 输出 <b>'+tkn(s.output)+'</b>')+
+    kpiCard('调用次数','◈',nf(rows.length),'共 '+byDay(rows).length+' 个活跃日');
+  // 副 KPI 一行（token 明细 + 缓存）
+  const ch=s.cacheHit,sav=tkn(s.cacheHit)+' / '+(s.cacheMiss?tkn(s.cacheMiss):'0');
+  document.querySelector('#kpiGrid').insertAdjacentHTML('beforeend',
+    kpiCard('缓存命中','⚡',(s.rate? s.rate.toFixed(1):'0')+'%','命中 '+sav+' tokens · 未命中按输入全价计')+
+    kpiCard('输入构成','◍','', '上下文 <b>'+tkn(s.cacheHit)+'</b> 命中 · 新输入 <b>'+tkn(s.input)+'</b> · 输出 <b>'+tkn(s.output)+'</b>'));
+}
+
+function dayRows(rows){ return byDay(rows); }
+
+function chartOf(rows,metric){
+  const days=byDay(rows); if(!days.length)return null;
+  const pick = d => metric==='cost' ? d.sum.cost
+    : metric==='tokens' ? d.sum.totalTokens
+    : d.sum.paidCalls + d.sum.freeCalls; // calls
+  const vals=days.map(pick);
+  const max=Math.max(...vals,1);
+  return {days,vals,max};
+}
+function renderChart(){
+  const rows=filtered(), m=state.chartMetric;
+  const meta={cost:{label:'费用',fmt:v=>v>0?curMoney(v):curZero(),unit:state.currency==='CNY'?'人民币(换算)':'美元'},tokens:{label:'Tokens',fmt:v=>tkn(v),unit:'Tokens'},calls:{label:'调用',fmt:v=>nf(v)+' 次',unit:'次'}}[m];
+  const data=chartOf(rows,m);
+  $('#chartHint').textContent='单位：'+meta.unit + (m==='cost'?' · 免费调用不产生费用':'');
+  const wrap=$('#chartWrap');
+  if(!data){ wrap.innerHTML='<div class="empty">当前筛选无数据</div>'; return; }
+  const maxTxt=Math.max(...data.vals,1);
+  let html='<div style="display:flex"><div class="axis-y"><span>'+meta.fmt(maxTxt)+'</span><span>'+meta.fmt(maxTxt/2)+'</span><span>0</span></div><div class="bars">';
+  data.days.forEach((d,i)=>{
+    const v=data.vals[i]; const h=Math.max(v>0?4:0,(v/maxTxt)*100);
+    const tip=esc(d.date)+'：'+meta.fmt(v)+(m==='cost'&&v>0?'（'+nf(d.sum.paidCalls)+' 次付费调用）':'')+(m==='calls'?' 次':'');
+    html+='<div class="bar-col"><div class="bar-area"><div class="bar '+(v===0?'zero':'')+'" style="height:'+(v===0?'8px':(v/maxTxt*100)+'%')+'"><span class="bar-tip">'+tip+'</span></div></div><div class="bar-x">'+d.date.slice(5).replace('-','/')+'</div></div>';
+  });
+  html+='</div></div>';
+  wrap.innerHTML=html;
+  // 数据末尾补「今日虚线」若不在范围内
+  const last=byDay(DETAIL).slice(-1)[0];
+  wrap.insertAdjacentHTML('beforeend','<div class="legend"><span class="lg"><span class="sw" style="background:var(--gold)"></span>'+meta.label+'</span><span class="lg" style="color:var(--ink-faint)">末次记录 '+esc(last.date)+'</span></div>');
+}
+
+function renderPie(){
+  const rows=filtered(); const paid=rows.filter(r=>!r.isFree), free=rows.filter(r=>r.isFree);
+  const t=rows.length||1;
+  const p1=paid.length/t*100, p2=free.length/t*100;
+  const pal=document.createElement('div'); pal.id='pal';
+  $('#pieWrap').innerHTML='<div style="height:150px;display:flex;align-items:center;justify-content:center">'+
+    '<div style="width:150px;height:150px;border-radius:50%;position:relative;background:conic-gradient(var(--gold) 0 '+p1+'%,var(--jade) '+p1+'% 100%)">'+
+    '<div style="position:absolute;inset:26px;border-radius:50%;background:var(--bg-card);display:flex;flex-direction:column;align-items:center;justify-content:center">'+
+    '<div style="font-size:calc(19px*var(--ui-font-scale));font-weight:700">'+nf(rows.length)+'</div>'+
+    '<div style="font-size:calc(10px*var(--ui-font-scale));color:var(--ink-faint)">次调用</div></div></div></div>';
+  $('#freeStack').innerHTML=
+    '<div class="stack-seg" style="width:'+p1+'%;background:var(--gold)">付费 '+nf(paid.length)+'</div>'+
+    '<div class="stack-seg" style="width:'+p2+'%;background:var(--jade)">免费 '+nf(free.length)+'</div>';
+  $('#pieLegend').innerHTML=
+    '<span class="lg"><span class="sw" style="background:var(--gold)"></span>付费调用 '+nf(rows.filter(r=>!r.isFree).length)+' 次 · 实际计费 <b class="cu">'+realHtml(sumRows(paid).costUsd,sumRows(paid).costCny)+'</b></span>'+
+    '<span class="lg"><span class="sw" style="background:var(--jade)"></span>免费调用 '+nf(rows.filter(r=>r.isFree).length)+' 次 · 等效节省 <b class="cu">'+realHtml(sumRows(free).refUsd,sumRows(free).refCny)+'</b></span>';
+}
+
+function renderTable(){
+  const rows=filtered(), v=state.view;
+  const wrap=$('#tableWrap'), pager=$('#pager');
+  if(!rows.length){wrap.innerHTML='<div class="empty">当前筛选范围内没有调用记录</div>';pager.style.display='none';return;}
+  if(v==='detail'){
+    renderDetailTable(rows,wrap,pager); return;
+  }
+  pager.style.display='none';
+  let html='';
+  const head=(ths,rowsHtml)=>'<table class="tbl"><thead><tr>'+ths+'</tr></thead><tbody>'+rowsHtml+'</tbody></table>';
+  if(v==='model'){
+    // 同一模型在不同服务商价格不同 → 按 model@provider 分组计费
+    const map=new Map();
+    for(const r of rows){ const k=r.model+'@'+r.provider; if(!map.has(k))map.set(k,[]); map.get(k).push(r); }
+    const grps=[...map.entries()].map(([k,rs])=>({key:k, rows:rs, sum:sumRows(rs)}))
+      .sort((a,b)=>b.sum.cost-a.sum.cost||b.sum.totalTokens-a.sum.totalTokens);
+    html=head('<th>#</th><th>模型 / 服务商</th><th class="num">调用</th><th class="num">输入（未命中）<br><span class="th-sub">用量 / 费用</span></th><th class="num">缓存命中<br><span class="th-sub">用量 / 费用</span></th><th class="num">输出<br><span class="th-sub">用量 / 费用</span></th><th class="num">总费用</th><th>计费</th>',
+      grps.map((it,i)=>{
+        const [model,prov]=it.key.split('@'); const free=it.rows.every(r=>r.isFree);
+        const s=it.sum;
+        const rowCny = (s.costCny>0||s.refCny>0); // 该 model@provider 行的价目表币种
+        const baseCur = rowCny?'CNY':'USD';
+        const pick=(usdC,cnyC)=> rowCny?cnyC:usdC;
+        return '<tr class="clickable" data-prov="'+esc(prov)+'" data-model="'+esc(model)+'"><td><span class="rank '+(i<3?'r'+(i+1):'')+'">'+(i+1)+'</span></td>'+
+        '<td><div class="model-cell"><span class="model-name">'+esc(model)+'</span><span class="sub-prov">'+esc(pa(prov))+' · <b class="cur-tag">'+baseCur+'</b></span></div></td>'+
+        '<td class="num">'+nf(it.rows.length)+'</td>'+
+        '<td class="num">'+feeCell(s.cacheMiss, free?pick(s.refInUsd,s.refInCny):pick(s.inUsd,s.inCny), free?'ref':'pay', baseCur)+'</td>'+
+        '<td class="num">'+feeCell(s.cacheHit, free?pick(s.refHitUsd,s.refHitCny):pick(s.hitUsd,s.hitCny), free?'ref':'pay', baseCur)+'</td>'+
+        '<td class="num">'+feeCell(s.output, free?pick(s.refOutUsd,s.refOutCny):pick(s.outUsd,s.outCny), free?'ref':'pay', baseCur)+'</td>'+
+        '<td class="num strong">'+(free?freeTotalHtml(s.refUsd,s.refCny):amountHtml(s.costUsd,s.costCny,'f-total'))+'</td>'+
+        '<td>'+(free?'<span class="badge free">FREE</span>':'<span class="badge paid">计费</span>')+'</td></tr>';
+      }).join(''));
+  } else if(v==='character'){
+  } else if(v==='character'){
+    const items=groupBy(rows,'character').sort((a,b)=>b.sum.cost-a.sum.cost||b.sum.totalTokens-a.sum.totalTokens);
+    html=head('<th>#</th><th>角色</th><th class="num">调用</th><th class="num">输入</th><th class="num">输出</th><th class="num">Tokens</th><th class="num">费用</th><th class="num">节省</th>',
+      items.map((it,i)=>
+        '<tr class="clickable" data-character="'+esc(it.key)+'"><td><span class="rank '+(i<3?'r'+(i+1):'')+'">'+(i+1)+'</span></td>'+
+        '<td><span class="row"><span class="avatar">'+esc(it.key[0].toUpperCase())+'</span><b>'+esc(it.key)+'</b></span></td>'+
+        '<td class="num">'+nf(it.rows.length)+'</td><td class="num">'+tkn(it.sum.input)+'</td><td class="num">'+tkn(it.sum.output)+'</td>'+
+        '<td class="num strong">'+tkn(it.sum.totalTokens)+'</td>'+
+        (it.sum.costUsd+it.sum.costCny>0
+          ? '<td class="num strong">'+amountHtml(it.sum.costUsd,it.sum.costCny,'f-total')+'</td>'
+          : '<td class="num strong f-0">'+curZero()+'</td>')+
+        '<td class="num">'+(it.sum.refUsd+it.sum.refCny>0?amountHtml(it.sum.refUsd,it.sum.refCny,'f-save',false):'—')+'</td></tr>').join(''));
+  } else if(v==='provider'){
+    const items=groupBy(rows,'provider').sort((a,b)=>b.sum.cost-a.sum.cost||b.sum.totalTokens-a.sum.totalTokens);
+    html=head('<th>#</th><th>服务商</th><th class="num">调用</th><th class="num">Tokens</th><th class="num">费用</th><th class="num">节省</th><th class="num">占比</th>',
+      items.map((it,i)=>{
+        const share=(it.sum.totalTokens/(sumRows(rows).totalTokens||1))*100;
+        return '<tr class="clickable" data-prov="'+esc(it.key)+'"><td><span class="rank '+(i<3?'r'+(i+1):'')+'">'+(i+1)+'</span></td>'+
+        '<td><b>'+esc(pa(it.key))+'</b></td><td class="num">'+nf(it.rows.length)+'</td><td class="num strong">'+tkn(it.sum.totalTokens)+'</td>'+
+        (it.sum.costUsd+it.sum.costCny>0
+          ? '<td class="num strong">'+amountHtml(it.sum.costUsd,it.sum.costCny,'f-total')+'</td>'
+          : '<td class="num strong f-0">'+curZero()+'</td>')+
+        '<td class="num">'+(it.sum.refUsd+it.sum.refCny>0?amountHtml(it.sum.refUsd,it.sum.refCny,'f-save',false):'—')+'</td>'+
+        '<td class="num"><span class="h-bar-bg"><span class="h-bar" style="width:'+Math.min(100,share)+'%"></span></span></td></tr>';}).join(''));
+  } else if(v==='day'){
+    const days=byDay(rows).slice().reverse();
+    html=head('<th>日期</th><th class="num">调用</th><th class="num">付费</th><th class="num">免费</th><th class="num">输入</th><th class="num">输出</th><th class="num">费用</th><th class="num">节省</th>',
+      days.map(d=>'<tr><td class="strong">'+d.date+'</td><td class="num">'+nf(d.sum.paidCalls+d.sum.freeCalls)+'</td>'+
+        '<td class="num">'+nf(d.sum.paidCalls)+'</td><td class="num">'+nf(d.sum.freeCalls)+'</td>'+
+        '<td class="num">'+tkn(d.sum.input)+'</td><td class="num">'+tkn(d.sum.output)+'</td>'+
+        (d.sum.costUsd+d.sum.costCny>0
+          ? '<td class="num strong">'+amountHtml(d.sum.costUsd,d.sum.costCny,'f-total')+'</td>'
+          : '<td class="num strong f-0">'+curZero()+'</td>')+
+        '<td class="num">'+(d.sum.refUsd+d.sum.refCny>0?amountHtml(d.sum.refUsd,d.sum.refCny,'f-save',false):'—')+'</td></tr>').join(''));
+  }
+  $('#tableCount').textContent = rows.length+' 条调用';
+  wrap.innerHTML=html;
+  // 行点击联动
+  wrap.querySelectorAll('tr.clickable').forEach(tr=>tr.onclick=()=>{
+    const p=tr.dataset.prov, m=tr.dataset.model, c=tr.dataset.character;
+    if(m){ state.provider=p; state.model=m; }
+    else if(p&&!m&&!c){ state.provider=p; state.model=''; }
+    else if(c){ state.character=c; }
+    toast('已筛选：'+ (m||pa(p)||c||'')); renderAll();
+  });
+}
+function renderDetailTable(rows,wrap,pager){
+  const total=rows.length; const pages=Math.max(1,Math.ceil(total/state.PAGE));
+  if(state.page>pages)state.page=pages;
+  const slice=rows.slice().reverse().slice((state.page-1)*state.PAGE,state.page*state.PAGE);
+  const head='<table class="tbl"><thead><tr><th>时间</th><th>会话 · 角色</th><th>模型 / 服务商</th>'+
+    '<th class="num">输入（未命中）<br><span class="th-sub">用量 / 费用</span></th>'+
+    '<th class="num">缓存命中<br><span class="th-sub">用量 / 费用</span></th>'+
+    '<th class="num">输出<br><span class="th-sub">用量 / 费用</span></th>'+
+    '<th class="num">总费用</th><th>计费</th></tr></thead><tbody>';
+  const body=slice.map(r=>{
+    const d=new Date(r.ts);
+    const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    return '<tr><td class="mono">'+r.date.slice(5).replace('-','/')+' '+hm+'</td>'+
+    '<td><span class="cell2"><span class="t1">'+esc(r.character)+' · 会话</span><span class="t2">共 '+tkn(r.input+r.output)+' tokens · 命中率 '+(r.input?Math.round(r.cacheHit/r.input*100):0)+'%</span></span></td>'+
+    '<td><span class="cell2"><span class="t1 mono">'+esc(r.model)+'</span><span class="t2">'+esc(pa(r.provider))+'</span></span></td>'+
+    '<td class="num">'+feeCell(r.cacheMiss, r.isFree?r.refMiss:r.costMiss, r.isFree?'ref':'pay', r.cur)+'</td>'+
+    '<td class="num">'+feeCell(r.cacheHit, r.isFree?r.refHit:r.costHit, r.isFree?'ref':'pay', r.cur)+'</td>'+
+    '<td class="num">'+feeCell(r.output, r.isFree?r.refOut:r.costOut, r.isFree?'ref':'pay', r.cur)+'</td>'+
+    '<td class="num strong">'+(r.isFree?freeTotalHtml(r.refTotal>0&&r.cur==='CNY'?0:r.refTotal, r.refTotal>0&&r.cur==='CNY'?r.refTotal:0):amountHtml(r.cur==='CNY'?0:r.cost, r.cur==='CNY'?r.cost:0,'f-total',false))+'</td>'+
+    '<td>'+(r.isFree?'<span class="badge free">FREE</span>':'<span class="badge paid">计费</span>')+'</td></tr>';
+  }).join('');
+  wrap.innerHTML=head+body+'</tbody></table>';
+  $('#tableCount').textContent=total+' 条调用';
+  pager.style.display=total>state.PAGE?'flex':'none';
+  $('#pagerInfo').textContent='第 '+state.page+' / '+pages+' 页';
+  $('#prevPage').disabled=state.page<=1; $('#nextPage').disabled=state.page>=pages;
+}
+
+/* ═════════════════════ 事件 ═════════════════════ */
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1600); }
+
+document.querySelectorAll('#rangeChips .chip').forEach(ch=>ch.onclick=()=>{
+  document.querySelectorAll('#rangeChips .chip').forEach(x=>x.classList.remove('active'));
+  ch.classList.add('active'); state.range=ch.dataset.range;
+  state.from=state.to=null; $('#fromInput').value='';$('#toInput').value='';
+  renderAll();
+});
+// 币种切换：只影响换算合计展示（≈），表格真实分段金额不变
+document.querySelectorAll('#curGroup .chip').forEach(ch=>ch.onclick=()=>{
+  if(LIVE){toast('实时模式币种由服务端 display_currency 决定');return;}
+  state.currency = ch.dataset.cur==='CNY'?'CNY':'USD';
+  document.querySelectorAll('#curGroup .chip').forEach(x=>x.classList.toggle('active',x.dataset.cur===state.currency));
+  renderAll();
+});
+$('#fromInput').onchange=e=>{state.range='custom';state.from=e.target.value?new Date(e.target.value+'T00:00:00').getTime():null;syncChips();renderAll();};
+$('#toInput').onchange=e=>{state.range='custom';state.to=e.target.value?new Date(e.target.value+'T00:00:00').getTime()+86399999:null;syncChips();renderAll();};
+function syncChips(){ document.querySelectorAll('#rangeChips .chip').forEach(x=>x.classList.toggle('active',x.dataset.range===state.range)); }
+['characterSel','providerSel','modelSel'].forEach(id=>{
+  $('#'+id).onchange=e=>{
+    if(id==='characterSel')state.character=e.target.value;
+    if(id==='providerSel'){state.provider=e.target.value;state.model='';}
+    if(id==='modelSel'){const v=e.target.value;if(v){const [p,m]=v.split('|');state.provider=p;state.model=m;}else state.model='';}
+    state.page=1; renderAll();
+  };
+});
+$('#resetBtn').onclick=()=>{
+  Object.assign(state,{range:'all',from:null,to:null,character:'',provider:'',model:'',page:1});
+  $('#fromInput').value='';$('#toInput').value='';
+  if(LIVE){ LIVE=false; $('#srcLabel').textContent='演示数据'; $('#srcBadge').classList.remove('live'); }
+  syncChips();renderAll();toast('已重置筛选');
+};
+$('#chartTabs').querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  if(LIVE){toast('实时模式当前展示服务端费用聚合');return;}
+  $('#chartTabs').querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');state.chartMetric=t.dataset.metric;renderChart();});
+$('#tableTabs').querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  if(LIVE){toast('实时模式当前展示服务端 Top 模型');return;}
+  $('#tableTabs').querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');state.view=t.dataset.view;state.page=1;renderTable();});
+$('#prevPage').onclick=()=>{state.page--;renderTable();};
+$('#nextPage').onclick=()=>{state.page++;renderTable();};
+
+// 主题切换
+$('#themeBtn').onclick=()=>{
+  const cur=document.documentElement.dataset.scheme;
+  document.documentElement.dataset.scheme=cur==='dark'?'':'dark';
+};
+// 默认跟随系统
+if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.dataset.scheme='dark';
+
+// 连接服务
+$('#liveBtn').onclick=()=>{$('#liveModal').classList.add('show');$('#apiBase').value=localStorage.getItem('tsStatApi')||'';};
+$('#closeModal').onclick=()=>$('#liveModal').classList.remove('show');
+$('#liveModal').addEventListener('click',e=>{if(e.target.id==='liveModal')e.currentTarget.classList.remove('show')});
+$('#connectBtn').onclick=async()=>{
+  const base=($('#apiBase').value||'').trim().replace(/\/$/,'');
+  if(!base){toast('请填写服务地址，如 http://127.0.0.1:3456');return;}
+  try{
+    const qs=paramQS();
+    const [o,m,c,p,d,f]=await Promise.all([
+      fetch(base+'/api/statistics/overview'+qs).then(r=>r.json()),
+      fetch(base+'/api/statistics/by-model'+qs).then(r=>r.json()),
+      fetch(base+'/api/statistics/by-character'+qs).then(r=>r.json()),
+      fetch(base+'/api/statistics/by-provider'+qs).then(r=>r.json()),
+      fetch(base+'/api/statistics/by-day'+qs).then(r=>r.json()),
+      fetch(base+'/api/statistics/filters'+qs).then(r=>r.json()),
+    ]);
+    useLive(base,o,m,c,p,d,f);
+    $('#liveModal').classList.remove('show');
+  }catch(err){
+    toast('连接失败：'+err.message+'（保持演示数据）');
+  }
+};
+function paramQS(){
+  const q=new URLSearchParams();
+  if(state.range==='custom'){ if(state.from)q.set('from',String(state.from)); if(state.to)q.set('to',String(state.to)); }
+  if(state.model)q.set('model',state.model);
+  if(state.character)q.set('character_id',state.character);
+  if(state.provider)q.set('provider_id',state.provider);
+  return q.size?'?'+q.toString():'';
+}
+function useLive(base,o,m,c,p,d,f){
+  LIVE=true; $('#srcLabel').textContent='实时 · '+base.replace('http://','');
+  $('#srcBadge').classList.add('live');
+  // 展示真实总览/图表/表：直接复用模拟渲染结构需要真数据→转成统一 rows 结构不可行（服务端已聚合），
+  // 这里简化为：展示服务端聚合视图（真实），并把筛选器选项替换成服务端 filters。
+  renderLive(o,m,c,p,d,f,base);
+}
+function renderLive(o,m,c,p,d,f,base){
+  // 简易真实模式：仅重绘 KPI + 趋势 + 排行（数据来自服务端聚合端点）
+  const wrapLive=document.createElement('div');
+  // 构造统一渲染辅助的降级函数
+  document.querySelectorAll('#kpiGrid,#chartWrap,#pieWrap,#freeStack,#pieLegend,#tableWrap').forEach(el=>el.innerHTML='');
+  const g=document.querySelector('#kpiGrid');
+  g.innerHTML=
+    kpiCard('总费用','￥',kpiValue(o.total_cost_usd||0,o.total_cost_cny||0,'accent'), '付费 <b>'+nf(o.paid_calls)+'</b> · 免费 <b>'+nf(o.free_calls)+'</b> · 共 '+nf(o.total_calls)+' 次 · 汇率 '+o.exchange_rate_usd_cny)+
+    kpiCard('节省金额','◎',kpiValue(o.total_savings_usd||0,o.total_savings_cny||0,'ok'),'免费模型按真实参考价折算')+
+    kpiCard('Token 用量','▤',tkn(o.total_tokens),'输入 '+tkn(o.total_input_tokens)+' · 输出 '+tkn(o.total_output_tokens))+
+    kpiCard('缓存命中率','⚡',(o.cache_hit_rate!=null?o.cache_hit_rate.toFixed(1):'—')+'%','命中 '+tkn(o.total_cache_hit_tokens)+' tokens · 缓存未命中按输入价计');
+  $('#chartTitle').textContent='每日趋势 · 实时'; $('#chartHint').textContent='来自服务端 /api/statistics';
+  const days=(d.items||[]);
+  if(days.length){const mx=Math.max(...days.map(x=>mixCents(x.total_cost_usd||0,x.total_cost_cny||0)),1);
+    $('#chartWrap').innerHTML='<div style="display:flex"><div class="axis-y"><span>'+curMoney(mx)+'</span><span>'+curMoney(mx/2)+'</span><span>0</span></div><div class="bars">'+days.map(x=>{
+      const v=mixCents(x.total_cost_usd||0,x.total_cost_cny||0);
+      const tip=x.date+'：'+amountHtml(x.total_cost_usd||0,x.total_cost_cny||0,'f-total');
+      return '<div class="bar-col"><div class="bar-area"><div class="bar '+(v===0?'zero':'')+'" style="height:'+(v===0?'8px':(v/mx*100)+'%')+'"><span class="bar-tip">'+tip+'（'+nf(x.call_count)+' 次）</span></div></div><div class="bar-x">'+x.date.slice(5).replace('-','/')+'</div></div>'}).join('')+'</div></div>';}
+  else $('#chartWrap').innerHTML='<div class="empty">该范围无数据</div>';
+  // 表格（按服务端聚合：by-model 简化列表）
+  renderLiveTable(base, m.items||[], c.items||[], p.items||[], f);
+}
+function renderLiveTable(base,models,chars,provs,f){
+  const html='<table class="tbl"><thead><tr><th>#</th><th>模型</th><th class="num">服务商</th><th class="num">调用</th><th class="num">Tokens</th><th class="num">费用</th><th>计费</th></tr></thead><tbody>'+models.slice(0,12).map((x,i)=>{
+    const usd=x.total_cost_usd||0, cnyc=x.total_cost_cny||0;
+    const fee=(usd+cnyc)>0?amountHtml(usd,cnyc,'f-total'):'<span class="f-0">'+curZero()+'</span>';
+    return '<tr><td><span class="rank '+(i<3?'r'+(i+1):'')+'">'+(i+1)+'</span></td><td class="mono strong">'+esc(x.model)+'</td><td class="num">'+esc(x.provider_id||'')+'</td><td class="num">'+nf(x.call_count)+'</td><td class="num">'+tkn(x.total_tokens)+'</td><td class="num">'+fee+'</td><td>'+(x.is_free?'<span class="badge free">FREE</span>':'<span class="badge paid">计费</span>')+'</td></tr>'
+  }).join('')+'</tbody></table>';
+  document.querySelector('#tableWrap').innerHTML=html; $('#pager').style.display='none';
+  $('#tableCount').textContent='实时 Top 模型 · 角色 '+chars.length+' · 服务商 '+provs.length;
+}
+// 演示/实时模式统一数据源时避免无限重入：保持 live 渲染后事件仍可用
+window.addEventListener('load',()=>{renderAll();});
+
+/* 初始 */
+renderAll();
+</script>
+</body>
+</html>

@@ -241,6 +241,8 @@ interface ChatState {
   // Cross-run active state (RUN_LIMIT_POLICY_PLAN §14)
   activeRun: ActiveRunState
   limitNotice: { text: string; tone?: 'warn' | 'info' } | null
+  /** Run-level 瞬时错误恢复提示：上游 503/网络不可用时服务端等待重试，前端提示用户。 */
+  runRecoveryNotice: string | null
 
   // Per-session live-run state (source of truth; globals above are derived).
   sessionRuns: Record<string, SessionRunRecord>
@@ -298,6 +300,7 @@ interface ChatState {
   resumeActiveRun: (sessionId: string) => Promise<void>
   setActiveRunPhase: (phase: ActiveRunPhase, patch?: Partial<ActiveRunState>) => void
   clearLimitNotice: () => void
+  setRunRecoveryNotice: (text: string | null) => void
 
   // Attachments
   addAttachment: (name: string, mime: string, data: string, dataUrl?: string) => void
@@ -744,6 +747,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     bus.on('message.delta', (data: RunEvent) => {
       // 旧 run 的迟到 delta 不得混入新 run 的消息（否则新 run 的文本被前缀污染/翻倍）。
       if (!isCurrentTrackedRun(data)) return
+      // 有流式内容到达说明 run-level 恢复重试已成功，清掉“正在重试”提示。
+      if (get().runRecoveryNotice) set({ runRecoveryNotice: null })
       const state = get()
       const s = state.sessions.find(x => x.id === data.session_id)
       if (!s) return
@@ -859,6 +864,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
       handleTerminalForContinuation(data)
       settleAbort(data.session_id)
+      set({ runRecoveryNotice: null })
     })
 
     bus.off('run.max_turns')
@@ -874,6 +880,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
       handleTerminalForContinuation(data)
       settleAbort(data.session_id)
+      set({ runRecoveryNotice: null })
     })
 
     bus.off('run.cancelled')
@@ -889,6 +896,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
       handleTerminalForContinuation(data)
       settleAbort(data.session_id)
+      set({ runRecoveryNotice: null })
     })
 
     bus.off('run.limit_warning')
@@ -952,6 +960,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         isStreaming: false,
       })
       settleAbort(data.session_id)
+      set({ runRecoveryNotice: null })
     })
 
     // Server-initiated interruption (stall watchdog / startup recovery): the
@@ -982,6 +991,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         isStreaming: false,
       })
       settleAbort(data.session_id)
+      set({ runRecoveryNotice: null })
     })
 
     bus.off('run.started')
@@ -1030,6 +1040,17 @@ export const useChatStore = create<ChatState>((set, get) => {
       // 会完整重发，必须重置流式累积避免拼成重复文本。
       resetStreamingContent(data.session_id)
       updateSessionRun(data.session_id, { isStreaming: true })
+      // run-level 恢复重试（上游 503 / 网络不可用，scope='run_recovery'）：
+      // 请求级重试已耗尽，服务端等待 10s→30s 后重试整个 turn。提示用户等待，
+      // 并保持 isStreaming=true（停止按钮仍可用，可随时中止）。
+      if (data.scope === 'run_recovery') {
+        const attempt = typeof data.attempt === 'number' ? data.attempt : 1
+        const max = typeof data.max_attempts === 'number' ? data.max_attempts : 0
+        const countText = max > 0 ? `（第 ${attempt}/${max} 次）` : ''
+        set({ runRecoveryNotice: `上游模型服务暂时不可用，正在自动重试${countText}，请稍候…` })
+        // 解除可能同时显示的限流提示，避免提示叠加。
+        set({ limitNotice: null })
+      }
     })
 
     // Approval prompts for sessions without a temporary listener (e.g. after
@@ -1371,6 +1392,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     pendingAskUser: null,
     activeRun: { ...IDLE_RUN },
     limitNotice: null,
+    runRecoveryNotice: null,
     sessionRuns: {},
     sessionMotions: {},
     expandedWorkspaces: new Set<string>(),
@@ -2067,6 +2089,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     clearLimitNotice: () => set({ limitNotice: null }),
+
+    setRunRecoveryNotice: (text: string | null) => set({ runRecoveryNotice: text }),
 
     setStrategy: (strategy: Strategy) => {
       const bus = getEventBus()
