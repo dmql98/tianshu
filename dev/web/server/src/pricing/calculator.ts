@@ -15,8 +15,11 @@
  *   3. 其他服务商 model 级 pricing（按模型 id 跨服务商查找，先到先得）
  *   4. 都没有 → 免费（费用=0；无参考价则节省=0）
  *
- * 时段价格：取调用 created_at 的本地小时 (0-23)，在 hourly_prices 中查找
+ * 时段价格：取调用 created_at 的「业务小时」(0-23)，在 hourly_prices 中查找
  * 对应 hour 的 { input, output, cache_hit, cache_miss }。
+ * 业务小时固定按北京时间（Asia/Shanghai，UTC+8，无夏令时）判定，不依赖部署机时区
+ * （GitHub Actions 等 CI 运行在 UTC，直接用本地小时会把高峰时段算错）。
+ * 可通过环境变量 TIANSHU_BIZ_TZ_OFFSET_HOURS（相对 UTC 的小时数）覆盖，默认 8。
  * hourly_prices 缺该小时条目时，用该小时之前最近的一条（hour 环回 0）。
  */
 import type { HourlyPrice, ModelPricing, ProviderPricing } from './types.js'
@@ -201,6 +204,27 @@ export function priceForHour(hourly: HourlyPrice[], hour: number): HourlyPrice |
   return below || sorted[0] || null
 }
 
+// ── 时段小时（业务时区） ──
+
+/** 业务时区相对 UTC 的固定偏移（小时）。默认北京时间 UTC+8（无夏令时）。 */
+export function bizTzOffsetHours(): number {
+  const raw = process.env.TIANSHU_BIZ_TZ_OFFSET_HOURS
+  if (raw !== undefined && raw !== '') {
+    const n = Number(raw)
+    if (Number.isFinite(n) && Math.abs(n) <= 14) return n
+  }
+  return 8
+}
+
+/**
+ * 把 UTC epoch ms 折算成业务时区的小时 (0-23)。
+ * 用「+ 固定偏移后取 UTC 小时」实现，等价于目标时区本地小时且与部署机时区无关。
+ */
+export function bizHourOf(createdAt: number): number {
+  const d = new Date(createdAt + bizTzOffsetHours() * 3600_000)
+  return d.getUTCHours()
+}
+
 // ── 计算 ──
 
 /**
@@ -218,7 +242,7 @@ export function calculateCost(
   createdAt: number,
 ): CostResult {
   const resolved = resolvePrice(providerId, modelId)
-  const hour = createdAt ? new Date(createdAt).getHours() : 0
+  const hour = createdAt ? bizHourOf(createdAt) : 0
   const price = priceForHour(resolved.hourly, hour)
 
   // 计价函数：无价格条目 → 0

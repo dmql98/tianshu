@@ -6,6 +6,9 @@ import { join, resolve } from 'path'
 // getDataDir() 在 config.ts 有模块级缓存，须在 import calculator 前一次性设置 env
 //（与 theme-api.test 一致：beforeAll 设置）。
 // pricingStore 从 <dataDir>/providers/<id>/pricing.json 读价目表。
+//
+// 时段小时按北京时间（UTC+8）判定（见 calculator.ts bizHourOf），与部署机时区无关，
+// 因此本套件在任意 TZ（含 GitHub Actions 的 UTC）下都应通过。
 let root: string
 let providersRootDir: string
 let calc: typeof import('../src/pricing/calculator.js')
@@ -16,6 +19,8 @@ beforeAll(async () => {
   mkdirSync(providersRootDir, { recursive: true })
   process.env.TIANSHU_CONFIG_DIR = join(root, 'config')
   process.env.TIANSHU_DATA_DIR = root
+  // 固定业务时区偏移为 +8，保证测试不依赖进程时区（CI 在 UTC）。
+  process.env.TIANSHU_BIZ_TZ_OFFSET_HOURS = '8'
   calc = await import('../src/pricing/calculator.js')
 })
 
@@ -23,6 +28,7 @@ afterAll(() => {
   rmSync(root, { recursive: true, force: true })
   delete process.env.TIANSHU_CONFIG_DIR
   delete process.env.TIANSHU_DATA_DIR
+  delete process.env.TIANSHU_BIZ_TZ_OFFSET_HOURS
   calc.invalidatePricingCache()
 })
 
@@ -93,17 +99,20 @@ describe('calculateCost', () => {
   it('付费模型按小时时段价格计算（Peak 更高）', () => {
     seedProviderPricing('opencode-go', goPricingFile)
     const usage = { input: 1_000_000, output: 0, cacheHit: 0, cacheMiss: 0 }
-    const off = calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, new Date(2026, 0, 1, 0).getTime())
+    // 固定 UTC 时刻构造（不依赖进程时区）：2026-01-01 02:00 UTC（北京 10:00 Off-Peak）
+    const off = calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, Date.UTC(2026, 0, 1, 2, 0, 0))
     expect(off.cost).toBeCloseTo(22, 5)
     expect(off.isFree).toBe(false)
-    const peak = calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, new Date(2026, 0, 1, 2).getTime())
+    // 2026-01-01 18:00 UTC（北京 02:00 Peak）
+    const peak = calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, Date.UTC(2026, 0, 1, 18, 0, 0))
     expect(peak.cost).toBeCloseTo(44, 5)
   })
 
   it('免费模型实际费用=0，节省按 ref_hourly_prices 估算', () => {
     seedProviderPricing('opencode-go', goPricingFile)
     const usage = { input: 1_000_000, output: 0, cacheHit: 0, cacheMiss: 0 }
-    const r = calc.calculateCost('opencode-go', 'minimax-m2.5', usage, new Date(2026, 0, 1, 0).getTime())
+    // 北京 10:00（Off-Peak）
+    const r = calc.calculateCost('opencode-go', 'minimax-m2.5', usage, Date.UTC(2026, 0, 1, 2, 0, 0))
     expect(r.cost).toBe(0)
     expect(r.isFree).toBe(true)
     expect(r.savings).toBeCloseTo(OFF, 5)
@@ -121,7 +130,7 @@ describe('calculateCost', () => {
     // opencode-go 有 minimax-m2.5（免费 + ref_hourly_prices）；tokendance 无价目表。
     seedProviderPricing('opencode-go', goPricingFile)
     const usage = { input: 1_000_000, output: 0, cacheHit: 0, cacheMiss: 0 }
-    const r = calc.calculateCost('tokendance', 'minimax-m2.5', usage, new Date(2026, 0, 1, 0).getTime())
+    const r = calc.calculateCost('tokendance', 'minimax-m2.5', usage, Date.UTC(2026, 0, 1, 2, 0, 0))
     expect(r.isFree).toBe(true)
     expect(r.cost).toBe(0)
     // 未命中缓存 → input 整体按 ref.input 计参考价（Off-Peak=22 分）
@@ -160,7 +169,7 @@ describe('CNY 价目表（分币种）', () => {
       currency: 'CNY',
       models: { 'deepseek-v4-flash': { currency: 'CNY', is_free: false, hourly_prices: deepseekFlash24 } },
     })
-    const r = calc.calculateCost('volcengine', 'deepseek-v4-flash', { input: 1_000_000, output: 0, cacheHit: 0, cacheMiss: 0 }, new Date(2026, 0, 1, 0).getTime())
+    const r = calc.calculateCost('volcengine', 'deepseek-v4-flash', { input: 1_000_000, output: 0, cacheHit: 0, cacheMiss: 0 }, Date.UTC(2026, 0, 1, 2, 0, 0))
     expect(r.currency).toBe('CNY')
     expect(r.cost).toBeCloseTo(OFF, 5)
   })
@@ -175,10 +184,10 @@ describe('CNY 价目表（分币种）', () => {
     const acc = calc.createCostAccumulator()
     const usage = { input: 1_000_000, output: 0, cacheHit: 0, cacheMiss: 0 }
     // USD 档 2 次（Off-Peak 各 22 分）
-    acc.cost.usd += calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, new Date(2026, 0, 1, 0).getTime()).cost
-    acc.cost.usd += calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, new Date(2026, 0, 1, 0).getTime()).cost
+    acc.cost.usd += calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, Date.UTC(2026, 0, 1, 2, 0, 0)).cost
+    acc.cost.usd += calc.calculateCost('opencode-go', 'deepseek-v4-flash', usage, Date.UTC(2026, 0, 1, 2, 0, 0)).cost
     // CNY 档 1 次（22 分 CNY）
-    const cny = calc.calculateCost('volcengine', 'deepseek-v4-flash', usage, new Date(2026, 0, 1, 0).getTime())
+    const cny = calc.calculateCost('volcengine', 'deepseek-v4-flash', usage, Date.UTC(2026, 0, 1, 2, 0, 0))
     acc.cost.cny += cny.cost
     expect(acc.cost.usd).toBeCloseTo(44, 5)
     expect(acc.cost.cny).toBeCloseTo(22, 5)
