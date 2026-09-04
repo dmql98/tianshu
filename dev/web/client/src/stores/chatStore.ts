@@ -243,6 +243,8 @@ interface ChatState {
   limitNotice: { text: string; tone?: 'warn' | 'info' } | null
   /** Run-level 瞬时错误恢复提示：上游 503/网络不可用时服务端等待重试，前端提示用户。 */
   runRecoveryNotice: string | null
+  /** 模型并发上限 429 提示的自动清除定时器（run.retrying retryLimit 事件刷新）。 */
+  _concurrencyNoticeTimer?: ReturnType<typeof setTimeout> | null
 
   // Per-session live-run state (source of truth; globals above are derived).
   sessionRuns: Record<string, SessionRunRecord>
@@ -497,6 +499,14 @@ export const useChatStore = create<ChatState>((set, get) => {
   function clearPendingApproval(sessionId: string) {
     pendingApprovalBySession.delete(sessionId)
     if (get().activeSessionId === sessionId) set({ pendingApproval: null })
+  }
+
+  /** 清除模型并发上限 429 提示（run 终止/完成时调用，避免提示残留）。 */
+  function clearConcurrencyNotice() {
+    if (get()._concurrencyNoticeTimer) {
+      clearTimeout(get()._concurrencyNoticeTimer!)
+      set({ _concurrencyNoticeTimer: null })
+    }
   }
 
   function setSessionMotion(sessionId: string, motion: CharacterMotion, since = Date.now()) {
@@ -865,6 +875,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       handleTerminalForContinuation(data)
       settleAbort(data.session_id)
       set({ runRecoveryNotice: null })
+      clearConcurrencyNotice()
     })
 
     bus.off('run.max_turns')
@@ -881,6 +892,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       handleTerminalForContinuation(data)
       settleAbort(data.session_id)
       set({ runRecoveryNotice: null })
+      clearConcurrencyNotice()
     })
 
     bus.off('run.cancelled')
@@ -897,6 +909,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       handleTerminalForContinuation(data)
       settleAbort(data.session_id)
       set({ runRecoveryNotice: null })
+      clearConcurrencyNotice()
     })
 
     bus.off('run.limit_warning')
@@ -961,6 +974,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
       settleAbort(data.session_id)
       set({ runRecoveryNotice: null })
+      // 并发限流提示（run.retrying retryLimit）在 run 终止时一并清除。
+      clearConcurrencyNotice()
     })
 
     // Server-initiated interruption (stall watchdog / startup recovery): the
@@ -1050,6 +1065,17 @@ export const useChatStore = create<ChatState>((set, get) => {
         set({ runRecoveryNotice: `上游模型服务暂时不可用，正在自动重试${countText}，请稍候…` })
         // 解除可能同时显示的限流提示，避免提示叠加。
         set({ limitNotice: null })
+      } else if (data.retryLimit) {
+        // 模型并发上限 429（DeepSeek V4 Flash concurrency 64 满等）：请求级
+        // 自动退避（15s→60s），提示用户该模型当前并发已满、正在等待，避免误以为卡死。
+        const attempt = typeof data.attempt === 'number' ? data.attempt : 1
+        const max = typeof data.max_attempts === 'number' ? data.max_attempts : 0
+        const countText = max > 0 ? `（第 ${attempt}/${max} 次）` : ''
+        set({ limitNotice: { text: `当前模型并发已满，正在自动等待重试${countText}，请稍候…`, tone: 'warn' } })
+        // 每次并发重试事件都会刷新提示；延迟自动清除，避免 run 结束后残留。
+        if (get()._concurrencyNoticeTimer) clearTimeout(get()._concurrencyNoticeTimer!)
+        const timer = setTimeout(() => set({ limitNotice: null }), 12_000)
+        set({ _concurrencyNoticeTimer: timer })
       }
     })
 
@@ -1393,6 +1419,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     activeRun: { ...IDLE_RUN },
     limitNotice: null,
     runRecoveryNotice: null,
+    _concurrencyNoticeTimer: null,
     sessionRuns: {},
     sessionMotions: {},
     expandedWorkspaces: new Set<string>(),

@@ -21,6 +21,19 @@ const TERMINAL_FINISH_REASONS = new Set(['stop', 'tool_calls', 'length', 'conten
  * CONTEXT_WINDOW_EXCEEDED_CODE 思路）。调用方不要再各自字符串匹配——
  * 错误措辞一变即失效；finish_reason 是强信号，文本匹配作兜底。
  */
+/**
+ * 归一化"模型并发上限"判定（DeepSeek 等：`model_concurrency_rate_limit_exceeded`）。
+ * 429 里这类错误与普通限流不同：等待期更长（并发在峰值时段可能持续数十秒），
+ * 且错误提示明确建议 "retry later or use another model"。单独识别以便上层用
+ * 更长的退避预算重试，而不是直接判 run 失败。
+ */
+export function isModelConcurrencyError(message: string): boolean {
+  const m = message.toLowerCase()
+  return m.includes('concurrency limit')
+    || m.includes('model_concurrency_rate_limit_exceeded')
+    || m.includes('concurrency rate limit')
+}
+
 export function isContextOverflowError(message: string, finishReason?: string): boolean {
   if (finishReason === 'length' || finishReason === 'max_output_tokens') return true
   const m = message.toLowerCase()
@@ -152,6 +165,9 @@ export interface LLMChunk {
   completion?: StreamCompletion
   /** 429 限流时从 Retry-After 头提取的建议等待毫秒数，供上层退避使用。 */
   retryAfterMs?: number
+  /** 429 为"模型并发上限"（model_concurrency_rate_limit_exceeded，如 DeepSeek
+   *  V4 Flash 并发 64 满）时为 true。这类限流等待期更长，上层用独立退避预算重试。 */
+  retryLimit?: boolean
 }
 
 /** How a provider stream reached its end — callers must not infer success
@@ -269,7 +285,7 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     if (!res.ok) {
       const retryAfterMs = parseRetryAfter(res)
       const text = await res.text().catch(() => '')
-      yield { type: 'error', text: `LLM API ${res.status}: ${text}`, ...(retryAfterMs != null ? { retryAfterMs } : {}) }
+      yield { type: 'error', text: `LLM API ${res.status}: ${text}`, ...(retryAfterMs != null ? { retryAfterMs } : {}), retryLimit: isModelConcurrencyError(text) }
       return
     }
 
@@ -533,7 +549,7 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
     if (!res.ok) {
       const retryAfterMs = parseRetryAfter(res)
       const text = await res.text().catch(() => '')
-      yield { type: 'error', text: `LLM API ${res.status}: ${text}`, ...(retryAfterMs != null ? { retryAfterMs } : {}) }
+      yield { type: 'error', text: `LLM API ${res.status}: ${text}`, ...(retryAfterMs != null ? { retryAfterMs } : {}), retryLimit: isModelConcurrencyError(text) }
       return
     }
 

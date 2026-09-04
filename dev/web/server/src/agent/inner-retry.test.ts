@@ -2,7 +2,7 @@
  * Run: npx tsx src/agent/inner-retry.test.ts
  */
 
-import { streamWithRetry, MAX_LLM_STREAM_ATTEMPTS } from './inner.js'
+import { streamWithRetry, MAX_LLM_STREAM_ATTEMPTS, MAX_CONCURRENCY_ATTEMPTS, CONCURRENCY_BACKOFF_MS, CONCURRENCY_MAX_BACKOFF_MS } from './inner.js'
 
 const originalFetch = globalThis.fetch
 let fetchCalls = 0
@@ -289,3 +289,69 @@ async function rateLimitBackoffNoHeader() {
 }
 
 await rateLimitBackoffNoHeader()
+
+// ── Model concurrency limit 429 (DeepSeek V4 Flash pattern) ──
+// "Model 'DeepSeek-V4-Flash' is at its concurrency limit (64); please retry
+// later or use another model" must use the dedicated concurrency budget
+// (MAX_CONCURRENCY_ATTEMPTS) with a longer backoff (15s → 30s → … capped at
+// 60s) instead of the plain 429 budget, and still recover when the limit clears.
+async function concurrencyLimitBackoff() {
+  const originalFetch6 = globalThis.fetch
+  let fetchCalls6 = 0
+  const retries6: Array<{ attempt: number; max_attempts: number; error: string; delay_ms: number }> = []
+
+  globalThis.fetch = (async () => {
+    fetchCalls6++
+    if (fetchCalls6 <= 2) {
+      return new Response(
+        '{"error":{"message":"Model \'DeepSeek-V4-Flash\' is at its concurrency limit (64); please retry later or use another model","type":"rate_limit_error","code":"model_concurrency_rate_limit_exceeded"}}',
+        { status: 429, headers: { 'Content-Type': 'application/json' } }, // no Retry-After
+      )
+    }
+    const body = [
+      'data: {"choices":[{"delta":{"content":"concurrency recovered"},"finish_reason":"stop"}]}',
+      'data: [DONE]',
+      '',
+    ].join('\n')
+    return new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }) as typeof fetch
+
+  try {
+    const result = await streamWithRetry(
+      [{ role: 'user', content: 'test' }],
+      undefined,
+      { base_url: 'https://example.invalid/v1', api_key: '', api_style: 'chat_completions' },
+      'deepseek-v4-flash',
+      undefined,
+      {},
+      undefined,
+      r => retries6.push(r),
+    )
+    if (fetchCalls6 !== 3) throw new Error(`expected 3 fetch calls, got ${fetchCalls6}`)
+    if (retries6.length !== 2) throw new Error(`expected 2 retries, got ${retries6.length}`)
+    // Must use the dedicated concurrency budget (wider than plain 429).
+    for (const r of retries6) {
+      if (r.max_attempts !== MAX_CONCURRENCY_ATTEMPTS) {
+        throw new Error(`concurrency retry should use dedicated budget: ${JSON.stringify(r)}`)
+      }
+    }
+    // No Retry-After: 15s → 30s backoff (capped at 60s on later attempts).
+    if (retries6[0].delay_ms !== CONCURRENCY_BACKOFF_MS) {
+      throw new Error(`expected first concurrency delay ${CONCURRENCY_BACKOFF_MS}ms, got ${retries6[0].delay_ms}`)
+    }
+    if (retries6[1].delay_ms !== Math.min(CONCURRENCY_BACKOFF_MS * 2, CONCURRENCY_MAX_BACKOFF_MS)) {
+      throw new Error(`expected second concurrency delay ${Math.min(CONCURRENCY_BACKOFF_MS * 2, CONCURRENCY_MAX_BACKOFF_MS)}ms, got ${retries6[1].delay_ms}`)
+    }
+    if (result.text !== 'concurrency recovered') {
+      throw new Error(`unexpected result: ${JSON.stringify(result.text)}`)
+    }
+    console.log('  OK model concurrency limit 429 uses dedicated longer backoff budget')
+  } finally {
+    globalThis.fetch = originalFetch6
+  }
+}
+
+await concurrencyLimitBackoff()

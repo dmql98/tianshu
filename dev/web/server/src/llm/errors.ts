@@ -45,6 +45,10 @@ export function isTransientLLMError(errorText: string): boolean {
     msg.includes('empty llm stream') ||
     msg.includes('rate limit') ||
     msg.includes('429') ||
+    // 模型并发上限（model_concurrency_rate_limit_exceeded，如 DeepSeek V4
+    // Flash concurrency 64 满）：错误正文含 "concurrency limit"，明确是
+    // 限流类错误，必须可重试（上层对并发 429 用更长退避预算）。
+    msg.includes('concurrency limit') ||
     msg.includes('500') ||
     msg.includes('502') ||
     msg.includes('503') ||

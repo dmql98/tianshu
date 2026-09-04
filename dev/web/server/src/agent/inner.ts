@@ -1,7 +1,7 @@
 import { messageStore } from '../db/messageStore.js'
 import { fanOutToSinks } from '../transport/event-sinks.js'
 import { characterMetaStore, resolveMemoryMode, type ToolBinding } from '../db/characterStore.js'
-import { streamChatCompletion, type LLMMessage, type ToolCall, type ProviderConfig } from '../llm/client.js'
+import { streamChatCompletion, isModelConcurrencyError, type LLMMessage, type ToolCall, type ProviderConfig } from '../llm/client.js'
 import { getDangerousTools, validateConstraints, isMemoryTool } from '../tools/definitions.js'
 import { executeTool } from '../tools/executor.js'
 import type { ToolResult, ToolArgs } from '../tools/types.js'
@@ -225,6 +225,12 @@ export interface InnerResult {
  */
 export const MAX_LLM_STREAM_ATTEMPTS = Math.max(1, envInt('LLM_MAX_ATTEMPTS', 3))
 export const MAX_429_ATTEMPTS = Math.max(1, envInt('LLM_MAX_429_ATTEMPTS', 5))
+/** 模型并发上限 429（model_concurrency_rate_limit_exceeded）的独立退避预算。
+ *  并发满（如 DeepSeek V4 Flash 64 并发）恢复通常要几十秒到数分钟，
+ *  比普通 429 等待更久：首退避默认 15s，上限 60s，默认最多 7 次尝试。 */
+export const MAX_CONCURRENCY_ATTEMPTS = Math.max(1, envInt('LLM_MAX_CONCURRENCY_ATTEMPTS', 7))
+export const CONCURRENCY_BACKOFF_MS = Math.max(500, envInt('LLM_CONCURRENCY_BACKOFF_MS', 15_000))
+export const CONCURRENCY_MAX_BACKOFF_MS = Math.max(1000, envInt('LLM_CONCURRENCY_MAX_BACKOFF_MS', 60_000))
 
 export async function streamWithRetry(
   messages: LLMMessage[],
@@ -239,13 +245,15 @@ export async function streamWithRetry(
   // Accumulators are attempt-local: a retry must start from a clean slate so
   // the previous attempt's partial text, reasoning, or half-built tool
   // arguments can never leak into the successful attempt.
-let committed: { text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null } | null = null
-let hit429 = false
+  let committed: { text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null } | null = null
+  let hit429 = false
+  let hitConcurrency = false
 
-for (let attempt = 0; attempt < (hit429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTEMPTS); attempt++) {
+  for (let attempt = 0; attempt < (hit429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTEMPTS); attempt++) {
     if (signal?.aborted) break
     let errorText = ''
     let retryAfterMs: number | undefined
+    let retryLimit = false
     let fullText = ''
     let reasoningText = ''
     let toolCallsAcc: ToolCall[] = []
@@ -289,6 +297,7 @@ for (let attempt = 0; attempt < (hit429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTE
       if (chunk.type === 'error') {
         errorText = chunk.text || 'LLM error'
         retryAfterMs = chunk.retryAfterMs
+        retryLimit = !!chunk.retryLimit
         break
       }
 
@@ -308,12 +317,20 @@ for (let attempt = 0; attempt < (hit429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTE
       break
     }
 
-    // 429 限流退避策略：
-    // - 有 Retry-After 头时直接使用（provider 指定的等待时间）
-    // - 否则用更长的退避：5s → 10s → 20s → 30s（上限 30s），比普通错误的 1s → 2s 宽松得多
-    const is429 = errorText.includes('429')
+    // 限流退避策略：
+    // - 429 有 Retry-After 头时直接使用（provider 指定的等待时间）
+    // - 模型并发上限（retryLimit / model_concurrency_rate_limit_exceeded）：
+    //   并发满恢复最慢，用独立预算（15s → 30s → 60s 封顶，默认最多 7 次尝试）
+    // - 普通 429：5s → 10s → 20s → 30s（上限 30s），比普通错误 1s → 2s 宽松得多
+    const is429 = errorText.includes('429') || retryLimit
+    const isConcurrency = retryLimit || isModelConcurrencyError(errorText)
     if (is429) hit429 = true
-    const maxAttempts = is429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTEMPTS
+    if (isConcurrency) hitConcurrency = true
+    const maxAttempts = isConcurrency
+      ? MAX_CONCURRENCY_ATTEMPTS
+      : is429
+        ? MAX_429_ATTEMPTS
+        : MAX_LLM_STREAM_ATTEMPTS
 
     if (!isTransientLLMError(errorText) || attempt >= maxAttempts - 1) {
       throw new Error(errorText)
@@ -321,9 +338,11 @@ for (let attempt = 0; attempt < (hit429 ? MAX_429_ATTEMPTS : MAX_LLM_STREAM_ATTE
 
     const delay = retryAfterMs != null
       ? retryAfterMs
-      : is429
-        ? Math.min(5000 * Math.pow(2, attempt), 30_000)
-        : Math.min(1000 * Math.pow(2, attempt), 8000)
+      : isConcurrency
+        ? Math.min(CONCURRENCY_BACKOFF_MS * Math.pow(2, attempt), CONCURRENCY_MAX_BACKOFF_MS)
+        : is429
+          ? Math.min(5000 * Math.pow(2, attempt), 30_000)
+          : Math.min(1000 * Math.pow(2, attempt), 8000)
     onRetry?.({ attempt: attempt + 2, max_attempts: maxAttempts, error: errorText, delay_ms: delay })
     await sleep(delay)
   }
@@ -691,6 +710,9 @@ export async function innerLoop(
         run_id: opts.run_id,
         scope: 'request',
         ...retry,
+        // 模型并发上限 429（model_concurrency_rate_limit_exceeded）：前端据此
+        // 显示专用提示（并发满 → 等更久，与普通限流区分）。
+        retryLimit: isModelConcurrencyError(retry.error),
       }),
     )
   } catch (err: any) {

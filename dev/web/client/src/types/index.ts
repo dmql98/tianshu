@@ -241,6 +241,9 @@ export interface RunEvent {
   max_attempts?: number
   delay_ms?: number
   scope?: 'request' | 'run' | 'run_recovery'
+  /** 429 为"模型并发上限"（model_concurrency_rate_limit_exceeded）时为 true，
+   *  前端据此显示并发专用提示（与普通限流区分）。 */
+  retryLimit?: boolean
   cache?: { hitTokens: number; missTokens: number; hitRatio: string }
   context_window?: number
   message_id?: number
