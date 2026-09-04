@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TabTin 深度研究 × 天枢演进建议报告</title>
+<style>
+  :root {
+    --bg: #0e1117;
+    --panel: #161b26;
+    --panel2: #1c2230;
+    --border: #2a3346;
+    --text: #e6edf3;
+    --muted: #9aa7b8;
+    --accent: #e0a458;      /* 琥珀金（天枢意象） */
+    --accent2: #7aa2ff;     /* TabTin 蓝 */
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --code-bg: #0a0d13;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.7; font-size: 15px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 80px; }
+  header.hero {
+    padding: 56px 24px 40px; text-align: center;
+    background: radial-gradient(1200px 400px at 50% -80px, rgba(224,164,88,.16), transparent 70%);
+    border-bottom: 1px solid var(--border); margin-bottom: 40px;
+  }
+  .hero h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: 1px; }
+  .hero .sub { color: var(--muted); font-size: 16px; }
+  .hero .tags { margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .tag { padding: 4px 12px; border: 1px solid var(--border); border-radius: 20px; font-size: 13px; color: var(--muted); }
+  .tag.t { border-color: rgba(224,164,88,.4); color: var(--accent); }
+  h2 { font-size: 24px; margin: 56px 0 18px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+  h2 .num { color: var(--accent); margin-right: 10px; font-family: ui-monospace, monospace; }
+  h3 { font-size: 18px; margin: 30px 0 12px; color: var(--accent2); }
+  h4 { font-size: 16px; margin: 22px 0 10px; }
+  p { margin: 10px 0; }
+  a { color: var(--accent2); }
+  .muted { color: var(--muted); }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 24px; margin: 16px 0;
+  }
+  .grid { display: grid; gap: 16px; }
+  .grid2 { grid-template-columns: 1fr 1fr; }
+  .grid3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  .kpi { background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .kpi .n { font-size: 30px; font-weight: 700; font-family: ui-monospace, monospace; }
+  .kpi .l { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .kpi.tab .n { color: var(--accent2); }
+  .kpi.ts .n { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--panel2); color: var(--accent); font-weight: 600; white-space: nowrap; }
+  tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+  code, .code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 5px;
+    padding: 1px 6px; font-size: 13px;
+  }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+  pre code { background: none; border: none; padding: 0; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .b-good { background: rgba(63,185,80,.15); color: var(--good); border: 1px solid rgba(63,185,80,.35); }
+  .b-warn { background: rgba(210,153,34,.15); color: var(--warn); border: 1px solid rgba(210,153,34,.35); }
+  .b-bad { background: rgba(248,81,73,.15); color: var(--bad); border: 1px solid rgba(248,81,73,.35); }
+  .b-info { background: rgba(122,162,255,.15); color: var(--accent2); border: 1px solid rgba(122,162,255,.35); }
+  .b-gold { background: rgba(224,164,88,.15); color: var(--accent); border: 1px solid rgba(224,164,88,.35); }
+  ul.tight { margin: 8px 0; padding-left: 22px; }
+  ul.tight li { margin: 5px 0; }
+  .timeline { border-left: 3px solid var(--border); margin-left: 6px; padding-left: 24px; }
+  .milestone { position: relative; margin: 22px 0; }
+  .milestone::before {
+    content: ""; position: absolute; left: -31px; top: 4px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--accent); border: 3px solid var(--bg);
+  }
+  .milestone .mh { font-weight: 700; font-size: 16px; }
+  .milestone .mh .phase { color: var(--accent); font-family: ui-monospace, monospace; margin-right: 8px; }
+  .milestone .mdesc { color: var(--muted); margin-top: 4px; font-size: 14px; }
+  .archbox { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px; overflow-x: auto; }
+  .archbox pre { border: none; margin: 0; padding: 0; }
+  .toc { columns: 2; column-gap: 32px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px 28px; }
+  .toc a { display: block; margin: 5px 0; color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+  .toc .t2 { padding-left: 18px; font-size: 13px; color: var(--muted); }
+  .note { border-left: 4px solid var(--accent); background: rgba(224,164,88,.07); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .note.blue { border-left-color: var(--accent2); background: rgba(122,162,255,.07); }
+  .note.red { border-left-color: var(--bad); background: rgba(248,81,73,.07); }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; text-align: center; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>TabTin 深度研究 × 天枢演进建议报告</h1>
+  <div class="sub">面向「天枢保留不登录模式 + 登录解锁协作 / 共享 / 云存储」的目标路径</div>
+  <div class="tags">
+    <span class="tag t">报告日期：2026-09-04</span>
+    <span class="tag">对比对象：TabTin（开源快照 1.1.2/1.1.3）</span>
+    <span class="tag t">天枢 dev（本地工作区 v0.10.2）</span>
+  </div>
+  <div class="tags">
+    <span class="tag t">依据：双方真实源码逐行核实</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <strong style="color:var(--accent)">目录</strong>
+  <a href="#summary">0. 结论速览（TL;DR）</a>
+  <a href="#tabtin">1. TabTin 项目全貌</a>
+  <a class="t2" href="#tabtin-what">1.1 是什么 / 解决什么问题</a>
+  <a class="t2" href="#tabtin-stack">1.2 技术栈与仓库构成</a>
+  <a class="t2" href="#tabtin-arch">1.3 核心架构与数据模型</a>
+  <a class="t2" href="#tabtin-feat">1.4 登录 / 协作 / 共享 / 云存储实现细节</a>
+  <a class="t2" href="#tabtin-apps">1.5 工作应用：文件 / 表格 / 浏览器</a>
+  <a href="#tianshu">2. 天枢（dev）现状</a>
+  <a class="t2" href="#tianshu-stack">2.1 技术栈与构成</a>
+  <a class="t2" href="#tianshu-arch">2.2 运行时架构</a>
+  <a class="t2" href="#tianshu-cloud">2.3 已有云端规划（mobile-cloud）</a>
+  <a href="#compare">3. 逐维度对比</a>
+  <a href="#gap">4. 差距分析：天枢要向 TabTin 学什么</a>
+  <a href="#roadmap">5. 天枢演进路线图（保留不登录 + 登录解锁）</a>
+  <a class="t2" href="#roadmap-model">5.1 核心原则与数据归属模型</a>
+  <a class="t2" href="#roadmap-phases">5.2 分阶段实施（M0–M6）</a>
+  <a class="t2" href="#roadmap-table">5.3 能力矩阵：免费不登录 vs 登录解锁</a>
+  <a href="#risk">6. 风险与关键决策</a>
+  <a href="#ref">7. 参考依据</a>
+</div>
+
+<!-- ================= 0 ================= -->
+<h2 id="summary"><span class="num">0</span>结论速览</h2>
+
+<div class="note blue">
+<strong>一句话判断：</strong>TabTin 是一套<strong>「AI 时代的多人协作工作平台」</strong>——围绕 多用户账号 + 组织/Workspace 权限 + 实时协作 + 云端存储 + 计费 完整闭合；天枢（dev）是一套<strong>「单机本地 Agent 桌面工具」</strong>——围绕 角色 + 会话 + 技能 + 模型 + 本地 SQLite，<strong>全库无任何登录/多租户概念</strong>。两者底层能力（Agent 循环、会话、SSE 事件流）高度相似，TabTin 的差异化几乎全部集中在<strong>「登录之后解锁的那一层」</strong>——而这正是用户想给天枢补的方向。因此 TabTin 是一份极其对口的「参考实现」，而非需要整体照搬的架构。
+</div>
+
+<div class="grid grid3" style="margin-top:18px">
+  <div class="kpi tab"><div class="n">~14.6k</div><div class="l">TabTin 源码文件（py+ts/tsx，去构建产物）</div></div>
+  <div class="kpi tab"><div class="n">36</div><div class="l">Django App（后端功能模块）</div></div>
+  <div class="kpi tab"><div class="n">90</div><div class="l">前端/共享 packages（pnpm monorepo）</div></div>
+  <div class="kpi ts"><div class="n">439</div><div class="l">天枢 dev 源码文件（ts/tsx，去构建产物）</div></div>
+  <div class="kpi ts"><div class="n">0</div><div class="l">天枢现有登录/账号逻辑（全库无认证）</div></div>
+  <div class="kpi ts"><div class="n">M0–M6</div><div class="l">天枢已有云端规划（mobile-cloud 文档）</div></div>
+</div>
+
+<div class="card">
+<h4>双方定位差异（一句话版）</h4>
+<table>
+<tr><th>维度</th><th>TabTin</th><th>天枢 dev</th></tr>
+<tr><td><strong>定位</strong></td><td>人与 Agent 的<b>多人协作平台</b>（多租户 SaaS + 自托管）</td><td><b>个人本地 Agent 桌面工具</b>（单机单租户）</td></tr>
+<tr><td><strong>核心对象</strong></td><td>Organization → Workspace → Agent / App / Device</td><td>Character（角色=人格+记忆+工具+技能）→ Session</td></tr>
+<tr><td><strong>账号</strong></td><td>手机号/邮箱注册登录、JWT、邀请码、SSO、第三方 OAuth</td><td>无账号（本地即默认身份）</td></tr>
+<tr><td><strong>协作</strong></td><td>会话共享（查看/fork/对话 三档）、实时 Y.js 协作、IM 卡片</td><td>无（单机）</td></tr>
+<tr><td><strong>存储</strong></td><td>云端 PostgreSQL + Redis + OSS 云盘 + 本地文件，版本历史链</td><td>本地 SQLite（sessions.db）+ dataDir 文件</td></tr>
+<tr><td><strong>实时通道</strong></td><td>Centrifugo（WS 网关）+ collab-live（Hocuspocus Y.js）+ SSE</td><td>SSE（本地）+/ Electron IPC</td></tr>
+<tr><td><strong>商业化</strong></td><td>会员等级、钱包 credits、计费、用量仪表盘</td><td>无（免费、BYOK 自带 key）</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>对用户需求最直接的结论：</strong>天枢要的「保留不登录模式 + 登录解锁 协作/共享/云存储」，在 TabTin 里能找到一整套现成的<strong>参考设计</strong>（权限模型、共享语义、审计、云存储协议、实时层），天枢不用从零发明。但天枢的架构优势（本地优先、SSE 传输中立、事件驱动）意味着<strong>不照搬 TabTin 的云端多租户模型</strong>，而应走「<strong>数据在本地、云只做账号/中继/备份/桥接</strong>」的轻量路线——这与天枢已有 mobile-cloud 规划方向一致，只需在此基础上把「远程操作」扩展为「云端同步 + 协作 + 共享」。
+</div>
+
+<!-- ================= 1 ================= -->
+<h2 id="tabtin"><span class="num">1</span>TabTin 项目全貌</h2>
+
+<h3 id="tabtin-what">1.1 是什么 / 解决什么问题</h3>
+<p>TabTin（tabtin.com / github.com/tabtin-ai/TabTin，AGPL-3.0-only，版权 Shanghai Mofan Technology Co., Ltd.）是一个<strong>开源的人与 Agent 协作平台</strong>，当前处于 Public Preview（公开预览），本次研究的快照为 1.1.2 / 1.1.3（含多个 session-share 修复 commit）。</p>
+<p>它的核心命题是：<em>「一个人已经完成的工作，能不能直接成为下一位同事的起点？」</em>——解决的是 AI 提高个人产出后、团队效率没有同步提升的问题（重复调研、上下文与判断依据丢失、Token 重复消耗、方法难复用、结果责任不清）。</p>
+<p>产品理念建立在五个原则上：<strong>过程可见、权限可控、结果可检查、工作可交接、责任有人承担</strong>。核心概念模型：</p>
+<pre><code>Organization（组织 / 租户边界，成员+资源+配置）
+├── Workspace（成员的私有执行现场：工作根+文件+终端+Skill+Checkpoint）
+├── Agent（AI 参与身份：角色+规则+模型+Skill+记忆，不代表执行位置）
+├── App（文档/表格/终端/浏览器/消息/演示 等一等协作应用）
+└── Device（实际执行环境：Electron / Daemon / 云实例 / 移动端 / IoT）</code></pre>
+
+<h3 id="tabtin-stack">1.2 技术栈与仓库构成</h3>
+<div class="grid grid2">
+<div class="card">
+<h4>后端</h4>
+<ul class="tight">
+<li><strong>Django 4.2 + django-ninja</strong>（36 个 App，4788 个 py 文件）</li>
+<li><strong>PostgreSQL(pgvector) + Redis</strong>；<strong>Celery</strong> 异步任务</li>
+<li><strong>Centrifugo v6</strong>：WebSocket 实时网关（IM/推送/事件）</li>
+<li><strong>collab-live</strong>：独立 Node 服务，Hocuspocus + Y.js（文档/表格/幻灯片实时协作）</li>
+<li>阿里云 OSS（oss2）云存储、短信、微信/支付宝支付、<strong>LiteLLM 统一 LLM 网关 + BYOK</strong></li>
+<li>RAG（pgvector）、全文检索、本地 docparse / embedding</li>
+</ul>
+</div>
+<div class="card">
+<h4>前端 / 客户端</h4>
+<ul class="tight">
+<li><strong>pnpm monorepo</strong>（apps + 90 个 packages）</li>
+<li><strong>tabtin-electron</strong>：桌面主客户端（Electron + React 19 + Vite + Zustand）</li>
+<li><strong>tabtin-web</strong>：Web 版；<strong>admindash</strong>：管理后台</li>
+<li><strong>tabtin-ios / tabtin-android</strong>：移动端（SwiftUI / Compose）</li>
+<li><strong>tabtin-daemon</strong>：无头 Agent 守护进程；<strong>tabtin-cli(-go)</strong>、Python/TS SDK</li>
+<li>大量领域 packages：table-engine、doc-editor、smartsheet、collab-core、storage-manager、oss-client 等</li>
+</ul>
+</div>
+</div>
+<p class="muted">本地开发一键编排：<code>scripts/dev.mjs</code>（快速预览=后端+Collab+Centrifugo+Electron；全量预览=+AdminDash+tabtin-web）。Compose 编排 Postgres/Redis/Django/Celery/Centrifugo 5 个服务。</p>
+
+<h3 id="tabtin-arch">1.3 核心架构与数据模型（协作/共享/存储相关）</h3>
+
+<h4>① 身份与租户（users 包）</h4>
+<table>
+<tr><th>模块</th><th>职责</th><th>关键点（源码核实）</th></tr>
+<tr><td><code>users/auth</code></td><td>注册/登录/JWT/验证码/OAuth</td><td>自定义 User（手机号/邮箱/昵称/头像）；JWT access 1h + refresh 7d；邀请码门禁中间件 <code>invite_gate_middleware</code>；飞书/GitHub OAuth；短信/邮件验证码（AUTH_RATE_LIMITS 限流）</td></tr>
+<tr><td><code>users/membership</code></td><td>会员等级</td><td>MembershipTier：free/basic/pro/enterprise，每档带配额（表格数/文档数/存储字节/月 LLM credits/席位）；OrganizationMembership 关联组织</td></tr>
+<tr><td><code>users/wallet</code></td><td>点券钱包</td><td>credits 精确余额 + <strong>预扣冻结机制</strong>（LLM 调用前冻结、调用后结算释放，WAL-07）</td></tr>
+<tr><td><code>services/billing</code></td><td>计费</td><td>BillingSummary/Policy/Entitlement/Invoice；组织级用量仪表盘；entitlement 与会员等级同步</td></tr>
+</table>
+
+<h4>② 组织 / 空间 / 设备 / 权限（tabtinspace）</h4>
+<ul class="tight">
+<li><strong>Organization</strong>：type=personal（注册自动创建、唯一）| team（可邀请协作）；owner、settings、生命周期墓碑（deleting）。</li>
+<li><strong>Device</strong>：执行设备（electron/daemon/cloud，role=control）与能力设备（mobile/iot，role=data）；<strong>指纹指纹 fingerprint + machine_key</strong>（sha256(machineId+profile)）硬件锚定；capabilities JSON 决定 Space 工具域；online/busy/offline 状态。</li>
+<li><strong>Space / SpaceMembership</strong>：协作容器（bot/group/dm/team），成员关系；<strong>SpacePermission(ResourcePermission)</strong> 统一资源 ACL。</li>
+<li><strong>RemoteServer / SecureCredential</strong>：SSH 远程服务器 + 加密凭据（挂在 Device 下）。</li>
+<li><strong>ContextItem</strong>：把云文档/表格/浏览器采集/文件统一纳入 Workspace/Project 资源索引。</li>
+<li><strong>ResourcePermissionService</strong>：统一 grant/revoke/list，subject=用户/组织，role=viewer/editor/admin/owner。</li>
+</ul>
+
+<h4>③ 会话共享（chat/conversation —— 用户最关心的"协作模式"核心）</h4>
+<p>这是 TabTin 最能直接借鉴给天枢的部分。<code>SessionShare</code> 模型（chat_session_share）把一条 Agent 会话按<strong>三档能力</strong>授权给同一组织的另一个用户：</p>
+<table>
+<tr><th>档位</th><th>能力</th><th>语义（源码注释核实）</th></tr>
+<tr><td><strong>查看</strong>（基础）</td><td>只读</td><td>grantee 进入 owner 的<strong>同一个会话</strong>（组织内全量透明），读端点 + WS 实时流全量可见（过程/工具/产物）。</td></tr>
+<tr><td><strong>fork</strong>（叠加位 can_fork）</td><td>抄写</td><td>把会话<strong>快照</strong>（正文+工具名+附件引用）抄写成接收人自己的 Agent × Workspace 新会话（session_materializer）。</td></tr>
+<tr><td><strong>对话</strong>（叠加位 can_chat）</td><td>发言驱动</td><td>grantee 经 shared-chat 端点在<strong>本会话发言驱动 Agent</strong>；执行在 owner 设备、费用归 owner、审批仅 owner；每次发言写 chatted 审计。</td></tr>
+</table>
+<ul class="tight">
+<li><strong>安全边界</strong>：不共享执行现场（workspace/device/目录）；<code>_get_session_with_shared_access</code> 默认关闭共享放行，只有显式 include_session_share=True 才开第 3 分支。</li>
+<li><strong>生命周期</strong>：pending（意图记录，不授读权）→ 投递确认 + 接收方加入 → active；revoked 停止；version + access_epoch 使旧实时订阅立即失效。</li>
+<li><strong>资源级追溯</strong>：SessionShareResourceGrant 记录共享带来的云文档/表格 ACL 来源（停止共享只回收它带来的权限，不误伤其他渠道权限）；SessionShareResourceSyncJob 异步同步消息产物 ACL。</li>
+<li><strong>审计</strong>：SessionShareEvent（append-only）：created/updated/viewed/forked/chatted/revoked，回答「谁何时授予/改权/看过/fork/撤销」。</li>
+<li><strong>IM 投递</strong>：共享卡走 tabchat（组织内 IM）会话分享，卡片契约 session_share / v2，delivery_status pending→confirmed；另有「交接包」（在团队会话发送目标/进展/风险并引用会话与资源）。</li>
+<li><strong>跨组织隔离</strong>：grantee 必须是同 Organization 成员（测试 test_cross_org_grantee_rejected 验证）；分享给自己拒绝。</li>
+</ul>
+
+<h4>④ 实时协作（collab-core + collab-live + centrifugo）</h4>
+<ul class="tight">
+<li><strong>collab-core</strong>（前端）：Provider 状态机、重连、IndexedDB（y-indexeddb）离线缓存、useOfflineReplay 离线回放、sharding、同步模式降级（collab → legacy，reason 枚举含权限受限/连接挂起等）。</li>
+<li><strong>collab-live</strong>（Node 服务）：<strong>Hocuspocus + Y.js</strong> WebSocket 服务器，permission-guard / force-close / connection-limiter / redis 扩展；apply-ops 命令服务（Y.Doc-first）。</li>
+<li><strong>WS 网关</strong>：contracts/asyncapi/ws-gateway.yaml 定义 GatewayEnvelope，角色体系（electron/mobile/daemon/admin/channel/backend）+ topic 能力矩阵 + 关闭/错误码。</li>
+<li><strong>Centrifugo</strong>：IM 与事件推送的 WS 网关（v6），Django centrifugo_proxy 签发 token。</li>
+</ul>
+
+<h4>⑤ 共享模式（tabdoc / tabdata 公开分享）</h4>
+<ul class="tight">
+<li><strong>DocumentShare</strong>：share_type（link / organization / password…）；可选密码（set_password 用 Django hasher）；外链 <code>/api/tabdoc/shared/{share_id}</code>：get_shared_meta / verify_password / get_shared_content / <strong>collab-token（给外链访客签发实时协作 token）</strong> / image-assets；评论（DocumentShareComment）。</li>
+<li><strong>组织分享</strong>：share_type=organization 时必填 organization_id；也支持组内可见性。</li>
+<li>TabData 同样有 <code>/shared/</code> 系列公开分享端点 + 表单（api_form）。</li>
+</ul>
+
+<h4>⑥ 云存储（services/oss + oss-client + storage-manager）</h4>
+<ul class="tight">
+<li><strong>OSS 上传链路</strong>：oss-client 实现 <strong>presign → PUT → confirm 三步直传</strong>；<strong>秒传</strong>（computeFileHash → presign 传 file_hash）；分片上传接口；onProgress；pending-confirm 断点续传（本地持久化待确认队列 + 重试）。</li>
+<li><strong>FileRecord / FileUsage</strong>：统一文件索引 + 用量（含秒传命中标记 instant）。</li>
+<li><strong>TabFiles</strong>：裸文件作为 ContextItem（tabfiles）纳入 Workspace / Project / Organization 资源体系，上传、从聊天归档、下载 URL。</li>
+<li><strong>本地存储管理</strong>：storage-manager 用「Bucket 模型」统一管理各模块本地数据（对话历史/Checkpoint/业务 App/浏览器/媒体/缓存/系统），D-4 四档清理 Affordance（L1 一键清/L2 半缓存提示/L3/L4 输入名字二次确认），运行时强制校验。</li>
+<li><strong>版本历史</strong>：collab 的 <code>VersionHistory</code> 通用表：全量快照 + 增量 diff 混合版本链（zlib 压缩 blob）、editor_type=user/agent/system、命名版本/置顶、TTL 降采样；<code>ChangeLog</code> 通过 agent_run_id 关联同一轮 Agent 的跨模块变更。</li>
+</ul>
+
+<h4>⑦ 部署 / 分版</h4>
+<p><code>edition.py</code>：<strong>saas / community</strong> 双版本。Community Server 只监听本机、Docker 数据卷本地存储、默认关 Sentry/更新、SMS/EMAIL/OSS 全 disabled 或 local、无邀请码。bootstrap（community_bootstrap）幂等创建 Community 会员档（全功能本地权益）。</p>
+
+
+<h3 id="tabtin-apps">1.5 工作应用：文件 / 表格 / 浏览器（TabTin 三大生产力模块）</h3>
+<div class="note blue">
+<strong>本节重点：</strong>TabTin 不止是「聊天 + 共享」，它的差异化还体现在三个<strong>一等工作应用</strong>——文件（TabDoc/TabFiles）、表格（TabData/SmartSheet）、浏览器（Browser/Crawlspace）。这三个模块都深度集成了 Agent（Agent 可直接读写）、协作（Y.js 实时）与权限（ACL/共享），是「人和 Agent 操作同一份在线结果」理念的载体。
+</div>
+
+<h4>① 文件系统：TabDoc（文档）+ TabFiles（云盘文件）</h4>
+<div class="grid grid2">
+<div class="card">
+<h4>TabDoc —— 在线文档（Airtable/Notion 式文档编辑器）</h4>
+<ul class="tight">
+<li><strong>编辑器</strong>：packages/doc-editor —— TipTap/ProseMirror 扩展（canvas-block、html-block、tabdata-block 内嵌表格块）；createCollaborativeDocExtensions（协作扩展）。</li>
+<li><strong>后端</strong>：tabdoc app（api.py / api_share.py / services/document_service.py）——文档 CRUD、revision、import markdown、docx/markdown 互转（exchange_service）、搜索（search_service）、评论（comment_service）。</li>
+<li><strong>版本</strong>：revision + collab VersionHistory 版本链。</li>
+<li><strong>共享</strong>：DocumentShare 外链 + 密码 + 组织共享 + collab-token + 评论（见 1.4 ⑤）。</li>
+<li><strong>本地解析</strong>：local-docparse（PDF/Word/Excel 本地文本提取，80% 场景不依赖云端，20% 降级云端 VLM）；file-pipeline（epub/pptx/image/local-doc 解析器 + FileResolver 统一路由）。</li>
+</ul>
+</div>
+<div class="card">
+<h4>TabFiles —— 云盘文件</h4>
+<ul class="tight">
+<li>tabfiles_service.py：裸文件作为 ContextItem（item_type='tabfiles'）纳入 Workspace / Project / <strong>Organization</strong> 资源索引。</li>
+<li>上传/从聊天归档/下载 URL；OSS FileRecord + FileUsage（秒传 instant 标记）。</li>
+<li>文件版本：file-history-core（FileHistoryService：备份 + 回滚 rewind + 指纹 diff）。</li>
+<li>office-preview-runtime / media-capabilities（音视频/图片能力探测）。</li>
+</ul>
+</div>
+</div>
+
+<h4>② 表格：TabData + SmartSheet + TableEngine（多维表格/数据库）</h4>
+<div class="grid grid2">
+<div class="card">
+<h4>数据模型（tabdata）</h4>
+<ul class="tight">
+<li><strong>Table</strong>：TrashableModelMixin + ContextSyncMixin；<strong>source_type</strong>=native（本地）/ mirror（镜像同步外部）/ proxy（实时代理查询外部数据源）；RLS 行级安全（rls_enabled / rls_force + RowPolicy）。</li>
+<li><strong>TableField</strong>：22 种字段类型 —— text/long_text/number/percent/currency/rating/select/multi_select/checkbox/date/created_time/last_modified_time/url/email/phone/user/created_by/last_modified_by/<strong>attachment（附件）</strong>/<strong>link（关联）</strong>。</li>
+<li><strong>TableRecord</strong>：record_version_seq（全局单调递增版本序列）+ record_delete_version —— <strong>为增量同步设计</strong>。</li>
+<li><strong>TableView</strong>：7 种视图 —— grid / kanban / calendar / gallery / list / flashcard / form。</li>
+<li><strong>TablePermission(ResourcePermission)</strong> + 行级 RowPolicy（RLS）。</li>
+</ul>
+</div>
+<div class="card">
+<h4>引擎 / 同步 / 协作</h4>
+<ul class="tight">
+<li><strong>table-kernel</strong>：领域内核（field/record/view/table 应用层 + orchestration + specs）——<strong>前后端共享的表格领域逻辑</strong>。</li>
+<li><strong>table-kernel-pglite</strong>：<strong>PGlite（浏览器内 Postgres）本地副本 + 增量同步</strong>：since_version + record_version_seq 拉 delta；<strong>outbox（__tabtin_sync_outbox 变更发件箱）</strong> + OutboxFlusher（按 action 分组推送 + 独立 ack/fail + 幂等重试）；DeltaApplier（upsert/delete + ghost 清理）；fullReconcile。这是"离线可用 + 增量同步"的教科书实现。</li>
+<li><strong>table-engine</strong>：前端数据网格引擎（useIncrementalSync / useDataGridSyncRuntime / useTableEventStream / useTableCollaboration）+ Y.js collab 桥（ydoc-schema / useDataGridCollabBridge）。</li>
+<li><strong>smartsheet</strong>：SmartSheet 类 + CellManager/ViewManager/ImportExportManager + StorageAdapter（可插拔本地/远端存储）。</li>
+<li><strong>Agent 直连</strong>：api_agent_sql（<code>POST /spaces/{id}/sql/query|execute|catalog</code>）——<strong>Agent 用 SQL 读写表格</strong>；api_open（Open API：RLS policy / webhook / import template / PDF 导出）。</li>
+<li><strong>协作服务</strong>：CollabService（table_changes_to_apply_ops → collab-live 应用 op）、TableEventService（publish_table_update 广播到 live）、share_service（invite_collaborators：幂等 + 通知去重 + 组织成员过滤 + 权限变更/降级触发 collab revoke）。</li>
+</ul>
+</div>
+</div>
+
+<h4>③ 浏览器：BrowserCore + Crawlspace + 反检测（Agent 浏览/采集）</h4>
+<div class="grid grid2">
+<div class="card">
+<h4>BrowserCore —— Agent 浏览器控制</h4>
+<ul class="tight">
+<li><strong>BrowserToolImpl</strong>：executeAct（14 种动作：click/fill/scroll/drag/type/keyPress/hover/dblclick/upload/select…）/ executeObserve / requestSnapshot；循环检测（ActionLoopDetector）、限流、重试。</li>
+<li><strong>CDPConnectionManager</strong>：连接池 + 策略升级（task-bound / keep-alive）+ 驱逐（inFlight 保护）。</li>
+<li><strong>AccessStrategyService</strong>：拦截信号分类（cloudflare / rate_limit / ip_ban / captcha / business_403 / <strong>auth_wall 登录墙</strong>），决定是否升级访问策略；SiteAccessMemory。</li>
+<li><strong>captcha</strong>：CaptchaDetector + CaptchaSolver（NoOp 默认 + 可注入用户介入）。</li>
+<li><strong>ViewHost / ViewManager</strong>：内嵌浏览器容器抽象（WebContentsView / webview 两实现）。</li>
+<li><strong>browser-to-table</strong>：把网页表格/API 数据<strong>采集进 TabData</strong>（BrowserToTableDataset：字段类型推断 + 分页/行数限制 + 数据源类型 source_kind）。</li>
+</ul>
+</div>
+<div class="card">
+<h4>Crawlspace —— 采集工作台 + 反检测</h4>
+<ul class="tight">
+<li><strong>crawlspace-core</strong>：插件注册器（CrawlspaceRegistry）+ hooks/components/i18n/design-tokens，可扩展采集面板。</li>
+<li><strong>crawl-integration</strong>：HTTPEngine + WebContentsEngine 双引擎；RobotsChecker（robots.txt 合规）、PrivacyMasker（隐私脱敏）、CacheKeyGenerator、PayloadUtils。</li>
+<li><strong>anti-detect</strong>：AntiDetectManager —— UA 池（DynamicUAPoolManager / mobile-ua-generator / ChromeVersionTracker）、<strong>代理池 ProxyPool + ProxyHealthChecker</strong>、指纹（canvas/webgl/webrtc stealth）、会话持久化。</li>
+<li><strong>crawl-contracts</strong>：任务/反检测/提取/分页/网络层契约（AccessResult / Cookie / EngineType http|webcontents / SessionMode inherit|isolated|temporary）。</li>
+<li><strong>extraction-core</strong>：ExtractionEngine + selectors/transforms —— 结构化提取。media-core/media-capabilities：音视频/图片能力。</li>
+</ul>
+</div>
+</div>
+
+<div class="note">
+<strong>对天枢的启示：</strong>这三大应用是 TabTin「人与 Agent 操作同一份在线结果」的载体，天枢目前没有等价物（天枢只有本地工具 + 会话）。但注意：<strong>它们都共享同一套地基</strong>——权限（ResourcePermission / SessionShareResourceGrant）、版本（VersionHistory）、同步（增量 delta + outbox）、实时（collab-live + centrifugo）、存储（OSS + FileRecord）。天枢不必照抄这三个应用本身，而应优先把<strong>「地基」</strong>（权限 + 版本 + 增量同步 + 云存储）建好，再逐步长出自己的"天枢文档 / 天枢表格 / 天枢浏览器"。而且 TabTin 的浏览器能力（反检测/采集/登录墙）与天枢的"云端 Agent 协作"定位不完全匹配，应谨慎评估合规风险后选择性借鉴。
+</div>
+
+
+<!-- ================= 2 ================= -->
+<h2 id="tianshu"><span class="num">2</span>天枢（dev）现状</h2>
+
+<h3 id="tianshu-stack">2.1 技术栈与构成</h3>
+<div class="grid grid2">
+<div class="card">
+<h4>构成</h4>
+<ul class="tight">
+<li><strong>web/server</strong>：Hono + TypeScript + <code>node:sqlite</code>（DatabaseSync）+ tsx；20 个路由模块（characters/sessions/messages/skills/providers/themes/tools/workspace/statistics/evolution/goals/pricing…），约 3940 行路由代码。</li>
+<li><strong>web/client</strong>：React 18 + Vite + Zustand + React Router；17 个页面（会话/角色/技能/工具/MCP/知识/市场/事件/设置…）。</li>
+<li><strong>desktop</strong>：Electron（fork server 子进程，IPC 桥），ServerManager 进程管理。</li>
+<li><strong>shared/</strong>：desktop-contract.ts（渲染层-主进程契约）+ server-ipc.ts。</li>
+<li><strong>devdata/</strong>：单机数据根（sessions.db + characters/ + providers/ + skills/ + media/ + mcpservers/ + themes/…）。</li>
+</ul>
+</div>
+<div class="card">
+<h4>Agent / 会话能力（成熟且可作为卖点）</h4>
+<ul class="tight">
+<li>Agent 循环：loop-engine / context-builder / context-compactor（上下文压缩）/ loop-policy / run-policy / control-router。</li>
+<li>会话/轨迹：sessions/messages/turns/runs/run_events/checkpoints/llm_calls/agent_tasks 表；会话 fork、compact、generate-title、导出、trajectory。</li>
+<li>角色系统：character_definitions/revisions、copy-on-write（builtin/user 双层）、记忆、技能、皮肤、动画。</li>
+<li>自进化：evolution/（detectors/extractors/generators）、statistics、goals/plans。</li>
+<li>工具：bash/edit/grep/glob/debug_sessions…；技能包（skill-package）与市场（天枢市场）。</li>
+</ul>
+</div>
+</div>
+
+<h3 id="tianshu-arch">2.2 运行时架构（源码核实）</h3>
+<div class="archbox"><pre><code>┌────────────── 天枢桌面端 (Electron) ──────────────┐
+│  React 渲染层 (web/client)                        │
+│    eventBus: 'ipc' 桥 或 'sse' 降级               │
+│  preload (window.tianshuDesktop, contextBridge)   │
+│  Electron main (server-manager.ts)                │
+│    fork() 子进程                                  │
+│  server 子进程 (web/server/dist/index.js)         │
+│    ├─ Hono HTTP: 127.0.0.1:3456 (仅 loopback)     │
+│    │   ├─ REST /api/* (20 路由)                   │
+│    │   ├─ 上行 POST /api/events (ws/handlers.ts)  │
+│    │   └─ 下行 SSE GET /api/events/stream         │
+│    ├─ transport/ipc-server.ts (process.send 桥)   │
+│    ├─ agent 循环 / 会话管理 / SQLite sessions.db   │
+│    └─ event-sinks 全局 fan-out                    │
+└───────────────────────────────────────────────────┘</code></pre></div>
+<ul class="tight">
+<li><strong>数据</strong>：全部落 dataDir（getDataDir），单机单租户，天然「一机一份」。</li>
+<li><strong>事件通道</strong>：transport/event-sinks.ts 全局 fan-out；SSE 每连接一个 sink，与 IPC 共用 ws/handlers.ts（<strong>传输中立</strong>——SSE 本身就是一条完整可用的远程通道，这对云同步/远程访问极其有利）。</li>
+<li><strong>上行协议</strong>：POST /api/events（hello / strategy.set / chat-run / abort / approval.respond）；下行事件见 ALL_KNOWN_EVENTS（run.* / message.* / tool.* / approval.requested / ask_user / sub_agent.* / plan.* / goal.* …）。</li>
+<li><strong>无认证</strong>：全库无登录逻辑；CORS 只放行 loopback；server 只绑 127.0.0.1 —— 这是本地安全边界，也是「云中继」方案的基础。</li>
+</ul>
+
+<h3 id="tianshu-cloud">2.3 已有云端规划（mobile-cloud）——与本次需求高度相关</h3>
+<div class="note blue">
+<strong>重要背景：</strong>天枢 dev/docs 里已有一份《mobile-cloud-architecture-plan.md》+《mobile-cloud-implementation-plan.md》（M0–M6），核心是 <strong>手机远程管理 + 统一登录</strong>：云服务器（阿里云 43.161.198.188 / www.tianshuapp.tech）只做<strong>中继</strong>，电脑 WSS 出站隧道，云不存业务数据，agent/会话/数据全在电脑本地。它已规划了：
+</div>
+<ul class="tight">
+<li><strong>统一账号中心 /auth</strong>：注册/登录/refresh/me/JWKS，JWT（jose，access 30min/refresh 30d，refresh 哈希入库可撤销，scrypt 存密码）——未来所有服务共用。</li>
+<li><strong>/remote 远程服务</strong>：设备目录（register/devices/rename/unbind）+ WSS 隧道（心跳 25s/超时 70s/指数退避）+ 转发面（REST 透传 + SSE 桥接，透传 127.0.0.1:3456）。</li>
+<li><strong>桌面 cloud-tunnel + 登录 UI</strong>；<strong>手机端 mobile-web + Capacitor → Android APK</strong>（复用 web/client stores/api/eventBus，M3 里程碑 MVP）；后续 iOS。</li>
+<li><strong>M4–M6</strong>：断连矩阵、错误码、加固、发布版 APK、本地通知、FCM 兜底。</li>
+</ul>
+<p class="muted">也就是说：天枢的「登录/账号/云中继」地基已经设计好了，但<strong>方向是「远程操作自己的电脑」</strong>；本次用户要的「登录解锁 协作模式 / 共享模式 / 云储存（会话同步、多端同步、文件同步）」是在这个地基上<strong>往前再走一步</strong>——从「一人多端」走向「多用户协作」。</p>
+
+<!-- ================= 3 ================= -->
+<h2 id="compare"><span class="num">3</span>逐维度对比</h2>
+
+<div class="grid grid2">
+<div class="card">
+<h4>Agent 执行内核</h4>
+<table>
+<tr><th></th><th>TabTin</th><th>天枢</th></tr>
+<tr><td>循环</td><td>agent-runtime（TS）+ Django agent_engine + Daemon</td><td>loop-engine（TS，成熟）</td></tr>
+<tr><td>上下文</td><td>compaction/快照/fork 物化</td><td>context-compactor / 快照 / fork</td></tr>
+<tr><td>事件流</td><td>Centrifugo WS + SSE + Y.js</td><td>SSE（传输中立，可远程）</td></tr>
+<tr><td>执行位置</td><td>Device 解耦（Electron/Daemon/云）</td><td>仅本机 Electron 子进程</td></tr>
+</table>
+<p class="muted">内核天枢不输；差异在执行位置的抽象与实时通道的分布化。</p>
+</div>
+<div class="card">
+<h4>身份 / 账号</h4>
+<table>
+<tr><th></th><th>TabTin</th><th>天枢</th></tr>
+<tr><td>登录</td><td>手机/邮箱+验证码、JWT、OAuth、邀请码门禁</td><td>无（默认本地身份）</td></tr>
+<tr><td>多租户</td><td>Organization（personal/team）</td><td>无</td></tr>
+<tr><td>成员/角色</td><td>OrganizationMember、SpaceMembership、ACL 角色</td><td>无</td></tr>
+<tr><td>计费</td><td>membership + wallet + billing + entitlement</td><td>无（BYOK 自带 key）</td></tr>
+</table>
+</div>
+<div class="card">
+<h4>协作 / 共享</h4>
+<table>
+<tr><th></th><th>TabTin</th><th>天枢</th></tr>
+<tr><td>会话共享</td><td>SessionShare 三档（查看/fork/对话）+ 审计 + IM 卡</td><td>无</td></tr>
+<tr><td>实时协作</td><td>Y.js/Hocuspocus + IndexedDB 离线回放 + 降级</td><td>无（单机 SSE）</td></tr>
+<tr><td>文档/表格共享</td><td>DocumentShare 外链+密码+组织；TableShare</td><td>无</td></tr>
+<tr><td>工作交接</td><td>任务续接 + 交接包（带权限）</td><td>无</td></tr>
+</table>
+</div>
+<div class="card">
+<h4>存储 / 同步</h4>
+<table>
+<tr><th></th><th>TabTin</th><th>天枢</th></tr>
+<tr><td>主存储</td><td>云端 PostgreSQL/Redis + 本地文件 + OSS 云盘</td><td>本地 SQLite + dataDir</td></tr>
+<tr><td>文件云盘</td><td>OSS presign 直传/秒传 + FileRecord + TabFiles</td><td>无（本地媒体库）</td></tr>
+<tr><td>版本历史</td><td>VersionHistory（快照+diff、跨模块、agent 溯源）</td><td>checkpoints（撤销）</td></tr>
+<tr><td>多端同步</td><td>云端为真源 + collab 增量</td><td>规划中（云中继透传，不做业务存储）</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ================= 4 ================= -->
+<h2 id="gap"><span class="num">4</span>差距分析：天枢要向 TabTin 学什么</h2>
+
+<div class="card">
+<h4>差距清单（按优先级）</h4>
+<table>
+<tr><th>#</th><th>能力缺口</th><th>TabTin 可借鉴的设计</th><th>天枢差异化打法</th></tr>
+<tr><td>G1</td><td><strong>账号与身份</strong></td><td>JWT 双令牌 + 统一账号中心（auth）</td><td>已规划（/auth）；<strong>不登录即匿名本地身份</strong>，登录才挂到账号</td></tr>
+<tr><td>G2</td><td><strong>会话同步 / 多端同步</strong></td><td>云端为真源 + 事件增量 + collab 离线回放</td><td>本地为真源，云做<strong>副本/中继</strong>；按会话粒度增量同步</td></tr>
+<tr><td>G3</td><td><strong>协作模式</strong></td><td>SessionShare 三档（查看/fork/对话）+ 审计 + 资源 ACL</td><td>首推「查看 + fork」两档（远程对话涉及设备在线，成本高）；实时层用现有 SSE/云中继起步</td></tr>
+<tr><td>G4</td><td><strong>共享模式</strong></td><td>DocumentShare 外链+密码 / 组织共享 / collab-token</td><td>「会话分享链接」+「组织内共享」两形态，先做链接</td></tr>
+<tr><td>G5</td><td><strong>云存储 / 文件同步</strong></td><td>OSS presign 直传 + 秒传 + FileRecord + 版本链</td><td>复用已有 OSS 思路；文件/知识库/会话数据分层同步</td></tr>
+<tr><td>G6</td><td><strong>执行设备抽象</strong></td><td>Device（control/data）+ capabilities + 远程 Agent</td><td>已有云中继（隧道）；补充「设备在线/离线」到协作语义</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>天枢不必学 TabTin 的：</strong>① 云端多租户为主的数据模型（天枢要本地优先）；② 重型计费/钱包体系（初期不需要）；③ 完整 IM（天枢用会话分享即可，不必再造 IM 卡片）；④ 全量 Y.js 协作（会话不是文档，先不需要 CRDT 实时协同编辑）。
+</div>
+
+<!-- ================= 5 ================= -->
+<h2 id="roadmap"><span class="num">5</span>天枢演进路线图（保留不登录 + 登录解锁）</h2>
+
+<h3 id="roadmap-model">5.1 核心原则与数据归属模型</h3>
+<div class="grid grid2">
+<div class="card">
+<h4>三条铁律</h4>
+<ul class="tight">
+<li><strong>R1 不登录完全可用</strong>：现在的一切（本地会话/角色/技能/模型/BYOK）保持零改动、零账号、零网络依赖。</li>
+<li><strong>R2 数据在本地，云只做能力扩展</strong>：账号、索引、同步副本、共享授权、桥接在中继侧；会话/文件原始数据默认留在本地，按用户授权才同步/共享。</li>
+<li><strong>R3 登录是"能力解锁器"而非"墙"</strong>：登录后解锁协作/共享/云存储/多端，而非登录才能用产品。</li>
+</ul>
+</div>
+<div class="card">
+<h4>建议数据归属分层</h4>
+<table>
+<tr><th>数据</th><th>本地（真源）</th><th>云端（解锁后）</th></tr>
+<tr><td>会话/消息</td><td>sessions.db 保留</td><td>增量同步副本（按会话授权）</td></tr>
+<tr><td>文件/知识库</td><td>dataDir 保留</td><td>OSS 云盘副本（同步/共享用）</td></tr>
+<tr><td>角色/技能/主题</td><td>保留</td><td>可选云备份 / 市场发布</td></tr>
+<tr><td>账号/授权</td><td>—</td><td>统一账号中心（唯一）</td></tr>
+</table>
+</div>
+</div>
+
+<h3 id="roadmap-phases">5.2 分阶段实施</h3>
+<div class="timeline">
+
+<div class="milestone">
+<div class="mh"><span class="phase">M0</span>账号地基（复用已有 /auth 规划）</div>
+<div class="mdesc">
+<strong>目标</strong>：统一账号中心跑通，为后续一切登录解锁能力做底座。<br>
+<strong>做法</strong>：按 mobile-cloud 规划的 /auth（register/login/refresh/me/JWKS，JWT + scrypt + refresh 可撤销）落地；桌面端登录 UI 与 token 安全存储（safeStorage）；<strong>不登录完全不触发</strong>。
+</div>
+</div>
+
+<div class="milestone">
+<div class="mh"><span class="phase">M1</span>会话云端同步（多端同步的第一步）</div>
+<div class="mdesc">
+<strong>目标</strong>：登录用户在多台电脑/手机看到并接管同一批会话。<br>
+<strong>做法（关键设计决策）</strong>：
+<ul class="tight">
+<li><strong>方向</strong>：以「同步副本」而非「整体搬迁」切入——每台电脑仍以本地 sessions.db 为真源；登录后把<strong>选中的会话（或全部）</strong>增量同步到云（<code>sessions/messages/runs</code> 的 <code>updated_at/version</code> 增量拉取 + 合并）。</li>
+<li>同步协议复用现有 <strong>POST /api/events + SSE</strong>（传输中立、已在云中继验证）——把事件流「转发/落库」到云端即得实时同步，天枢 server 只加一个「同步 sink」。</li>
+<li>会话级 <code>version</code> + 简单 LWW（last-writer-wins）冲突合并，先用文档/表格数据校验；<strong>不上 CRDT</strong>（会话是 append 型，天然好合并）。</li>
+<li>离线自动重连 + 断点续传（对齐 collab 的 useOfflineReplay 思路，但实现简单得多）。</li>
+</ul>
+</div>
+</div>
+
+<div class="milestone">
+<div class="mh"><span class="phase">M2</span>协作模式（借鉴 SessionShare 三档）</div>
+<div class="mdesc">
+<strong>目标</strong>：登录用户能把会话授权给他人，可查看/可 fork，甚至可发言驱动。<br>
+<strong>做法</strong>：
+<ul class="tight">
+<li>新建 <code>SessionShare</code> 等价模型（tianshu 版）：<code>owner / grantee / can_view / can_fork / can_chat / status(pending|active|revoked) / access_epoch</code>。</li>
+<li><strong>查看</strong>：共享链接受权者只读拉取该会话（云端同步副本上读，不占用 owner 设备）。</li>
+<li><strong>fork</strong>：接收方把会话快照（正文+工具名+附件引用）抄写进自己的本地 sessions.db 成为独立会话——<strong>这是天枢本地优先模型下最自然的协作</strong>。</li>
+<li><strong>对话（进阶，可后置）</strong>：can_chat 授权者经共享端点发言，驱动执行在 owner 电脑（复用云中继隧道，设备必须在线），费用/审批归 owner——完全对齐 TabTin shared-chat 语义。</li>
+<li><strong>审计</strong>：SessionShareEvent 等价表（created/viewed/forked/chatted/revoked），「谁何时看过/fork」可追溯。</li>
+<li><strong>实时</strong>：先做「共享会话的实时事件转发」（owner 电脑 → 云 → 授权者 SSE），不要求双向 CRDT。</li>
+</ul>
+</div>
+</div>
+
+<div class="milestone">
+<div class="mh"><span class="phase">M3</span>共享模式（分享链接 + 组织内共享）</div>
+<div class="mdesc">
+<ul class="tight">
+<li><strong>链接分享</strong>：会话/知识库/文件生成 share_id 外链，可选密码（Django hasher 思路）、可选有效期；访客可只读查看（可再给 fork 权）。对齐 DocumentShare 的 <code>shared/{share_id}/content</code> + verify_password。</li>
+<li><strong>组织内共享</strong>：登录用户可建「组织/工作空间」，成员之间一键共享（对齐 Organization + SpaceMembership）。</li>
+<li><strong>权限模型</strong>：引入统一 <code>ResourcePermission</code>（viewer/editor/admin/owner）作为会话、文件、知识库的 ACL 执行面，共享只写授权记录——学习 TabTin「ACL 与共享来源分离、撤销只回收该来源权限」的设计（SessionShareResourceGrant），避免误伤。</li>
+</ul>
+</div>
+</div>
+
+<div class="milestone">
+<div class="mh"><span class="phase">M4</span>云存储 / 文件同步</div>
+<div class="mdesc">
+<ul class="tight">
+<li><strong>文件云盘</strong>：复用 OSS presign→PUT→confirm 三步直传 + <strong>秒传</strong>（hash）方案；天枢文件/知识库/媒体（devdata/media、知识库）按需同步为云端副本。</li>
+<li><strong>多端文件同步</strong>：文件元数据（FileRecord 等价表）+ 内容哈希变更检测；按「同步策略」（全部/仅收藏/按会话）增量拉取。</li>
+<li><strong>版本历史</strong>：给会话/文件加轻量 VersionHistory（快照 + 增量 diff，agent 编辑标 editor_type=agent，跨模块可追溯）——直接借鉴 TabTin 的通用版本表。</li>
+<li><strong>配额</strong>：早期按账号给存储额度即可，不急着做钱包/计费。</li>
+</ul>
+</div>
+</div>
+
+<div class="milestone">
+<div class="mh"><span class="phase">M5</span>实时与断连健壮性</div>
+<div class="mdesc">
+<ul class="tight">
+<li>断连矩阵（电脑断网/休眠、手机弱网/切后台、服务器重启）自动恢复 + 状态一致（对齐 mobile-cloud M4）。</li>
+<li>共享会话实时事件重放（last-event-id）；同步副本的增量补齐（对齐 collab 离线回放但简化）。</li>
+<li>错误码规范化（device_offline / not_owner / token_expired / permission_denied）客户端分场景提示。</li>
+</ul>
+</div>
+</div>
+
+<div class="milestone">
+<div class="mh"><span class="phase">M6</span>安全与治理（上线前必做）</div>
+<div class="mdesc">
+<ul class="tight">
+<li>共享授权不绕过已有权限；403/404 防探测口径（对齐 isSharedAccessDenied）。</li>
+<li>撤销共享 → 实时订阅立即失效（access_epoch 机制）。</li>
+<li>token 不落明文、日志不打印 token/密码、CORS 白名单、body 大小/并发/超时上限。</li>
+<li>审计流水完整可查（对齐 SessionShareEvent）。</li>
+</ul>
+</div>
+</div>
+
+</div>
+
+<h3 id="roadmap-table">5.3 能力矩阵：免费不登录 vs 登录解锁</h3>
+<table>
+<tr><th>能力</th><th>不登录（本地模式）</th><th>登录解锁</th><th>备注</th></tr>
+<tr><td>本地会话 / 角色 / 技能 / 模型 BYOK</td><td class="b-good">✅ 完整</td><td class="b-good">✅ 完整</td><td>R1/R3：无任何墙</td></tr>
+<tr><td>多端会话同步</td><td class="b-bad">—</td><td class="b-good">✅</td><td>M1</td></tr>
+<tr><td>会话协作（查看/fork/对话）</td><td class="b-bad">—</td><td class="b-good">✅</td><td>M2</td></tr>
+<tr><td>共享链接 / 组织内共享</td><td class="b-warn">仅只读公开链接（可选）</td><td class="b-good">✅ 全功能</td><td>M3</td></tr>
+<tr><td>云存储 / 文件同步</td><td class="b-bad">—</td><td class="b-good">✅</td><td>M4</td></tr>
+<tr><td>版本历史 / 审计</td><td class="b-warn">本地 checkpoints</td><td class="b-good">✅ 云端追溯</td><td>M4/M6</td></tr>
+<tr><td>远程管理手机 App</td><td class="b-bad">—</td><td class="b-good">✅</td><td>已有 mobile-cloud 规划</td></tr>
+</table>
+
+<!-- ================= 6 ================= -->
+<h2 id="risk"><span class="num">6</span>风险与关键决策</h2>
+<div class="card">
+<h4>主要风险</h4>
+<table>
+<tr><th>风险</th><th>说明</th><th>应对</th></tr>
+<tr><td>会话同步的合并语义</td><td>多端同时编辑会话（尤其对话进行中）</td><td>先 LWW + 按消息 append 合并；冲突在 UI 提示；不上 CRDT</td></tr>
+<tr><td>「对话驱动」依赖 owner 设备在线</td><td>TabTin 同款约束（执行在 owner 设备）</td><td>can_chat 作为进阶档后置；先做查看 + fork</td></tr>
+<tr><td>云上副本的安全</td><td>会话含敏感上下文/工具输出</td><td>默认不云存或端到端加密可选；共享按会话粒度显式授权 + 审计</td></tr>
+<tr><td>本地 server 端口暴露</td><td>一旦误暴露 3456 风险</td><td>保持只绑 loopback；一切出网走云中继隧道（已验证方案）</td></tr>
+<tr><td>范围蔓延</td><td>协作/共享/存储/计费一起上会失控</td><td>严格按 M0→M6 里程碑，每步有验收；初期不做计费/IM/CRDT</td></tr>
+<tr><td>与已有 mobile-cloud 计划重叠/冲突</td><td>两套云端方向需要统一</td><td>把「远程操作」和「同步/协作/共享」统一为同一账号中心 + 同一数据平面，避免两套账号/存储</td></tr>
+</table>
+</div>
+
+<div class="note red">
+<strong>关键决策点（建议先拍板再动手）：</strong>
+<ol>
+<li><strong>同步真源</strong>：会话真源留在本地、云做副本（推荐，符合天枢本地优先）——这决定云服务器不存业务原始数据，与既有 mobile-cloud「云只做中继」哲学一致。</li>
+<li><strong>协作档位</strong>：先做「查看 + fork」两档（低成本、离线友好），「发言驱动」第三档放后（需要设备在线语义）。</li>
+<li><strong>共享形态</strong>：先做「会话分享链接」，组织/工作空间后置（组织是另一套成员体系）。</li>
+<li><strong>云存储范围</strong>：先做「会话 + 文件 + 知识库」三类同步，媒体库（截图/录音/视频）量大，后置。</li>
+<li><strong>是否端到端加密</strong>：云副本若含敏感 Agent 上下文，建议会话级加密（本地密钥），成本可控且隐私叙事更好。</li>
+</ol>
+</div>
+
+<!-- ================= 7 ================= -->
+<h2 id="ref"><span class="num">7</span>参考依据</h2>
+<div class="card">
+<p><strong>TabTin（C:\Users\dmql\Documents\TabTin）</strong> —— 均已源码核实：</p>
+<ul class="tight">
+<li>README.md / ROADMAP.md / docs/architecture/product-concepts.md（产品理念与概念模型）</li>
+<li>compose.yaml / apps/tabtin_django/requirements.txt（部署与技术栈）</li>
+<li>apps/tabtin_django/apps/users/auth|membership|wallet（账号/会员/钱包）、services/billing（计费）</li>
+<li>apps/tabtin_django/apps/tabtinspace（Organization/Device/Space/ContextItem/权限服务）、routers/share.py</li>
+<li>apps/tabtin_django/apps/chat/conversation/models.py（SessionShare 全模型 + ResourceGrant + SyncJob + Event）、services/session_share_service.py / session_materializer.py</li>
+<li>apps/tabtin_django/apps/tabdoc/api_share.py + models.py（DocumentShare 外链/密码/组织/评论）、tabdata 共享端点</li>
+<li>apps/tabtin_django/apps/collab（VersionHistory 版本链 + apply_ops + 权限）、packages/collab-core（Y.js 离线/降级）、apps/collab-live（Hocuspocus 服务）</li>
+<li>contracts/asyncapi/ws-gateway.yaml、contracts/openapi/tabtin-api.yaml（API 面）</li>
+<li>packages/oss-client（presign/秒传）、packages/storage-manager（Bucket）、tabtinspace/services/tabfiles_service.py（云盘文件）</li>
+<li>apps/tabtin_django/tabtin/edition.py（saas/community）、maintenance/community_bootstrap.py</li>
+<li>docs/agent/*.md（session-share 验收 harness，权限/投递/恢复细节）</li>
+</ul>
+<p><strong>天枢（C:\Users\dmql\Documents\tianshu\dev）</strong> —— 均已源码核实：</p>
+<ul class="tight">
+<li>web/server/src/routes/*（20 路由）、db/schema.ts + migrations（sessions/messages/events/...）、transport/event-sinks.ts、ws/handlers.ts</li>
+<li>web/client/src/api/eventBus.ts（ALL_KNOWN_EVENTS）、stores、pages</li>
+<li>desktop/src/main.ts + server-manager.ts、shared/desktop-contract.ts</li>
+<li>devdata/（sessions.db、characters、providers、skills 等单机数据根）</li>
+<li>docs/mobile-cloud-architecture-plan.md + mobile-cloud-implementation-plan.md（统一账号中心 + 云中继 M0–M6）</li>
+<li>docs/community-dev-plan.md（天枢市场社区）</li>
+</ul>
+</div>
+
+<footer>
+TabTin 深度研究 × 天枢演进建议报告 · 生成于 2026-09-04 · 基于双方真实源码逐行核实，未做任何虚构数据。<br>
+报告观点为技术建议，实际落地请以评审与试验结果为准。
+</footer>
+
+</div>
+</body>
+</html>

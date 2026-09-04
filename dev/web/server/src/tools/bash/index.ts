@@ -6,7 +6,7 @@ import { assertPathSafe } from '../utils.js'
 import { z } from 'zod'
 import { validate } from '../validate.js'
 import { getOutputDir } from '../truncate.js'
-import { getDataDir } from '../../config.js'
+import { envInt, getDataDir } from '../../config.js'
 import { maybeRtkWrap } from '../rtk.js'
 import * as iconv from 'iconv-lite'
 
@@ -57,8 +57,13 @@ function scanCommandPaths(cmd: string, workspaces: string[], allowedRoots?: stri
 }
 const MAX_OUTPUT = 1024 * 1024
 const TAIL_SIZE = 50 * 1024
-const TIMEOUT_MS = 60000
+// 单条命令硬超时（可用 TIANSHU_BASH_TIMEOUT_MS 覆盖）。
+const TIMEOUT_MS = envInt('TIANSHU_BASH_TIMEOUT_MS', 60000)
 const FORCE_KILL_MS = 3000
+// child 已退出（'exit'）但仍有孙进程持有 stdout/stderr 管道时，'close' 事件
+// 可能永不触发（bash 卡住根因）。exit 后进入静默宽限：只要还有输出在流动就
+// 继续等，静默 EXIT_GRACE_MS 即结算，保证工具 promise 一定 resolve。
+const EXIT_GRACE_MS = 500
 
 const TEMP_DIR = getOutputDir()
 
@@ -210,10 +215,15 @@ export const tool: ToolModule = {
           let writtenOnce = false
 
           const timeoutId = setTimeout(() => {
-            const msg = '\n[Timeout: command exceeded 60000ms]'
+            clearTimeout(timeoutId)
+            const msg = `\n[Timeout: command exceeded ${TIMEOUT_MS / 1000}s]`
             stderr += msg
             onOutput?.(msg)
             twoStageKill(child)
+            // 与 abort 同构：即使进程树未死（比如子进程无视 kill），也强制结算，
+            // 保证工具 promise 一定 resolve，agent 循环不被永久卡住。
+            exitSettled = true
+            resolvePromise({ output: (fullStdout || stdout) + (stderr ? `\n${stderr}` : ''), error: stderr.trim() || 'Timeout' })
           }, TIMEOUT_MS)
 
           const abortHandler = () => {
@@ -224,8 +234,13 @@ export const tool: ToolModule = {
             twoStageKill(child)
             // Force resolve even if child process doesn't die
             setTimeout(() => {
+              if (exitSettled) return
+              exitSettled = true
               killProcessTree(child, true)
               const combined = (fullStdout || stdout) + (stderr ? `\n${stderr}` : '')
+              // 与 close 路径保持同一返回结构：abort 后 child 的 exit/close 事件
+              // 仍会触发，close/settleOnExit 会按退出码再次结算（幂等），这里
+              // 只需保证「abort 后最迟 FORCE_KILL_MS+1000ms 必然返回 Aborted」。
               resolvePromise({ output: combined.trim(), error: stderr.trim() || 'Aborted' })
             }, FORCE_KILL_MS + 1000)
           }
@@ -287,18 +302,83 @@ export const tool: ToolModule = {
             onOutput?.(chunk)
           }
 
-          child.stdout!.on('data', (data: Buffer) => appendOutput(data, true))
-          child.stderr!.on('data', (data: Buffer) => appendOutput(data, false))
-
+          // spawn 失败路径：直接以错误结算。
           child.on('error', (err: Error) => {
+            exitSettled = true
             clearTimeout(timeoutId)
             signal?.removeEventListener('abort', abortHandler)
             resolvePromise({ output: stdout, error: err.message })
           })
 
+          // ── close-settle fix（bash 卡住根因）──
+          // Node 只在最后一个持有 stdio 管道 / IPC 通道的句柄关闭后才触发
+          // 'close'。bash -lc 启动的服务进程若带着 stdout/stderr 句柄继续
+          // 存活（如 npm run dev、ssh、tail -f 等长驻命令），shell 本身已
+          // 'exit'，但 'close' 永远不来 → close 回调永不执行，工具 promise
+          // 永不 resolve，整条 agent 循环（含子 agent 回写父会话、“工作中”
+          // 按钮状态）被永久卡死。
+          //
+          // 修复：以 'exit' 为准结算。exit 后进入静默宽限 EXIT_GRACE_MS，
+          // 期间输出仍在流动就继续等；静默即结算。即使孙进程仍持有管道，
+          // 也主动 kill 进程树并返回已捕获的输出与退出码。
+          let exited = false
+          let exitCode: number | null = null
+          let exitSignal: NodeJS.Signals | null = null
+          let exitTimer: ReturnType<typeof setTimeout> | null = null
+          let exitSettled = false
+          const settleOnExit = () => {
+            if (exitSettled) return
+            exitSettled = true
+            clearTimeout(timeoutId)
+            if (exitTimer) clearTimeout(exitTimer)
+            signal?.removeEventListener('abort', abortHandler)
+            twoStageKill(child)
+            // 主动清理孙进程持有的管道句柄，让底层 fd 尽快释放。
+            try { child.stdout?.destroy(); child.stderr?.destroy() } catch { /* already closed */ }
+            const combined = stdout + (stderr ? `\n[stderr]\n${stderr}` : '')
+            if (exitCode === 0 || (exitCode === null && stdout)) {
+              resolvePromise({ output: combined.trim() })
+            } else {
+              resolvePromise({ output: `[exit code: ${exitCode}]${exitSignal ? ` (signal: ${exitSignal})` : ''}\n${combined}`.trim() })
+            }
+          }
+          const armExitTimer = () => {
+            if (exitTimer) clearTimeout(exitTimer)
+            exitTimer = setTimeout(settleOnExit, EXIT_GRACE_MS)
+          }
+          child.on('exit', (code, sig) => {
+            exited = true
+            exitCode = code
+            exitSignal = sig
+            // 进入静默宽限：若后续仍有输出则重置计时，静默后结算。
+            armExitTimer()
+          })
+          // exit 后输出仍在流动 → 重置静默计时（data 回调与 postExitReset
+          // 交错执行，保证不会在仍有输出时误结算）。
+          const postExitReset = () => {
+            if (exited) armExitTimer()
+          }
+
+          // 数据监听：exit 之后孙进程可能仍向管道写输出（追加到 stdout/stderr）。
+          child.stdout!.on('data', (data: Buffer) => { postExitReset(); appendOutput(data, true) })
+          child.stderr!.on('data', (data: Buffer) => { postExitReset(); appendOutput(data, false) })
+
+          // 备用结算路径：'close' 正常到来（无句柄泄漏），或 timeout/abort 已
+          // 结算，或子进程从未成功 spawn（'error' 已结算）时置空退出计时器。
           child.on('close', (code) => {
+            if (exitSettled) return
+            exitSettled = true
+            // 双保险：即使 'exit' 早于 'close' 到达且静默计时已结算，close 的
+            // settle 也不能重复 resolve（Promise 幂等）。
             clearTimeout(timeoutId)
             signal?.removeEventListener('abort', abortHandler)
+            if (exitTimer) clearTimeout(exitTimer)
+            // abort 后由 abortHandler 的强制 resolve 负责返回 Aborted；
+            // 这里对 abort 场景按退出码结算会让 abort 测试拿不到 error。
+            if (signal?.aborted) {
+              resolvePromise({ output: (fullStdout || stdout) + (stderr ? `\n${stderr}` : ''), error: stderr.trim() || 'Aborted' })
+              return
+            }
             // Non-zero exit is the COMMAND's outcome, not a tool failure:
             // probes like ls/grep/test legitimately exit non-zero. Surface the
             // exit code as a marker in the output and let the model decide;

@@ -35,6 +35,9 @@ const MAX_OUTPUT = 1024 * 1024
 const TAIL_SIZE = 50 * 1024
 const DEFAULT_TIMEOUT_MS = 60000
 const FORCE_KILL_MS = 3000
+// 与 bash 工具同构的 close-settle 静默宽限：child 已 'exit' 但孙进程仍持有
+// stdout/stderr 管道时，'close' 可能永不触发；exit 后静默 EXIT_GRACE_MS 即结算。
+const EXIT_GRACE_MS = 500
 
 const TEMP_DIR = getOutputDir()
 
@@ -160,12 +163,18 @@ export const tool: ToolModule = {
           let fullStderr = ''
           let truncated = false
           let writtenOnce = false
+          // 结算互斥：防止 exit/close/timeout/abort 多路径重复 resolve。
+          let exitSettled = false
 
           const timeoutId = setTimeout(() => {
+            clearTimeout(timeoutId)
             const msg = `\n[Timeout: command exceeded ${timeoutMs / 1000}s]`
             stderr += msg
             onOutput?.(msg)
             twoStageKill(child)
+            // 与 abort 同构：即使进程树未死也强制结算，保证 promise 一定 resolve。
+            exitSettled = true
+            resolvePromise({ output: (fullStdout || stdout) + (stderr ? `\n${stderr}` : ''), error: stderr.trim() || 'Timeout' })
           }, timeoutMs)
 
           const abortHandler = () => {
@@ -175,6 +184,8 @@ export const tool: ToolModule = {
             onOutput?.(msg)
             twoStageKill(child)
             setTimeout(() => {
+              if (exitSettled) return
+              exitSettled = true
               killProcessTree(child, true)
               const combined = (fullStdout || stdout) + (stderr ? `\n${stderr}` : '')
               resolvePromise({ output: combined.trim(), error: stderr.trim() || 'Aborted' })
@@ -226,18 +237,76 @@ export const tool: ToolModule = {
             onOutput?.(chunk)
           }
 
-          child.stdout!.on('data', (data: Buffer) => appendOutput(data, true))
-          child.stderr!.on('data', (data: Buffer) => appendOutput(data, false))
+          child.stdout!.on('data', (data: Buffer) => { postExitReset(); appendOutput(data, true) })
+          child.stderr!.on('data', (data: Buffer) => { postExitReset(); appendOutput(data, false) })
 
+          // spawn 失败路径：直接以错误结算。
           child.on('error', (err: Error) => {
+            exitSettled = true
             clearTimeout(timeoutId)
             signal?.removeEventListener('abort', abortHandler)
             resolvePromise({ output: stdout, error: err.message })
           })
 
+          // ── close-settle fix（与 bash 工具同构，见 tools/bash/index.ts）──
+          // PowerShell/其子进程若持有 stdout/stderr 管道继续存活，shell 已
+          // 'exit' 但 'close' 永不触发 → 工具 promise 永不 resolve。以 'exit'
+          // 为准结算：exit 后进入静默宽限 EXIT_GRACE_MS，静默即结算并 kill 进程树。
+          let exited = false
+          let exitCode: number | null = null
+          let exitSignal: NodeJS.Signals | null = null
+          let exitTimer: ReturnType<typeof setTimeout> | null = null
+          const settleOnExit = () => {
+            if (exitSettled) return
+            exitSettled = true
+            clearTimeout(timeoutId)
+            if (exitTimer) clearTimeout(exitTimer)
+            signal?.removeEventListener('abort', abortHandler)
+            twoStageKill(child)
+            try { child.stdout?.destroy(); child.stderr?.destroy() } catch { /* already closed */ }
+            if (signal?.aborted) {
+              resolvePromise({ output: (fullStdout || stdout) + (stderr ? `\n${stderr}` : ''), error: stderr.trim() || 'Aborted' })
+              return
+            }
+            const combined = stdout + (stderr ? `\n[stderr]\n${stderr}` : '')
+            if (exitCode === 0 || (exitCode === null && stdout)) {
+              resolvePromise({ output: combined.trim() })
+            } else {
+              resolvePromise({ output: `[exit code: ${exitCode}]${exitSignal ? ` (signal: ${exitSignal})` : ''}\n${combined}`.trim() })
+            }
+          }
+          const armExitTimer = () => {
+            if (exitTimer) clearTimeout(exitTimer)
+            exitTimer = setTimeout(settleOnExit, EXIT_GRACE_MS)
+          }
+          child.on('exit', (code, sig) => {
+            exited = true
+            exitCode = code
+            exitSignal = sig
+            armExitTimer()
+          })
+          // exit 后输出仍在流动 → 重置静默计时（data 回调与 postExitReset
+          // 交错执行，保证不会在仍有输出时误结算）。
+          const postExitReset = () => {
+            if (exited) armExitTimer()
+          }
+
+          // 备用结算路径：'close' 正常到来（无句柄泄漏），或 timeout/abort 已
+          // 结算，或子进程从未成功 spawn（'error' 已结算）时置空退出计时器。
           child.on('close', (code) => {
+            if (exitSettled) return
+            exitSettled = true
+            // 双保险：即使 'exit' 早于 'close' 到达且静默计时已结算，close 的
+            // settle 也不能重复 resolve（Promise 幂等）。
             clearTimeout(timeoutId)
             signal?.removeEventListener('abort', abortHandler)
+            if (exitTimer) clearTimeout(exitTimer)
+            // abort 后由 abortHandler 的强制 resolve 负责返回 Aborted；
+            // 这里对 abort 场景按退出码结算会让 abort 测试拿不到 error。
+            if (signal?.aborted) {
+              resolvePromise({ output: (fullStdout || stdout) + (stderr ? `\n${stderr}` : ''), error: stderr.trim() || 'Aborted' })
+              return
+            }
             // Non-zero exit is the COMMAND's outcome, not a tool failure:
             // probes legitimately exit non-zero. Surface the exit code as a
             // marker in the output and let the model decide; only spawn-level

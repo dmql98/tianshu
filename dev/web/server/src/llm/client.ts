@@ -563,7 +563,10 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
 
         if (ev.type === 'response.output_text.delta') {
           yield { type: 'delta', text: ev.delta || '' }
-        } else if (ev.type === 'response.reasoning_text.delta') {
+        } else if (ev.type === 'response.reasoning_text.delta' || ev.type === 'response.reasoning_summary_text.delta') {
+          // OpenAI Responses 兼容网关（火山 ark coding、AMD Radeon 等）的思考
+          // 流事件名是 response.reasoning_summary_text.delta（标准摘要流），
+          // 而不是 reasoning_text.delta——只认后者会把这些网关的思考全部丢弃。
           yield { type: 'delta', reasoning: ev.delta || '' }
         } else if (ev.type === 'response.output_item.added' && ev.item?.type === 'function_call') {
           // Key on item.id (fc_...): function_call_arguments.delta/done reference

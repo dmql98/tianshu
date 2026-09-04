@@ -47,6 +47,39 @@ function fmtDateTime(ts: number): string {
   return `${d.getMonth() + 1}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+/** 真实分币种账单：$13.57 + ¥394.08（某桶为 0 时省略，两桶皆 0 返回空串）。 */
+function billText(usd: number, cny: number): string {
+  const parts: string[] = []
+  if (usd > 0) parts.push(fmtCents(usd, 'USD'))
+  if (cny > 0) parts.push(fmtCents(cny, 'CNY'))
+  return parts.join(' + ')
+}
+
+/** 分币种账单 → 目标币种合并金额（分），跟随显示币种换算（与后端 moneyInCurrency 同公式）。 */
+function mergedCents(usd: number, cny: number, currency: Currency, rate: number): number {
+  return currency === 'CNY'
+    ? Math.round(usd * rate) + cny
+    : usd + Math.round(cny / rate)
+}
+
+/**
+ * KPI 小字：真实分币种账单 + 合并价（跟随显示币种）。
+ * 双币种 → "$13.57 + ¥394.08 ≈ $68.30"；单币种且与显示币种不一致时只显示真实账单；
+ * 单币种且与显示币种一致（或全 0）→ 不显示（主值已表达）。
+ */
+function moneySub(usd: number, cny: number, currency: Currency, rate: number): string | null {
+  if (!(usd > 0 || cny > 0)) return null
+  const bill = billText(usd, cny)
+  if (usd > 0 && cny > 0) return `${bill} ≈ ${fmtCents(mergedCents(usd, cny, currency, rate), currency)}`
+  const real: Currency = usd > 0 ? 'USD' : 'CNY'
+  return real === currency ? null : bill
+}
+
+function KpiSub({ usd, cny, currency, rate }: { usd: number; cny: number; currency: Currency; rate: number }) {
+  const sub = moneySub(usd, cny, currency, rate)
+  return sub ? <span className="stats-kpi-sub">{sub}</span> : null
+}
+
 type RangeKey = '7' | '30' | 'all' | 'custom'
 
 export default function StatisticsPage() {
@@ -221,14 +254,15 @@ export default function StatisticsPage() {
             <div className="stats-kpi">
               <div className="stats-kpi-label">{t('总费用')}</div>
               <div className="stats-kpi-value gold">{fmtCents(overview.total_cost, overview.currency)}
-                {(overview.total_cost_usd > 0 && overview.total_cost_cny > 0) &&
-                  <span className="stats-kpi-sub">{fmtCents(overview.total_cost_usd, 'USD')} + {fmtCents(overview.total_cost_cny, 'CNY')}</span>}
+                <KpiSub usd={overview.total_cost_usd} cny={overview.total_cost_cny} currency={currency} rate={rate} />
               </div>
               <div className="stats-kpi-foot">{nf(overview.paid_calls)} {t('付费')} · {nf(overview.free_calls)} {t('免费')}</div>
             </div>
             <div className="stats-kpi">
               <div className="stats-kpi-label">{t('节省金额')}</div>
-              <div className="stats-kpi-value green">{fmtCents(overview.total_savings, overview.currency)}</div>
+              <div className="stats-kpi-value green">{fmtCents(overview.total_savings, overview.currency)}
+                <KpiSub usd={overview.total_savings_usd} cny={overview.total_savings_cny} currency={currency} rate={rate} />
+              </div>
               <div className="stats-kpi-foot">{t('免费模型按参考价折算')}</div>
             </div>
             <div className="stats-kpi">
@@ -290,8 +324,8 @@ export default function StatisticsPage() {
                 <div className="stats-stack-seg" style={{ width: `${100 - freePaid.pct}%`, background: 'var(--jade)' }}>{t('免费')} {nf(freePaid.free)}</div>
               </div>
               <div className="stats-donut-legend">
-                <div><i style={{ background: 'var(--gold)' }} />{t('付费调用')} {nf(freePaid.paid)}{overview && overview.total_cost_usd > 0 ? <em> · {t('实际计费')} <b>{fmtCents(overview.total_cost_usd, 'USD')}{overview.total_cost_cny > 0 ? ` + ${fmtCents(overview.total_cost_cny, 'CNY')}` : ''}</b></em> : ''}</div>
-                <div><i style={{ background: 'var(--jade)' }} />{t('免费调用')} {nf(freePaid.free)}{overview ? <em> · {t('等效节省')} <b>{fmtCents(overview.total_savings ?? 0, overview.currency)}</b></em> : null}</div>
+                <div><i style={{ background: 'var(--gold)' }} />{t('付费调用')} {nf(freePaid.paid)}{overview && (overview.total_cost_usd > 0 || overview.total_cost_cny > 0) ? <em> · {t('实际计费')} <b>{billText(overview.total_cost_usd, overview.total_cost_cny)}{overview.total_cost_usd > 0 && overview.total_cost_cny > 0 ? ` ≈ ${fmtCents(mergedCents(overview.total_cost_usd, overview.total_cost_cny, currency, rate), currency)}` : ''}</b></em> : ''}</div>
+                <div><i style={{ background: 'var(--jade)' }} />{t('免费调用')} {nf(freePaid.free)}{overview ? <em> · {t('等效节省')} <b>{fmtCents(overview.total_savings ?? 0, overview.currency)}{overview.total_savings_usd > 0 && overview.total_savings_cny > 0 ? ` ≈ ${fmtCents(mergedCents(overview.total_savings_usd, overview.total_savings_cny, currency, rate), currency)}` : ''}</b></em> : null}</div>
               </div>
             </div>
           </section>
@@ -316,8 +350,7 @@ export default function StatisticsPage() {
             <StatTable
               rows={rows} view={view} currency={currency} rate={rate}
               onFilter={(p, m, c) => { setProvider(p || ''); setModel(m || ''); setCharacter(c || ''); setView('model'); setPage(1) }}
-            />
-          )}
+            />          )}
 
           {view === 'detail' && detail.total > PAGE_SIZE && (
             <div className="stats-pager">
@@ -356,9 +389,9 @@ function DayChart({ rows, metric, currency, rate }: { rows: StatRow[]; metric: '
       {rows.map((r, i) => {
         const v = vals[i]
         const h = v > 0 ? Math.max(4, (v / max) * 100) : 0
-        const costRow = fmtCents(r.total_cost_usd ?? 0, 'USD') + (r.total_cost_cny ? ` + ${fmtCents(r.total_cost_cny ?? 0, 'CNY')}` : '')
+        const costRow = billText(r.total_cost_usd ?? 0, r.total_cost_cny ?? 0)
         const tooltip = metric === 'cost'
-          ? `${r.date} · ${costRow} ≈ ${fmtCents(v, currency)} · ${nf(r.call_count)} ${t('次')}`
+          ? `${r.date} · ${costRow}${costRow && r.total_cost_usd && r.total_cost_cny ? ` ≈ ${fmtCents(mergedCents(r.total_cost_usd, r.total_cost_cny, currency, rate), currency)}` : ''} · ${nf(r.call_count)} ${t('次')}`
           : `${r.date} · ${metric === 'tokens' ? tkn(v) : nf(v)} · ${nf(r.call_count)} ${t('次')}`
         return (
           <div key={r.date} className="stats-bar-col" title={tooltip}>
@@ -456,18 +489,15 @@ function StatTable({ rows, view, currency, rate, onFilter }: {
             const cny = r.total_cost_cny ?? 0
             const hasCost = usd > 0 || cny > 0
             const costText = hasCost
-              ? (usd > 0 && cny > 0
-                ? `${fmtCents(usd, 'USD')} + ${fmtCents(cny, 'CNY')}`
-                : fmtCents(usd > 0 ? usd : cny, usd > 0 ? 'USD' : 'CNY'))
+              ? `${billText(usd, cny)} ${usd > 0 && cny > 0 ? `≈ ${fmtCents(mergedCents(usd, cny, currency, rate), currency)}` : ''}`
               : fmtCents(0, currency)
             const saveUsd = r.total_savings_usd ?? 0
             const saveCny = r.total_savings_cny ?? 0
             const hasSave = saveUsd > 0 || saveCny > 0
             const saveText = hasSave
-              ? (saveUsd > 0 && saveCny > 0 ? `${fmtCents(saveUsd, 'USD')} + ${fmtCents(saveCny, 'CNY')}` : fmtCents(saveUsd > 0 ? saveUsd : saveCny, saveUsd > 0 ? 'USD' : 'CNY'))
+              ? `${billText(saveUsd, saveCny)} ${saveUsd > 0 && saveCny > 0 ? `≈ ${fmtCents(mergedCents(saveUsd, saveCny, currency, rate), currency)}` : ''}`
               : ''
             const rowCur: Currency = cny > 0 ? 'CNY' : usd > 0 ? 'USD' : currency
-            void rate
             const key = `${r.model || ''}@${r.provider_id || ''}`
             const clickable = isModel || view === 'provider' || view === 'character'
             return (
