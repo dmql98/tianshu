@@ -183,6 +183,7 @@ blockquote{
       <div class="nav-item" data-sec="sec2" onclick="goSection(this,'sec2')"><span class="num" style="background:var(--p1)">2</span> P1 纯MD+检索Tool</div>
       <div class="nav-item" data-sec="sec3" onclick="goSection(this,'sec3')"><span class="num" style="background:var(--p2)">3</span> P2 转换插件管理</div>
       <div class="nav-item" data-sec="sec4" onclick="goSection(this,'sec4')"><span class="num" style="background:var(--p3)">4</span> P3 向量知识库</div>
+      <div class="nav-item" data-sec="secFE" onclick="goSection(this,'secFE')"><span class="num" style="background:var(--info)">FE</span> 前端规划</div>
       <div class="nav-sep"></div>
       <div class="nav-item" data-sec="sec5" onclick="goSection(this,'sec5')"><span class="num" style="background:var(--textMuted)">5</span> 进度估算</div>
       <div class="nav-item" data-sec="sec6" onclick="goSection(this,'sec6')"><span class="num" style="background:var(--textMuted)">6</span> 文件变更汇总</div>
@@ -204,6 +205,7 @@ blockquote{
           <a onclick="goSectionHash('sec2')">P1 纯MD</a>
           <a onclick="goSectionHash('sec3')">P2 转换插件</a>
           <a onclick="goSectionHash('sec4')">P3 向量库</a>
+          <a onclick="goSectionHash('secFE')">前端规划</a>
           <a onclick="goSectionHash('sec5')">进度</a>
           <a onclick="goSectionHash('sec6')">文件变更</a>
           <a onclick="goSectionHash('sec7')">设计决策</a>
@@ -582,6 +584,187 @@ hybrid              → BM25 + 向量 → RRF 融合排序</pre>
   useLocalVector: boolean; useReranker: boolean
   vecWeight: number; bm25Weight: number
 }</pre>
+      </section>
+
+      <!-- ============ 前端规划 ============ -->
+      <section class="section" id="secFE" style="display:none">
+        <h1>前端规划 <span class="pill" style="background:var(--info)">FE</span></h1>
+
+        <h2>现有架构摘要</h2>
+        <table>
+          <tr><th>模块</th><th>技术</th><th>说明</th></tr>
+          <tr><td>状态管理</td><td>Zustand (chatStore)</td><td>会话列表、activeSessionId、乐观更新 + PUT 持久化</td></tr>
+          <tr><td>会话字段</td><td>Session.workspace / workspaces / targets</td><td>JSON 字符串存储，RightPanel 解析渲染</td></tr>
+          <tr><td>RightPanel</td><td>角色卡片 + 项目区 + 帮手 + Goal + 统计</td><td>帮手用 helper-grid/helper-pick 样式</td></tr>
+          <tr><td>角色详情</td><td>CharacterDetailPage Tab "工具"</td><td>绑定/解绑工具，isAutoManagedTool 过滤</td></tr>
+          <tr><td>路由</td><td>/knowledge → KnowledgePage</td><td>当前为空壳三栏骨架（59 行）</td></tr>
+        </table>
+
+        <h2>P1 前端：会话级知识库挂载</h2>
+
+        <h3>变更文件</h3>
+        <table>
+          <tr><th>文件</th><th>操作</th><th>说明</th></tr>
+          <tr><td><code>types/index.ts</code></td><td>修改</td><td>Session 增 <code>knowledge_bases?: string | null</code></td></tr>
+          <tr><td><code>stores/chatStore.ts</code></td><td>修改</td><td>新增 <code>updateSessionKnowledgeBases()</code> action</td></tr>
+          <tr><td><code>components/Chat/RightPanel.tsx</code></td><td>修改</td><td>新增"知识库"挂载区（~60 行）</td></tr>
+          <tr><td><code>i18n/dict.ts</code></td><td>修改</td><td>4 条翻译：挂载知识库/无挂载/无更多可添加/移除</td></tr>
+          <tr><td><code>db/sessionStore.ts</code>（后端）</td><td>修改</td><td>session 表增 knowledge_bases 列</td></tr>
+        </table>
+
+        <h3>chatStore 新增 Action</h3>
+<pre>// 与 updateSessionTargets 完全同构
+updateSessionKnowledgeBases: (sessionId, knowledgeBases) => {
+  set(state => ({
+    sessions: state.sessions.map(s =>
+      s.id === sessionId ? { ...s, knowledge_bases: knowledgeBases ? JSON.stringify(knowledgeBases) : null } : s
+    ),
+  }))
+  sessionsApi.updateSession(sessionId, {
+    knowledge_bases: knowledgeBases ? JSON.stringify(knowledgeBases) : null,
+  }).catch(() => {})
+}</pre>
+
+        <h3>RightPanel 知识库挂载区</h3>
+        <p>位置：在"帮手"区块之后、GoalPanel 之前。复用 helper-grid / helper-pick 样式。</p>
+<pre>&lt;div className="rp-section"&gt;
+  &lt;div className="rp-section-title"&gt;
+    {t('知识库')}
+    &lt;button onClick={() =&gt; setShowKBPicker(v =&gt; !v)}&gt;+&lt;/button&gt;
+  &lt;/div&gt;
+  {mountedKBs.length === 0 ? (
+    &lt;div className="rp-empty"&gt;{t('无挂载知识库')}&lt;/div&gt;
+  ) : (
+    &lt;div className="helper-grid"&gt;
+      {mountedKBs.map(kb =&gt; (
+        &lt;div className="helper-item"&gt;
+          📚 {kb.name} &lt;span onClick={移除}&gt;×&lt;/span&gt;
+        &lt;/div&gt;))}
+    &lt;/div&gt;
+  )}
+  {showKBPicker &amp;&amp; (
+    &lt;div className="helper-pick"&gt;
+      {availableKBs.map(kb =&gt; (
+        &lt;span className="tag" onClick={添加}&gt;{kb.name}&lt;/span&gt;))}
+    &lt;/div&gt;
+  )}
+&lt;/div&gt;</pre>
+
+        <h2>P2 前端：知识库管理页</h2>
+
+        <h3>页面布局</h3>
+        <div style="background:var(--codeBg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:12px;font-family:'JetBrains Mono',Consolas,monospace;line-height:1.5;margin:12px 0;overflow-x:auto;white-space:pre">┌─────────────────────────────────────────────────┐
+│ 知识库 · 搜索... [新建文件夹] [上传文档]          │
+├──────────┬──────────────┬────────────────────────┤
+│ 左栏 220px│ 中栏 1fr     │ 右栏 380px              │
+│ 知识库树  │ 文档列表     │ Markdown 预览           │
+│  · 新建   │  · 文件名    │  · 渲染内容             │
+│  · 重命名 │  · 类型badge │  · 分块预览(P3)         │
+│  · 删除   │  · 状态      │  · 来源映射(P2)         │
+│           │  · 拖拽上传  │                        │
+├───────────┴──────────────┴────────────────────────┤
+│ 底部：转换状态栏 + 错误日志                         │
+└─────────────────────────────────────────────────┘</div>
+
+        <h3>新增组件</h3>
+        <table>
+          <tr><th>文件</th><th>说明</th></tr>
+          <tr><td><code>pages/knowledge/KnowledgeLayout.tsx</code></td><td>三栏布局容器</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeTree.tsx</code></td><td>左栏知识库树</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeDocList.tsx</code></td><td>中栏文档列表 + 上传区</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgePreview.tsx</code></td><td>右栏 Markdown 预览</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeUploadZone.tsx</code></td><td>拖拽上传组件</td></tr>
+          <tr><td><code>pages/knowledge/useKnowledgeBases.ts</code></td><td>知识库 CRUD hook</td></tr>
+          <tr><td><code>pages/knowledge/useKnowledgeDocs.ts</code></td><td>文档列表 hook</td></tr>
+          <tr><td><code>api/knowledge.ts</code></td><td>知识库 REST API</td></tr>
+        </table>
+
+        <h3>API 层</h3>
+<pre>fetchKnowledgeBases()              → GET  /api/knowledge/bases
+createKnowledgeBase(data)          → POST /api/knowledge/bases
+deleteKnowledgeBase(id)            → DELETE /api/knowledge/bases/:id
+fetchKnowledgeFiles(kbId)          → GET  /api/knowledge/bases/:id/files
+uploadKnowledgeFile(kbId, file)    → POST /api/knowledge/bases/:id/files (FormData)
+fetchKnowledgeFileContent(kbId,path) → GET  /api/knowledge/bases/:id/files/:path/content</pre>
+
+        <h3>文档状态 Badge</h3>
+        <table>
+          <tr><th>状态</th><th>Badge</th><th>说明</th></tr>
+          <tr><td>indexed</td><td><span class="good">✓ 已索引</span></td><td>已转换/已索引</td></tr>
+          <tr><td>converting</td><td><span style="color:var(--info);font-weight:600">⟳ 转换中</span></td><td>P2：正在转换</td></tr>
+          <tr><td>error</td><td><span class="bad">✗ 失败</span></td><td>P2：hover 显示错误信息</td></tr>
+          <tr><td>pending</td><td><span style="color:var(--textMuted)">· 待处理</span></td><td>P2：等待转换</td></tr>
+        </table>
+
+        <h2>P3 前端：检索调试</h2>
+
+        <h3>检索调试面板</h3>
+        <div style="background:var(--codeBg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:12px;font-family:'JetBrains Mono',Consolas,monospace;line-height:1.5;margin:12px 0;overflow-x:auto;white-space:pre">┌───────────────────────────────────────────────┐
+│ 检索调试                                       │
+├───────────────────────────────────────────────┤
+│ 模式: [▾ keyword]  Top-K: [10]  阈值: [0.2]  │
+│ ☐ 本地向量  ☐ Reranker  权重: vec[0.7] bm25[0.3]│
+│                                               │
+│ 查询: [________________________] [🔍 检索]    │
+├───────────────────────────────────────────────┤
+│ 📄 产品手册.md · 行 42-48 · score: 12         │
+│ "退款政策：用户在购买后 7 天内..."              │
+│ [查看原文] [复制引用]                          │
+├───────────────────────────────────────────────┤
+│ 📄 FAQ.md · 行 15-20 · score: 8              │
+│ "如何申请退款？请在..."                        │
+│ [查看原文] [复制引用]                          │
+├───────────────────────────────────────────────┤
+│ 模式对比:                                      │
+│ ┌─────────┬────────┬────────┬────────┐        │
+│ │         │Recall@5│Recall@10│ MRR   │        │
+│ │keyword  │ 0.72   │ 0.85   │ 0.68  │        │
+│ │vector   │ 0.81   │ 0.93   │ 0.75  │        │
+│ │hybrid   │ 0.88   │ 0.96   │ 0.82  │        │
+│ └─────────┴────────┴────────┴────────┘        │
+└───────────────────────────────────────────────┘</div>
+
+        <h3>P3 新增组件</h3>
+        <table>
+          <tr><th>文件</th><th>说明</th></tr>
+          <tr><td><code>pages/knowledge/KnowledgeSearchDebug.tsx</code></td><td>检索调试面板</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeRetrievalSettings.tsx</code></td><td>检索配置表单</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeComparisonTable.tsx</code></td><td>模式对比表格</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeChunkInspector.tsx</code></td><td>分块详情查看器</td></tr>
+        </table>
+
+        <h2>三期前端变更总览</h2>
+        <table>
+          <tr><th>期</th><th>新增文件</th><th>修改文件</th><th>工作量</th></tr>
+          <tr>
+            <td><span class="pill p1">P1</span></td>
+            <td>0（无新文件）</td>
+            <td>types, chatStore, RightPanel, dict.ts, sessionStore(后端)</td>
+            <td>1 天</td>
+          </tr>
+          <tr>
+            <td><span class="pill p2">P2</span></td>
+            <td>8 个组件 + api/knowledge.ts</td>
+            <td>KnowledgePage.tsx 重写（~400 行）</td>
+            <td>3~4 天</td>
+          </tr>
+          <tr>
+            <td><span class="pill p3">P3</span></td>
+            <td>4 个调试组件</td>
+            <td>KnowledgePreview, KnowledgePage, api/knowledge.ts</td>
+            <td>2~3 天</td>
+          </tr>
+        </table>
+
+        <h2>视觉规范</h2>
+        <table>
+          <tr><th>区域</th><th>规范</th></tr>
+          <tr><td>RightPanel 挂载区</td><td>复用 helper-grid/helper-item/helper-pick，📚 替代角色头像</td></tr>
+          <tr><td>管理页三栏</td><td>左 220px / 中 1fr / 右 380px，左栏 surface1 背景</td></tr>
+          <tr><td>文档列表行</td><td>高 48px，hover 高亮，类型 badge 圆角 4px</td></tr>
+          <tr><td>上传区</td><td>虚线边框 2px dashed，拖入时 accent 色高亮</td></tr>
+          <tr><td>分数颜色</td><td>0-5 灰 / 5-10 黄 / &gt;10 绿</td></tr>
+        </table>
       </section>
 
       <!-- ============ 进度 ============ -->
