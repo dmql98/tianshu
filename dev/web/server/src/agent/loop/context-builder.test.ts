@@ -66,7 +66,7 @@ function row(toolInput: string): any {
 if (failed) { process.exit(1) } else { console.log('\n  ALL HISTORY SANITIZER TESTS PASSED') }
 
 // ── P0-4: 加载时按 trimmed_until_id 恢复剪枝后 content ──────────────────────
-const cap = { supportsVision: false, supportsFiles: false }
+const cap = { supportsVision: false, supportsFiles: false, supportsReasoningEffort: true }
 const format = resolveProviderFormat('http://localhost:9999/v1')
 const toolRow = (id: number, output: string): any => ({
   id, session_id: 's', role: 'tool',

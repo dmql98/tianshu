@@ -14,9 +14,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/i18n'
 import {
-  fetchOverview, fetchByModel, fetchByCharacter, fetchByProvider, fetchByDay,
+  fetchOverview, fetchByModel, fetchByCharacter, fetchByProvider, fetchByDay, fetchUsage,
   fetchDetail, fetchStatisticsFilters,
   type StatisticsOverview, type StatRow, type DetailRow, type StatisticsFilterOptions, type Currency,
+  type StatisticsUsage, type UsageItem,
 } from '@/api/statistics'
 import './statistics.css'
 
@@ -104,6 +105,9 @@ export default function StatisticsPage() {
   const [byProvider, setByProvider] = useState<StatRow[]>([])
   const [byDay, setByDay] = useState<StatRow[]>([])
   const [detail, setDetail] = useState<{ total: number; items: DetailRow[] }>({ total: 0, items: [] })
+  const [usage, setUsage] = useState<StatisticsUsage | null>(null)
+  const [usageByDay, setUsageByDay] = useState<StatisticsUsage | null>(null)
+  const [usageDayMode, setUsageDayMode] = useState(false)
   const [filters, setFilters] = useState<StatisticsFilterOptions>({ models: [], characters: [], providers: [] })
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
@@ -139,8 +143,8 @@ export default function StatisticsPage() {
     if (showSpinner) setLoading(true)
     setErr('')
     try {
-      const [o, m, c, p, d, fl] = await Promise.all([
-        fetchOverview(f), fetchByModel(f), fetchByCharacter(f), fetchByProvider(f), fetchByDay(f), fetchStatisticsFilters(),
+      const [o, m, c, p, d, fl, u, uDay] = await Promise.all([
+        fetchOverview(f), fetchByModel(f), fetchByCharacter(f), fetchByProvider(f), fetchByDay(f), fetchStatisticsFilters(), fetchUsage(f), fetchUsage({ ...f, by: 'day' } as any),
       ])
       if (ac.signal.aborted) return
       setOverview(o)
@@ -149,6 +153,8 @@ export default function StatisticsPage() {
       setByProvider(p.items ?? [])
       setByDay(d.items ?? [])
       setFilters(fl)
+      setUsage(u)
+      setUsageByDay(uDay)
     } catch (e: any) {
       if (ac.signal.aborted) return
       console.error('Failed to load statistics:', e)
@@ -273,7 +279,12 @@ export default function StatisticsPage() {
             <div className="stats-kpi">
               <div className="stats-kpi-label">{t('调用次数')}</div>
               <div className="stats-kpi-value">{nf(overview.total_calls)}</div>
-              <div className="stats-kpi-foot">{byDay.length} {t('个活跃日')}</div>
+              <div className="stats-kpi-foot">{nf(overview.session_count ?? 0)} {t('个会话')} · {byDay.length} {t('个活跃日')}</div>
+            </div>
+            <div className="stats-kpi">
+              <div className="stats-kpi-label">{t('工具调用次数')}</div>
+              <div className="stats-kpi-value">{nf(usage?.tool_total ?? 0)}</div>
+              <div className="stats-kpi-foot">{t('技能')} {nf(usage?.skill_total ?? 0)} · {usage?.tools.length ?? 0} {t('种工具')}</div>
             </div>
             <div className="stats-kpi">
               <div className="stats-kpi-label">{t('缓存命中')}</div>
@@ -330,6 +341,19 @@ export default function StatisticsPage() {
             </div>
           </section>
         </div>
+
+        {/* ── 工具 / 技能使用 ── */}
+        <section className="stats-card">
+          <div className="stats-card-head">
+            <div className="chip-group">
+              <button className={`chip ${!usageDayMode ? 'active' : ''}`}
+                onClick={() => setUsageDayMode(false)}>{t('按工具')}</button>
+              <button className={`chip ${usageDayMode ? 'active' : ''}`}
+                onClick={() => setUsageDayMode(true)}>{t('按天')}</button>
+            </div>
+          </div>
+          <UsageTable usage={usageDayMode ? usageByDay : usage} byDay={usageDayMode} />
+        </section>
 
         {/* ── 排行 / 明细 ── */}
         <section className="stats-card">
@@ -409,10 +433,103 @@ function DayChart({ rows, metric, currency, rate }: { rows: StatRow[]; metric: '
   )
 }
 
+/* ═══ 工具 / 技能使用表 ═══ */
+
+function UsageTable({ usage, byDay }: { usage: StatisticsUsage | null; byDay: boolean }) {
+  const t = useI18n()
+  if (!usage || (usage.tools.length === 0 && usage.skills.length === 0)) {
+    return <div className='stats-empty'>{t('暂无数据')}</div>
+  }
+  return (
+    <div className='stats-usage'>
+      <div className='stats-usage-col'>
+        <div className='stats-usage-col-title'>{t('工具')} <em>{nf(usage.tool_total)} {t('次')}</em></div>
+        {byDay
+          ? <UsageDayBar items={usage.tools as import('@/api/statistics').UsageDayItem[]} />
+          : <UsageBar rows={usage.tools as import('@/api/statistics').UsageItem[]} />
+        }
+      </div>
+      <div className='stats-usage-col'>
+        <div className='stats-usage-col-title'>{t('技能')} <em>{nf(usage.skill_total)} {t('次')}</em></div>
+        <UsageBar rows={usage.skills} />
+      </div>
+    </div>
+  )
+}
+
+/** 纵向小表格：名称 + 横向占比条 + 成功/失败/拒绝分段 + 次数。 */
+function UsageBar({ rows }: { rows: UsageItem[] }) {
+  const max = Math.max(...rows.map(r => r.call_count), 1)
+  return (
+    <div className='stats-usage-rows'>
+      {rows.map(r => {
+        const sc = r.success_count ?? 0
+        const ec = r.error_count ?? 0
+        const dc = r.denied_count ?? 0
+        const hasDetail = sc > 0 || ec > 0 || dc > 0
+        const pctOk = hasDetail && r.call_count > 0 ? Math.round(sc / r.call_count * 100) : 0
+        const pctErr = hasDetail && r.call_count > 0 ? Math.round(ec / r.call_count * 100) : 0
+        const pctDeny = hasDetail && r.call_count > 0 ? Math.max(0, 100 - pctOk - pctErr) : 0
+        return (
+          <div key={r.tool_name} className='stats-usage-row' title={`${r.tool_name} · ${nf(r.call_count)} ${hasDetail ? `(✓${sc} ✗${ec} ⊘${dc})` : ''}`}>
+            <span className='stats-usage-name' title={r.tool_name}>{r.tool_name}</span>
+            <span className='stats-usage-track'>
+              {hasDetail && r.call_count > 0 ? (
+                <>
+                  <span className='stats-usage-fill stats-usage-fill-ok'   style={{ width: `${pctOk}%` }} />
+                  <span className='stats-usage-fill stats-usage-fill-err'  style={{ width: `${pctErr}%` }} />
+                  <span className='stats-usage-fill stats-usage-fill-deny' style={{ width: `${pctDeny}%` }} />
+                </>
+              ) : (
+                <span className='stats-usage-fill' style={{ width: `${(r.call_count / max) * 100}%` }} />
+              )}
+            </span>
+            <span className='stats-usage-count'>
+              {nf(r.call_count)}
+              {hasDetail && r.call_count > 0 ? <span className='stats-usage-pct'> {pctOk}%</span> : null}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** 按天趋势：纵向小表格，日期 + 成功/失败/拒绝三色柱状。 */
+function UsageDayBar({ items }: { items: import('@/api/statistics').UsageDayItem[] }) {
+  if (!items.length) return null
+  const max = Math.max(...items.map(r => r.call_count), 1)
+  return (
+    <div className='stats-usage-rows'>
+      {items.map(r => {
+        const sc = r.success_count ?? 0
+        const ec = r.error_count ?? 0
+        const dc = r.denied_count ?? 0
+        const wOk  = r.call_count > 0 ? (sc / max) * 100 : 0
+        const wErr = r.call_count > 0 ? (ec / max) * 100 : 0
+        const wDeny= r.call_count > 0 ? (dc / max) * 100 : 0
+        return (
+          <div key={r.date} className='stats-usage-row' title={`${r.date} · ✓${sc} ✗${ec} ⊘${dc}`}>
+            <span className='stats-usage-name'>{(r.date || '').slice(5)}</span>
+            <span className='stats-usage-track'>
+              <span className='stats-usage-fill stats-usage-fill-ok'   style={{ width: `${wOk}%` }} />
+              <span className='stats-usage-fill stats-usage-fill-err'  style={{ width: `${wErr}%` }} />
+              <span className='stats-usage-fill stats-usage-fill-deny' style={{ width: `${wDeny}%` }} />
+            </span>
+            <span className='stats-usage-count'>
+              {nf(r.call_count)}
+              {r.call_count > 0 ? <span className='stats-usage-pct'> {Math.round(sc / r.call_count * 100)}%</span> : null}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ═══ 明细表 ═══ */
 
-function DetailTable({ rows, currency, rate }: { rows: DetailRow[]; currency: Currency; rate: number }) {
-  const t = useI18n()
+function DetailTable({ rows, currency, rate }: { rows: DetailRow[]; currency: Currency; rate: number }) {  const t = useI18n()
   if (!rows.length) return <div className="stats-empty">{t('暂无数据')}</div>
   return (
     <div className="stats-table-scroll">
@@ -471,7 +588,7 @@ function StatTable({ rows, view, currency, rate, onFilter }: {
             <th className="num">{t('输出')}<span className="th-sub">{t('用量')} / {t('费用')}</span></th>
           </>}
           {view === 'character' && <>
-            <th className="num">{t('调用')}</th><th className="num">{t('Tokens')}</th>
+            <th className="num">{t('调用')}</th><th className="num">{t('会话数')}</th><th className="num">{t('Tokens')}</th>
           </>}
           {view === 'provider' && <>
             <th className="num">{t('调用')}</th><th className="num">{t('Tokens')}</th>
@@ -529,6 +646,7 @@ function StatTable({ rows, view, currency, rate, onFilter }: {
                 </>}
                 {(view === 'character' || view === 'provider' || view === 'day') && <>
                   <td className="num">{nf(r.call_count)}</td>
+                  {view === 'character' && <td className="num">{nf(r.session_count ?? 0)}</td>}
                   <td className="num">{tkn(r.total_tokens)}</td>
                 </>}
                 <td className="num strong">

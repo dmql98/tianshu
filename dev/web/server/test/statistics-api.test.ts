@@ -106,6 +106,99 @@ describe('GET /by-provider', () => {
   })
 })
 
+describe('GET /overview · session_count', () => {
+  it('统计发生调用的去重会话数', async () => {
+    const { body } = await req('/overview')
+    // 此时只有 s1/s2/s3 三个会话有 llm_calls
+    expect(body.session_count).toBe(3)
+  })
+  it('按角色筛选后统计其会话数', async () => {
+    const { body } = await req('/overview?character_id=coder')
+    // coder：s1 + s3
+    expect(body.session_count).toBe(2)
+    const worker = await req('/overview?character_id=worker')
+    expect(worker.body.session_count).toBe(1)
+  })
+})
+
+describe('GET /by-character · session_count', () => {
+  it('角色行带会话数（去重会话）', async () => {
+    const { body } = await req('/by-character')
+    const coder = body.items.find((x: any) => x.character_id === 'coder')
+    // coder 会话：s1(1次调用) + s3(1) → 2 个会话、2 次调用
+    expect(coder.call_count).toBe(2)
+    expect(coder.session_count).toBe(2)
+    const worker = body.items.find((x: any) => x.character_id === 'worker')
+    expect(worker.call_count).toBe(1)
+    expect(worker.session_count).toBe(1)
+  })
+})
+
+describe('GET /usage', () => {
+  beforeAll(async () => {
+    const { getDb } = await import('../src/db/schema.js')
+    const db = getDb()
+    // tool_usage 事实表：s1 用 bash 2 次 success + 1 次 error；s2 用 bash 1 次 success、skill_manager 2 次 success
+    db.exec(`
+      INSERT INTO tool_usage (session_id, tool_name, status, count, created_at)
+      VALUES
+        ('s1', 'bash', 'success', 2, 1700000000000),
+        ('s1', 'bash', 'error',   1, 1700000000000),
+        ('s1', 'read', 'success', 1, 1700000000000),
+        ('s2', 'bash', 'success', 1, 1700000000000),
+        ('s2', 'skill_manager', 'success', 1, 1700000000000),
+        ('s2', 'skill_manager', 'denied',  1, 1700000000000);
+      INSERT INTO messages (session_id, role, content, created_at)
+      VALUES ('s1', 'user', 'hello', 1700000000000);
+    `)
+  })
+
+  it('聚合工具与技能调用次数（含 success/error/denied 分桶）', async () => {
+    const { body } = await req('/usage')
+    expect(body.tool_total).toBe(5) // bash 4 + read 1
+    expect(body.skill_total).toBe(2)
+    const bash = body.tools.find((x: any) => x.tool_name === 'bash')
+    expect(bash.call_count).toBe(4) // s1 2+1 + s2 1
+    expect(bash.success_count).toBe(3) // 2 + 1
+    expect(bash.error_count).toBe(1)
+    expect(bash.denied_count).toBe(0)
+    const read = body.tools.find((x: any) => x.tool_name === 'read')
+    expect(read.call_count).toBe(1)
+    expect(read.success_count).toBe(1)
+    expect(body.skills[0].tool_name).toBe('skill_manager')
+    expect(body.skills[0].call_count).toBe(2)
+    expect(body.skills[0].success_count).toBe(1)
+    expect(body.skills[0].denied_count).toBe(1)
+  })
+
+  it('按角色筛选 /usage', async () => {
+    const { body } = await req('/usage?character_id=coder')
+    // coder 会话只有 s1：bash 3 + read 1
+    expect(body.tool_total).toBe(4)
+    expect(body.skill_total).toBe(0)
+    const worker = await req('/usage?character_id=worker')
+    expect(worker.body.tool_total).toBe(1) // bash 1
+    expect(worker.body.skill_total).toBe(2) // skill_manager 2
+  })
+
+  it('user 行不计入', async () => {
+    const { body } = await req('/usage')
+    expect(body.tools.some((x: any) => x.tool_name === 'hello')).toBe(false)
+  })
+
+  it('by=day 返回按天趋势', async () => {
+    const { body } = await req('/usage?by=day')
+    expect(body.tool_total).toBe(7) // bash4 + read1 + skill2
+    expect(Array.isArray(body.tools)).toBe(true)
+    const day = body.tools[0]
+    expect(day.date).toBeTruthy()
+    expect(day.call_count).toBeGreaterThan(0)
+    expect(day.success_count).toBeGreaterThanOrEqual(0)
+    expect(day.error_count).toBeGreaterThanOrEqual(0)
+    expect(day.denied_count).toBeGreaterThanOrEqual(0)
+  })
+})
+
 describe('GET /detail', () => {
   it('返回明细+分页', async () => {
     const { body } = await req('/detail?limit=2')

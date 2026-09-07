@@ -1,4 +1,5 @@
 import { getDb } from './schema.js'
+import { recordToolUsage } from './toolUsageStore.js'
 
 export interface MessageRow {
   id: number; session_id: string; role: string; content: string
@@ -112,6 +113,13 @@ export const messageStore = {
     const { id: _autoId, ...insertParams } = row
     const result = getDb().prepare(`INSERT INTO messages (session_id, role, content, reasoning_content, tool_name, tool_input, tool_output, tool_status, attachments, token_speed, is_error, llm_ms, ttft_ms, decode_ms, turn_id, run_id, status, supersedes_message_id, created_at) VALUES (@session_id, @role, @content, @reasoning_content, @tool_name, @tool_input, @tool_output, @tool_status, @attachments, @token_speed, @is_error, @llm_ms, @ttft_ms, @decode_ms, @turn_id, @run_id, @status, @supersedes_message_id, @created_at)`).run(insertParams)
     row.id = Number(result.lastInsertRowid)
+    // 自动打点：tool 行落库即写入 tool_usage 事实表（覆盖 inner.ts + control-router 全部写路径）。
+    if (row.role === 'tool' && row.tool_name) {
+      const status = row.tool_status === 'denied' ? 'denied'
+        : (row.tool_status === 'error' || row.is_error) ? 'error'
+        : 'success'
+      recordToolUsage({ sessionId, toolName: row.tool_name, status, createdAt: row.created_at })
+    }
     getDb().prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(now, sessionId)
     return row
   },

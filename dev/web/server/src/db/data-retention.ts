@@ -76,6 +76,8 @@ export function sweepDataRetention(now = Date.now()): RetentionSweepResult {
         'DELETE FROM llm_calls WHERE created_at < ?',
       ).run(llmCallsCutoff).changes
     }
+    // tool_usage 是聚合事实表：与 messages 生命周期一致（会话删除时级联），
+    // 不按时间窗口清理，避免"历史工具统计随保留策略悄悄消失"。
   })
 
   return result

@@ -36,6 +36,7 @@ import { startAssetGC, stopAssetGC } from './character/asset-gc.js'
 import { runStore } from './agent/runtime/run-store.js'
 import { forceCancelSessionRuns, recoverContinuationState } from './agent/runtime/run-event-store.js'
 import { sweepDataRetention } from './db/data-retention.js'
+import { sweepToolUsage } from './db/toolUsageStore.js'
 import { materializeAllBuiltinContent, materializeSummary } from './content/materialize-builtin.js'
 import { migrateAllCharacterVisualsToSkin } from './skin/migrate.js'
 import { startRunStallWatchdog } from './agent/runtime/run-stall-watchdog.js'
@@ -235,6 +236,14 @@ export async function startTianshuServer(
         `(run_events ${retention.runEventsRetentionDays}d, llm_calls ${retention.llmCallsRetentionDays}d)`,
       )
     }
+  }
+  // tool_usage 增量回填：补录上一次启动后至 migration 回填窗口之间、经
+  // addMessage 落库但未被 recordToolUsage 覆盖的历史 tool 行（幂等去重）。
+  {
+    const DAY_MS = 86400000
+    const sweepDays = Number(process.env.TSS_TOOL_USAGE_SWEEP_DAYS || '3')
+    const now = Date.now()
+    sweepToolUsage(now - sweepDays * DAY_MS, now)
   }
 
   const app = new Hono()

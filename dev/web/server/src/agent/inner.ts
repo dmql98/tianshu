@@ -238,7 +238,7 @@ export async function streamWithRetry(
   provider: ProviderConfig,
   model: string,
   signal?: AbortSignal,
-  opts: { thinking?: boolean; reasoning_effort?: string } = {},
+  opts: { thinking?: boolean; reasoning_effort?: string; supportsReasoningEffort?: boolean } = {},
   onDelta?: (chunk: any) => void,
   onRetry?: (data: { attempt: number; max_attempts: number; error: string; delay_ms: number }) => void,
 ): Promise<{ text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null }> {
@@ -265,6 +265,7 @@ export async function streamWithRetry(
       model, messages, tools, signal,
       thinking: opts.thinking,
       reasoning_effort: opts.reasoning_effort,
+      supportsReasoningEffort: opts.supportsReasoningEffort,
       apiStyle: provider.api_style,
       headers: provider.headers,
     })
@@ -469,7 +470,6 @@ async function executeToolCalls(
       messageStore.addMessage(sessionId, { role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_name: p.name, tool_input: storedToolInput(p.tc.id, p.argsStr), tool_output: p.skipReason!, tool_status: 'error', is_error: 1 })
     }
     newMessages.push({ role: 'tool', content: JSON.stringify({ error: p.skipReason }), tool_call_id: p.tc.id })
-    stream?.emit('tool.completed', { session_id: sessionId, run_id: runId, tool_call_id: p.tc.id, tool_name: p.name, tool_output: p.skipReason!, tool_status: 'error', duration_ms: 0 })
   }
 
   // Phase 4: execute allowed tools — parallel for read-only, serial for writes
@@ -601,7 +601,7 @@ async function executeToolCalls(
       const parts: ContentPart[] = []
       if (result.output) parts.push(textPart(result.output))
       for (const a of result.attachments) parts.push(mediaPart({ mediaType: a.mime, data: a.data, filename: a.name }))
-      toolContent = lowerContentToProvider(parts, cap || { supportsVision: false, supportsFiles: false })
+      toolContent = lowerContentToProvider(parts, cap || { supportsVision: false, supportsFiles: false, supportsReasoningEffort: true })
     } else {
       toolContent = JSON.stringify({ output: truncate(result.output || ''), error: truncateError(result.error || '') })
     }
@@ -660,12 +660,19 @@ export async function innerLoop(
     return estimateTextTokens(streamedOutput) / elapsedSeconds
   }
 
+  // Merge model-level reasoning_effort capability so the LLM client can skip
+  // the parameter for models that reject it (e.g. ModelScope Qwen → 400).
+  // cap 未传（子代理/摘要等场景）时保持 opts 原样。
+  const effOpts = cap
+    ? { ...opts, supportsReasoningEffort: cap.supportsReasoningEffort }
+    : opts
+
   let result
   const llmStart = Date.now()
   let firstChunkAt: number | null = null
   try {
     result = await streamWithRetry(
-      messages, tools, provider, model, signal, opts,
+      messages, tools, provider, model, signal, effOpts,
       (chunk) => {
         if (firstChunkAt === null && (chunk.text || chunk.reasoning)) firstChunkAt = Date.now()
         if (chunk.reasoning && stream) {

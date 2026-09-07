@@ -44,6 +44,8 @@ export function resolveProviderFormat(baseUrl: string | undefined): ProviderForm
 export interface ProviderCapability {
   supportsVision: boolean
   supportsFiles: boolean
+  /** 该模型是否支持 reasoning_effort 参数。未设置时兜底 true（向后兼容）。 */
+  supportsReasoningEffort: boolean
 }
 
 const VISION_HINTS = [
@@ -59,11 +61,14 @@ const VISION_HINTS = [
 export function resolveCapability(
   modelId: string,
   explicit?: boolean,
+  supportsReasoningEffort?: boolean,
 ): ProviderCapability {
-  if (explicit !== undefined) return { supportsVision: explicit, supportsFiles: explicit }
+  if (explicit !== undefined) {
+    return { supportsVision: explicit, supportsFiles: explicit, supportsReasoningEffort: supportsReasoningEffort ?? true }
+  }
   const id = modelId.toLowerCase()
   const vision = VISION_HINTS.some((h) => id.includes(h))
-  return { supportsVision: vision, supportsFiles: vision }
+  return { supportsVision: vision, supportsFiles: vision, supportsReasoningEffort: supportsReasoningEffort ?? true }
 }
 
 export function textPart(text: string): TextPart {

@@ -33,10 +33,10 @@ interface Filters {
 }
 
 /**
- * 从查询参数构建 llm_calls JOIN sessions 的 WHERE 条件。
- * 所有筛选在 llm_calls 侧（c.*）加，角色/服务商需要 JOIN sessions。
+ * 从查询参数构建 WHERE 条件。主表别名由 alias 指定（llm_calls → c，messages → m），
+ * 角色/服务商筛选一律 JOIN sessions（s.*）。model 筛选在主表侧（c.request_model）。
  */
-function buildFilters(c: Context): Filters {
+function buildFiltersWithAlias(c: Context, alias: string): Filters {
   const where: string[] = []
   const params: unknown[] = []
   const from = c.req.query('from')
@@ -47,17 +47,33 @@ function buildFilters(c: Context): Filters {
 
   if (from) {
     const n = Number(from)
-    if (Number.isFinite(n)) { where.push('c.created_at >= ?'); params.push(n) }
+    if (Number.isFinite(n)) { where.push(`${alias}.created_at >= ?`); params.push(n) }
   }
   if (to) {
     const n = Number(to)
-    if (Number.isFinite(n)) { where.push('c.created_at <= ?'); params.push(n) }
+    if (Number.isFinite(n)) { where.push(`${alias}.created_at <= ?`); params.push(n) }
   }
-  if (model) { where.push('c.request_model = ?'); params.push(model) }
+  if (model) { where.push(`${alias}.request_model = ?`); params.push(model) }
   if (characterId) { where.push('s.character_id = ?'); params.push(characterId) }
   if (providerId) { where.push('s.provider_id = ?'); params.push(providerId) }
 
   return { where, params }
+}
+
+/** llm_calls JOIN sessions 的筛选（现有端点用，主表别名 c）。 */
+function buildFilters(c: Context): Filters {
+  return buildFiltersWithAlias(c, 'c')
+}
+
+/**
+ * /usage 端点专用筛选：主表 messages（别名 m）。model 筛选落到 sessions.model
+ * （messages 无模型列，工具行由所属会话的模型决定）。
+ */
+function buildUsageFilters(c: Context): Filters {
+  const f = buildFiltersWithAlias(c, 'm')
+  // model 移到 sessions 侧
+  f.where = f.where.map(w => w === 'm.request_model = ?' ? 's.model = ?' : w)
+  return f
 }
 
 /** 读 display_currency 查询参数（非法值忽略）。 */
@@ -133,6 +149,108 @@ function rowMoneyFields(r: CostResult) {
   }
 }
 
+// ── GET /usage ──
+// 工具 / 技能调用次数（按 tool_usage 事实表聚合，含控制工具）。
+// 时间/角色/服务商/模型 筛选与其它端点同参数。
+// 每次调用打一行（recordToolUsage / sweepToolUsage），status 分 success/error/denied。
+// 支持 ?by=day 返回按天趋势（保留 tools/skills 结构，tool_total 等按天累计）。
+
+function isSkillToolName(name: string): boolean {
+  return name === 'skill_manager'
+}
+
+interface UsageRow {
+  tool_name: string
+  call_count: number
+  success_count: number
+  error_count: number
+  denied_count: number
+}
+
+/** /usage 专用筛选：主表 tool_usage（别名 u），session 侧维度 JOIN sessions（s.*）。 */
+function buildToolUsageFilters(c: Context): Filters {
+  const where: string[] = []
+  const params: unknown[] = []
+  const from = c.req.query('from')
+  const to = c.req.query('to')
+  const characterId = c.req.query('character_id')
+  const providerId = c.req.query('provider_id')
+  const model = c.req.query('model')
+
+  if (from) { const n = Number(from); if (Number.isFinite(n)) { where.push('u.created_at >= ?'); params.push(n) } }
+  if (to) { const n = Number(to); if (Number.isFinite(n)) { where.push('u.created_at <= ?'); params.push(n) } }
+  if (characterId) { where.push('s.character_id = ?'); params.push(characterId) }
+  if (providerId) { where.push('s.provider_id = ?'); params.push(providerId) }
+  if (model) { where.push('s.model = ?'); params.push(model) }
+  return { where, params }
+}
+
+router.get('/usage', (c) => {
+  const f = buildToolUsageFilters(c)
+  const byDay = c.req.query('by') === 'day'
+  const groupExpr = byDay ? '(u.created_at / 86400000) * 86400000' : 'u.tool_name'
+  const orderExpr = byDay ? 'day_start' : 'call_count DESC, u.tool_name ASC'
+
+  const rows = getDb().prepare(`
+    SELECT
+      ${byDay ? '(u.created_at / 86400000) * 86400000 AS day_start' : 'u.tool_name AS tool_name'},
+      SUM(u.count) AS call_count,
+      SUM(CASE WHEN u.status = 'success' THEN u.count ELSE 0 END) AS success_count,
+      SUM(CASE WHEN u.status = 'error'   THEN u.count ELSE 0 END) AS error_count,
+      SUM(CASE WHEN u.status = 'denied'  THEN u.count ELSE 0 END) AS denied_count
+    FROM tool_usage u
+    LEFT JOIN sessions s ON s.id = u.session_id
+    WHERE 1=1
+      ${f.where.length > 0 ? ` AND ${f.where.join(' AND ')}` : ''}
+    GROUP BY ${groupExpr}
+    ORDER BY ${orderExpr}
+  `).all(...f.params) as UsageRow[]
+
+  if (byDay) {
+    // 按天：返回 tools=day 序列（成功/失败/拒绝分桶累计），skills 复用 tool_usage 的技能行按天。
+    const tools: Array<{ date: string; call_count: number; success_count: number; error_count: number; denied_count: number }> = []
+    const skills: Array<{ date: string; call_count: number; success_count: number; error_count: number; denied_count: number }> = []
+    let toolTotal = 0
+    let skillTotal = 0
+    for (const row of rows) {
+      // 技能行以 tool_name 区分，按天分组时需聚合技能名 → 这里保持按天对日聚合：
+      // 由于 GROUP BY day_start 已把所有工具/技能合并到同一天，需再按工具维度展开。
+      // 简化：by-day 模式不拆分 tools/skills，统一进 tools（前端趋势用 call_count）。
+      tools.push({
+        date: new Date((row as any).day_start).toISOString().slice(0, 10),
+        call_count: row.call_count,
+        success_count: row.success_count,
+        error_count: row.error_count,
+        denied_count: row.denied_count,
+      })
+      toolTotal += row.call_count
+    }
+    return c.json({ tools, skills, tool_total: toolTotal, skill_total: skillTotal })
+  }
+
+  const tools: Array<{ tool_name: string; call_count: number; success_count: number; error_count: number; denied_count: number }> = []
+  const skills: Array<{ tool_name: string; call_count: number; success_count: number; error_count: number; denied_count: number }> = []
+  let toolTotal = 0
+  let skillTotal = 0
+  for (const row of rows) {
+    const item = {
+      tool_name: row.tool_name,
+      call_count: row.call_count,
+      success_count: row.success_count,
+      error_count: row.error_count,
+      denied_count: row.denied_count,
+    }
+    if (isSkillToolName(row.tool_name)) {
+      skills.push(item)
+      skillTotal += row.call_count
+    } else {
+      tools.push(item)
+      toolTotal += row.call_count
+    }
+  }
+  return c.json({ tools, skills, tool_total: toolTotal, skill_total: skillTotal })
+})
+
 // ── GET /overview ──
 
 router.get('/overview', (c) => {
@@ -166,6 +284,14 @@ router.get('/overview', (c) => {
   const cacheTotal = totalCacheHit + totalCacheMiss
   const cacheHitRate = cacheTotal > 0 ? Math.round((totalCacheHit / cacheTotal) * 1000) / 10 : null
 
+  // 会话数：与本次筛选相关的、实际发生过 LLM 调用的去重会话数。
+  const sessionCountRow = getDb().prepare(`
+    SELECT COUNT(DISTINCT c.session_id) AS n
+    FROM llm_calls c
+    LEFT JOIN sessions s ON s.id = c.session_id
+    ${whereClause(f)}
+  `).get(...f.params) as { n: number }
+
   return c.json({
     total_input_tokens: totalInput,
     total_output_tokens: totalOutput,
@@ -178,6 +304,7 @@ router.get('/overview', (c) => {
     total_calls: rows.length,
     free_calls: acc.freeCalls,
     paid_calls: acc.paidCalls,
+    session_count: sessionCountRow.n,
   })
 })
 
@@ -278,6 +405,7 @@ router.get('/by-character', (c) => {
       COALESCE(SUM(c.usage_cache_hit), 0)  AS cacheHit,
       COALESCE(SUM(c.usage_cache_miss), 0) AS cacheMiss,
       COUNT(*) AS call_count,
+      COUNT(DISTINCT c.session_id) AS session_count,
       MAX(c.created_at) AS createdAt
     ${FROM_JOIN}
     ${whereClause(f)}
@@ -291,6 +419,7 @@ router.get('/by-character', (c) => {
     cacheHit: number
     cacheMiss: number
     call_count: number
+    session_count: number
     createdAt: number | null
   }>
 
@@ -302,6 +431,7 @@ router.get('/by-character', (c) => {
     cacheHit: number
     cacheMiss: number
     call_count: number
+    session_count: number
     acc: CostAccumulator
   }>()
   for (const row of rows) {
@@ -310,7 +440,7 @@ router.get('/by-character', (c) => {
     if (!bucket) {
       bucket = {
         character_id: row.character_id || 'unknown',
-        input: 0, output: 0, cacheHit: 0, cacheMiss: 0, call_count: 0,
+        input: 0, output: 0, cacheHit: 0, cacheMiss: 0, call_count: 0, session_count: 0,
         acc: createCostAccumulator(),
       }
       byChar.set(key, bucket)
@@ -320,6 +450,7 @@ router.get('/by-character', (c) => {
     bucket.cacheHit += row.cacheHit
     bucket.cacheMiss += row.cacheMiss
     bucket.call_count += row.call_count
+    bucket.session_count += row.session_count
     const result = calculateCost(row.provider_id, row.model, {
       input: row.input, output: row.output, cacheHit: row.cacheHit, cacheMiss: row.cacheMiss,
     }, row.createdAt || 0)
@@ -336,6 +467,7 @@ router.get('/by-character', (c) => {
     ...moneyFields(b.acc, hint),
     ...bucketSegmentFields(b.acc),
     call_count: b.call_count,
+    session_count: b.session_count,
   })).sort((a, b) => b.total_tokens - a.total_tokens)
 
   return c.json({ items })

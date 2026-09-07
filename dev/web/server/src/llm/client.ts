@@ -195,6 +195,8 @@ export interface LLMOptions {
   }>
   thinking?: boolean
   reasoning_effort?: string
+  /** 该模型是否支持 reasoning_effort 参数；为 false 时不发送（避免 400）。 */
+  supportsReasoningEffort?: boolean
   signal?: AbortSignal
   onChunk?: (chunk: LLMChunk) => void
   /** Provider API protocol. Defaults to chat/completions. */
@@ -249,9 +251,15 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     ...(opts.max_tokens != null ? { max_tokens: opts.max_tokens } : {}),
   }
   if (tools && tools.length > 0) body.tools = tools
-  if (thinking) {
-    body.thinking = { type: 'enabled' }
-    if (reasoning_effort) body.reasoning_effort = reasoning_effort
+  // Use the standard `reasoning_effort` parameter (supported by OpenAI, DeepSeek,
+  // AMD, and other OpenAI-compatible providers). The legacy `thinking: { type:
+  // 'enabled' }` is DeepSeek-specific and rejected by other chat/completions
+  // providers (e.g. AMD returns 400 "thinking is not supported on chat/completions").
+  // Skip when the model is known NOT to support it (e.g. ModelScope Qwen) to
+  // avoid 400 errors. supportsReasoningEffort defaults to true for backward
+  // compatibility with custom providers not in the catalog.
+  if ((thinking || reasoning_effort) && opts.supportsReasoningEffort !== false) {
+    body.reasoning_effort = reasoning_effort || 'medium'
   }
 
   // ── Stream framing state ──
@@ -417,8 +425,14 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
     }
 
     const delta = hasDelta || {}
+    // DeepSeek-style: `reasoning_content`; AMD Radeon / OpenAI-compat gateways:
+    // `reasoning`. Both must be recognized so thinking content is never silently
+    // dropped.
     if (delta.reasoning_content) {
       chunks.push({ type: 'delta', reasoning: delta.reasoning_content })
+    }
+    if (delta.reasoning) {
+      chunks.push({ type: 'delta', reasoning: delta.reasoning })
     }
     if (delta.content) {
       chunks.push({ type: 'delta', text: delta.content })
@@ -523,7 +537,7 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
       parameters: t.function.parameters,
     }))
   }
-  if (thinking) {
+  if (thinking && opts.supportsReasoningEffort !== false) {
     body.reasoning = { effort: reasoning_effort || 'medium' }
   }
 

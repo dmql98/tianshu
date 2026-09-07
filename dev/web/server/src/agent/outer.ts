@@ -92,7 +92,7 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   // P1-4: 按模型解析压缩策略（阈值/保留比/摘要模型），未配置回退全局默认。
   const compactPolicy: CompactPolicy = resolveCompactPolicy(modelConfig)
 
-  const cap: ProviderCapability = resolveCapability(model, modelConfig?.supports_vision)
+  const cap: ProviderCapability = resolveCapability(model, modelConfig?.supports_vision, modelConfig?.supports_reasoning_effort)
 
   const workspaces = resolveWorkspaces(session)
   const workspace = resolveWorkspace(session.workspace)

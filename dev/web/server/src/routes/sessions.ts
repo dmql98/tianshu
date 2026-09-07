@@ -203,7 +203,7 @@ router.post('/:id/compact', async (c) => {
   const modelConfig = provider.models.find(m => m.id === model)
   const contextWindow = modelConfig?.context_window || DEFAULT_CONTEXT_WINDOW
   const compactPolicy = resolveCompactPolicy(modelConfig)
-  const cap = resolveCapability(model, modelConfig?.supports_vision)
+  const cap = resolveCapability(model, modelConfig?.supports_vision, modelConfig?.supports_reasoning_effort)
   const toolDefs = getCharacterToolDefinitions(charMeta.tools, resolveMemoryMode(charMeta.memory), charMeta.skills)
 
   const systemPrompt = assembleStaticPrompt(

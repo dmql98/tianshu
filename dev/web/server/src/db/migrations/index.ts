@@ -531,4 +531,52 @@ export const migrations: Migration[] = [
       db.exec(migration_0004_auto_continuation_index)
     },
   },
+  {
+    version: 6,
+    name: 'tool_usage_fact_table',
+    up: (db) => {
+      // 工具/技能调用事实表（方案 B）：
+      // - 从 messages.tool 行按工具名 + 结果状态 + 会话维度聚合，做一次性历史回填，
+      //   与既有 /usage 口径（messages.role='tool' 的 tool_name）保持一致；
+      // - status 取值：success / error / denied（与 tool_status 三态一致）；
+      // - session_id 允许为 NULL（内层工具/直接 CLI 等无会话上下文的执行也可计数）；
+      // - 索引按天聚合（按日趋势）与按会话删除（随会话级联清理）设计。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS tool_usage (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id TEXT,
+          tool_name TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('success','error','denied')),
+          count INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_day
+          ON tool_usage(created_at, tool_name, status);
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_session
+          ON tool_usage(session_id, created_at);
+      `)
+      db.exec(`
+        INSERT INTO tool_usage (session_id, tool_name, status, count, created_at)
+        SELECT
+          m.session_id,
+          m.tool_name,
+          CASE
+            WHEN m.tool_status = 'error' OR m.is_error = 1 THEN 'error'
+            WHEN m.tool_status = 'denied' THEN 'denied'
+            ELSE 'success'
+          END,
+          1,
+          m.created_at
+        FROM messages m
+        WHERE m.role = 'tool'
+          AND m.tool_name IS NOT NULL
+          AND m.tool_name != ''
+        ORDER BY m.id
+      `)
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_tool_usage_msg_meta
+          ON messages(tool_name, tool_status, created_at)
+      `)
+    },
+  },
 ]

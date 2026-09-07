@@ -43,6 +43,8 @@ export interface ProviderRecord {
 
 export interface ModelInfo {
   id: string; name: string; context_window?: number; supports_vision?: boolean
+  /** 该模型是否支持 reasoning_effort 参数（OpenAI o3/o4、DeepSeek 等 thinking 模型）。未设置时兜底 true（向后兼容）。 */
+  supports_reasoning_effort?: boolean
   enabled?: boolean
   /** 该模型单独指定的调用协议；优先于 provider 级 api_style。 */
   api_style?: 'auto' | 'chat_completions' | 'responses'

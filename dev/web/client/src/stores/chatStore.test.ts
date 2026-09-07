@@ -326,4 +326,27 @@ describe('sendMessage thinking payload (P-reasoning fix)', () => {
     expect(chatRun!.thinking).toBeFalsy()
     expect(chatRun!.reasoning_effort).toBeUndefined()
   })
+
+  it('emits thinking falsy when reasoning_effort is empty string (关闭)', async () => {
+    const { useChatStore } = await import('@/stores/chatStore')
+    useChatStore.setState({
+      activeSessionId: SID,
+      sessions: [{
+        id: SID,
+        character_id: 'c1',
+        session_type: 'chat',
+        provider_id: 'p1',
+        model: 'deepseek-v4-flash',
+        reasoning_effort: '',
+        messages: [],
+      }] as never[],
+    } as never)
+
+    await useChatStore.getState().sendMessage('hello')
+
+    const chatRun = mocks.fakeBus.emit.mock.calls.find(c => c[0] === 'chat-run')?.[1] as Record<string, unknown> | undefined
+    expect(chatRun).toBeDefined()
+    expect(chatRun!.thinking).toBeFalsy()
+    expect(chatRun!.reasoning_effort).toBeUndefined()
+  })
 })

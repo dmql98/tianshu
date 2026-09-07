@@ -39,6 +39,8 @@ export interface StatisticsOverview extends MoneyView {
   total_calls: number
   free_calls: number
   paid_calls: number
+  /** 与筛选相关的、实际发生过 LLM 调用的去重会话数（角色调用会话数量）。 */
+  session_count?: number
 }
 
 /** by-model / by-character / by-provider / by-day 单行（聚合行：含真实分桶 + 展示合计）。 */
@@ -54,6 +56,8 @@ export interface StatRow extends MoneyView {
   total_cache_miss_tokens?: number
   total_tokens?: number
   call_count?: number
+  /** by-character 的会话数（去重 LLM 调用会话）。 */
+  session_count?: number
   is_free?: boolean
   /** 分项费用（分，行币种）：输入未命中 / 缓存命中 / 输出。 */
   cost_miss?: number
@@ -111,6 +115,32 @@ export interface DetailResponse {
   items: DetailRow[]
 }
 
+/** /usage 单行：工具/技能名称 + 调用次数（含成功/失败/拒绝分桶）。 */
+export interface UsageItem {
+  tool_name: string
+  call_count: number
+  success_count: number
+  error_count: number
+  denied_count: number
+}
+
+/** /usage 按天趋势行。 */
+export interface UsageDayItem {
+  date: string
+  call_count: number
+  success_count: number
+  error_count: number
+  denied_count: number
+}
+
+/** GET /api/statistics/usage — 工具 / 技能调用次数（按 tool_usage 事实表聚合）。 */
+export interface StatisticsUsage {
+  tools: UsageItem[] | UsageDayItem[]
+  skills: UsageItem[]
+  tool_total: number
+  skill_total: number
+}
+
 export interface StatisticsFilters {
   /** 起止（epoch ms）。 */
   from?: number
@@ -148,6 +178,9 @@ export const fetchByProvider = (f: StatisticsFilters = {}) =>
 
 export const fetchByDay = (f: StatisticsFilters = {}) =>
   apiGet<StatListResponse>(`/api/statistics/by-day${qs(f)}`)
+
+export const fetchUsage = (f: StatisticsFilters = {}) =>
+  apiGet<StatisticsUsage>(`/api/statistics/usage${qs(f)}`)
 
 export const fetchDetail = (f: StatisticsFilters = {}, limit = 20, offset = 0) =>
   apiGet<DetailResponse>(`/api/statistics/detail${qs(f)}&limit=${limit}&offset=${offset}`)

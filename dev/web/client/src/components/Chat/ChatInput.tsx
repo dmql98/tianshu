@@ -459,9 +459,10 @@ export default function ChatInput() {
         />
         <PickerSelect
           title={t('思考强度')}
-          value={session?.reasoning_effort || 'medium'}
+          value={session?.reasoning_effort ?? 'medium'}
           onChange={handleReasoningEffortChange}
           options={[
+            { value: '', label: t('关闭') },
             { value: 'low', label: t('低') },
             { value: 'medium', label: t('中') },
             { value: 'high', label: t('高') },
