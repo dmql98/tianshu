@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>天枢知识库三期实施方案</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
+<style>
+:root{
+  --canvas:#f5f0e8; --surface1:#ede6da; --surface2:#e0d8cc; --surfaceHover:#e0d8cc;
+  --input:#faf8f4; --overlay:rgba(44,36,24,0.4); --border:rgba(180,160,130,0.18);
+  --borderSubtle:rgba(180,160,130,0.10); --textPrimary:#2c2418; --textSecondary:#5c5040;
+  --textMuted:#8a7d68; --textFaint:#b8a890; --textOnAccent:#ffffff; --accent:#c8960a;
+  --accentHover:#b08508; --accentSoft:rgba(200,150,10,0.12); --link:#c8960a;
+  --focusRing:rgba(200,150,10,0.55); --success:#2a9d5c; --warning:#d97706; --danger:#c45c3c;
+  --info:#2563eb; --shadowColor:rgba(44,36,24,0.18); --codeBg:#faf8f4; --scrollbar:#b8a890;
+  --radius:10px; --p1:#c8960a; --p2:#2563eb; --p3:#2a9d5c;
+}
+[data-theme="dark"]{
+  --canvas:#17130e; --surface1:#201b14; --surface2:#2a2319; --surfaceHover:#32291d;
+  --input:#1c1710; --overlay:rgba(0,0,0,0.55); --border:rgba(255,235,200,0.12);
+  --borderSubtle:rgba(255,235,200,0.07); --textPrimary:#f2ead9; --textSecondary:#c9bda6;
+  --textMuted:#998d78; --textFaint:#6b6253; --textOnAccent:#17130e; --accent:#e0b341;
+  --accentHover:#f0c35c; --accentSoft:rgba(224,179,65,0.16); --link:#e0b341;
+  --focusRing:rgba(224,179,65,0.6); --success:#4caf7d; --warning:#e8933c; --danger:#e0735a;
+  --info:#6b9ff3; --shadowColor:rgba(0,0,0,0.5); --codeBg:#17130e; --scrollbar:#4a4134;
+  --p1:#e0b341; --p2:#6b9ff3; --p3:#4caf7d;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--canvas); color:var(--textPrimary);
+  font-family:"LXGW WenKai","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:14px; line-height:1.7; -webkit-font-smoothing:antialiased;
+}
+.app{display:flex; flex-direction:column; height:100vh; overflow:hidden}
+/* 顶栏 */
+.topbar{
+  display:flex; align-items:center; gap:14px; padding:10px 18px;
+  background:var(--surface1); border-bottom:1px solid var(--border);
+}
+.brand{display:flex; align-items:center; gap:9px; font-weight:700; font-size:16px}
+.brand .logo{
+  width:30px; height:30px; border-radius:8px; display:grid; place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--accentHover)); color:#fff; font-weight:800;
+}
+.crumb{color:var(--textMuted); font-size:13px}
+.crumb b{color:var(--textPrimary)}
+.header-search{
+  margin-left:auto; display:flex; align-items:center; gap:6px; background:var(--input);
+  border:1px solid var(--border); border-radius:8px; padding:5px 10px; min-width:220px;
+}
+.header-search input{border:none; background:transparent; outline:none; color:var(--textPrimary); width:100%; font-family:inherit}
+.btn{
+  display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border);
+  background:var(--surface2); color:var(--textPrimary); border-radius:8px; padding:6px 12px;
+  cursor:pointer; font-family:inherit; font-size:13px; transition:.15s;
+}
+.btn:hover{background:var(--surfaceHover)}
+.btn.primary{background:var(--accent); color:var(--textOnAccent); border-color:var(--accent)}
+.btn.primary:hover{background:var(--accentHover)}
+.icon-btn{background:transparent; border:none; color:var(--textMuted); cursor:pointer; padding:5px; border-radius:6px; display:inline-grid; place-items:center}
+.icon-btn:hover{background:var(--surfaceHover); color:var(--textPrimary)}
+/* 主体 */
+.main{display:flex; flex:1; overflow:hidden}
+.sidebar{
+  width:250px; min-width:250px; background:var(--surface1); border-right:1px solid var(--border);
+  overflow-y:auto; padding:10px 0;
+}
+.sidebar .nav-item{
+  display:flex; align-items:center; gap:8px; padding:8px 16px; cursor:pointer;
+  color:var(--textSecondary); border-left:3px solid transparent; font-size:13px;
+}
+.sidebar .nav-item:hover{background:var(--surfaceHover)}
+.sidebar .nav-item.active{color:var(--textPrimary); background:var(--accentSoft); border-left-color:var(--accent); font-weight:600}
+.sidebar .nav-item .num{
+  width:22px; height:22px; border-radius:6px; display:grid; place-items:center;
+  font-size:11px; font-weight:700; color:#fff; flex-shrink:0;
+}
+.sidebar .nav-sep{height:1px; background:var(--borderSubtle); margin:8px 0}
+.content{flex:1; overflow-y:auto; padding:28px 40px; max-width:1000px}
+.content h1{font-size:22px; margin:0 0 6px}
+.content .doc-sub{color:var(--textMuted); font-size:13px; margin-bottom:24px}
+.content h2{font-size:18px; margin:28px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border)}
+.content h3{font-size:15px; margin:20px 0 8px; color:var(--textPrimary)}
+.content p{color:var(--textSecondary)}
+.content ul,.content ol{padding-left:22px; margin:8px 0}
+.content li{margin:4px 0}
+.content code{
+  background:var(--codeBg); border:1px solid var(--borderSubtle); border-radius:4px;
+  padding:1px 5px; font-size:12.5px; font-family:"JetBrains Mono",Consolas,monospace;
+}
+pre{
+  background:var(--codeBg); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px 16px; overflow-x:auto; margin:12px 0; font-size:12.5px; line-height:1.6;
+  font-family:"JetBrains Mono",Consolas,monospace;
+}
+pre code{background:none;border:none;padding:0}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:13px}
+th,td{border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top}
+th{background:var(--surface2); font-weight:600; white-space:nowrap}
+tr:nth-child(even) td{background:var(--surface1)}
+blockquote{
+  margin:12px 0; padding:10px 14px; border-left:3px solid var(--accent);
+  background:var(--accentSoft); border-radius:0 8px 8px 0; color:var(--textSecondary); font-size:13px;
+}
+/* 卡片 */
+.card-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:16px 0}
+.card{
+  background:var(--surface1); border:1px solid var(--border); border-radius:var(--radius);
+  padding:16px; border-top:3px solid var(--accent);
+}
+.card.p1{border-top-color:var(--p1)}
+.card.p2{border-top-color:var(--p2)}
+.card.p3{border-top-color:var(--p3)}
+.card .card-title{font-weight:700; font-size:14px; margin-bottom:4px}
+.card .card-sub{font-size:12px; color:var(--textMuted)}
+.card .card-effort{margin-top:10px; font-size:13px; font-weight:600}
+.card.p1 .card-effort{color:var(--p1)}
+.card.p2 .card-effort{color:var(--p2)}
+.card.p3 .card-effort{color:var(--p3)}
+/* 阶段徽章 */
+.pill{display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:700; margin-left:6px; color:#fff}
+.pill.p1{background:var(--p1)}
+.pill.p2{background:var(--p2)}
+.pill.p3{background:var(--p3)}
+.hl{color:var(--accent); font-weight:600}
+.good{color:var(--success); font-weight:600}
+.bad{color:var(--danger); font-weight:600}
+.warn{color:var(--warning); font-weight:600}
+.toc{background:var(--surface1); border:1px solid var(--border); border-radius:var(--radius); padding:14px 18px; margin:16px 0}
+.toc b{display:block; margin-bottom:6px}
+.toc a{display:inline-block; margin:2px 14px 2px 0; color:var(--link); text-decoration:none; font-size:13px; cursor:pointer}
+.toc a:hover{text-decoration:underline}
+/* 流程 */
+.flow{
+  display:flex; flex-direction:column; gap:0; margin:16px 0; font-size:13px;
+}
+.flow-step{
+  display:flex; align-items:center; gap:10px; padding:8px 14px; background:var(--surface1);
+  border:1px solid var(--border); border-radius:8px; margin-bottom:4px;
+}
+.flow-step .step-num{
+  width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff;
+  display:grid; place-items:center; font-size:11px; font-weight:700; flex-shrink:0;
+}
+.flow-step.p2 .step-num{background:var(--p2)}
+.flow-step.p3 .step-num{background:var(--p3)}
+.flow-arrow{text-align:center; color:var(--textFaint); font-size:12px; line-height:1; margin:-2px 0}
+/* 工具标注 */
+.inject-global{color:var(--info); font-weight:600}
+.inject-session{color:var(--success); font-weight:600}
+/* 滚动条 */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--scrollbar); border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+.section{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">枢</div>
+      <span>天枢 · 知识库三期实施方案</span>
+    </div>
+    <div class="crumb"><b>报告</b> · 06-知识库三期实施方案</div>
+    <div class="header-search">
+      <span>🔍</span>
+      <input id="globalSearch" placeholder="检索报告内容..." oninput="doSearch(this.value)" />
+    </div>
+    <button class="btn primary" onclick="window.print()">打印 / 导出 PDF</button>
+  </div>
+
+  <div class="main">
+    <!-- 侧边导航 -->
+    <aside class="sidebar" id="sidebarNav">
+      <div class="nav-item active" data-sec="sec0" onclick="goSection(this,'sec0')"><span class="num" style="background:var(--textMuted)">ⓘ</span> NomiFun 参考摘要</div>
+      <div class="nav-sep"></div>
+      <div class="nav-item" data-sec="sec1" onclick="goSection(this,'sec1')"><span class="num" style="background:var(--p1)">1</span> 三期总览</div>
+      <div class="nav-sep"></div>
+      <div class="nav-item" data-sec="sec2" onclick="goSection(this,'sec2')"><span class="num" style="background:var(--p1)">2</span> P1 纯MD+检索Tool</div>
+      <div class="nav-item" data-sec="sec3" onclick="goSection(this,'sec3')"><span class="num" style="background:var(--p2)">3</span> P2 转换插件管理</div>
+      <div class="nav-item" data-sec="sec4" onclick="goSection(this,'sec4')"><span class="num" style="background:var(--p3)">4</span> P3 向量知识库</div>
+      <div class="nav-item" data-sec="secFE" onclick="goSection(this,'secFE')"><span class="num" style="background:var(--info)">FE</span> 前端规划</div>
+      <div class="nav-sep"></div>
+      <div class="nav-item" data-sec="sec5" onclick="goSection(this,'sec5')"><span class="num" style="background:var(--textMuted)">5</span> 进度估算</div>
+      <div class="nav-item" data-sec="sec6" onclick="goSection(this,'sec6')"><span class="num" style="background:var(--textMuted)">6</span> 文件变更汇总</div>
+      <div class="nav-item" data-sec="sec7" onclick="goSection(this,'sec7')"><span class="num" style="background:var(--textMuted)">7</span> 关键设计决策</div>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="content" id="mainContent">
+
+      <!-- ============ NomiFun 参考摘要 ============ -->
+      <section class="section" id="sec0">
+        <h1>天枢知识库三期实施方案</h1>
+        <div class="doc-sub">基于 NomiFun Desktop 知识库架构分析 · 适配天枢 Node.js/TypeScript 技术栈 · 前置：00-知识体系总体设计.md / 02-第二期-独立文件知识库.md</div>
+
+        <div class="toc">
+          <b>目录</b>
+          <a onclick="goSectionHash('sec0')">NomiFun 参考</a>
+          <a onclick="goSectionHash('sec1')">三期总览</a>
+          <a onclick="goSectionHash('sec2')">P1 纯MD</a>
+          <a onclick="goSectionHash('sec3')">P2 转换插件</a>
+          <a onclick="goSectionHash('sec4')">P3 向量库</a>
+          <a onclick="goSectionHash('secFE')">前端规划</a>
+          <a onclick="goSectionHash('sec5')">进度</a>
+          <a onclick="goSectionHash('sec6')">文件变更</a>
+          <a onclick="goSectionHash('sec7')">设计决策</a>
+        </div>
+
+        <h2>0 · NomiFun 架构参考摘要</h2>
+        <p>NomiFun 的知识库是成熟的 Rust 实现，为天枢的实现提供了可直接移植的算法与机制。</p>
+
+        <h3>数据流</h3>
+<pre>用户上传文件 → 存储原件 → 转换为 Markdown → 分块(chunk) → 索引(FTS/向量)
+                                                         ↓
+Agent 调用 knowledge_search → 检索 top_k 结果 → 返回 {handle, snippet, score}
+Agent 调用 knowledge_read   → 通过 handle 解码 → 读取完整文档</pre>
+
+        <h3>核心搜索算法（score_md）</h3>
+        <table>
+          <tr><th>命中位置</th><th>加分</th></tr>
+          <tr><td>路径/标题 完整匹配 query</td><td>+8</td></tr>
+          <tr><td>正文 完整匹配 query</td><td>+5</td></tr>
+          <tr><td>每个 term 命中路径</td><td>+4</td></tr>
+          <tr><td>每个 term 命中标题</td><td>+3</td></tr>
+          <tr><td>每个 term 命中正文 TF</td><td>+min(tf, 5)</td></tr>
+        </table>
+        <p><b>片段提取（best_snippet）</b>：取第一个命中 query 或 term 的行，截断到 200 字符，并返回行号。</p>
+
+        <h3>文档 Handle 机制</h3>
+<pre>kdoc_ + base64({kb_id}\x1f{rel_path})
+→ 不透明令牌，模型只传不解析，避免路径拼接错误</pre>
+
+        <h3>存储结构</h3>
+        <table>
+          <tr><th>数据</th><th>存储</th></tr>
+          <tr><td>元数据</td><td>SQLite（knowledge_bases / knowledge_entries 表）</td></tr>
+          <tr><td>文件内容</td><td>文件系统（每个知识库 = 一个目录）</td></tr>
+          <tr><td>搜索缓存</td><td>内存 HashMap，key=PathBuf，value={mtime_ms, content, heading, bytes}</td></tr>
+        </table>
+      </section>
+
+      <!-- ============ 三期总览 ============ -->
+      <section class="section" id="sec1" style="display:none">
+        <h1>1 · 三期总览</h1>
+        <div class="card-grid">
+          <div class="card p1">
+            <div class="card-title">P1 纯 MD 文件 + 检索 Tool <span class="pill p1">基础</span></div>
+            <div class="card-sub">会话级挂载 + 3 个 Tool + 关键词检索</div>
+            <div class="card-effort">⏱ 4~5 天 · 无外部依赖</div>
+          </div>
+          <div class="card p2">
+            <div class="card-title">P2 转换插件管理 <span class="pill p2">扩展</span></div>
+            <div class="card-sub">PDF/docx/xlsx/html → MD 转换管线</div>
+            <div class="card-effort">⏱ 5~7 天 · 依赖 P1</div>
+          </div>
+          <div class="card p3">
+            <div class="card-title">P3 向量知识库 <span class="pill p3">进阶</span></div>
+            <div class="card-sub">分块 + Embedding + 混合检索(BM25+向量+RRF)</div>
+            <div class="card-effort">⏱ 7~10 天 · 依赖 P1</div>
+          </div>
+        </div>
+
+        <h3>与现有文档的关系</h3>
+        <ul>
+          <li>现有 <code>02-第二期-独立文件知识库.md</code> 描述的是<b>完整最终态</b>（含 FTS/向量/版本化），粒度偏大</li>
+          <li>本文档将其拆为三期渐进交付，P1 是最小闭环，P3 才对齐 <code>02</code> 的完整描述</li>
+          <li><code>03-第三期-权限治理与整体验收.md</code> 的权限/审计/删除等跨模块内容不在本方案范围内</li>
+        </ul>
+      </section>
+
+      <!-- ============ P1 ============ -->
+      <section class="section" id="sec2" style="display:none">
+        <h1>2 · P1 纯 MD 文件 + 检索 Tool <span class="pill p1">P1</span></h1>
+
+        <h2>2.1 目标</h2>
+        <p><b>会话级知识库挂载 + 按需注入检索工具</b>（对标现有"帮手"机制）。</p>
+<pre>用户在会话详情 RightPanel 挂载知识库 → session.knowledge_bases = ["kb_id_1", "kb_id_2"]
+                                          ↓
+Agent Loop 启动时 → getCharacterToolDefinitions() 检测到挂载 → 注入 knowledge_search + knowledge_read
+                                          ↓
+knowledge_search 执行时 → 只搜索 session 挂载的知识库（作用域限定）</pre>
+        <blockquote>最小闭环：注册知识库 → 在会话详情挂载 → Agent 自动获得检索工具 → 只能搜挂载的库 → 通过 handle 读取完整文档。</blockquote>
+
+        <h2>2.2 会话挂载机制（对标帮手）</h2>
+        <p>现有帮手机制：</p>
+<pre>RightPanel "帮手" 区 → 添加角色 → session.targets = ["char_id_1"]
+                                    ↓
+outer.ts → getCharacterToolDefinitions() 注入 delegate_to_agent tool
+                                    ↓
+inner.ts → tool 执行时只能拉起 targets 中的角色</pre>
+        <p>知识库走<b>完全相同</b>的模式：</p>
+<pre>RightPanel "知识库" 区 → 添加知识库 → session.knowledge_bases = ["kb_id_1"]
+                                       ↓
+outer.ts → getCharacterToolDefinitions() 注入 knowledge_search + knowledge_read
+           同时将 kb_ids 注入 tool description（模型可见作用域）
+                                       ↓
+knowledge_search tool 执行时 → ctx.knowledgeBases 限定搜索范围</pre>
+
+        <h2>2.3 工具清单</h2>
+        <table>
+          <tr><th>Tool</th><th>功能</th><th>注入条件</th><th>对标 NomiFun</th></tr>
+          <tr>
+            <td><code>knowledge_search</code></td>
+            <td>关键词检索，返回 <code>{handle, source, heading, snippet, score, startLine, endLine}</code></td>
+            <td><span class="inject-session">会话挂载知识库</span></td>
+            <td><code>knowledge_search</code> MCP</td>
+          </tr>
+          <tr>
+            <td><code>knowledge_read</code></td>
+            <td>通过 handle 读取完整 md 文档</td>
+            <td><span class="inject-session">会话挂载知识库</span></td>
+            <td><code>knowledge_read</code> MCP</td>
+          </tr>
+          <tr>
+            <td><code>knowledge_manage</code></td>
+            <td>全局管理：注册/列出/删除知识库</td>
+            <td><span class="inject-global">始终注入</span></td>
+            <td>/api/knowledge/bases CRUD</td>
+          </tr>
+        </table>
+        <blockquote><code>knowledge_manage</code> 是全局管理工具，始终可用。<code>knowledge_search</code> / <code>knowledge_read</code> 是会话级工具，只在挂载知识库时注入。</blockquote>
+
+        <h2>2.4 文件结构</h2>
+<pre>新增：
+  web/server/src/tools/knowledge_search/{tool.json, index.ts}
+  web/server/src/tools/knowledge_read/{tool.json, index.ts}
+  web/server/src/tools/knowledge_manage/{tool.json, index.ts}
+
+修改：
+  definitions.ts   → isKnowledgeTool()、knowledgeToolNames()、getCharacterToolDefinitions(knowledgeBases)
+  outer.ts         → 读 session.knowledge_bases → 注入工具 + kb 名称到 description
+  inner.ts         → ToolContext 增 knowledgeBases 字段
+  sessionStore.ts  → session 表增 knowledge_bases 字段（JSON）
+  RightPanel.tsx   → 新增"知识库"挂载区
+
+数据：
+  dataDir/knowledge/bases.json   # 全局知识库注册表</pre>
+
+        <h2>2.5 数据模型</h2>
+        <h3>bases.json — 全局知识库注册表</h3>
+<pre>interface KnowledgeBase {
+  id: string             // UUID v7
+  name: string           // "产品手册库"
+  description: string    // "产品文档 / FAQ"
+  rootPath: string       // "C:/Users/xxx/docs" (绝对路径)
+  createdAt: number      // epoch ms
+  updatedAt: number      // epoch ms
+}</pre>
+        <h3>session.knowledge_bases — 会话级挂载</h3>
+<pre>// 存储在 session 表的 JSON 字段中，与 session.targets 同级
+// 会话创建时为空数组，用户在 RightPanel 挂载/卸载
+session.knowledge_bases: string[]  // ["kb_id_1", "kb_id_2"]</pre>
+        <h3>KnowledgeSearchHit — 搜索结果</h3>
+<pre>interface KnowledgeSearchHit {
+  handle: string   // "kdoc_" + base64(kb_id + "\x1f" + rel_path)
+  kbId: string; kbName: string; relPath: string
+  heading: string; snippet: string; score: number
+  startLine: number; endLine: number
+}</pre>
+
+        <h2>2.6 核心算法（TypeScript 移植）</h2>
+        <h3>score_md — 评分函数</h3>
+<pre>function scoreMd(relPath, heading, content, queryLc, terms) {
+  const pathLc = relPath.toLowerCase(), headingLc = heading.toLowerCase(), contentLc = content.toLowerCase()
+  let score = 0
+  if (pathLc.includes(queryLc) || headingLc.includes(queryLc)) score += 8
+  if (contentLc.includes(queryLc)) score += 5
+  for (const t of terms) {
+    if (pathLc.includes(t)) score += 4
+    if (headingLc.includes(t)) score += 3
+    const tf = contentLc.split(t).length - 1
+    score += Math.min(tf, 5)
+  }
+  if (score === 0) return null
+  return [score, ...bestSnippet(content, queryLc, terms)]
+}</pre>
+        <h3>encode_handle / decode_handle — Handle 编解码</h3>
+<pre>function encodeHandle(kbId, relPath) {
+  return 'kdoc_' + Buffer.from(`${kbId}\x1f${relPath}`, 'utf-8').toString('base64url')
+}
+function decodeHandle(handle) {
+  if (!handle.startsWith('kdoc_')) return null
+  const raw = Buffer.from(handle.slice(5), 'base64url').toString('utf-8')
+  const sep = raw.indexOf('\x1f'); if (sep < 0) return null
+  return { kbId: raw.slice(0, sep), relPath: raw.slice(sep + 1) }
+}</pre>
+
+        <h2>2.7 Tool 参数设计</h2>
+        <h3>knowledge_search（会话级，注入时附带作用域）</h3>
+<pre>{
+  "name": "knowledge_search",
+  "description": "Search the knowledge bases mounted in THIS SESSION... | mounted: 产品手册库, FAQ 库",
+  "parameters": { "type":"object",
+    "properties": { "query":{"type":"string","description":"Search query"},
+      "limit":{"type":"number","description":"Max results (default 10)"} },
+    "required": ["query"] }
+}</pre>
+        <h3>knowledge_read（会话级）</h3>
+<pre>{
+  "name": "knowledge_read",
+  "description": "Read the full Markdown content of a knowledge document by its handle.",
+  "parameters": { "type":"object",
+    "properties": { "handle":{"type":"string","description":"Document handle from knowledge_search"} },
+    "required": ["handle"] }
+}</pre>
+        <h3>knowledge_manage（全局）</h3>
+<pre>{
+  "name": "knowledge_manage",
+  "description": "Manage knowledge bases: create, list, delete.",
+  "parameters": { "type":"object",
+    "properties": { "action":{"type":"string","enum":["create","list","delete","list_files"]},
+      "name":{"type":"string"}, "path":{"type":"string"},
+      "description":{"type":"string"}, "kb_id":{"type":"string"} },
+    "required": ["action"] }
+}</pre>
+
+        <h2>2.8 变更清单</h2>
+        <h3>definitions.ts</h3>
+<pre>export function isKnowledgeTool(name) { return name==='knowledge_search' || name==='knowledge_read' }
+export function knowledgeToolNames() { return ['knowledge_search','knowledge_read'] }
+// getCharacterToolDefinitions(..., knowledgeBases) 增加参数
+if (knowledgeBases && knowledgeBases.length > 0) for (const n of knowledgeToolNames()) names.add(n)</pre>
+        <h3>outer.ts</h3>
+<pre>const knowledgeBases = JSON.parse(session.knowledge_bases || '[]')
+const toolDefs = getCharacterToolDefinitions(tools, memoryMode, skills, knowledgeBases)
+// 挂载时把 kb 名称注入 knowledge_search description
+for (const t of toolDefs) if (t.function.name==='knowledge_search')
+  t.function.description += ` | mounted: ${kbNames}`</pre>
+        <h3>RightPanel.tsx — 前端挂载 UI</h3>
+<pre>&lt;div className="rp-section"&gt;
+  &lt;div className="rp-section-title"&gt;知识库 &lt;button onClick={togglePicker}&gt;+&lt;/button&gt;&lt;/div&gt;
+  {mountedKBs.map(kb =&gt; (
+    &lt;div className="helper-item"&gt;📚 {kb.name} ×&lt;/div&gt;))}
+&lt;/div&gt;</pre>
+
+        <h2>2.9 P1 不做</h2>
+        <ul>
+          <li><span class="bad">✗</span> 文件上传 UI（直接放文件或用 bash）</li>
+          <li><span class="bad">✗</span> PDF/docx/xlsx 转换（P2）</li>
+          <li><span class="bad">✗</span> 分块引擎（P2/P3）</li>
+          <li><span class="bad">✗</span> 向量化和混合检索（P3）</li>
+          <li><span class="bad">✗</span> 搜索缓存 / 检索评测 UI / 独立管理页面</li>
+        </ul>
+
+        <h2>2.10 验证方式</h2>
+        <div class="flow">
+          <div class="flow-step"><span class="step-num">1</span> knowledge_manage(action=create, name=测试库, path=...) 创建</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step"><span class="step-num">2</span> 会话详情 RightPanel 挂载该知识库</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step"><span class="step-num">3</span> Agent 调用 knowledge_search(query=退款)</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step"><span class="step-num">4</span> 验证返回 score/snippet/handle → knowledge_read 读全文</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step p2"><span class="step-num">5</span> 卸载后 Agent 不再有 knowledge_search 工具 → npx tsc --noEmit</div>
+        </div>
+      </section>
+
+      <!-- ============ P2 ============ -->
+      <section class="section" id="sec3" style="display:none">
+        <h1>3 · P2 转换插件管理 <span class="pill p2">P2</span></h1>
+
+        <h2>3.1 目标</h2>
+        <p>支持 PDF / docx / xlsx / pptx / html 等格式自动转换为 Markdown，用户可以安装和管理转换器。</p>
+
+        <h2>3.2 架构</h2>
+<pre>原始文件 (.pdf/.docx/.xlsx/.pptx) → 转换器(Converter) → normalized Markdown
+    ↓ 可选                            ↓
+  用户修订 curated MD              分块(P3) / 索引</pre>
+
+        <h2>3.3 转换器方案</h2>
+        <table>
+          <tr><th>格式</th><th>推荐方案</th><th>备选</th></tr>
+          <tr><td>PDF</td><td><code>pdf-parse</code> (Node)</td><td>pandoc via bash</td></tr>
+          <tr><td>docx</td><td><code>mammoth</code> (Node)</td><td>pandoc via bash</td></tr>
+          <tr><td>xlsx</td><td><code>xlsx</code> (SheetJS)</td><td>Python openpyxl</td></tr>
+          <tr><td>pptx</td><td><code>pptx-parser</code> / pandoc</td><td>手动提取</td></tr>
+          <tr><td>html</td><td><code>turndown</code>（已有）</td><td>自定义 parser</td></tr>
+          <tr><td>txt</td><td>直接读取</td><td>—</td></tr>
+        </table>
+
+        <h2>3.4 新增/修改文件</h2>
+<pre>新增：
+  web/server/src/knowledge/converter.ts          # 转换器注册表 + 统一接口
+  web/server/src/knowledge/converter-registry.ts # 安装/卸载/列出
+  web/server/src/knowledge/converters/{pdf,docx,xlsx,pptx,html}.ts
+
+修改：
+  knowledge_manage/index.ts → 增加 action: convert / reconvert / set_converter
+
+数据：
+  dataDir/knowledge/{bases.json, converters.json, originals/{kbId}/, normalized/{kbId}/}</pre>
+
+        <h2>3.5 转换器接口</h2>
+<pre>interface Converter {
+  name: string; inputExtensions: string[]
+  convert(inputPath, outputPath): Promise&lt;ConvertResult&gt;
+}
+interface ConvertResult {
+  ok: boolean; outputPath?; error?
+  metadata? { pageCount?; sheetCount?; anchorMap?: SourceMapEntry[] }
+}
+interface SourceMapEntry { mdLine; sourcePage?; sourceSheet?; sourceSlide? }</pre>
+
+        <h2>3.6 文件生命周期</h2>
+        <div class="flow">
+          <div class="flow-step"><span class="step-num">1</span> 上传文件 → 存储 originals/{kbId}/</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step"><span class="step-num">2</span> 识别扩展名 → 查找 Converter</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step"><span class="step-num">3</span> 生成 normalized/{kbId}/{name}.md + source-map</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step p2"><span class="step-num">4</span> 更新状态 pending → indexed / error</div>
+        </div>
+      </section>
+
+      <!-- ============ P3 ============ -->
+      <section class="section" id="sec4" style="display:none">
+        <h1>4 · P3 向量知识库 <span class="pill p3">P3</span></h1>
+
+        <h2>4.1 目标</h2>
+        <p>实现分块 → 向量化 → 混合检索（BM25 + 向量 + RRF 融合），达到企业级 RAG 检索质量。</p>
+
+        <h2>4.2 核心组件</h2>
+        <table>
+          <tr><th>组件</th><th>技术选型</th><th>说明</th></tr>
+          <tr><td>分块引擎</td><td>自研 Markdown AST 分块</td><td>6 种预设</td></tr>
+          <tr><td>向量存储</td><td>SQLite + sqlite-vec</td><td>本地零基建</td></tr>
+          <tr><td>Embedding</td><td>OpenAI / 本地 all-MiniLM-L6-v2</td><td>可选远程/本地</td></tr>
+          <tr><td>Reranker</td><td>Cohere / Jina</td><td>可选，提升精度</td></tr>
+          <tr><td>混合检索</td><td>BM25 + 向量 + RRF</td><td>同 NomiFun 流程</td></tr>
+        </table>
+
+        <h2>4.3 分块策略</h2>
+        <table>
+          <tr><th>预设</th><th>策略</th><th>适用场景</th></tr>
+          <tr><td>General</td><td>按分隔符和长度切分</td><td>普通文档</td></tr>
+          <tr><td>QA</td><td>抽取问题-回答结构</td><td>FAQ、题库</td></tr>
+          <tr><td>Book</td><td>强化标题识别并层级合并</td><td>教材手册</td></tr>
+          <tr><td>Laws</td><td>按法条层级组织</td><td>制度规范</td></tr>
+          <tr><td>Semantic</td><td>嵌入聚类语义切分</td><td>通用语义文档</td></tr>
+          <tr><td>Separator</td><td>命中分隔符即切分</td><td>结构化文本</td></tr>
+        </table>
+
+        <h2>4.4 Chunk 数据模型</h2>
+<pre>interface Chunk {
+  id: string; kbId: string; fileId: string; chunkIndex: number
+  headingPath: string; content: string; tokenCount: number
+  startLine: number; endLine: number
+  embedding?: number[]; contentSha256: string
+}</pre>
+
+        <h2>4.5 检索模式</h2>
+<pre>keyword（P1 已实现）→ BM25 关键词匹配
+vector              → 向量相似度（余弦距离）
+hybrid              → BM25 + 向量 → RRF 融合排序</pre>
+
+        <h2>4.6 新增文件</h2>
+<pre>新增：
+  web/server/src/knowledge/{chunker, chunker-presets, embedder,
+    vector-store, search-engine, reranker, schema, index}.ts
+修改：
+  knowledge_search/index.ts → 增加 search_mode: keyword|vector|hybrid
+  knowledge_manage/index.ts → 增加 action: reindex / configure_embedding / chunk_preview</pre>
+
+        <h2>4.7 存储结构（P3 终态）</h2>
+<pre>dataDir/knowledge/
+  ├── bases.json            # 知识库注册表
+  ├── converters.json       # 已安装转换器
+  ├── knowledge.db          # SQLite：chunks + embeddings + index_meta
+  ├── originals/{kbId}/     # 原文件
+  ├── normalized/{kbId}/    # 转换后的 md
+  └── cache/                # 搜索缓存（可选）</pre>
+
+        <h2>4.8 检索配置</h2>
+<pre>interface RetrievalConfig {
+  searchMode: 'keyword' | 'vector' | 'hybrid'
+  finalTopK: number; simThreshold: number
+  useLocalVector: boolean; useReranker: boolean
+  vecWeight: number; bm25Weight: number
+}</pre>
+      </section>
+
+      <!-- ============ 前端规划 ============ -->
+      <section class="section" id="secFE" style="display:none">
+        <h1>前端规划 <span class="pill" style="background:var(--info)">FE</span></h1>
+
+        <h2>现有架构摘要</h2>
+        <table>
+          <tr><th>模块</th><th>技术</th><th>说明</th></tr>
+          <tr><td>状态管理</td><td>Zustand (chatStore)</td><td>会话列表、activeSessionId、乐观更新 + PUT 持久化</td></tr>
+          <tr><td>会话字段</td><td>Session.workspace / workspaces / targets</td><td>JSON 字符串存储，RightPanel 解析渲染</td></tr>
+          <tr><td>RightPanel</td><td>角色卡片 + 项目区 + 帮手 + Goal + 统计</td><td>帮手用 helper-grid/helper-pick 样式</td></tr>
+          <tr><td>角色详情</td><td>CharacterDetailPage Tab "工具"</td><td>绑定/解绑工具，isAutoManagedTool 过滤</td></tr>
+          <tr><td>路由</td><td>/knowledge → KnowledgePage</td><td>当前为空壳三栏骨架（59 行）</td></tr>
+        </table>
+
+        <h2>P1 前端：会话级知识库挂载</h2>
+
+        <h3>变更文件</h3>
+        <table>
+          <tr><th>文件</th><th>操作</th><th>说明</th></tr>
+          <tr><td><code>types/index.ts</code></td><td>修改</td><td>Session 增 <code>knowledge_bases?: string | null</code></td></tr>
+          <tr><td><code>stores/chatStore.ts</code></td><td>修改</td><td>新增 <code>updateSessionKnowledgeBases()</code> action</td></tr>
+          <tr><td><code>components/Chat/RightPanel.tsx</code></td><td>修改</td><td>新增"知识库"挂载区（~60 行）</td></tr>
+          <tr><td><code>i18n/dict.ts</code></td><td>修改</td><td>4 条翻译：挂载知识库/无挂载/无更多可添加/移除</td></tr>
+          <tr><td><code>db/sessionStore.ts</code>（后端）</td><td>修改</td><td>session 表增 knowledge_bases 列</td></tr>
+        </table>
+
+        <h3>chatStore 新增 Action</h3>
+<pre>// 与 updateSessionTargets 完全同构
+updateSessionKnowledgeBases: (sessionId, knowledgeBases) => {
+  set(state => ({
+    sessions: state.sessions.map(s =>
+      s.id === sessionId ? { ...s, knowledge_bases: knowledgeBases ? JSON.stringify(knowledgeBases) : null } : s
+    ),
+  }))
+  sessionsApi.updateSession(sessionId, {
+    knowledge_bases: knowledgeBases ? JSON.stringify(knowledgeBases) : null,
+  }).catch(() => {})
+}</pre>
+
+        <h3>RightPanel 知识库挂载区</h3>
+        <p>位置：在"帮手"区块之后、GoalPanel 之前。复用 helper-grid / helper-pick 样式。</p>
+<pre>&lt;div className="rp-section"&gt;
+  &lt;div className="rp-section-title"&gt;
+    {t('知识库')}
+    &lt;button onClick={() =&gt; setShowKBPicker(v =&gt; !v)}&gt;+&lt;/button&gt;
+  &lt;/div&gt;
+  {mountedKBs.length === 0 ? (
+    &lt;div className="rp-empty"&gt;{t('无挂载知识库')}&lt;/div&gt;
+  ) : (
+    &lt;div className="helper-grid"&gt;
+      {mountedKBs.map(kb =&gt; (
+        &lt;div className="helper-item"&gt;
+          📚 {kb.name} &lt;span onClick={移除}&gt;×&lt;/span&gt;
+        &lt;/div&gt;))}
+    &lt;/div&gt;
+  )}
+  {showKBPicker &amp;&amp; (
+    &lt;div className="helper-pick"&gt;
+      {availableKBs.map(kb =&gt; (
+        &lt;span className="tag" onClick={添加}&gt;{kb.name}&lt;/span&gt;))}
+    &lt;/div&gt;
+  )}
+&lt;/div&gt;</pre>
+
+        <h2>P2 前端：知识库管理页</h2>
+
+        <h3>页面布局</h3>
+        <div style="background:var(--codeBg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:12px;font-family:'JetBrains Mono',Consolas,monospace;line-height:1.5;margin:12px 0;overflow-x:auto;white-space:pre">┌─────────────────────────────────────────────────┐
+│ 知识库 · 搜索... [新建文件夹] [上传文档]          │
+├──────────┬──────────────┬────────────────────────┤
+│ 左栏 220px│ 中栏 1fr     │ 右栏 380px              │
+│ 知识库树  │ 文档列表     │ Markdown 预览           │
+│  · 新建   │  · 文件名    │  · 渲染内容             │
+│  · 重命名 │  · 类型badge │  · 分块预览(P3)         │
+│  · 删除   │  · 状态      │  · 来源映射(P2)         │
+│           │  · 拖拽上传  │                        │
+├───────────┴──────────────┴────────────────────────┤
+│ 底部：转换状态栏 + 错误日志                         │
+└─────────────────────────────────────────────────┘</div>
+
+        <h3>新增组件</h3>
+        <table>
+          <tr><th>文件</th><th>说明</th></tr>
+          <tr><td><code>pages/knowledge/KnowledgeLayout.tsx</code></td><td>三栏布局容器</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeTree.tsx</code></td><td>左栏知识库树</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeDocList.tsx</code></td><td>中栏文档列表 + 上传区</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgePreview.tsx</code></td><td>右栏 Markdown 预览</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeUploadZone.tsx</code></td><td>拖拽上传组件</td></tr>
+          <tr><td><code>pages/knowledge/useKnowledgeBases.ts</code></td><td>知识库 CRUD hook</td></tr>
+          <tr><td><code>pages/knowledge/useKnowledgeDocs.ts</code></td><td>文档列表 hook</td></tr>
+          <tr><td><code>api/knowledge.ts</code></td><td>知识库 REST API</td></tr>
+        </table>
+
+        <h3>API 层</h3>
+<pre>fetchKnowledgeBases()              → GET  /api/knowledge/bases
+createKnowledgeBase(data)          → POST /api/knowledge/bases
+deleteKnowledgeBase(id)            → DELETE /api/knowledge/bases/:id
+fetchKnowledgeFiles(kbId)          → GET  /api/knowledge/bases/:id/files
+uploadKnowledgeFile(kbId, file)    → POST /api/knowledge/bases/:id/files (FormData)
+fetchKnowledgeFileContent(kbId,path) → GET  /api/knowledge/bases/:id/files/:path/content</pre>
+
+        <h3>文档状态 Badge</h3>
+        <table>
+          <tr><th>状态</th><th>Badge</th><th>说明</th></tr>
+          <tr><td>indexed</td><td><span class="good">✓ 已索引</span></td><td>已转换/已索引</td></tr>
+          <tr><td>converting</td><td><span style="color:var(--info);font-weight:600">⟳ 转换中</span></td><td>P2：正在转换</td></tr>
+          <tr><td>error</td><td><span class="bad">✗ 失败</span></td><td>P2：hover 显示错误信息</td></tr>
+          <tr><td>pending</td><td><span style="color:var(--textMuted)">· 待处理</span></td><td>P2：等待转换</td></tr>
+        </table>
+
+        <h2>P3 前端：检索调试</h2>
+
+        <h3>检索调试面板</h3>
+        <div style="background:var(--codeBg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:12px;font-family:'JetBrains Mono',Consolas,monospace;line-height:1.5;margin:12px 0;overflow-x:auto;white-space:pre">┌───────────────────────────────────────────────┐
+│ 检索调试                                       │
+├───────────────────────────────────────────────┤
+│ 模式: [▾ keyword]  Top-K: [10]  阈值: [0.2]  │
+│ ☐ 本地向量  ☐ Reranker  权重: vec[0.7] bm25[0.3]│
+│                                               │
+│ 查询: [________________________] [🔍 检索]    │
+├───────────────────────────────────────────────┤
+│ 📄 产品手册.md · 行 42-48 · score: 12         │
+│ "退款政策：用户在购买后 7 天内..."              │
+│ [查看原文] [复制引用]                          │
+├───────────────────────────────────────────────┤
+│ 📄 FAQ.md · 行 15-20 · score: 8              │
+│ "如何申请退款？请在..."                        │
+│ [查看原文] [复制引用]                          │
+├───────────────────────────────────────────────┤
+│ 模式对比:                                      │
+│ ┌─────────┬────────┬────────┬────────┐        │
+│ │         │Recall@5│Recall@10│ MRR   │        │
+│ │keyword  │ 0.72   │ 0.85   │ 0.68  │        │
+│ │vector   │ 0.81   │ 0.93   │ 0.75  │        │
+│ │hybrid   │ 0.88   │ 0.96   │ 0.82  │        │
+│ └─────────┴────────┴────────┴────────┘        │
+└───────────────────────────────────────────────┘</div>
+
+        <h3>P3 新增组件</h3>
+        <table>
+          <tr><th>文件</th><th>说明</th></tr>
+          <tr><td><code>pages/knowledge/KnowledgeSearchDebug.tsx</code></td><td>检索调试面板</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeRetrievalSettings.tsx</code></td><td>检索配置表单</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeComparisonTable.tsx</code></td><td>模式对比表格</td></tr>
+          <tr><td><code>pages/knowledge/KnowledgeChunkInspector.tsx</code></td><td>分块详情查看器</td></tr>
+        </table>
+
+        <h2>三期前端变更总览</h2>
+        <table>
+          <tr><th>期</th><th>新增文件</th><th>修改文件</th><th>工作量</th></tr>
+          <tr>
+            <td><span class="pill p1">P1</span></td>
+            <td>0（无新文件）</td>
+            <td>types, chatStore, RightPanel, dict.ts, sessionStore(后端)</td>
+            <td>1 天</td>
+          </tr>
+          <tr>
+            <td><span class="pill p2">P2</span></td>
+            <td>8 个组件 + api/knowledge.ts</td>
+            <td>KnowledgePage.tsx 重写（~400 行）</td>
+            <td>3~4 天</td>
+          </tr>
+          <tr>
+            <td><span class="pill p3">P3</span></td>
+            <td>4 个调试组件</td>
+            <td>KnowledgePreview, KnowledgePage, api/knowledge.ts</td>
+            <td>2~3 天</td>
+          </tr>
+        </table>
+
+        <h2>视觉规范</h2>
+        <table>
+          <tr><th>区域</th><th>规范</th></tr>
+          <tr><td>RightPanel 挂载区</td><td>复用 helper-grid/helper-item/helper-pick，📚 替代角色头像</td></tr>
+          <tr><td>管理页三栏</td><td>左 220px / 中 1fr / 右 380px，左栏 surface1 背景</td></tr>
+          <tr><td>文档列表行</td><td>高 48px，hover 高亮，类型 badge 圆角 4px</td></tr>
+          <tr><td>上传区</td><td>虚线边框 2px dashed，拖入时 accent 色高亮</td></tr>
+          <tr><td>分数颜色</td><td>0-5 灰 / 5-10 黄 / &gt;10 绿</td></tr>
+        </table>
+      </section>
+
+      <!-- ============ 进度 ============ -->
+      <section class="section" id="sec5" style="display:none">
+        <h1>5 · 进度估算</h1>
+        <table>
+          <tr><th>期</th><th>工作量</th><th>主要风险</th></tr>
+          <tr>
+            <td><span class="pill p1">P1</span></td>
+            <td><b>4~5 天</b></td>
+            <td>RightPanel 挂载 UI + 作用域注入需要改动 agent loop（outer/inner），测试面较广</td>
+          </tr>
+          <tr>
+            <td><span class="pill p2">P2</span></td>
+            <td><b>5~7 天</b></td>
+            <td>PDF/docx 转换质量；xlsx 表格结构保留</td>
+          </tr>
+          <tr>
+            <td><span class="pill p3">P3</span></td>
+            <td><b>7~10 天</b></td>
+            <td>sqlite-vec 集成；Embedding API 调用；分块质量调优</td>
+          </tr>
+        </table>
+      </section>
+
+      <!-- ============ 文件变更 ============ -->
+      <section class="section" id="sec6" style="display:none">
+        <h1>6 · 文件变更汇总</h1>
+
+        <h2>P1（新 3 个 tool + 会话挂载机制）</h2>
+        <table>
+          <tr><th>操作</th><th>文件</th><th>说明</th></tr>
+          <tr><td>新增</td><td>tools/knowledge_search/{tool.json,index.ts}</td><td>检索 Tool（作用域限定）</td></tr>
+          <tr><td>新增</td><td>tools/knowledge_read/{tool.json,index.ts}</td><td>读全文 Tool</td></tr>
+          <tr><td>新增</td><td>tools/knowledge_manage/{tool.json,index.ts}</td><td>全局管理 Tool</td></tr>
+          <tr><td>修改</td><td>tools/definitions.ts</td><td>isKnowledgeTool/knowledgeToolNames + knowledgeBases 参数</td></tr>
+          <tr><td>修改</td><td>agent/outer.ts</td><td>读 session.knowledge_bases → 注入工具 + kb 名到 description</td></tr>
+          <tr><td>修改</td><td>agent/inner.ts</td><td>ToolContext 增 knowledgeBases</td></tr>
+          <tr><td>修改</td><td>db/sessionStore.ts</td><td>session 表增 knowledge_bases 字段</td></tr>
+          <tr><td>修改</td><td>client RightPanel.tsx</td><td>新增"知识库"挂载区</td></tr>
+        </table>
+
+        <h2>P2（在 P1 基础上）</h2>
+        <table>
+          <tr><th>操作</th><th>文件</th><th>说明</th></tr>
+          <tr><td>新增</td><td>knowledge/converter.ts</td><td>转换器注册表 + 接口</td></tr>
+          <tr><td>新增</td><td>knowledge/converter-registry.ts</td><td>安装/卸载/列出</td></tr>
+          <tr><td>新增</td><td>knowledge/converters/{pdf,docx,xlsx,pptx,html}.ts</td><td>各格式转换器</td></tr>
+          <tr><td>修改</td><td>knowledge_manage/index.ts</td><td>增 convert/reconvert action</td></tr>
+        </table>
+
+        <h2>P3（在 P1+P2 基础上）</h2>
+        <table>
+          <tr><th>操作</th><th>文件</th><th>说明</th></tr>
+          <tr><td>新增</td><td>knowledge/{chunker,chunker-presets,embedder,vector-store,search-engine,reranker,schema,index}.ts</td><td>向量知识库核心</td></tr>
+          <tr><td>修改</td><td>knowledge_search/index.ts</td><td>增 search_mode 参数</td></tr>
+          <tr><td>修改</td><td>knowledge_manage/index.ts</td><td>增 reindex/configure action</td></tr>
+        </table>
+      </section>
+
+      <!-- ============ 设计决策 ============ -->
+      <section class="section" id="sec7" style="display:none">
+        <h1>7 · 关键设计决策</h1>
+
+        <h2>7.1 存储选型</h2>
+        <table>
+          <tr><th>选项</th><th>优点</th><th>缺点</th><th>结论</th></tr>
+          <tr><td>JSON 文件</td><td>零依赖、简单</td><td>并发写不安全、查询慢</td><td><span class="good">P1 采用</span></td></tr>
+          <tr><td>SQLite</td><td>查询快、并发安全</td><td>需引入依赖</td><td><span class="good">P3 采用</span>（chunks+embeddings）</td></tr>
+        </table>
+
+        <h2>7.2 检索选型</h2>
+        <table>
+          <tr><th>选项</th><th>优点</th><th>缺点</th><th>结论</th></tr>
+          <tr><td>纯关键词（TF-IDF）</td><td>零基建</td><td>语义理解差</td><td><span class="good">P1 采用</span></td></tr>
+          <tr><td>向量（Embedding）</td><td>语义理解好</td><td>需 API/模型</td><td><span class="good">P3 采用</span></td></tr>
+          <tr><td>混合（BM25+向量+RRF）</td><td>兼顾两者</td><td>复杂度高</td><td><span class="good">P3 采用</span></td></tr>
+        </table>
+
+        <h2>7.3 前端 UI</h2>
+        <table>
+          <tr><th>阶段</th><th>UI 策略</th></tr>
+          <tr><td>P1</td><td>RightPanel 会话级挂载区（对标帮手）+ knowledge_manage tool</td></tr>
+          <tr><td>P2</td><td>可选：简化版三栏管理页</td></tr>
+          <tr><td>P3</td><td>检索配置面板 + 检索调试 Tab</td></tr>
+        </table>
+
+        <h2>7.4 与现有 Memory 系统的关系</h2>
+<pre>Memory（角色记忆）    ←→  独立系统，有独立表/工具/UI
+Knowledge（文件知识库） ←→  独立系统，有独立表/工具/UI
+
+Agent 通过 tool 按需检索：
+  - character_memory_search → 读角色自己的长尾记忆
+  - group_memory_search    → 读同组授权记忆
+  - knowledge_search       → 读文件知识库
+
+禁止：
+  - knowledge_chunk 写入 memory_item
+  - 知识库内容自动注入系统提示词
+  - 两个系统共用事实表</pre>
+
+        <h2>7.5 会话挂载 vs 全局默认注入</h2>
+        <table>
+          <tr><th>方案</th><th>优点</th><th>缺点</th><th>结论</th></tr>
+          <tr>
+            <td>全局默认注入 knowledge_search</td>
+            <td>简单</td>
+            <td>所有会话都有工具，浪费 token；模型可能误搜</td>
+            <td><span class="bad">✗ 不采用</span></td>
+          </tr>
+          <tr>
+            <td>会话级挂载（同帮手模式）</td>
+            <td>精确控制、按需注入、作用域限定</td>
+            <td>需要改 agent loop</td>
+            <td><span class="good">✔ 采用</span></td>
+          </tr>
+          <tr>
+            <td>角色级绑定</td>
+            <td>与角色关联</td>
+            <td>灵活性差；跨角色共享困难</td>
+            <td><span class="bad">✗ 不采用</span></td>
+          </tr>
+        </table>
+        <p>会话挂载模式的关键优势：</p>
+        <ul>
+          <li><b>作用域安全</b>：knowledge_search 只能搜索当前会话挂载的知识库，不能越权</li>
+          <li><b>按需注入</b>：未挂载时不注入工具，节省 token</li>
+          <li><b>灵活性</b>：同一角色在不同会话可挂载不同知识库</li>
+          <li><b>一致性</b>：与现有帮手（targets）和授权工作区（workspaces）完全同构</li>
+        </ul>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+// ── 侧边导航 ──
+function goSection(el, id) {
+  document.querySelectorAll('.section').forEach(s => s.style.display = 'none')
+  document.getElementById(id).style.display = 'block'
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+  el.classList.add('active')
+  const c = document.getElementById('mainContent')
+  c.scrollTop = 0
+}
+function goSectionHash(id) {
+  const el = document.querySelector(`.nav-item[data-sec="${id}"]`)
+  if (el) goSection(el, id)
+}
+// ── 搜索 ──
+let searchActive = false
+function doSearch(q) {
+  q = q.trim().toLowerCase()
+  const sections = Array.from(document.querySelectorAll('.section'))
+  if (!q) { searchActive = false; sections.forEach(s => s.style.display='none'); }
+  if (!q) { // reset to current active
+    const act = document.querySelector('.nav-item.active')
+    if (act) goSection(act, act.dataset.sec)
+    return
+  }
+  searchActive = true
+  // hide all, find matches
+  sections.forEach(s => s.style.display = 'none')
+  let any = false
+  for (const s of sections) {
+    const text = s.innerText.toLowerCase()
+    if (text.includes(q)) { s.style.display = 'block'; any = true }
+  }
+  document.getElementById('mainContent').scrollTop = 0
+}
+</script>
+</body>
+</html>
