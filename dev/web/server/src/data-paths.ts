@@ -110,3 +110,8 @@ export function configModelUsageFile(): string {
 export function configExchangeRateFile(): string {
   return resolve(configDir(), 'exchange-rate.json')
 }
+
+/** 知识库根目录：<dataDir>/knowledge（注册表 bases.json 存于此）。 */
+export function knowledgeRoot(): string {
+  return resolve(dataRoot(), 'knowledge')
+}

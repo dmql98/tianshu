@@ -24,6 +24,7 @@ import preferencesRouter from './routes/preferences.js'
 import skinsRouter from './routes/skins.js'
 import statisticsRouter from './routes/statistics.js'
 import pricingRouter from './routes/pricing.js'
+import { knowledgeRouter } from './routes/knowledge.js'
 import { providerOAuthRoutes, createProviderOAuthService } from './routes/provider-oauth.js'
 import { setTransportBroadcaster, createBroadcaster } from './transport/runtime.js'
 import { setEventDefinitionRuntime } from './event/event-run-adapter.js'
@@ -291,6 +292,7 @@ export async function startTianshuServer(
   app.route('/api/skins', skinsRouter)
   app.route('/api/statistics', statisticsRouter)
   app.route('/api/pricing', pricingRouter)
+  app.route('/api/knowledge', knowledgeRouter)
   app.route('/api/provider-oauth', providerOAuthRoutes(createProviderOAuthService()))
   app.get('/health', (c) => c.json({ ok: true }))
 

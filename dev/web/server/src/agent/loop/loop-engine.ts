@@ -58,6 +58,7 @@ export interface LoopEngineContext {
   characterId: string
   workspace: string
   workspaces: string[]
+  knowledgeBases?: string[]
   cap: ProviderCapability
   tools: any[] | undefined
   mcpClients: Map<string, MCPClient>
@@ -144,7 +145,7 @@ function buildLimitSummary(
 export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineResult> {
   const {
     sessionId, runId, stream, broadcaster, signal, provider, model, characterId,
-    workspace, workspaces, cap, tools, mcpClients,
+    workspace, workspaces, knowledgeBases, cap, tools, mcpClients,
     contextWindow, compactPolicy, maxTurns, policy, messages, composeCtx, opts, session,
     executionMode, goal, hasDelegateTargets,
   } = ctx
@@ -354,7 +355,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     const result = await innerLoop(composedMsgs,
       tools, provider, model, characterId,
       workspace, broadcaster, stream, sessionId, signal, opts, turn,
-      mcpClients, workspaces, cap,
+      mcpClients, workspaces, cap, knowledgeBases,
     )
 
     totalInputTokens += result.totalInputTokens

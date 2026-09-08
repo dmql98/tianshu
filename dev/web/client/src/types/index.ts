@@ -22,6 +22,8 @@ export interface SessionSummary {
   active_group: string | null
   /** 本会话可委托角色白名单（JSON 字符串，如 ["worker"]）。 */
   targets?: string | null
+  /** 本会话挂载的知识库 ID 列表（JSON 字符串，如 ["kb-1"]）。 */
+  knowledge_bases?: string | null
   session_type?: 'chat' | 'event'
   event_id?: string | null
   current_strategy?: Strategy

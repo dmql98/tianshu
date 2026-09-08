@@ -6,6 +6,7 @@ import { providerStore, resolveProviderApiStyle } from '../db/providerStore.js'
 import { characterContentStore } from '../character/store.js'
 import { detectInsight } from '../evolution/index.js'
 import { getCharacterToolDefinitions } from '../tools/definitions.js'
+import { knowledgeStore } from '../knowledge/store.js'
 import { stableKey, getCached, setCached, normalizeTools, extractComponents, diagnoseMiss } from './system-cache.js'
 import { type ComposeContext } from './compose.js'
 import { connectMCPServer, disconnectMCPServer } from '../tools/mcp-client.js'
@@ -126,7 +127,26 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
 
   // 普通工具：记忆工具由 memoryMode、skill_manager 由技能列表，统一在
   // definitions.ts 内按状态门控（均不纳入「工具管理」开关）。
-  const toolDefs = getCharacterToolDefinitions(charMeta.tools, resolveMemoryMode(charMeta.memory), charMeta.skills)
+  const knowledgeBases = (() => {
+    if (!session.knowledge_bases) return []
+    try { const p = JSON.parse(session.knowledge_bases); return Array.isArray(p) ? p : [] } catch { return [] }
+  })()
+  const toolDefs = getCharacterToolDefinitions(charMeta.tools, resolveMemoryMode(charMeta.memory), charMeta.skills, knowledgeBases)
+
+  // 知识库作用域可视化：把挂载库名称注入 knowledge_search 的 description，
+  // 让模型感知当前可搜索范围。
+  if (knowledgeBases.length > 0) {
+    const names = knowledgeBases
+      .map(id => knowledgeStore.get(id)?.name)
+      .filter((n): n is string => !!n)
+    if (names.length > 0) {
+      for (const t of toolDefs) {
+        if (t.function.name === 'knowledge_search') {
+          t.function.description += ` | mounted: ${names.join(', ')}`
+        }
+      }
+    }
+  }
 
   const mcpClients = new Map<string, MCPClient>()
   const mcpFailedServers: string[] = []
@@ -313,6 +333,7 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
     characterId: session.character_id,
     workspace,
     workspaces,
+    knowledgeBases,
     cap,
     tools,
     mcpClients,

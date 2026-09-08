@@ -41,6 +41,8 @@ export interface ToolContext {
   characterId?: string
   workspace: string
   workspaces?: string[]
+  /** 当前会话挂载的知识库 ID 列表（knowledge_search / knowledge_read 的作用域）。 */
+  knowledgeBases?: string[]
   signal?: AbortSignal
   allowedRoots?: string[]
   onOutput?: (chunk: string) => void

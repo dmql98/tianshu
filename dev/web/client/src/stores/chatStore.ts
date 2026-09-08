@@ -335,6 +335,8 @@ interface ChatState {
   // Delegation targets（本会话可委托角色白名单）
   updateSessionTargets: (sessionId: string, targets: string[] | null) => void
 
+  // Knowledge Bases（本会话挂载）
+  updateSessionKnowledgeBases: (sessionId: string, kbIds: string[]) => void
   // Batch ops
   toggleBatchMode: () => void
   toggleSessionSelection: (sessionId: string) => void
@@ -2306,6 +2308,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         ),
       }))
       sessionsApi.updateSession(sessionId, { targets: targets ? JSON.stringify(targets) : null }).catch(() => {})
+    },
+
+    // ── Knowledge Bases（本会话挂载的知识库，与 targets 同模式）──
+    updateSessionKnowledgeBases: (sessionId, kbIds) => {
+      set(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === sessionId ? { ...s, knowledge_bases: kbIds.length > 0 ? JSON.stringify(kbIds) : null } : s
+        ),
+      }))
+      sessionsApi.updateSession(sessionId, { knowledge_bases: kbIds.length > 0 ? JSON.stringify(kbIds) : null }).catch(() => {})
     },
 
     // ── Batch Actions ──

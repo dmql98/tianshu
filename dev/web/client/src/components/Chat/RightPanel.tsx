@@ -10,6 +10,8 @@ import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import { useSessionStats } from '@/features/chat/useSessionStats'
 import { buildStatsCards } from '@/features/chat/runStats'
 import type { Character } from '@/types'
+import type { KnowledgeBase } from '@/api/knowledge'
+import { fetchKnowledgeBases } from '@/api/knowledge'
 import { useI18n } from '@/i18n'
 
 async function openWorkspaceDir(path: string): Promise<void> {
@@ -34,7 +36,7 @@ async function openWorkspaceDir(path: string): Promise<void> {
 }
 
 export default function RightPanel() {
-  const { sessions, activeSessionId, addWorkspace, removeWorkspace, updateSessionTargets } = useChatStore()
+  const { sessions, activeSessionId, addWorkspace, removeWorkspace, updateSessionTargets, updateSessionKnowledgeBases } = useChatStore()
   const { toggleRightPanel } = useUIStore()
   const t = useI18n()
   const [showFolderPicker, setShowFolderPicker] = useState(false)
@@ -59,10 +61,16 @@ export default function RightPanel() {
   const [showPicker, setShowPicker] = useState(false)
   const [allChars, setAllChars] = useState<Character[]>([])
   const [showHelperPicker, setShowHelperPicker] = useState(false)
+  const [showKnowledgePicker, setShowKnowledgePicker] = useState(false)
+  const [allBases, setAllBases] = useState<KnowledgeBase[]>([])
   const charCache = useRef<Map<string, Character>>(new Map())
 
   useEffect(() => {
     fetchCharacters().then(setAllChars).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetchKnowledgeBases().then(r => setAllBases(r.bases)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -112,6 +120,14 @@ export default function RightPanel() {
   }
   const targetChars = allChars.filter(c => targets.includes(c.id))
   const helperCandidates = allChars.filter(c => (c.role === 'sub' || c.role === 'both') && !targets.includes(c.id))
+
+  // 本会话挂载的知识库（knowledge_bases JSON 数组，与 targets 同模式）
+  let knowledgeBaseIds: string[] = []
+  if (session.knowledge_bases) {
+    try { const p = JSON.parse(session.knowledge_bases); knowledgeBaseIds = Array.isArray(p) ? p : [] } catch { knowledgeBaseIds = [] }
+  }
+  const mountedBases = allBases.filter(b => knowledgeBaseIds.includes(b.id))
+  const availableKBs = allBases.filter(b => !knowledgeBaseIds.includes(b.id))
 
   return (
     <aside className="right-panel">
@@ -262,6 +278,48 @@ export default function RightPanel() {
                   className="tag"
                   onClick={() => updateSessionTargets(session.id, [...targets, c.id])}
                 >{c.name}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Knowledge bases：本会话挂载的知识库 */}
+        <div className="rp-section">
+          <div className="rp-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {t('知识库')}
+            <button
+              style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 'calc(14px * var(--ui-font-scale))', lineHeight: 1 }}
+              title={t('添加知识库')}
+              onClick={() => setShowKnowledgePicker(v => !v)}
+            >+</button>
+          </div>
+          {mountedBases.length === 0 ? (
+            <div style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('无挂载知识库')}</div>
+          ) : (
+            <div className="helper-grid">
+              {mountedBases.map(kb => (
+                <div key={kb.id} className="helper-item" title={kb.description || kb.rootPath}>
+                  <span className="helper-avatar">📚</span>
+                  <span className="helper-name">{kb.name}</span>
+                  <span
+                    className="helper-del"
+                    onClick={() => updateSessionKnowledgeBases(session.id, knowledgeBaseIds.filter(id => id !== kb.id))}
+                    title={t('移除')}
+                  >×</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {showKnowledgePicker && (
+            <div className="helper-pick">
+              {availableKBs.length === 0 ? (
+                <span style={{ fontSize: 'calc(11px * var(--ui-font-scale))', color: 'var(--ink-faint)' }}>{t('无更多可添加知识库')}</span>
+              ) : availableKBs.map(kb => (
+                <span
+                  key={kb.id}
+                  className="tag"
+                  onClick={() => updateSessionKnowledgeBases(session.id, [...knowledgeBaseIds, kb.id])}
+                  title={kb.rootPath}
+                >{kb.name}</span>
               ))}
             </div>
           )}

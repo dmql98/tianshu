@@ -247,6 +247,10 @@ export async function spawnAndRunSubAgent(
 
   const subSessionId = buildSubSessionId(parentSession.id, targetCharacterId, Date.now(), instanceSeq)
   const parentWorkspaces = parentSession.workspaces || (parentSession.workspace ? JSON.stringify([parentSession.workspace]) : null)
+  const parentKbs: string | null | undefined =
+    'knowledge_bases' in parentSession && typeof parentSession.knowledge_bases === 'string'
+      ? parentSession.knowledge_bases
+      : undefined
   const childSession = sessionStore.create({
     id: subSessionId,
     character_id: targetCharacterId,
@@ -257,6 +261,7 @@ export async function spawnAndRunSubAgent(
     workspaces: parentWorkspaces,
     parent_id: parentSession.id,
     targets: parentSession.targets || undefined,
+    knowledge_bases: parentKbs,
     current_strategy: subStrategy,
     approval_mode: subStrategy,
   })

@@ -616,4 +616,13 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 8,
+    name: 'knowledge_bases',
+    up: (db) => {
+      // 会话挂载的知识库 ID 列表（JSON 数组字符串，与 targets/workspaces 同模式）：
+      // agent outer 注入 knowledge_search/knowledge_read 工具的作用域依据。
+      addColumnIfMissing(db, 'sessions', 'knowledge_bases', 'TEXT')
+    },
+  },
 ]

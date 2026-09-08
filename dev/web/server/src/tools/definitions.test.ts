@@ -54,12 +54,28 @@ function namesOf(defs: Array<{ function: { name: string } }>): Set<string> {
   assert(!explicitButOff.has('memory_read') && !explicitButOff.has('memory_write'), 'bindings cannot force memory tools when mode=off')
 }
 
+// ── 知识库工具：挂载才注入 search/read，manage 始终注入 ──
+{
+  const noKb = namesOf(getCharacterToolDefinitions(undefined, undefined, undefined, undefined))
+  assert(!noKb.has('knowledge_search') && !noKb.has('knowledge_read'), 'search/read NOT injected when no kb mounted')
+  assert(noKb.has('knowledge_manage'), 'knowledge_manage always injected')
+
+  const withKb = namesOf(getCharacterToolDefinitions(undefined, undefined, undefined, ['kb-1']))
+  assert(withKb.has('knowledge_search') && withKb.has('knowledge_read'), 'search/read injected when kb mounted')
+  assert(withKb.has('knowledge_manage'), 'knowledge_manage still injected when kb mounted')
+
+  const emptyKb = namesOf(getCharacterToolDefinitions(undefined, undefined, undefined, []))
+  assert(!emptyKb.has('knowledge_search'), 'empty mount list → no search')
+}
+
 // ── isAutoManagedTool：自动门控工具不进入工具管理元数据（/api/tools） ──
 {
   for (const name of ['memory_read', 'memory_write', 'memory_update', 'memory_archive', 'memory_snapshot']) {
     assert(isAutoManagedTool(name), `${name} is auto-managed (memory)`)
   }
   assert(isAutoManagedTool('skill_manager'), 'skill_manager is auto-managed')
+  assert(isAutoManagedTool('knowledge_search') && isAutoManagedTool('knowledge_read'), 'knowledge search/read are auto-managed')
+  assert(!isAutoManagedTool('knowledge_manage'), 'knowledge_manage stays user-managed')
   assert(!isAutoManagedTool('read') && !isAutoManagedTool('bash'), 'ordinary tools are not auto-managed')
 }
 

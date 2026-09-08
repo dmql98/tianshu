@@ -1,0 +1,17 @@
+{
+  "name": "knowledge_search",
+  "description": "Search the knowledge bases mounted in THIS SESSION for relevant Markdown documents. Call this FIRST when the task touches any topic the bases may cover.",
+  "source": "builtin",
+  "tags": ["knowledge"],
+  "version": "1.0.0",
+  "author": "TianShu",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string", "description": "Search query" },
+      "limit": { "type": "number", "description": "Max results to return (default 10)" }
+    },
+    "required": ["query"]
+  }
+}

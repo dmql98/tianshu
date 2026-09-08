@@ -32,11 +32,22 @@ export function isMemoryTool(name: string): boolean {
  * （/api/tools）不返回它们，避免在界面出现可勾选项。
  */
 export function isAutoManagedTool(name: string): boolean {
-  return isMemoryTool(name) || name === 'skill_manager'
+  return isMemoryTool(name) || name === 'skill_manager' || isKnowledgeTool(name)
 }
 
 /** v1 时代的旧记忆工具名：v2 已拆分为 memory_read/write/update/archive/snapshot，绑定里残留的旧名直接忽略。 */
 export const LEGACY_MEMORY_TOOL = 'character_memory'
+
+/** 会话级知识库工具：仅当会话挂载了知识库时注入（作用域工具）。 */
+export const KNOWLEDGE_SESSION_TOOLS = ['knowledge_search', 'knowledge_read'] as const
+
+export function isKnowledgeTool(name: string): boolean {
+  return (KNOWLEDGE_SESSION_TOOLS as readonly string[]).includes(name)
+}
+
+export function knowledgeToolNames(): string[] {
+  return [...KNOWLEDGE_SESSION_TOOLS]
+}
 
 function isLegacyOrMemoryTool(name: string): boolean {
   return name === LEGACY_MEMORY_TOOL || isMemoryTool(name)
@@ -185,7 +196,7 @@ export function resolveCharacterTools(characterTools?: ToolBinding[]): ToolBindi
   return result
 }
 
-export function getCharacterToolDefinitions(characterTools?: ToolBinding[], memoryMode?: MemoryMode, skills?: string[]) {
+export function getCharacterToolDefinitions(characterTools?: ToolBinding[], memoryMode?: MemoryMode, skills?: string[], knowledgeBases?: string[]) {
   const memoryTools = memoryToolNamesForMode(memoryMode)
   const hasSkills = (skills || []).length > 0
   const names = new Set<string>()
@@ -202,6 +213,12 @@ export function getCharacterToolDefinitions(characterTools?: ToolBinding[], memo
   }
   // memoryMode 门控：注入对应记忆工具（off → []，read_only → memory_read，editable/undefined → 全部）。
   for (const name of memoryTools) names.add(name)
+  // 知识库门控：会话挂载了知识库才注入 knowledge_search / knowledge_read。
+  if (knowledgeBases && knowledgeBases.length > 0) {
+    for (const name of KNOWLEDGE_SESSION_TOOLS) names.add(name)
+  }
+  // 知识库管理工具始终注入（全局，不随挂载/绑定门控）。
+  names.add('knowledge_manage')
 
   const result: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, any> } }> = []
   for (const name of names) {

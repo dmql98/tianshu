@@ -30,7 +30,7 @@ import { normalizeToolCalls, buildInvalidToolCall } from './tool-call-normalizer
 import { stableArgsHash, estimateTextTokens } from './loop/loop-policy.js'
 import { decideWorkspaceApproval } from './workspace-approval.js'
 
-const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch', 'get_time', 'debug_sessions', 'memory_read'])
+const READ_ONLY_TOOLS = new Set(['read', 'grep', 'glob', 'webfetch', 'websearch', 'get_time', 'debug_sessions', 'memory_read', 'knowledge_search', 'knowledge_read', 'knowledge_manage'])
 
 // R5: 工具行 tool_input 里的 args 只保留截断副本（完整参数由 assistant 行的
 // tool_calls 承载），避免 write 大 content 在 tool 行与 assistant 行重复全量落库。
@@ -376,10 +376,11 @@ async function executeToolCalls(
     signal?: AbortSignal
     mcpClients?: Map<string, MCPClient>
     workspaces?: string[]
+    knowledgeBases?: string[]
     cap?: ProviderCapability
   },
 ): Promise<{ toolCallRecords: ToolCallRecord[]; messages: LLMMessage[] }> {
-  const { characterId, sessionId, stream, runId, workspace, signal, mcpClients, workspaces, cap } = ctx
+  const { characterId, sessionId, stream, runId, workspace, signal, mcpClients, workspaces, cap, knowledgeBases } = ctx
   const toolCallRecords: ToolCallRecord[] = []
   const newMessages: LLMMessage[] = []
 
@@ -512,7 +513,7 @@ async function executeToolCalls(
 
     async function execWithRoots(extraRoots?: string[]): Promise<ToolResult> {
       try {
-        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, sessionId, characterId)
+        return await executeTool(p.name, p.args, workspace || getDataDir(), signal, mcpClients, extraRoots, onOutput, workspaces, sessionId, characterId, knowledgeBases)
       } catch (err: any) {
         return { output: '', error: `${p.name}: ${err.message || String(err)}` }
       }
@@ -678,6 +679,7 @@ export async function innerLoop(
   mcpClients?: Map<string, MCPClient>,
   workspaces?: string[],
   cap?: ProviderCapability,
+  knowledgeBases?: string[],
 ): Promise<InnerResult> {
   let totalInputTokens = 0
   let totalOutputTokens = 0

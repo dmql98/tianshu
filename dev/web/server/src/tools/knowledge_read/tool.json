@@ -1,0 +1,16 @@
+{
+  "name": "knowledge_read",
+  "description": "Read the full Markdown content of a knowledge document by its handle from knowledge_search.",
+  "source": "builtin",
+  "tags": ["knowledge"],
+  "version": "1.0.0",
+  "author": "TianShu",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "handle": { "type": "string", "description": "Document handle from knowledge_search" }
+    },
+    "required": ["handle"]
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "knowledge_manage",
+  "description": "Manage knowledge bases: create, list, delete, list files. Knowledge bases are directories containing Markdown files (recursively indexed on demand).",
+  "source": "builtin",
+  "tags": ["knowledge"],
+  "version": "1.0.0",
+  "author": "TianShu",
+  "dangerous": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["create", "list", "delete", "list_files"],
+        "description": "Action to perform: create a base from a directory, list all bases, delete a base, or list files inside a base"
+      },
+      "name": { "type": "string", "description": "Knowledge base name (required for create)" },
+      "path": { "type": "string", "description": "Absolute root directory path (required for create)" },
+      "description": { "type": "string", "description": "Knowledge base description (for create)" },
+      "kb_id": { "type": "string", "description": "Knowledge base ID (for delete / list_files)" }
+    },
+    "required": ["action"]
+  }
+}
