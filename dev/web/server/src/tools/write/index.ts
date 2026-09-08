@@ -4,6 +4,7 @@ import { resolve, dirname, basename } from 'path'
 import { createHash, randomUUID } from 'crypto'
 import type { ToolModule } from '../types.js'
 import { assertPathSafe } from '../utils.js'
+import { diffLines, lineCount } from '../diff-utils.js'
 import { z } from 'zod'
 import { validate } from '../validate.js'
 
@@ -142,11 +143,25 @@ export const tool: ToolModule = {
             const hash = createHash('md5').update(targetContent).digest('hex')
             return {
               output: `No change to ${input.path}`,
-              metadata: { path: input.path, bytes: targetBytes, existed: true, status: 'noop', hash },
+              metadata: { path: input.path, bytes: targetBytes, existed: true, status: 'noop', hash, additions: 0, deletions: 0 },
             }
           }
         }
       } catch { /* stat/read errors fall through to a normal write */ }
+    }
+
+    // 行数统计（P1.4）：改前读旧内容 → diffLines 计算增删行；失败回退 0/0。
+    let additions = 0
+    let deletions = 0
+    if (existed) {
+      try {
+        const old = readFileSync(fullPath, 'utf-8')
+        const d = diffLines(old, targetContent)
+        additions = d.additions
+        deletions = d.deletions
+      } catch { /* 读取失败回退 0/0，snapshot 行会校准 */ }
+    } else {
+      additions = lineCount(targetContent)
     }
 
     // 分块异步流式写临时文件（带进度 + 可中止），随后 rename 到目标路径完成原子替换。
@@ -168,6 +183,8 @@ export const tool: ToolModule = {
         existed,
         status: existed ? 'updated' : 'created',
         hash,
+        additions,
+        deletions,
       },
     }
   },

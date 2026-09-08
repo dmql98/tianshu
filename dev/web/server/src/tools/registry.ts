@@ -42,6 +42,17 @@ export async function init(): Promise<void> {
   }
 }
 
+/**
+ * 显式注册单个工具（测试注入 / 动态插件）。
+ * vitest 环境下 registry.init() 的动态 import(`./${dir}/index.js`) 无法被
+ * vite 转换（"Unknown variable dynamic import"），测试可用本接口直接注册。
+ */
+export function register(tool: ToolModule): void {
+  if (!tool?.name) return
+  byName.set(tool.name, tool)
+  initialized = true
+}
+
 export function getAll(): ToolModule[] {
   if (!initialized) {
     console.warn('[registry] Tools accessed before init — call init() at startup')

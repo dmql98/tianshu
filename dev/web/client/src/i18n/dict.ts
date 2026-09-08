@@ -1161,4 +1161,13 @@ export const dict: Record<string, DictEntry> = {
   '前往授权': { zh: '前往授权', en: 'Authorize' },
   '无法自动回调？使用手动授权码': { zh: '无法自动回调？使用手动授权码', en: 'Callback not working? Use a manual code' },
   '使用浏览器回调': { zh: '使用浏览器回调', en: 'Use browser callback' },
+
+  // ── 文件修改追踪（审阅侧边栏 P2/P3）──
+  '文件改动': { zh: '文件改动', en: 'Changes' },
+  '本会话': { zh: '本会话', en: 'This session' },
+  '全项目': { zh: '全项目', en: 'Whole project' },
+  '无文件改动': { zh: '无文件改动', en: 'No changes' },
+  '查看 diff': { zh: '查看 diff', en: 'View diff' },
+  'diff 不可用': { zh: 'diff 不可用', en: 'Diff unavailable' },
+  '文件已删除': { zh: '文件已删除', en: 'File deleted' },
 }

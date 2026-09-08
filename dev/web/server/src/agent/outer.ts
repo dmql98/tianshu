@@ -40,6 +40,8 @@ import { getSystemRunPolicy, getDataDir } from '../config.js'
 import { evaluateAutoContinuation, createResumedRun } from './runtime/run-resume-service.js'
 import { publishRunEvent, createDurableStream, unwrapDurableStream } from './runtime/run-event-store.js'
 import { enqueueRun } from './session-runner.js'
+import { gitSnapshot, projectKeyFor } from './snapshot/git-snapshot.js'
+import { fileChangeStore } from '../db/fileChangeStore.js'
 
 export interface RunResult {
   status: 'stop' | 'max_turns' | 'cancelled' | 'task_complete'
@@ -96,6 +98,22 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
 
   const workspaces = resolveWorkspaces(session)
   const workspace = resolveWorkspace(session.workspace)
+
+  // P1.6 文件修改追踪：run 开始记基线（git 可用且会话有真实 workspace 时）。
+  // 基线 hash 供 run 结束 diff 校准；track 无改动（undefined）则本次 run 无新改动，
+  // 结束时跳过 diff（避免空快照行）。
+  let snapshotBase: string | undefined
+  const snapshotWorkTree = session.workspace ? workspace : undefined
+  const snapshotProjectKey = snapshotWorkTree ? projectKeyFor(snapshotWorkTree) : undefined
+  if (snapshotProjectKey && gitSnapshot.available()) {
+    try {
+      await gitSnapshot.ensure(snapshotProjectKey, snapshotWorkTree!)
+      snapshotBase = await gitSnapshot.track(snapshotProjectKey)
+    } catch {
+      // git 缺失/仓库初始化失败 → 降级：仅靠 write/edit 实时行（P1.6）
+      snapshotBase = undefined
+    }
+  }
 
   // Run policy is frozen at Run creation (RUN_LIMIT_POLICY_PLAN §5.2). The
   // persisted snapshot is the source of truth; fall back to a fresh resolution
@@ -313,6 +331,19 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   const { totalInputTokens, totalOutputTokens, totalCacheHitTokens, totalCacheMissTokens, toolCallHistory, prevPrefixShape, turn } = loopResult
   let limitSummary = loopResult.limitSummary
   const completedStatus = loopResult.status
+
+  // P1.6 文件修改追踪：run 结束 diff 基线 → 当前工作区，快照行（git 校准的
+  // 权威数字，覆盖 bash 改动）批量落库。失败只跳过（tool 实时行已保底）。
+  if (snapshotProjectKey && snapshotBase) {
+    try {
+      const diffs = await gitSnapshot.diff(snapshotProjectKey, snapshotBase)
+      if (diffs.length > 0) {
+        fileChangeStore.recordSnapshotBatch(sessionId, runId, snapshotProjectKey, diffs)
+      }
+    } catch {
+      // 降级：不阻断 run 完成
+    }
+  }
 
   // ── #5 Auto continuation (§10) ──
   // When the loop hits its limit in a continuable mode, schedule a successor

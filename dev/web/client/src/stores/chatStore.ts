@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy } from '@/types'
+import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy, type FileChange } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { getEventBus } from '@/api/eventBus'
@@ -265,6 +265,14 @@ interface ChatState {
   // Attachments
   attachments: Attachment[]
 
+  // ── 文件修改追踪（审阅侧边栏 P2）──
+  /** 每会话聚合的文件改动（key = sessionId）。 */
+  fileChanges: Record<string, FileChange[]>
+  /** 单文件 unified patch 缓存（key = `${sessionId}\u0000${path}`），P3 diff 查看器。 */
+  fileDiffs: Record<string, string>
+  /** 文件侧边栏视图：session = 仅本会话；project = 跨会话项目汇总。 */
+  fileScope: 'session' | 'project'
+
   // Cleanup ref (not in state, mutable)
   _activeRunId: string | null
   _notificationTimer: ReturnType<typeof setTimeout> | null
@@ -308,6 +316,16 @@ interface ChatState {
   addAttachment: (name: string, mime: string, data: string, dataUrl?: string) => void
   removeAttachment: (idx: number) => void
   clearAttachments: () => void
+
+  // ── 文件修改追踪（审阅侧边栏 P2）──
+  /** 拉取会话/项目聚合的文件改动，写入 fileChanges[scope]。 */
+  fetchFileChanges: (sessionId: string, scope?: 'session' | 'project') => Promise<void>
+  /** 拉取单文件 unified patch 并缓存到 fileDiffs（P3 diff 查看器）。 */
+  fetchFileDiff: (sessionId: string, path: string) => Promise<string | null>
+  /** 切文件侧边栏视图：session / project。 */
+  setFileScope: (scope: 'session' | 'project') => void
+  /** 实时增量：tool.completed 的 file 负载 upsert 到当前 scope 的列表。 */
+  applyFileChangeEvent: (sessionId: string, file: NonNullable<RunEvent['file']>) => void
 
   // Workspaces
   addWorkspace: (path: string) => void
@@ -838,6 +856,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       
       if (!isCurrentTrackedRun(data)) return
       flushStreamBuffers()
+      if (data.file) {
+        // 文件修改追踪：write/edit 实时增量 upsert 到 fileChanges（P2）。
+        get().applyFileChangeEvent(data.session_id, data.file)
+      }
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: sess.messages.map(m =>
@@ -866,6 +888,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       flushStreamBuffers()
       // 旧 run 的终态不得清除新 run 的流式状态（否则新 run 的 delta 被双写翻倍）。
       if (!isCurrentTrackedRun(data)) return
+      // 文件修改追踪：run 结束快照 diff 已落库（git 校准权威数字覆盖 bash 改动），
+      // 终态后重拉一次让审阅树与 git 一致（实时 tool 行已由 tool.completed 增量）。
+      if (data.session_id === get().activeSessionId) {
+        get().fetchFileChanges(data.session_id, get().fileScope).catch(() => {})
+      }
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -1430,6 +1457,9 @@ export const useChatStore = create<ChatState>((set, get) => {
     evolutionNotification: null,
     subAgentNotice: null,
     attachments: [],
+    fileChanges: {},
+    fileDiffs: {},
+    fileScope: 'session',
     _activeRunId: null,
     _notificationTimer: null,
     _subAgentNoticeTimer: null,
@@ -2164,6 +2194,53 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     clearAttachments: () => set({ attachments: [] }),
+
+    // ── 文件修改追踪（审阅侧边栏 P2）──
+
+    fetchFileChanges: async (sessionId, scope = 'session') => {
+      try {
+        const data = await sessionsApi.fetchFileChanges(sessionId, scope)
+        set(state => {
+          // project 视图跨会话聚合，统一落到当前活动会话的列表 key，供 FilePanel 读取。
+          const key = scope === 'project' ? (state.activeSessionId ?? sessionId) : sessionId
+          return { fileChanges: { ...state.fileChanges, [key]: data.files } }
+        })
+      } catch { /* 静默：FilePanel 显示空态 */ }
+    },
+
+    fetchFileDiff: async (sessionId, path) => {
+      const key = `${sessionId}\u0000${path}`
+      const cached = get().fileDiffs[key]
+      if (cached !== undefined) return cached
+      try {
+        const data = await sessionsApi.fetchFileDiff(sessionId, path)
+        set(state => ({ fileDiffs: { ...state.fileDiffs, [key]: data.patch } }))
+        return data.patch
+      } catch {
+        return null
+      }
+    },
+
+    setFileScope: (scope) => set({ fileScope: scope }),
+
+    applyFileChangeEvent: (sessionId, file) => {
+      if (!file || file.status === 'noop') return
+      const status = file.status as FileChange['status']
+      set(state => {
+        const scope = state.fileScope
+        // project 视图跨会话聚合，实时事件按当前会话 upsert 到项目列表即可；
+        // 会话视图只更新当前会话的列表。均在 FilePanel 打开时由 store 重拉校准。
+        const key = scope === 'project' ? state.activeSessionId ?? sessionId : sessionId
+        const cur = state.fileChanges[key] ?? []
+        const existing = cur.find(f => f.path === file.path)
+        const next: FileChange[] = existing
+          ? cur.map(f => f.path === file.path
+            ? { ...f, status, additions: file.additions ?? f.additions, deletions: file.deletions ?? f.deletions, updatedAt: Date.now() }
+            : f)
+          : [{ path: file.path, status, additions: file.additions ?? 0, deletions: file.deletions ?? 0, source: 'tool', updatedAt: Date.now() }, ...cur]
+        return { fileChanges: { ...state.fileChanges, [key]: next } }
+      })
+    },
 
     // ── Workspace Actions ──
 

@@ -21,6 +21,7 @@ const dir = mkdtempSync(join(tmpdir(), 'tianshu-write-'))
   check('auto-creates parent dirs', existsSync(join(dir, 'a', 'b', 'c', 'file.txt')), JSON.stringify(res))
   check('writes content', readFileSync(join(dir, 'a', 'b', 'c', 'file.txt'), 'utf-8') === 'hello')
   check('returns metadata', (res.metadata as any)?.status === 'created' && (res.metadata as any)?.path === 'a/b/c/file.txt')
+  check('created metadata has additions', (res.metadata as any)?.additions === 1 && (res.metadata as any)?.deletions === 0, JSON.stringify(res.metadata))
 }
 
 // identical write is no-op, not conflict
@@ -28,6 +29,7 @@ const dir = mkdtempSync(join(tmpdir(), 'tianshu-write-'))
   const res = await tool.execute({ path: 'a/b/c/file.txt', content: 'hello' }, { workspace: dir })
   check('identical write is noop', (res.metadata as any)?.status === 'noop', JSON.stringify(res))
   check('noop does not error', !res.error, JSON.stringify(res))
+  check('noop metadata has 0/0', (res.metadata as any)?.additions === 0 && (res.metadata as any)?.deletions === 0, JSON.stringify(res.metadata))
 }
 
 // update existing file
@@ -35,6 +37,7 @@ const dir = mkdtempSync(join(tmpdir(), 'tianshu-write-'))
   const res = await tool.execute({ path: 'a/b/c/file.txt', content: 'hello2' }, { workspace: dir })
   check('update succeeds', (res.metadata as any)?.status === 'updated')
   check('update persists', readFileSync(join(dir, 'a', 'b', 'c', 'file.txt'), 'utf-8') === 'hello2')
+  check('updated metadata has diff lines', (res.metadata as any)?.additions === 1 && (res.metadata as any)?.deletions === 1, JSON.stringify(res.metadata))
 }
 
 // BOM preserved on update

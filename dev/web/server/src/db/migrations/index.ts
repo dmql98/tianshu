@@ -579,4 +579,41 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 7,
+    name: 'file_changes',
+    up: (db) => {
+      // 文件修改追踪事实表（对齐 opencode 审阅侧边栏，方案 v2）：
+      // - project_key 是第一键：快照基线按它管理（每项目全局 git 快照仓库）；
+      //   session_id 是展示键：按会话过滤。
+      // - source 区分两类来源：tool = write/edit 实时行；snapshot = run 结束
+      //   git 全量校准行（权威覆盖，聚合时按 path 取最新一条）。
+      // - status 取值：created / updated / deleted / noop（write/edit 实时口径；
+      //   snapshot 行的 git diff 状态在写入时映射到 created/updated/deleted）。
+      // - hash：write/edit 的 md5（快照行为 NULL）。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS file_changes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_key TEXT NOT NULL,
+          session_id TEXT NOT NULL REFERENCES sessions(id),
+          run_id TEXT,
+          tool_call_id TEXT,
+          source TEXT NOT NULL DEFAULT 'tool'
+            CHECK(source IN ('tool','snapshot')),
+          path TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('created','updated','deleted','noop')),
+          additions INTEGER NOT NULL DEFAULT 0,
+          deletions INTEGER NOT NULL DEFAULT 0,
+          hash TEXT,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_file_changes_session
+          ON file_changes(session_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_file_changes_project
+          ON file_changes(project_key, created_at);
+        CREATE INDEX IF NOT EXISTS idx_file_changes_run
+          ON file_changes(run_id);
+      `)
+    },
+  },
 ]

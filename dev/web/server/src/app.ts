@@ -37,6 +37,7 @@ import { runStore } from './agent/runtime/run-store.js'
 import { forceCancelSessionRuns, recoverContinuationState } from './agent/runtime/run-event-store.js'
 import { sweepDataRetention } from './db/data-retention.js'
 import { sweepToolUsage } from './db/toolUsageStore.js'
+import { sweepSnapshotRepos } from './agent/snapshot/git-snapshot.js'
 import { materializeAllBuiltinContent, materializeSummary } from './content/materialize-builtin.js'
 import { migrateAllCharacterVisualsToSkin } from './skin/migrate.js'
 import { startRunStallWatchdog } from './agent/runtime/run-stall-watchdog.js'
@@ -235,6 +236,21 @@ export async function startTianshuServer(
         `${retention.llmCallsRemoved} llm call(s) ` +
         `(run_events ${retention.runEventsRetentionDays}d, llm_calls ${retention.llmCallsRetentionDays}d)`,
       )
+    }
+  }
+  // P1.7 快照仓库生命周期清理：删除「retentionDays 内无活跃」的项目快照仓库
+  // （活跃 = 该 project_key 在 file_changes 有行 或 快照仓库自身 mtime 新鲜）。
+  // 会话删除不级联删仓库（保基线），这里才是唯一清理点。
+  {
+    const retentionDays = Number(process.env.TIANSHU_SNAPSHOT_RETENTION_DAYS || '30')
+    if (retentionDays > 0) {
+      const removed = sweepSnapshotRepos((key) => {
+        const row = getDb().prepare(
+          'SELECT 1 FROM file_changes WHERE project_key = ? LIMIT 1',
+        ).get(key)
+        return row != null
+      }, retentionDays)
+      if (removed > 0) console.log(`[startup] snapshot sweep removed ${removed} inactive project repo(s) (>${retentionDays}d)`)
     }
   }
   // tool_usage 增量回填：补录上一次启动后至 migration 回填窗口之间、经

@@ -1,11 +1,12 @@
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'fs'
-import { resolve, dirname, basename } from 'path'
-import { randomUUID } from 'crypto'
-import type { ToolModule } from '../types.js'
-import { assertPathSafe } from '../utils.js'
-import { z } from 'zod'
-import { validate } from '../validate.js'
-import { replace } from './matchers.js'
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'fs'
+import { resolve, dirname, basename } from 'path'
+import { randomUUID } from 'crypto'
+import type { ToolModule } from '../types.js'
+import { assertPathSafe } from '../utils.js'
+import { diffLines } from '../diff-utils.js'
+import { z } from 'zod'
+import { validate } from '../validate.js'
+import { replace } from './matchers.js'
 
 const BOM = '\uFEFF'
 
@@ -119,17 +120,22 @@ export const tool: ToolModule = {
       writeFileSync(temp, target, 'utf-8')
       renameSync(temp, fullPath)
 
-      const fuzzyNote = result.method === 'exact' ? '' : ` (matched via ${result.method})`
-      const allNote = result.count > 1 ? ` (${result.count} occurrences)` : ''
-      return {
-        output: `Applied edit at position ${result.index} in ${p}${allNote}${fuzzyNote} (${result.length} chars replaced with ${replacement.length} chars)`,
-        metadata: {
-          path: p,
-          bytes: Buffer.byteLength(target, 'utf-8'),
-          method: result.method,
-          count: result.count,
-        },
-      }
+const fuzzyNote = result.method === 'exact' ? '' : ` (matched via ${result.method})`
+      const allNote = result.count > 1 ? ` (${result.count} occurrences)` : ''
+      // 行数统计（P1.4）：改前内容 → 改后内容 的增删行；noop 已被上面拦截。
+      const d = diffLines(content, result.next)
+      return {
+        output: `Applied edit at position ${result.index} in ${p}${allNote}${fuzzyNote} (${result.length} chars replaced with ${replacement.length} chars)`,
+        metadata: {
+          path: p,
+          bytes: Buffer.byteLength(target, 'utf-8'),
+          method: result.method,
+          count: result.count,
+          status: 'updated',
+          additions: d.additions,
+          deletions: d.deletions,
+        },
+      }
     })
   },
 }

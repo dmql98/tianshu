@@ -47,6 +47,25 @@ export const deleteSession = (id: string) =>
 export const fetchSessionMessages = (id: string) =>
   apiGet<{ session: SessionSummary; messages: any[]; total: number }>(`/api/sessions/${id}/messages`)
 
+// ── 文件修改追踪（审阅侧边栏 P2）──
+
+/** 拉取会话/项目聚合的文件改动。scope=session 只看本会话，scope=project 跨会话汇总。 */
+export const fetchFileChanges = (sessionId: string, scope: 'session' | 'project' = 'session') =>
+  apiGet<{ scope: 'session' | 'project'; files: import('@/types').FileChange[] }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/file-changes?scope=${scope}`,
+  )
+
+/** 拉取单文件 unified patch（P3 diff 查看器）。路径按段编码（服务端 :path 单段参数）。 */
+export const fetchFileDiff = (sessionId: string, path: string) =>
+  apiGet<import('@/types').FileDiff>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/file-changes/${encodePathSegments(path)}/diff`,
+  )
+
+/** 把文件路径编码为可放进单个 URL 段的 form（每段 %XX 编码，/ 保留为段分隔符）。 */
+export function encodePathSegments(path: string): string {
+  return path.split('/').map(seg => encodeURIComponent(seg)).join('/')
+}
+
 /** 丰富会话导出：basic = 会话+消息；full = 追加每次 LLM 调用完整轨迹（llm_calls）。 */
 export interface SessionExportData {
   exportedAt: number

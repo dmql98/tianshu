@@ -264,6 +264,13 @@ export interface RunEvent {
   continuation_index?: number
   trigger?: 'manual' | 'user_input' | 'auto_limit'
   reason?: string
+  /** 文件修改追踪：tool.completed 事件携带的文件实时改动（write/edit 工具）。 */
+  file?: {
+    path: string
+    status: 'created' | 'updated' | 'deleted' | 'noop'
+    additions?: number
+    deletions?: number
+  }
   soft_turns?: number
   absolute_turns?: number
   // Tool/LLM wall-clock timing (durable event payloads, aggregated by
@@ -423,4 +430,28 @@ export interface LLMCallTrace {
   systemTokens?: number
   /** tools 参数 token 估算。 */
   toolsTokens?: number
+}
+
+// ── 文件修改追踪（审阅侧边栏 P2）──
+
+/** 文件改动状态：created=新增 / updated=修改 / deleted=删除。 */
+export type FileChangeStatus = 'created' | 'updated' | 'deleted'
+
+/** 数据来源：tool = write/edit 实时行；snapshot = run 结束 git 快照校准行。 */
+export type FileChangeSource = 'tool' | 'snapshot'
+
+/** GET /api/sessions/:id/file-changes 聚合后的一个文件。 */
+export interface FileChange {
+  path: string
+  status: FileChangeStatus
+  additions: number
+  deletions: number
+  source?: FileChangeSource
+  updatedAt?: number
+}
+
+/** GET /api/sessions/:id/file-changes/:path/diff 返回的单文件 unified patch。 */
+export interface FileDiff {
+  path: string
+  patch: string
 }

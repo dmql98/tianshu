@@ -23,6 +23,8 @@ import { estimateTokens, DEFAULT_CONTEXT_WINDOW, resolveCompactPolicy, manualCom
 import { resolveCapability } from '../agent/attachments.js'
 import { getCharacterToolDefinitions } from '../tools/definitions.js'
 import { sessionSkillStore } from '../agent/session-skill-store.js'
+import { fileChangeStore } from '../db/fileChangeStore.js'
+import { gitSnapshot, projectKeyFor } from '../agent/snapshot/git-snapshot.js'
 
 const router = new Hono()
 
@@ -471,6 +473,49 @@ router.get('/:id/trajectory', (c) => {
     events,
     llmCalls,
   })
+})
+
+// ── 文件修改追踪（P1.5 REST）──
+
+// GET /api/sessions/:id/file-changes?scope=session|project
+// 返回按 path 聚合的文件改动（最新行胜出；snapshot 权威行覆盖 tool 实时行）。
+router.get('/:id/file-changes', (c) => {
+  const id = c.req.param('id')
+  const session = sessionStore.getById(id)
+  if (!session) return c.json({ error: 'Not found' }, 404)
+
+  const scope = c.req.query('scope') === 'project' ? 'project' : 'session'
+  const workspace = session.workspace ? resolveWorkspace(session.workspace) : undefined
+  let files: ReturnType<typeof fileChangeStore.aggregateBySession>
+  if (scope === 'project' && workspace) {
+    files = fileChangeStore.aggregateByProject(projectKeyFor(workspace))
+  } else {
+    files = fileChangeStore.aggregateBySession(id)
+  }
+  return c.json({ scope, files })
+})
+
+// GET /api/sessions/:id/file-changes/:path/diff → 单文件 unified patch
+// 统一走 diffWorking（HEAD → 工作区，单文件），与项目全局视图口径一致；
+// 覆盖 tracked 修改/删除 + untracked 新增。git 不可用 → 501（前端显示降级提示）。
+router.get('/:id/file-changes/:path/diff', async (c) => {
+  const id = c.req.param('id')
+  const rawPath = c.req.param('path')
+  const session = sessionStore.getById(id)
+  if (!session) return c.json({ error: 'Not found' }, 404)
+
+  const workspace = session.workspace ? resolveWorkspace(session.workspace) : undefined
+  if (!workspace) return c.json({ error: 'No workspace' }, 404)
+  if (!gitSnapshot.available()) return c.json({ error: 'git unavailable' }, 501)
+
+  // 路径解码：Hono 的 param 已 URL 解码；这里按统一 / 分隔。
+  const file = rawPath.split('/').map(decodeURIComponent).join('/')
+  const projectKey = projectKeyFor(workspace)
+
+  const patch = await gitSnapshot.diffWorking(projectKey)
+    .then(diffs => diffs.find(d => d.file === file)?.patch ?? '')
+    .catch(() => '')
+  return c.json({ path: file, patch })
 })
 
 export default router

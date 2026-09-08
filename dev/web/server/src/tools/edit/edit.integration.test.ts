@@ -50,6 +50,10 @@ try {
   // 1. Exact edit works.
   let r = await runEdit('sample.ts', 'export function applyTheme(t: Theme) {', 'export function applyTheme(t: Theme, force = false) {')
   assert(!r.error && /Applied edit/.test(r.output || ''), `exact edit: ${r.error || r.output}`)
+  const meta1 = (r as any).metadata
+  assert(meta1?.status === 'updated', 'edit metadata status=updated')
+  assert(typeof meta1?.additions === 'number' && typeof meta1?.deletions === 'number', 'edit metadata has additions/deletions')
+  assert(meta1?.path === 'sample.ts', 'edit metadata path')
 
   // 2. Dedented oldString now resolves to the REAL block: the surrounding
   //    sibling block must stay byte-identical (no corruption).

@@ -15,6 +15,9 @@ import { resolve as pathResolve } from 'path'
 import { isPathWithin, workspaceApprovalRoot } from '../tools/utils.js'
 import { envInt, getDataDir } from '../config.js'
 import { sessionStore } from '../db/sessionStore.js'
+import { fileChangeStore } from '../db/fileChangeStore.js'
+import type { FileChangeStatus } from '../tools/diff-utils.js'
+import { projectKeyFor } from './snapshot/git-snapshot.js'
 import { planStore, goalStore } from './plan/plan-store.js'
 import { saveAttachment } from './media-store.js'
 import { textPart, mediaPart, lowerContentToProvider, type ProviderCapability, type AttachmentRecord, type ContentPart } from './attachments.js'
@@ -590,6 +593,38 @@ async function executeToolCalls(
     }
     toolCallRecords.push(rec)
 
+    // P1.4 文件修改追踪：write/edit 实时行（source='tool'）。先落库成功再发
+    // tool.completed（前端按事件即时 upsert）。落库失败只跳过（不阻断工具执行）。
+    const changedMeta = changed && !result.error ? result.metadata : undefined
+    const fileChangePayload = changedMeta?.path
+      ? {
+        file: {
+          path: String(changedMeta.path),
+          status: String(changedMeta.status ?? 'updated'),
+          additions: typeof changedMeta.additions === 'number' ? changedMeta.additions : 0,
+          deletions: typeof changedMeta.deletions === 'number' ? changedMeta.deletions : 0,
+        },
+      }
+      : undefined
+    if (sessionId && fileChangePayload) {
+      try {
+        const meta = result.metadata
+        fileChangeStore.recordTool({
+          sessionId,
+          runId,
+          toolCallId: p.tc.id,
+          projectKey: projectKeyFor(workspace || getDataDir()),
+          path: fileChangePayload.file.path,
+          status: fileChangePayload.file.status as FileChangeStatus,
+          additions: fileChangePayload.file.additions,
+          deletions: fileChangePayload.file.deletions,
+          hash: meta?.hash ? String(meta.hash) : null,
+        })
+      } catch {
+        // 落库失败：不阻断工具执行，run 结束 snapshot 行仍会覆盖
+      }
+    }
+
     const toolStatus = result.error ? 'error' : result.escaped ? 'denied' : 'success'
 
     const displayOutput = result.error || truncate(result.output || '')
@@ -612,7 +647,7 @@ async function executeToolCalls(
       ;(toolMsg as any).__dbId = stored.id
     }
     newMessages.push(toolMsg)
-    stream?.emit('tool.completed', { session_id: sessionId, run_id: runId, tool_call_id: p.tc.id, tool_name: p.name, tool_output: displayOutput, tool_status: toolStatus, duration_ms: duration })
+    stream?.emit('tool.completed', { session_id: sessionId, run_id: runId, tool_call_id: p.tc.id, tool_name: p.name, tool_output: displayOutput, tool_status: toolStatus, duration_ms: duration, ...(fileChangePayload ? { file: fileChangePayload.file } : {}) })
   }
 
   // Run all read-only tools in parallel, then writes sequentially
