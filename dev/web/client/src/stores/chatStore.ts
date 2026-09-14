@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { normalizeStrategy, type Session, type SessionSummary, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy } from '@/types'
+import { normalizeStrategy, type Session, type SessionSummary, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy, type FileChange } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { getEventBus } from '@/api/eventBus'
@@ -343,6 +343,16 @@ interface ChatState {
 
   // Delegation targets（本会话可委托角色白名单）
   updateSessionTargets: (sessionId: string, targets: string[] | null) => void
+
+  // Knowledge bases
+  updateSessionKnowledgeBases: (sessionId: string, knowledgeBaseIds: string[]) => void
+
+  // File changes
+  fileChanges: Record<string, FileChange[]>
+  fileScope: 'session' | 'project'
+  fetchFileChanges: (sessionId: string, scope: 'session' | 'project') => Promise<void>
+  setFileScope: (scope: 'session' | 'project') => void
+  fetchFileDiff: (sessionId: string, path: string) => Promise<string | null>
 
   // Batch ops
   toggleBatchMode: () => void
@@ -1461,6 +1471,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     _notificationTimer: null,
     _subAgentNoticeTimer: null,
     _loadingSessions: false,
+    fileChanges: {},
+    fileScope: 'session',
 
     // ── Session Actions ──
 
@@ -2279,6 +2291,30 @@ export const useChatStore = create<ChatState>((set, get) => {
         ),
       }))
       sessionsApi.updateSession(sessionId, { targets: targets ? JSON.stringify(targets) : null }).catch(() => {})
+    },
+
+    updateSessionKnowledgeBases: (sessionId, knowledgeBaseIds) => {
+      set(state => ({
+        sessions: state.sessions.map(s =>
+          s.id === sessionId ? { ...s, knowledge_bases: knowledgeBaseIds ? JSON.stringify(knowledgeBaseIds) : null } : s
+        ),
+      }))
+      sessionsApi.updateSession(sessionId, { knowledge_bases: knowledgeBaseIds ? JSON.stringify(knowledgeBaseIds) : null }).catch(() => {})
+    },
+
+    fetchFileChanges: async (sessionId, scope) => {
+      try {
+        const data = await sessionsApi.fetchFileChanges(sessionId, scope)
+        set({ fileChanges: { [sessionId]: data.files }, fileScope: scope })
+      } catch { /* ignore */ }
+    },
+    setFileScope: (scope) => set({ fileScope: scope }),
+    fetchFileDiff: async (sessionId, path) => {
+      try {
+        const data = await sessionsApi.fetchFileDiff(sessionId, path)
+        return data.patch
+      } catch { /* ignore */ }
+      return null
     },
 
     // ── Batch Actions ──
