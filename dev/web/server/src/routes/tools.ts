@@ -109,7 +109,7 @@ router.post('/mcp/import', async (c) => {
       continue
     }
     if (!server.importable) {
-      skipped.push({ name, reason: `transport ${server.transport} not supported (stdio only)` })
+      skipped.push({ name, reason: `server not importable (no command or URL)` })
       continue
     }
     if (existing.some(s => s.name === name)) {
@@ -117,12 +117,13 @@ router.post('/mcp/import', async (c) => {
       continue
     }
     try {
+      const isRemote = server.transport === 'sse' || server.transport === 'http'
       mcpServerStore.create({
         name: server.name,
-        command: server.command,
-        args: server.args,
+        ...(isRemote
+          ? { transport: server.transport === 'http' ? 'streamable-http' : 'sse', url: server.url }
+          : { command: server.command, args: server.args, cwd: server.cwd }),
         env: server.env,
-        cwd: server.cwd,
         timeout: server.timeout,
       })
       imported.push(name)

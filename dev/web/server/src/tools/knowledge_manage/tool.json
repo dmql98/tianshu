@@ -1,9 +1,9 @@
 {
   "name": "knowledge_manage",
-  "description": "Manage knowledge bases: create, list, delete, list files. Knowledge bases are directories containing Markdown files (recursively indexed on demand).",
+  "description": "Manage knowledge bases: create, list, delete, list files, and P2 external converters (paddleocr/anydoc): list converters, install/detect, convert files to Markdown.",
   "source": "builtin",
   "tags": ["knowledge"],
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "TianShu",
   "dangerous": false,
   "parameters": {
@@ -11,13 +11,15 @@
     "properties": {
       "action": {
         "type": "string",
-        "enum": ["create", "list", "delete", "list_files"],
-        "description": "Action to perform: create a base from a directory, list all bases, delete a base, or list files inside a base"
+        "enum": ["create", "list", "delete", "list_files", "converters", "install_converter", "convert"],
+        "description": "Action to perform: create a base, list bases, delete a base, list files, list external converters, install/detect a converter, or convert a file"
       },
       "name": { "type": "string", "description": "Knowledge base name (required for create)" },
       "path": { "type": "string", "description": "Absolute root directory path (required for create)" },
       "description": { "type": "string", "description": "Knowledge base description (for create)" },
-      "kb_id": { "type": "string", "description": "Knowledge base ID (for delete / list_files)" }
+      "kb_id": { "type": "string", "description": "Knowledge base ID (for delete / list_files / convert)" },
+      "converter": { "type": "string", "description": "Converter ID (for install_converter / convert): paddleocr or anydoc" },
+      "file": { "type": "string", "description": "File to convert (for convert): name in originals/, absolute path, or relative to the KB root" }
     },
     "required": ["action"]
   }

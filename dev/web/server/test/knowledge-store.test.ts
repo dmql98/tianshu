@@ -77,15 +77,22 @@ describe('knowledgeStore 文件扫描与读取', () => {
     writeFileSync(p(tmpKb, '.hidden.md'), 'hidden', 'utf-8')
   })
 
-  it('递归扫描 .md/.markdown/.txt，跳过非支持扩展与隐藏文件', () => {
+  it('递归扫描 .md/.markdown/.txt；可转换文档（png/txt）也列出并带 converters 选项；跳过隐藏文件', () => {
     kb = makeBase()
     const { files } = knowledgeStore.listFiles(kb.id)!
     const rels = files.map(f => f.relPath).sort()
-    expect(rels).toEqual(['README.md', '子目录/指南.markdown', '笔记.txt'])
+    expect(rels).toEqual(['README.md', '图片.png', '子目录/指南.markdown', '笔记.txt'])
     const guide = files.find(f => f.relPath === '子目录/指南.markdown')!
     expect(guide.dir).toBe('子目录')
     expect(guide.ext).toBe('.markdown')
     expect(guide.size).toBeGreaterThan(0)
+    const png = files.find(f => f.relPath === '图片.png')!
+    expect(png.converters).toContain('paddleocr')
+    expect(png.converters).not.toContain('anydoc')
+    expect(png.hasMd).toBe(false)
+    const txt = files.find(f => f.relPath === '笔记.txt')!
+    // .txt 保持 P1 直接可读，不进入转换池（AnyDoc 未声明 .txt）
+    expect(txt.converters).toEqual([])
   })
 
   it('readFile 按 relPath 读取内容；越界路径抛错；不存在返回 null', () => {

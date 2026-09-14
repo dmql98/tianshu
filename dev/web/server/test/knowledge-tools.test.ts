@@ -91,6 +91,38 @@ describe('知识库工具（工具层直接调用）', () => {
     expect(ghost.error).toContain('知识库不存在')
   })
 
+  it('knowledge_manage converters 列出 paddleocr/anydoc 及可用性', async () => {
+    const res = await manageTool.execute({ action: 'converters' }, ctx)
+    expect(res.error).toBeUndefined()
+    const parsed = JSON.parse(res.output)
+    const ids = parsed.converters.map((c: any) => c.id)
+    expect(ids).toContain('paddleocr')
+    expect(ids).toContain('anydoc')
+    for (const c of parsed.converters) {
+      expect(typeof c.detected).toBe('boolean')
+      expect(typeof c.installed).toBe('boolean')
+      expect(Array.isArray(c.inputExtensions)).toBe(true)
+    }
+  })
+
+  it('knowledge_manage install_converter 登记 + 未知转换器报错', async () => {
+    const res = await manageTool.execute({ action: 'install_converter', converter: 'paddleocr' }, ctx)
+    expect(res.error).toBeUndefined()
+    const parsed = JSON.parse(res.output)
+    expect(parsed.converter.id).toBe('paddleocr')
+    expect(parsed.converter.installed).toBe(true)
+
+    const bad = await manageTool.execute({ action: 'install_converter', converter: 'nope' }, ctx)
+    expect(bad.error).toContain('未知转换器')
+  })
+
+  it('knowledge_manage convert 缺少参数 / 文件不存在错误路径', async () => {
+    const noFile = await manageTool.execute({ action: 'convert', kb_id: kbId, converter: 'paddleocr' }, ctx)
+    expect(noFile.error).toContain('file')
+    const noFileFound = await manageTool.execute({ action: 'convert', kb_id: kbId, converter: 'paddleocr', file: 'ghost.pdf' }, ctx)
+    expect(noFileFound.error).toContain('找不到源文件')
+  })
+
   it('knowledge_manage delete 后 list_files 报错', async () => {
     const del = await manageTool.execute({ action: 'delete', kb_id: kbId }, ctx)
     expect(JSON.parse(del.output).ok).toBe(true)

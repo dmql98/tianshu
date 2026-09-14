@@ -1,5 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { ListRootsRequestSchema, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { pathToFileURL } from 'url'
 import type { ToolResult } from './types.js'
@@ -17,14 +19,37 @@ export interface MCPClient {
   disconnect(): Promise<void>
 }
 
-interface MCPServerConfig {
+type TransportType = 'stdio' | 'sse' | 'streamable-http'
+
+interface MCPServerConfigBase {
   id: string
   name: string
-  command: string
-  args: string[]
-  env: Record<string, string>
-  cwd?: string
+  env?: Record<string, string>
   timeout?: number
+}
+
+interface StdioConfig extends MCPServerConfigBase {
+  transport?: 'stdio' | string   // string for compat with MCPServerRecord (undefined = stdio)
+  command?: string
+  args?: string[]
+  cwd?: string
+}
+
+interface HTTPConfig extends MCPServerConfigBase {
+  transport: 'sse' | 'streamable-http'
+  url: string
+}
+
+type MCPServerConfig = StdioConfig | HTTPConfig
+
+function isStdioConfig(config: MCPServerConfig): config is StdioConfig {
+  return !config.transport || config.transport === 'stdio'
+}
+
+function resolveTransportType(config: MCPServerConfig): TransportType {
+  if (config.transport === 'sse') return 'sse'
+  if (config.transport === 'streamable-http') return 'streamable-http'
+  return 'stdio'
 }
 
 function connectionTimeoutMs(config: MCPServerConfig): number {
@@ -32,14 +57,29 @@ function connectionTimeoutMs(config: MCPServerConfig): number {
 }
 
 function classifyConnectError(err: Error & { code?: string }, config: MCPServerConfig): string {
-  if (err.code === 'ENOENT') {
-    return `Server "${config.name}" command not found: "${config.command}". Is it installed and in PATH?`
-  }
-  if (err.code === 'EACCES') {
-    return `Server "${config.name}" permission denied for command: "${config.command}"`
+  const transport = resolveTransportType(config)
+  if (transport === 'stdio' && isStdioConfig(config)) {
+    if (err.code === 'ENOENT') {
+      return `Server "${config.name}" command not found: "${config.command}". Is it installed and in PATH?`
+    }
+    if (err.code === 'EACCES') {
+      return `Server "${config.name}" permission denied for command: "${config.command}"`
+    }
   }
   if (err.name === 'AbortError' || err.message?.includes('timed out') || err.message?.includes('timeout')) {
     return `Server "${config.name}" connection timed out after ${connectionTimeoutMs(config) / 1000}s`
+  }
+  if (transport !== 'stdio' && isStdioConfig(config) === false) {
+    const url = (config as HTTPConfig).url
+    if (err.message?.includes('fetch failed') || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      return `Server "${config.name}" cannot reach ${url}. Is the server running and accessible?`
+    }
+    if (err.message?.includes('Not Acceptable') || err.message?.includes('406')) {
+      return `Server "${config.name}" at ${url} rejected the request (406). The server may require specific headers.`
+    }
+    if (err.message?.includes('401') || err.message?.includes('403')) {
+      return `Server "${config.name}" authentication failed for ${url}. Check the token/credentials.`
+    }
   }
   if (err.message?.includes('No transports')) {
     return `Server "${config.name}" failed to spawn: ${err.message}. Check that the command and args are correct.`
@@ -48,23 +88,51 @@ function classifyConnectError(err: Error & { code?: string }, config: MCPServerC
 }
 
 export async function connectMCPServer(config: MCPServerConfig, workspace?: string): Promise<MCPClient> {
-  const transport = new StdioClientTransport({
-    command: config.command,
-    args: config.args,
-    env: { ...process.env, ...config.env } as Record<string, string>,
-    stderr: 'pipe',
-    cwd: config.cwd,
-  })
+  const transportType = resolveTransportType(config)
 
-  if (transport.stderr) {
-    const chunks: Buffer[] = []
-    transport.stderr.on('data', (chunk: Buffer) => chunks.push(chunk))
-    transport.stderr.on('end', () => {
-      const text = Buffer.concat(chunks).toString('utf-8').trim()
-      if (text) console.warn(`[mcp:${config.name}:stderr] ${text}`)
+  // ── Create transport based on type ──
+  let transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
+
+  if (transportType === 'sse' && !isStdioConfig(config)) {
+    // ── SSE transport ──
+    const urlConfig = config as HTTPConfig
+    transport = new SSEClientTransport(new URL(urlConfig.url), {
+      requestInit: { headers: { Accept: 'text/event-stream' } },
+    } as any)
+    console.log(`[mcp:${config.name}] Connecting via SSE → ${urlConfig.url}`)
+  } else if (transportType === 'streamable-http' && !isStdioConfig(config)) {
+    // ── Streamable HTTP transport ──
+    const urlConfig = config as HTTPConfig
+    transport = new StreamableHTTPClientTransport(new URL(urlConfig.url))
+    console.log(`[mcp:${config.name}] Connecting via Streamable HTTP → ${urlConfig.url}`)
+  } else if (isStdioConfig(config)) {
+    // ── Stdio transport (default) ──
+    const stdioConfig = config as StdioConfig
+    if (!stdioConfig.command) {
+      throw new Error(`Server "${config.name}" is missing required field "command" for stdio transport`)
+    }
+    transport = new StdioClientTransport({
+      command: stdioConfig.command,
+      args: stdioConfig.args ?? [],
+      env: { ...process.env, ...(stdioConfig.env ?? {}) } as Record<string, string>,
+      stderr: 'pipe',
+      cwd: stdioConfig.cwd,
     })
+
+    if (transport.stderr) {
+      const chunks: Buffer[] = []
+      transport.stderr.on('data', (chunk: Buffer) => chunks.push(chunk))
+      transport.stderr.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf-8').trim()
+        if (text) console.warn(`[mcp:${config.name}:stderr] ${text}`)
+      })
+    }
+    console.log(`[mcp:${config.name}] Connecting via stdio → ${stdioConfig.command}`)
+  } else {
+    throw new Error(`Server "${config.name}": unknown transport "${transportType}"`)
   }
 
+  // ── Create client & connect ──
   const client = new Client(
     { name: 'tianshu-mcp', version: '0.1.0' },
     { capabilities: { roots: {} } }

@@ -14,10 +14,15 @@ function ensureMcpDir() {
 export interface MCPServerRecord {
   id: string
   name: string
-  command: string
-  args: string[]
-  env: Record<string, string>
+  // stdio transport (default)
+  command?: string
+  args?: string[]
   cwd?: string
+  // http transports
+  transport?: 'sse' | 'streamable-http'
+  url?: string
+  // common
+  env?: Record<string, string>
   timeout?: number
 }
 
@@ -111,8 +116,10 @@ export const mcpServerStore = {
     const record: MCPServerRecord = {
       id: data.id || crypto.randomUUID(),
       name: data.name || '',
-      command: data.command || '',
-      args: data.args || [],
+      ...(data.transport ? { transport: data.transport } : {}),
+      ...(data.url ? { url: data.url } : {}),
+      ...(data.command ? { command: data.command } : {}),
+      ...(data.args ? { args: data.args } : {}),
       env: data.env || {},
       ...(data.cwd !== undefined ? { cwd: data.cwd } : {}),
       ...(data.timeout !== undefined ? { timeout: data.timeout } : {}),

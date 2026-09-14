@@ -7,11 +7,17 @@ import {
   fetchKnowledgeFileContent,
   createKnowledgeBase,
   deleteKnowledgeBase,
+  fetchConverters,
+  detectConverter,
+  convertWithExternal,
+  fetchKnowledgeMdCopy,
   type KnowledgeBase,
   type KnowledgeFileEntry,
+  type KnowledgeConverter,
 } from '@/api/knowledge'
 import FolderPicker from '@/components/Chat/FolderPicker'
 import KnowledgePreview from './knowledge/KnowledgePreview'
+import KnowledgeConverters from './knowledge/KnowledgeConverters'
 
 type TabKey = 'files' | 'debug' | 'cite' | 'graph' | 'eval'
 
@@ -72,6 +78,10 @@ export default function KnowledgePage() {
   const [createError, setCreateError] = useState('')
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<import('@/api/knowledge').KnowledgeSearchHit[] | null>(null)
+  const [converters, setConverters] = useState<KnowledgeConverter[]>([])
+  const [convertersLoading, setConvertersLoading] = useState(false)
+  /** 正在转换的文件 relPath（展示进度） */
+  const [convertingRel, setConvertingRel] = useState<string | null>(null)
 
   const refreshBases = useCallback(async () => {
     const r = await fetchKnowledgeBases()
@@ -79,7 +89,15 @@ export default function KnowledgePage() {
     return r.bases
   }, [])
 
+  const refreshConverters = useCallback(async () => {
+    try {
+      const r = await fetchConverters()
+      setConverters(r.converters)
+    } catch { /* 忽略列表失败 */ }
+  }, [])
+
   useEffect(() => { void refreshBases() }, [refreshBases])
+  useEffect(() => { void refreshConverters() }, [refreshConverters])
 
   // 默认选中第一个库
   useEffect(() => {
@@ -104,6 +122,18 @@ export default function KnowledgePage() {
     if (!activeKbId) return
     setSelectedFile(f)
     setContent('')
+    // 非 Markdown：优先加载已转换的 md 副本；无副本则预览元信息
+    if (f.ext !== '.md' && f.ext !== '.markdown' && f.ext !== '.txt') {
+      if (f.converted?.status === 'indexed' && f.converted.mdRelPath) {
+        try {
+          const r = await fetchKnowledgeMdCopy(activeKbId, f.converted.mdRelPath)
+          setContent(r.content)
+          return
+        } catch { /* 副本不可读则展示元信息 */ }
+      }
+      setContent('')
+      return
+    }
     try {
       const r = await fetchKnowledgeFileContent(activeKbId, f.relPath)
       setContent(r.content)
@@ -156,6 +186,35 @@ export default function KnowledgePage() {
     } catch { setHits([]) }
   }
 
+  const installConverter = async (id: string) => {
+    setConvertersLoading(true)
+    try {
+      await detectConverter(id)
+      await refreshConverters()
+    } catch { /* 忽略 */ }
+    finally { setConvertersLoading(false) }
+  }
+
+  /** 用指定转换器转换文件（保留原件，产物写入 normalized/，刷新文件列表）。 */
+  const convertFile = async (f: KnowledgeFileEntry, converterId: string) => {
+    if (!activeKbId || convertingRel) return
+    setConvertingRel(f.relPath)
+    try {
+      await convertWithExternal(converterId, activeKbId, f.relPath, 600_000)
+      const r = await fetchKnowledgeFiles(activeKbId)
+      setFiles(r.files)
+      // 重新加载预览（若有副本则显示）
+      const updated = r.files.find(x => x.relPath === f.relPath)
+      if (updated) void selectFile(updated)
+    } catch {
+      // 转换失败：刷新状态展示 error badge
+      const r = await fetchKnowledgeFiles(activeKbId).catch(() => null)
+      if (r) setFiles(r.files)
+    } finally {
+      setConvertingRel(null)
+    }
+  }
+
   const tree = buildTree(files)
 
   return (
@@ -171,6 +230,8 @@ export default function KnowledgePage() {
           </button>
         </div>
       </div>
+
+      <KnowledgeConverters converters={converters} loading={convertersLoading} onInstall={installConverter} />
 
       <div className="knowledge-tabs">
         {([['files', '文件'], ['debug', '检索调试'], ['cite', '引用预览'], ['graph', '图谱探索'], ['eval', '评测']] as [TabKey, string][]).map(([k, label]) => (
@@ -233,7 +294,7 @@ export default function KnowledgePage() {
                   </>
                 ) : (
                   <div className="doc-tree">
-                    {tree.map(node => <TreeItem key={node.dir + '/' + node.name} node={node} selectedRel={selectedFile?.relPath} onSelect={selectFile} />)}
+                    {tree.map(node => <TreeItem key={node.dir + '/' + node.name} node={node} selectedRel={selectedFile?.relPath} onSelect={selectFile} onConvert={convertFile} convertingRel={convertingRel} />)}
                   </div>
                 )}
               </div>
@@ -337,23 +398,52 @@ export default function KnowledgePage() {
   )
 }
 
-function TreeItem({ node, selectedRel, onSelect }: {
+function TreeItem({ node, selectedRel, onSelect, onConvert, convertingRel }: {
   node: TreeNode
   selectedRel?: string
   onSelect: (f: KnowledgeFileEntry) => void
+  onConvert: (f: KnowledgeFileEntry, converterId: string) => void
+  convertingRel: string | null
 }) {
+  const t = useI18n()
   const [open, setOpen] = useState(true)
   if (node.file) {
-    const active = node.file.relPath === selectedRel
+    const f = node.file
+    const active = f.relPath === selectedRel
+    const isMd = f.ext === '.md' || f.ext === '.markdown'
+    const converting = convertingRel === f.relPath
     return (
-      <div className={`doc-row ${active ? 'active' : ''}`} onClick={() => void onSelect(node.file!)}>
+      <div className={`doc-row ${active ? 'active' : ''}`} onClick={() => void onSelect(f)}>
         <span className="doc-ic"><Icon name="file" size={16} ariaHidden /></span>
         <div className="doc-main">
-          <div className="doc-name">{node.file.name}</div>
-          <div className="doc-sub">
-            <span className="tag">{node.file.ext.replace('.', '')}</span>
-            <span>{node.file.size} B</span>
+          <div className="doc-name">
+            {f.name}
+            {f.hasMd && <span className="tag md-copy" title={t('已生成 Markdown 副本')}>{t('md')}</span>}
           </div>
+          <div className="doc-sub">
+            <span className="tag">{f.ext.replace('.', '')}</span>
+            <span>{f.size} B</span>
+            {f.converted?.status === 'error' && <span className="converter-err" title={f.converted.error || ''}>{t('转换失败')}</span>}
+          </div>
+          {/* 非 md 且未转换 → 转换器按钮组（行内，避免弹出层被滚动容器裁剪） */}
+          {!isMd && f.converters.length > 0 && !f.hasMd && !converting && (
+            <div className="doc-convert" onClick={e => e.stopPropagation()}>
+              {f.converters.map(cid => (
+                <button key={cid} className="btn sm convert-btn" onClick={() => onConvert(f, cid)}>
+                  <Icon name="add" size={10} ariaHidden /> {t('用 {name} 转', { name: cid })}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* 已有副本 → 显示副本链接 */}
+          {!isMd && f.hasMd && f.converted?.mdRelPath && (
+            <div className="doc-convert">
+              <button className="btn sm md-copy-btn" onClick={(e) => { e.stopPropagation(); void onSelect(f) }}>
+                <Icon name="file" size={11} ariaHidden /> {t('查看 md 副本')}
+              </button>
+            </div>
+          )}
+          {converting && <div className="doc-convert converting">{t('转换中...')}</div>}
         </div>
       </div>
     )
@@ -364,7 +454,7 @@ function TreeItem({ node, selectedRel, onSelect }: {
         <span className="icon" style={{ display: 'inline-flex' }}><Icon name={open ? 'folder-open' : 'folder'} size={13} ariaHidden /></span>
         <span>{node.name}</span>
       </div>
-      {open && node.children.map((c, i) => <TreeItem key={node.dir + '/' + c.name + i} node={c} selectedRel={selectedRel} onSelect={onSelect} />)}
+      {open && node.children.map((c, i) => <TreeItem key={node.dir + '/' + c.name + i} node={c} selectedRel={selectedRel} onSelect={onSelect} onConvert={onConvert} convertingRel={convertingRel} />)}
     </div>
   )
 }

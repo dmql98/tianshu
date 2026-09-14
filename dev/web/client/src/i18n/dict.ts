@@ -371,6 +371,17 @@ export const dict: Record<string, DictEntry> = {
   '无更多可添加知识库': { zh: '无更多可添加知识库', en: 'No more knowledge bases to add' },
   '选择知识库目录': { zh: '选择知识库目录', en: 'Choose knowledge base directory' },
   '{n} 个文件': { zh: '{n} 个文件', en: '{n} files' },
+  '外部转换器': { zh: '外部转换器', en: 'External Converters' },
+  '已检测': { zh: '已检测', en: 'Detected' },
+  '未检测': { zh: '未检测', en: 'Not detected' },
+  '安装 {name}': { zh: '安装 {name}', en: 'Install {name}' },
+  '已生成 Markdown 副本': { zh: '已生成 Markdown 副本', en: 'Markdown copy generated' },
+  '选择转换器': { zh: '选择转换器', en: 'Choose converter' },
+  '转换失败': { zh: '转换失败', en: 'Conversion failed' },
+  '转换中...': { zh: '转换中...', en: 'Converting...' },
+  '查看 md 副本': { zh: '查看 md 副本', en: 'View md copy' },
+  '用 {name} 转成 Markdown': { zh: '用 {name} 转成 Markdown', en: 'Convert to Markdown with {name}' },
+  '用 {name} 转': { zh: '用 {name} 转', en: 'With {name}' },
 
   // ── 技能包 ──
   '包 ID、名称、分类和根技能说明均为必填项': { zh: '包 ID、名称、分类和根技能说明均为必填项', en: 'Package ID, name, category and root skill instructions are required' },

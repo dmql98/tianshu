@@ -19,10 +19,15 @@ export type MCPConnectionStatus =
 export interface MCPServer {
   id: string
   name: string
-  command: string
-  args: string[]
-  env: Record<string, string>
+  // stdio (default)
+  command?: string
+  args?: string[]
   cwd?: string
+  // http transports
+  transport?: 'sse' | 'streamable-http'
+  url?: string
+  // common
+  env?: Record<string, string>
   timeout?: number
   status?: MCPConnectionStatus | null
 }

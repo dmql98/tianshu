@@ -27,10 +27,12 @@ export default function McpView() {
   const [editing, setEditing] = useState<{
     id?: string
     name: string
+    transport: 'stdio' | 'sse' | 'streamable-http'
     command: string
     args: string
     env: string
     cwd: string
+    url: string
     timeout: number
   } | null>(null)
 
@@ -83,31 +85,39 @@ export default function McpView() {
   }
 
   function openNew() {
-    setEditing({ name: '', command: '', args: '', env: '', cwd: '', timeout: 60 })
+    setEditing({ name: '', transport: 'stdio', command: '', args: '', env: '', cwd: '', url: '', timeout: 60 })
   }
 
   function openEdit(s: MCPServer) {
     setEditing({
       id: s.id,
       name: s.name,
-      command: s.command,
+      transport: s.transport || 'stdio',
+      command: s.command || '',
       args: (s.args || []).join(' '),
       env: Object.entries(s.env || {}).map(([k, v]) => `${k}=${v}`).join('\n'),
       cwd: s.cwd || '',
+      url: s.url || '',
       timeout: s.timeout || 60,
     })
   }
 
   async function handleSave() {
     if (!editing) return
-    const args = editing.args ? editing.args.split(/\s+/).filter(Boolean) : []
     const env: Record<string, string> = {}
     for (const line of editing.env.split('\n')) {
       const eq = line.indexOf('=')
       if (eq > 0) env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
     }
-    const data: Record<string, unknown> = { name: editing.name, command: editing.command, args, env }
-    if (editing.cwd) data.cwd = editing.cwd
+    const data: Record<string, unknown> = { name: editing.name, env }
+    if (editing.transport === 'stdio') {
+      data.command = editing.command
+      data.args = editing.args ? editing.args.split(/\s+/).filter(Boolean) : []
+      if (editing.cwd) data.cwd = editing.cwd
+    } else {
+      data.transport = editing.transport
+      data.url = editing.url
+    }
     if (editing.timeout) data.timeout = editing.timeout
     if (editing.id) {
       await updateMCPServer(editing.id, data)
@@ -128,13 +138,15 @@ export default function McpView() {
     setImportError('')
     try {
       const data = JSON.parse(importJson)
-      if (!data.command) { setImportError(t('缺少 command 字段')); return }
+      const isRemote = data.transport === 'sse' || data.transport === 'http' || data.transport === 'streamable-http' || data.url
+      if (!isRemote && !data.command) { setImportError(t('缺少 command 或 url 字段')); return }
+      if (isRemote && !data.url) { setImportError(t('远程服务必须提供 url 字段')); return }
       await createMCPServer({
-        name: data.name || data.command,
-        command: data.command,
-        args: data.args || [],
+        name: data.name || data.command || data.url,
+        ...(isRemote
+          ? { transport: data.transport === 'http' ? 'streamable-http' : (data.transport || 'streamable-http'), url: data.url }
+          : { command: data.command, args: data.args || [], cwd: data.cwd }),
         env: data.env || {},
-        cwd: data.cwd,
         timeout: data.timeout,
       })
       setShowImport(false)
@@ -232,7 +244,10 @@ export default function McpView() {
                     <button className="btn sm danger" onClick={() => handleDelete(s.id)}>{t('删除')}</button>
                   </div>
                   <div className="mcp-cmd">
-                    {s.command} {s.args?.join(' ')}
+                    {s.transport
+                      ? `${s.transport === 'sse' ? 'SSE' : 'HTTP'} → ${s.url || '(no url)'}`
+                      : <>{s.command} {s.args?.join(' ')}</>
+                    }
                   </div>
                   {s.env && Object.keys(s.env).length > 0 && (
                     <div className="mcp-tools">
@@ -376,7 +391,7 @@ export default function McpView() {
             <textarea
               value={importJson}
               onChange={e => setImportJson(e.target.value)}
-              placeholder={'{\n  "name": "Filesystem",\n  "command": "npx",\n  "args": ["-y", "server-package", "/tmp"],\n  "env": {"API_KEY": "xxx"}\n}'}
+              placeholder={'{\n  "name": "Penpot",\n  "transport": "streamable-http",\n  "url": "http://server:9001/mcp/stream?userToken=xxx"\n}\n或 stdio：\n{\n  "name": "Filesystem",\n  "command": "npx",\n  "args": ["-y", "@modelcontextprotocol/server-filesystem"]\n}'}
               rows={8}
               style={{
                 width: '100%',
@@ -420,23 +435,73 @@ export default function McpView() {
                 />
               </div>
               <div>
-                <label style={labelStyle}>{t('命令')}</label>
-                <input
-                  value={editing.command}
-                  onChange={e => setEditing({ ...editing, command: e.target.value })}
-                  placeholder={t('例如：npx')}
-                  style={inputStyle}
-                />
+                <label style={labelStyle}>{t('传输方式')}</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(['stdio', 'sse', 'streamable-http'] as const).map(tp => (
+                    <button
+                      key={tp}
+                      type="button"
+                      onClick={() => setEditing({ ...editing, transport: tp })}
+                      style={{
+                        flex: 1,
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        border: `1px solid ${editing.transport === tp ? 'var(--accent, #4f6ef7)' : 'var(--border)'}`,
+                        background: editing.transport === tp ? 'color-mix(in srgb, var(--accent, #4f6ef7) 12%, transparent)' : 'transparent',
+                        color: 'var(--ink-deep)',
+                        fontSize: 'calc(13px * var(--ui-font-scale))',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {tp === 'stdio' ? '本地进程' : tp === 'sse' ? 'SSE' : 'Streamable HTTP'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
-                <label style={labelStyle}>{t('参数')}</label>
-                <input
-                  value={editing.args}
-                  onChange={e => setEditing({ ...editing, args: e.target.value })}
-                  placeholder={t('例如：-y @modelcontextprotocol/server-filesystem /tmp')}
-                  style={inputStyle}
-                />
-              </div>
+              {editing.transport === 'stdio' ? (
+                <>
+                  <div>
+                    <label style={labelStyle}>{t('命令')}</label>
+                    <input
+                      value={editing.command}
+                      onChange={e => setEditing({ ...editing, command: e.target.value })}
+                      placeholder={t('例如：npx')}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t('参数')}</label>
+                    <input
+                      value={editing.args}
+                      onChange={e => setEditing({ ...editing, args: e.target.value })}
+                      placeholder={t('例如：-y @modelcontextprotocol/server-filesystem /tmp')}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={labelStyle}>{t('工作目录 (cwd)')}</label>
+                      <input
+                        value={editing.cwd}
+                        onChange={e => setEditing({ ...editing, cwd: e.target.value })}
+                        placeholder={t('可选，留空用项目根目录')}
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label style={labelStyle}>{t('服务器 URL')}</label>
+                  <input
+                    value={editing.url}
+                    onChange={e => setEditing({ ...editing, url: e.target.value })}
+                    placeholder={t('例如：https://api.example.com/mcp/stream')}
+                    style={inputStyle}
+                  />
+                </div>
+              )}
               <div>
                 <label style={labelStyle}>{t('环境变量（每行一个 KEY=VALUE）')}</label>
                 <textarea
@@ -448,15 +513,6 @@ export default function McpView() {
                 />
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>{t('工作目录 (cwd)')}</label>
-                  <input
-                    value={editing.cwd}
-                    onChange={e => setEditing({ ...editing, cwd: e.target.value })}
-                    placeholder={t('可选，留空用项目根目录')}
-                    style={inputStyle}
-                  />
-                </div>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>{t('超时 (秒)')}</label>
                   <input

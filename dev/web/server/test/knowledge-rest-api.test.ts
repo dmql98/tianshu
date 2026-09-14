@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { startTianshuServer } from '../src/app.js'
 import type { TianshuServer } from '../src/app.js'
+import { knowledgeStore } from '../src/knowledge/store.js'
 
 let tmpData: string
 let server: TianshuServer
@@ -64,12 +65,16 @@ describe('知识库 REST（真实 DB + dataDir）', () => {
     }
   })
 
-  it('files 列表：只含 .md，目录结构正确', async () => {
+  it('files 列表：含 .md 与可转换文档（png 带 paddleocr 选项），目录结构正确', async () => {
     const res = await fetch(`${base}/api/knowledge/bases/${kbId}/files`)
     expect(res.status).toBe(200)
     const { files } = (await res.json()) as any
     const rels = files.map((f: any) => f.relPath).sort()
-    expect(rels).toEqual(['README.md', '子目录/FAQ.md'])
+    expect(rels).toEqual(['README.md', '图片.png', '子目录/FAQ.md'])
+    const png = files.find((f: any) => f.relPath === '图片.png')
+    expect(png.converters).toContain('paddleocr')
+    expect(png.converters).not.toContain('anydoc')
+    expect(png.hasMd).toBe(false)
   })
 
   it('读取文件内容；越界路径 400；不存在 404', async () => {
@@ -112,6 +117,88 @@ describe('知识库 REST（真实 DB + dataDir）', () => {
     expect(bad.status).toBe(400)
 
     const missing = await fetch(`${base}/api/knowledge/bases/nope/files`)
+    expect(missing.status).toBe(404)
+  })
+
+  it('P2 converters：列表含 paddleocr/anydoc；detect 登记；未知 404', async () => {
+    const res = await fetch(`${base}/api/knowledge/converters`)
+    expect(res.status).toBe(200)
+    const { converters } = (await res.json()) as any
+    const ids = converters.map((c: any) => c.id)
+    expect(ids).toContain('paddleocr')
+    expect(ids).toContain('anydoc')
+    for (const c of converters) {
+      expect(typeof c.detected).toBe('boolean')
+      expect(typeof c.installed).toBe('boolean')
+    }
+
+    const detect = await fetch(`${base}/api/knowledge/converters/anydoc/detect`, { method: 'POST' })
+    expect(detect.status).toBe(200)
+    const detectBody = (await detect.json()) as any
+    expect(detectBody.converter.id).toBe('anydoc')
+    expect(detectBody.converter.installed).toBe(true)
+
+    const ghost = await fetch(`${base}/api/knowledge/converters/nope/detect`, { method: 'POST' })
+    expect(ghost.status).toBe(404)
+  })
+
+  it('P2 convert：参数缺失 400；源文件不存在 404；真实转换（外部 CLI 不可用时报 400）', async () => {
+    const noKb = await fetch(`${base}/api/knowledge/convert/paddleocr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: 'x.pdf' }),
+    })
+    expect(noKb.status).toBe(400)
+
+    const noFile = await fetch(`${base}/api/knowledge/convert/paddleocr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kb_id: kbId, file: 'ghost.pdf' }),
+    })
+    expect(noFile.status).toBe(404)
+
+    // 先登记一个真实源文件（originals/ 下），转换若 CLI 不可用应 400 带原因
+    const kb = knowledgeStore.get(kbId)
+    if (kb) {
+      const orig = knowledgeStore.saveOriginal(kbId, 'sample.pdf', Buffer.from('%PDF-1.4 fake'))
+      expect(existsSync(orig)).toBe(true)
+    }
+    const conv = await fetch(`${base}/api/knowledge/convert/paddleocr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kb_id: kbId, file: 'sample.pdf' }),
+    })
+    // 外部 CLI 未安装 → 400 带错误；装了 → 200（CI 无 paddleocr，断言两种都接受）
+    expect([200, 400]).toContain(conv.status)
+  })
+
+  it('P2 转换记录回写 relPath；normalized 副本可读；hasMd 标记', async () => {
+    // 在知识库目录放置一个真实 PDF，直接注入转换记录（模拟转换成功，避免依赖外部 CLI）
+    writeFileSync(join(kbRoot, 'sample.pdf'), '%PDF-1.4 fake', 'utf-8')
+    knowledgeStore.upsertConverted(kbId, {
+      fileName: 'sample.pdf',
+      relPath: 'sample.pdf',
+      mdRelPath: 'normalized/sample.md',
+      status: 'indexed',
+      converter: 'paddleocr',
+      updatedAt: Date.now(),
+    })
+    const filesRes = await fetch(`${base}/api/knowledge/bases/${kbId}/files`)
+    const { files } = (await filesRes.json()) as any
+    const sample = files.find((f: any) => f.relPath === 'sample.pdf')
+    expect(sample).toBeTruthy()
+    expect(sample.hasMd).toBe(true)
+    expect(sample.converted.status).toBe('indexed')
+    expect(sample.converted.converter).toBe('paddleocr')
+
+    // 副本读取端点：先写一个 normalized 文件
+    knowledgeStore.saveNormalized(kbId, 'sample.pdf', '# 转换结果\n\n来自 PDF 的内容')
+    const copyRes = await fetch(`${base}/api/knowledge/bases/${kbId}/normalized/normalized/sample.md`)
+    expect(copyRes.status).toBe(200)
+    expect(((await copyRes.json()) as any).content).toContain('来自 PDF 的内容')
+
+    // 未知副本 404
+    const missing = await fetch(`${base}/api/knowledge/bases/${kbId}/normalized/normalized/ghost.md`)
     expect(missing.status).toBe(404)
   })
 

@@ -103,6 +103,7 @@ function normalizeEntry(
   const isRemote = type === 'sse' || type === 'http' || (type as string) === 'remote' || !!url
 
   if (isRemote) {
+    const resolvedUrl = url || entry.endpoint || undefined
     return {
       name,
       command: '',
@@ -111,9 +112,9 @@ function normalizeEntry(
       source,
       sourceFile: '',
       transport: remoteTransport(type, url),
-      url: url || entry.endpoint || undefined,
+      url: resolvedUrl,
       enabled: entry.enabled,
-      importable: false,
+      importable: !!resolvedUrl,   // importable if we have a URL
     }
   }
 

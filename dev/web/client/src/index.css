@@ -900,7 +900,7 @@ input[type=color].swatch::-moz-color-swatch{border:none;border-radius:6px}
 .header-search input{width:240px;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--ink-deep);font-size:calc(12px * var(--ui-font-scale));outline:none;font-family:inherit}
 .header-search input:focus{border-color:var(--blue)}
 .header-search::before{content:"??";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:calc(12px * var(--ui-font-scale));opacity:0.5}
-.knowledge-content{flex:1;display:flex;overflow:hidden;padding:16px 20px;gap:16px}
+.knowledge-content{flex:1;display:flex;overflow:hidden;padding:16px 20px;gap:16px;min-height:0}
 .tree-panel{width:220px;min-width:220px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border-light);display:flex;flex-direction:column;overflow:hidden}
 .tree-header{padding:12px 14px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between}
 .tree-title{font-size:calc(12px * var(--ui-font-scale));font-weight:600;color:var(--ink-light)}
@@ -930,6 +930,28 @@ input[type=color].swatch::-moz-color-swatch{border:none;border-radius:6px}
 .preview-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
 .preview-empty-icon{font-size:36px;opacity:0.4;margin-bottom:10px}
 .preview-empty-text{font-size:calc(12px * var(--ui-font-scale));color:var(--ink-faint)}
+
+/* ── 外部转换器（P2，06 §3.7）── */
+.converters-bar{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--bg-card);border-bottom:1px solid var(--border-light);flex-wrap:wrap}
+.converters-label{display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--ui-font-scale));color:var(--ink-light);font-weight:600;white-space:nowrap}
+.converters-label .icon{color:var(--gold)}
+.converters-list{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.converter-card{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:8px;border:1px solid var(--border-light);background:var(--bg-input);font-size:calc(12px * var(--ui-font-scale))}
+.converter-card.ok{border-color:color-mix(in srgb,var(--success) 40%,transparent)}
+.converter-name{font-weight:600;color:var(--ink-deep)}
+.converter-status{font-size:calc(10.5px * var(--ui-font-scale));padding:1px 7px;border-radius:6px;background:var(--bg-hover);color:var(--ink-faint)}
+.converter-status.ok{background:color-mix(in srgb,var(--success) 14%,transparent);color:var(--success)}
+.converter-installed{font-size:calc(10.5px * var(--ui-font-scale));color:var(--ink-faint)}
+.converter-card .btn.sm{font-size:calc(11px * var(--ui-font-scale));padding:2px 8px}
+
+/* ── 文件列表：非 md 转换器按钮 + md 副本标签（P2）── */
+.md-copy{background:color-mix(in srgb,var(--success) 16%,transparent);color:var(--success);border:1px solid color-mix(in srgb,var(--success) 40%,transparent);font-weight:700;text-transform:uppercase;font-size:calc(9.5px * var(--ui-font-scale));padding:0 5px;border-radius:5px;margin-left:6px}
+.doc-convert{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+.convert-btn{padding:2px 8px;font-size:calc(10.5px * var(--ui-font-scale));color:var(--blue);border-color:color-mix(in srgb,var(--blue) 40%,transparent);background:transparent;cursor:pointer}
+.convert-btn:hover{background:color-mix(in srgb,var(--blue) 8%,transparent)}
+.converter-err{font-size:calc(10.5px * var(--ui-font-scale));color:var(--danger);margin-left:6px}
+.doc-convert.converting{color:var(--ink-faint);font-size:calc(10.5px * var(--ui-font-scale))}
+.md-copy-btn{padding:2px 8px;font-size:calc(11px * var(--ui-font-scale));color:var(--gold);border-color:color-mix(in srgb,var(--gold) 40%,transparent)}
 
 /* ── 知识库（F1 管理页，对齐 07 §4 规划）── */
 .knowledge-tabs{display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--border-light);background:var(--bg-card);flex-wrap:wrap}
