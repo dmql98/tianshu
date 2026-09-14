@@ -46,6 +46,13 @@ export interface SessionSummary {
 
 export interface Session extends SessionSummary {
   messages: Message[]
+  /**
+   * 仅前端内存态：该会话是在本地乐观创建、尚未被服务端列表快照确认的。
+   * 窗口 focus / 原生目录框关闭会触发 loadSessions()，其迟到的快照可能早于
+   * createSession 的 POST 落库返回；loadSessions 依靠此标记保留新会话，
+   * 避免「第一次新建项目不生效」。不参与任何网络请求序列化。
+   */
+  _optimistic?: boolean
   pinned?: boolean
   thinking?: boolean
   reasoning_effort?: string

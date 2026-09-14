@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy } from '@/types'
+import { normalizeStrategy, type Session, type SessionSummary, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { getEventBus } from '@/api/eventBus'
@@ -196,6 +196,32 @@ function savePersistedDefaults(data: Record<string, string | undefined>) {
   localStorage.setItem(PERSIST_KEY, JSON.stringify({ ...existing, ...data }))
 }
 
+/**
+ * 本地列表缺少某会话时，用服务端记录把它恢复回来（跨窗口新建、loadSessions
+ * 快照竞态、手输 URL 都会走到这里）。恢复失败（服务端也没有该记录）返回 null，
+ * 由调用方决定兜底策略。
+ */
+async function recoverSessionFromServer(id: string): Promise<Session | null> {
+  if (!id) return null
+  try {
+    const data = await sessionsApi.fetchSessionMessages(id)
+    const raw = data?.session as SessionSummary | undefined
+    if (!raw) return null
+    const recovered: Session = {
+      ...(raw as Session),
+      messages: (data.messages || []).map(toMessage),
+      workspaces: raw.workspaces ? JSON.parse(raw.workspaces) : undefined,
+      current_strategy: normalizeStrategy(raw.current_strategy),
+    }
+    useChatStore.setState(state => ({
+      sessions: [recovered, ...state.sessions.filter(s => s.id !== id)],
+    }))
+    return recovered
+  } catch {
+    return null
+  }
+}
+
 // ── Store ──
 
 export type ActiveRunPhase = 'idle' | 'running' | 'continuation_pending' | 'parked' | 'cancelling'
@@ -277,7 +303,8 @@ interface ChatState {
   loadSessions: () => Promise<void>
   createSession: (opts?: {
     character_id?: string; model?: string; provider_id?: string
-    workspace?: string; workspaces?: string[]; parent_id?: string
+    /** undefined = 未指定（回落默认工作区）；null = 显式无工作区（「默认」分组）；字符串 = 指定目录 */
+    workspace?: string | null; workspaces?: string[]; parent_id?: string
     active_group?: string; targets?: string[]; session_type?: 'chat' | 'event'
     event_id?: string | null; title?: string
   }) => Promise<Session>
@@ -1477,7 +1504,14 @@ export const useChatStore = create<ChatState>((set, get) => {
             }
           } catch { /* ignore */ }
         }
-        set({ sessions })
+        set(state => {
+          // 保留本地乐观创建、但服务端快照尚未包含的会话：新建项目时窗口从
+          // 原生目录框回到前台会触发本方法，其请求可能早于 createSession 的
+          // POST 落库，直接整体替换会抹掉新会话（表现为「要添加两次」）。
+          const serverIds = new Set(sessions.map(s => s.id))
+          const pending = state.sessions.filter(s => s._optimistic && !serverIds.has(s.id))
+          return { sessions: pending.length > 0 ? [...pending, ...sessions] : sessions }
+        })
         for (const presence of presences) {
           setSessionMotion(presence.sessionId, presence.motion, presence.since)
         }
@@ -1499,14 +1533,20 @@ export const useChatStore = create<ChatState>((set, get) => {
         currentStrategy = 'Ask Risky'
       }
 
+      // workspace 三态：undefined = 未指定 → 回落默认工作区；null = 显式无工作区
+      // （「默认」项目分组，不能被默认工作区顶掉）；字符串 = 指定目录。
+      const workspace = opts.workspace === undefined
+        ? (defs.defaultWorkspace || null)
+        : (opts.workspace || null)
+
       const session: Session = {
         id: uid(),
         character_id: characterId,
         title: opts.title || '',
         model: opts.model || defs.model || null,
         provider_id: opts.provider_id || defs.provider_id || (providersStore.providers[0]?.id) || null,
-        workspace: opts.workspace || defs.defaultWorkspace || null,
-        workspaces: opts.workspaces ? JSON.stringify(opts.workspaces) : (opts.workspace || defs.defaultWorkspace) ? JSON.stringify([opts.workspace || defs.defaultWorkspace]) : null,
+        workspace,
+        workspaces: opts.workspaces ? JSON.stringify(opts.workspaces) : workspace ? JSON.stringify([workspace]) : null,
         parent_id: opts.parent_id || null,
         active_group: opts.active_group || null,
         targets: opts.targets ? JSON.stringify(opts.targets) : null,
@@ -1516,6 +1556,9 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages: [],
         created_at: Date.now(),
         updated_at: Date.now(),
+        // 标记为「服务端尚未确认」：POST 期间若 loadSessions 拿到迟到快照
+        // （窗口 focus 触发），必须保留这条会话，不能把它抹掉。
+        _optimistic: true,
       }
 
       set(state => ({ sessions: [session, ...state.sessions] }))
@@ -1538,12 +1581,12 @@ export const useChatStore = create<ChatState>((set, get) => {
         })
       } catch { /* will be created on first message */ }
 
-      // Persist defaults
+      // Persist defaults（显式无工作区的「默认」分组不覆盖已记住的默认工作区）
       savePersistedDefaults({
         character_id: session.character_id,
         provider_id: session.provider_id ?? undefined,
         model: session.model ?? undefined,
-        workspace: session.workspace ?? undefined,
+        ...(session.workspace ? { workspace: session.workspace } : {}),
       })
 
       return session
@@ -1570,7 +1613,10 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       const session = get().sessions.find(s => s.id === id)
       if (!session) {
-        // No local record (e.g. created elsewhere): let resume handle it.
+        // 本地没有该会话（新建后快照竞态 / 跨窗口 / 手输 URL）：先用服务端记录
+        // 恢复，避免界面停在一个 store 里不存在的会话上——后续 sendMessage 会
+        // 因找不到会话而静默新建到默认工作区（上一次的项目）。
+        await recoverSessionFromServer(id)
         get().resumeActiveRun(id)
         return
       }
@@ -1804,7 +1850,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       let session = state.sessions.find(s => s.id === state.activeSessionId)
 
       if (!session) {
-        session = await get().createSession()
+        // activeSessionId 在本地缺失：优先按同 id 从服务端恢复（连同它自己的工作区），
+        // 只有服务端确实没有（乐观创建未落库）才新建，避免消息静默落到默认工作区。
+        const missingId = state.activeSessionId
+        session = (missingId ? await recoverSessionFromServer(missingId) : null)
+          ?? await get().createSession()
         set({ activeSessionId: session.id })
       }
 
