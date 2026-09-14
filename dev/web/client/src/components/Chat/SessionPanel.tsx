@@ -208,6 +208,8 @@ export default function SessionPanel() {
 
   async function handleFolderSelect(workspace: string) {
     setShowFolderPicker(false)
+    // 新项目分组默认折叠；不展开会让用户以为「第一次没创建成功」。
+    if (!expandedWorkspaces.has(workspace)) toggleWorkspaceExpand(workspace)
     const session = await createSession({ workspace })
     navigate(`/chat/${session.id}`)
   }
@@ -220,7 +222,8 @@ export default function SessionPanel() {
     if (!expandedWorkspaces.has(workspace)) {
       toggleWorkspaceExpand(workspace)
     }
-    const session = await createSession(workspace === 'default' ? {} : { workspace })
+    // 「默认」分组显式传 null，否则会回落默认工作区、跑到别的项目分组下。
+    const session = await createSession(workspace === 'default' ? { workspace: null } : { workspace })
     navigate(`/chat/${session.id}`)
   }
 

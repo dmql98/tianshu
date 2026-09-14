@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { normalizeStrategy, type Session, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy, type FileChange } from '@/types'
+import { normalizeStrategy, type Session, type SessionSummary, type Message, type RunEvent, type RunLimitSummary, REASON_LABELS, type Strategy } from '@/types'
 import * as sessionsApi from '@/api/sessions'
 import { fetchRecentRuns, fetchRunEvents, cancelRun, type RunResultShape } from '@/api/runs'
 import { getEventBus } from '@/api/eventBus'
@@ -196,6 +196,32 @@ function savePersistedDefaults(data: Record<string, string | undefined>) {
   localStorage.setItem(PERSIST_KEY, JSON.stringify({ ...existing, ...data }))
 }
 
+/**
+ * 本地列表缺少某会话时，用服务端记录把它恢复回来（跨窗口新建、loadSessions
+ * 快照竞态、手输 URL 都会走到这里）。恢复失败（服务端也没有该记录）返回 null，
+ * 由调用方决定兜底策略。
+ */
+async function recoverSessionFromServer(id: string): Promise<Session | null> {
+  if (!id) return null
+  try {
+    const data = await sessionsApi.fetchSessionMessages(id)
+    const raw = data?.session as SessionSummary | undefined
+    if (!raw) return null
+    const recovered: Session = {
+      ...(raw as Session),
+      messages: (data.messages || []).map(toMessage),
+      workspaces: raw.workspaces ? JSON.parse(raw.workspaces) : undefined,
+      current_strategy: normalizeStrategy(raw.current_strategy),
+    }
+    useChatStore.setState(state => ({
+      sessions: [recovered, ...state.sessions.filter(s => s.id !== id)],
+    }))
+    return recovered
+  } catch {
+    return null
+  }
+}
+
 // ── Store ──
 
 export type ActiveRunPhase = 'idle' | 'running' | 'continuation_pending' | 'parked' | 'cancelling'
@@ -265,14 +291,6 @@ interface ChatState {
   // Attachments
   attachments: Attachment[]
 
-  // ── 文件修改追踪（审阅侧边栏 P2）──
-  /** 每会话聚合的文件改动（key = sessionId）。 */
-  fileChanges: Record<string, FileChange[]>
-  /** 单文件 unified patch 缓存（key = `${sessionId}\u0000${path}`），P3 diff 查看器。 */
-  fileDiffs: Record<string, string>
-  /** 文件侧边栏视图：session = 仅本会话；project = 跨会话项目汇总。 */
-  fileScope: 'session' | 'project'
-
   // Cleanup ref (not in state, mutable)
   _activeRunId: string | null
   _notificationTimer: ReturnType<typeof setTimeout> | null
@@ -285,7 +303,8 @@ interface ChatState {
   loadSessions: () => Promise<void>
   createSession: (opts?: {
     character_id?: string; model?: string; provider_id?: string
-    workspace?: string; workspaces?: string[]; parent_id?: string
+    /** undefined = 未指定（回落默认工作区）；null = 显式无工作区（「默认」分组）；字符串 = 指定目录 */
+    workspace?: string | null; workspaces?: string[]; parent_id?: string
     active_group?: string; targets?: string[]; session_type?: 'chat' | 'event'
     event_id?: string | null; title?: string
   }) => Promise<Session>
@@ -317,16 +336,6 @@ interface ChatState {
   removeAttachment: (idx: number) => void
   clearAttachments: () => void
 
-  // ── 文件修改追踪（审阅侧边栏 P2）──
-  /** 拉取会话/项目聚合的文件改动，写入 fileChanges[scope]。 */
-  fetchFileChanges: (sessionId: string, scope?: 'session' | 'project') => Promise<void>
-  /** 拉取单文件 unified patch 并缓存到 fileDiffs（P3 diff 查看器）。 */
-  fetchFileDiff: (sessionId: string, path: string) => Promise<string | null>
-  /** 切文件侧边栏视图：session / project。 */
-  setFileScope: (scope: 'session' | 'project') => void
-  /** 实时增量：tool.completed 的 file 负载 upsert 到当前 scope 的列表。 */
-  applyFileChangeEvent: (sessionId: string, file: NonNullable<RunEvent['file']>) => void
-
   // Workspaces
   addWorkspace: (path: string) => void
   removeWorkspace: (path: string) => void
@@ -335,8 +344,6 @@ interface ChatState {
   // Delegation targets（本会话可委托角色白名单）
   updateSessionTargets: (sessionId: string, targets: string[] | null) => void
 
-  // Knowledge Bases（本会话挂载）
-  updateSessionKnowledgeBases: (sessionId: string, kbIds: string[]) => void
   // Batch ops
   toggleBatchMode: () => void
   toggleSessionSelection: (sessionId: string) => void
@@ -858,10 +865,6 @@ export const useChatStore = create<ChatState>((set, get) => {
       
       if (!isCurrentTrackedRun(data)) return
       flushStreamBuffers()
-      if (data.file) {
-        // 文件修改追踪：write/edit 实时增量 upsert 到 fileChanges（P2）。
-        get().applyFileChangeEvent(data.session_id, data.file)
-      }
       updateSessionMessage(data.session_id, sess => ({
         ...sess,
         messages: sess.messages.map(m =>
@@ -890,11 +893,6 @@ export const useChatStore = create<ChatState>((set, get) => {
       flushStreamBuffers()
       // 旧 run 的终态不得清除新 run 的流式状态（否则新 run 的 delta 被双写翻倍）。
       if (!isCurrentTrackedRun(data)) return
-      // 文件修改追踪：run 结束快照 diff 已落库（git 校准权威数字覆盖 bash 改动），
-      // 终态后重拉一次让审阅树与 git 一致（实时 tool 行已由 tool.completed 增量）。
-      if (data.session_id === get().activeSessionId) {
-        get().fetchFileChanges(data.session_id, get().fileScope).catch(() => {})
-      }
       updateSessionMessage(data.session_id, sess => {
         const messages = [...sess.messages]
         const last = messages[messages.length - 1]
@@ -1459,9 +1457,6 @@ export const useChatStore = create<ChatState>((set, get) => {
     evolutionNotification: null,
     subAgentNotice: null,
     attachments: [],
-    fileChanges: {},
-    fileDiffs: {},
-    fileScope: 'session',
     _activeRunId: null,
     _notificationTimer: null,
     _subAgentNoticeTimer: null,
@@ -1509,7 +1504,14 @@ export const useChatStore = create<ChatState>((set, get) => {
             }
           } catch { /* ignore */ }
         }
-        set({ sessions })
+        set(state => {
+          // 保留本地乐观创建、但服务端快照尚未包含的会话：新建项目时窗口从
+          // 原生目录框回到前台会触发本方法，其请求可能早于 createSession 的
+          // POST 落库，直接整体替换会抹掉新会话（表现为「要添加两次」）。
+          const serverIds = new Set(sessions.map(s => s.id))
+          const pending = state.sessions.filter(s => s._optimistic && !serverIds.has(s.id))
+          return { sessions: pending.length > 0 ? [...pending, ...sessions] : sessions }
+        })
         for (const presence of presences) {
           setSessionMotion(presence.sessionId, presence.motion, presence.since)
         }
@@ -1531,14 +1533,20 @@ export const useChatStore = create<ChatState>((set, get) => {
         currentStrategy = 'Ask Risky'
       }
 
+      // workspace 三态：undefined = 未指定 → 回落默认工作区；null = 显式无工作区
+      // （「默认」项目分组，不能被默认工作区顶掉）；字符串 = 指定目录。
+      const workspace = opts.workspace === undefined
+        ? (defs.defaultWorkspace || null)
+        : (opts.workspace || null)
+
       const session: Session = {
         id: uid(),
         character_id: characterId,
         title: opts.title || '',
         model: opts.model || defs.model || null,
         provider_id: opts.provider_id || defs.provider_id || (providersStore.providers[0]?.id) || null,
-        workspace: opts.workspace || defs.defaultWorkspace || null,
-        workspaces: opts.workspaces ? JSON.stringify(opts.workspaces) : (opts.workspace || defs.defaultWorkspace) ? JSON.stringify([opts.workspace || defs.defaultWorkspace]) : null,
+        workspace,
+        workspaces: opts.workspaces ? JSON.stringify(opts.workspaces) : workspace ? JSON.stringify([workspace]) : null,
         parent_id: opts.parent_id || null,
         active_group: opts.active_group || null,
         targets: opts.targets ? JSON.stringify(opts.targets) : null,
@@ -1548,6 +1556,9 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages: [],
         created_at: Date.now(),
         updated_at: Date.now(),
+        // 标记为「服务端尚未确认」：POST 期间若 loadSessions 拿到迟到快照
+        // （窗口 focus 触发），必须保留这条会话，不能把它抹掉。
+        _optimistic: true,
       }
 
       set(state => ({ sessions: [session, ...state.sessions] }))
@@ -1570,12 +1581,12 @@ export const useChatStore = create<ChatState>((set, get) => {
         })
       } catch { /* will be created on first message */ }
 
-      // Persist defaults
+      // Persist defaults（显式无工作区的「默认」分组不覆盖已记住的默认工作区）
       savePersistedDefaults({
         character_id: session.character_id,
         provider_id: session.provider_id ?? undefined,
         model: session.model ?? undefined,
-        workspace: session.workspace ?? undefined,
+        ...(session.workspace ? { workspace: session.workspace } : {}),
       })
 
       return session
@@ -1602,7 +1613,10 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       const session = get().sessions.find(s => s.id === id)
       if (!session) {
-        // No local record (e.g. created elsewhere): let resume handle it.
+        // 本地没有该会话（新建后快照竞态 / 跨窗口 / 手输 URL）：先用服务端记录
+        // 恢复，避免界面停在一个 store 里不存在的会话上——后续 sendMessage 会
+        // 因找不到会话而静默新建到默认工作区（上一次的项目）。
+        await recoverSessionFromServer(id)
         get().resumeActiveRun(id)
         return
       }
@@ -1836,7 +1850,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       let session = state.sessions.find(s => s.id === state.activeSessionId)
 
       if (!session) {
-        session = await get().createSession()
+        // activeSessionId 在本地缺失：优先按同 id 从服务端恢复（连同它自己的工作区），
+        // 只有服务端确实没有（乐观创建未落库）才新建，避免消息静默落到默认工作区。
+        const missingId = state.activeSessionId
+        session = (missingId ? await recoverSessionFromServer(missingId) : null)
+          ?? await get().createSession()
         set({ activeSessionId: session.id })
       }
 
@@ -2197,53 +2215,6 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     clearAttachments: () => set({ attachments: [] }),
 
-    // ── 文件修改追踪（审阅侧边栏 P2）──
-
-    fetchFileChanges: async (sessionId, scope = 'session') => {
-      try {
-        const data = await sessionsApi.fetchFileChanges(sessionId, scope)
-        set(state => {
-          // project 视图跨会话聚合，统一落到当前活动会话的列表 key，供 FilePanel 读取。
-          const key = scope === 'project' ? (state.activeSessionId ?? sessionId) : sessionId
-          return { fileChanges: { ...state.fileChanges, [key]: data.files } }
-        })
-      } catch { /* 静默：FilePanel 显示空态 */ }
-    },
-
-    fetchFileDiff: async (sessionId, path) => {
-      const key = `${sessionId}\u0000${path}`
-      const cached = get().fileDiffs[key]
-      if (cached !== undefined) return cached
-      try {
-        const data = await sessionsApi.fetchFileDiff(sessionId, path)
-        set(state => ({ fileDiffs: { ...state.fileDiffs, [key]: data.patch } }))
-        return data.patch
-      } catch {
-        return null
-      }
-    },
-
-    setFileScope: (scope) => set({ fileScope: scope }),
-
-    applyFileChangeEvent: (sessionId, file) => {
-      if (!file || file.status === 'noop') return
-      const status = file.status as FileChange['status']
-      set(state => {
-        const scope = state.fileScope
-        // project 视图跨会话聚合，实时事件按当前会话 upsert 到项目列表即可；
-        // 会话视图只更新当前会话的列表。均在 FilePanel 打开时由 store 重拉校准。
-        const key = scope === 'project' ? state.activeSessionId ?? sessionId : sessionId
-        const cur = state.fileChanges[key] ?? []
-        const existing = cur.find(f => f.path === file.path)
-        const next: FileChange[] = existing
-          ? cur.map(f => f.path === file.path
-            ? { ...f, status, additions: file.additions ?? f.additions, deletions: file.deletions ?? f.deletions, updatedAt: Date.now() }
-            : f)
-          : [{ path: file.path, status, additions: file.additions ?? 0, deletions: file.deletions ?? 0, source: 'tool', updatedAt: Date.now() }, ...cur]
-        return { fileChanges: { ...state.fileChanges, [key]: next } }
-      })
-    },
-
     // ── Workspace Actions ──
 
     addWorkspace: (path: string) => {
@@ -2308,16 +2279,6 @@ export const useChatStore = create<ChatState>((set, get) => {
         ),
       }))
       sessionsApi.updateSession(sessionId, { targets: targets ? JSON.stringify(targets) : null }).catch(() => {})
-    },
-
-    // ── Knowledge Bases（本会话挂载的知识库，与 targets 同模式）──
-    updateSessionKnowledgeBases: (sessionId, kbIds) => {
-      set(state => ({
-        sessions: state.sessions.map(s =>
-          s.id === sessionId ? { ...s, knowledge_bases: kbIds.length > 0 ? JSON.stringify(kbIds) : null } : s
-        ),
-      }))
-      sessionsApi.updateSession(sessionId, { knowledge_bases: kbIds.length > 0 ? JSON.stringify(kbIds) : null }).catch(() => {})
     },
 
     // ── Batch Actions ──
