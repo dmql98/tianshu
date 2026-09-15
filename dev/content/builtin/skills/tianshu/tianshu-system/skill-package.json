@@ -3,9 +3,9 @@
   "schemaVersion": 1,
   "id": "tianshu-system",
   "name": "天枢系统管理",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "category": "tianshu",
-  "description": "天枢角色、会话、模型、MCP、技能和工具约束管理技能包",
+  "description": "天枢角色、会话、模型、MCP、知识库、技能和工具约束管理技能包",
   "tags": [],
   "root": "SKILL.md",
   "children": [
@@ -35,6 +35,13 @@
       "name": "MCP 管理",
       "path": "children/mcp",
       "description": "读写 dataDir 下 mcpservers/<name>/config.json 配置和验证 MCP 服务",
+      "preload": false
+    },
+    {
+      "id": "knowledge",
+      "name": "知识库管理",
+      "path": "children/knowledge",
+      "description": "通过 knowledge_manage 登记/列出/删除知识库、列出库内文档、安装转换器并转换 PDF/图片入库",
       "preload": false
     },
     {

@@ -1,6 +1,6 @@
 ---
 name: tianshu-system
-description: 天枢系统管理统一入口；按需激活角色、会话、模型服务、MCP、技能包、工具约束或失败自愈子技能。
+description: 天枢系统管理统一入口；按需激活角色、会话、模型服务、MCP、知识库、技能包、工具约束或失败自愈子技能。
 ---
 
 # 天枢系统管理
@@ -11,6 +11,7 @@ description: 天枢系统管理统一入口；按需激活角色、会话、模�
 - 会话、工作区和策略问题：`tianshu-system/session`
 - 模型服务配置：`tianshu-system/provider` → `provider_manager`
 - MCP 服务配置和连通测试：`tianshu-system/mcp` → `mcp_manager`
+- 知识库创建和管理：`tianshu-system/knowledge` → `knowledge_manage`
 - 技能包创建和维护：`tianshu-system/skill-authoring` → `skill_manager`
 - 工具白名单和约束：`tianshu-system/tool-constraint` → `character_manager`
 - 连续工具失败：`tianshu-system/doom-loop-escape`
