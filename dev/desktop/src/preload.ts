@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { DesktopServerStatus, UpdateSource, UpdateState } from '../../shared/desktop-contract.js'
+import type { CloudState } from './cloud/index.js'
 
 // Whitelist-only bridge: no generic send(), no arbitrary channels.
 const api = {
@@ -37,6 +38,26 @@ const api = {
     ipcRenderer.invoke('desktop:open-directory', defaultPath, title),
   openPath: (path: string) =>
     ipcRenderer.invoke('desktop:open-path', path),
+
+  // ── 云同步（cloud:*；全手动触发）──
+  getCloudState: () => ipcRenderer.invoke('cloud:get-state'),
+  cloudLogin: (cloudUrl: string, username: string, password: string) =>
+    ipcRenderer.invoke('cloud:login', cloudUrl, username, password),
+  cloudRegister: (cloudUrl: string, username: string, password: string) =>
+    ipcRenderer.invoke('cloud:register', cloudUrl, username, password),
+  cloudLogout: () => ipcRenderer.invoke('cloud:logout'),
+  cloudPushCharacter: (id: string) => ipcRenderer.invoke('cloud:push-character', id),
+  cloudPullCharacters: () => ipcRenderer.invoke('cloud:pull-characters'),
+  cloudPushSkill: (category: string, pkgId: string) => ipcRenderer.invoke('cloud:push-skill', category, pkgId),
+  cloudPullSkills: () => ipcRenderer.invoke('cloud:pull-skills'),
+  cloudPushConfig: () => ipcRenderer.invoke('cloud:push-config'),
+  cloudPullConfig: () => ipcRenderer.invoke('cloud:pull-config'),
+  cloudListEntities: () => ipcRenderer.invoke('cloud:list-entities'),
+  onCloudState: (listener: (state: CloudState) => void) => {
+    const handler = (_event: IpcRendererEvent, state: CloudState) => listener(state)
+    ipcRenderer.on('cloud:state', handler)
+    return () => ipcRenderer.removeListener('cloud:state', handler)
+  },
 
   // ── Transport-neutral event channel (IPC bridge for the desktop app) ──
   eventSend: (type: string, payload: unknown, ack?: (resp: unknown) => void) => {

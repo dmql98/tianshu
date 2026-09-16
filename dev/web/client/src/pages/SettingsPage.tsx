@@ -7,6 +7,9 @@ import { fetchCharacters } from '@/api/characters'
 import type { Character } from '@/types'
 import type { DesktopServerStatus } from '../../../../shared/desktop-contract.js'
 import UpdatePanel from '@/features/update/UpdatePanel'
+import CloudPanel from '@/features/cloud/CloudPanel'
+import { useCloudConfigActions } from '@/features/cloud/useCloudActions'
+import { CloudButton, CloudMessage } from '@/features/cloud/CloudWidgets'
 import ModelLibrarySection from '@/components/ModelLibrarySection'
 
 import SystemRunPolicySettings from '@/features/run-policy/SystemRunPolicySettings'
@@ -40,6 +43,7 @@ const lsNum = (key: string, fallback: number) => { const v = localStorage.getIte
 const saveLs = (key: string, value: string | boolean | number) => localStorage.setItem(`tianshu:${key}`, String(value))
 
 export default function SettingsPage() {
+  const cloudConfig = useCloudConfigActions()
   const [activeTab, setActiveTab] = useState('provider')
   const { providers, load } = useProvidersStore()
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
@@ -361,6 +365,7 @@ export default function SettingsPage() {
     { id: 'session', icon: 'nav-chat', label: t('会话') },
     { id: 'tokensaving', icon: 'tool-bash', label: t('token节省') },
     { id: 'event', icon: 'nav-events', label: t('事件') },
+    { id: 'cloud', icon: 'tool-cloud', label: t('天枢云') },
     { id: 'about', icon: 'info', label: t('关于') },
   ]
 
@@ -406,7 +411,15 @@ export default function SettingsPage() {
                   {reloading ? t('加载中…') : t('刷新')}
                 </button>
                 <button className="btn" onClick={handleOpenConfigFolder} style={{marginLeft:8}}>{t('打开配置文件夹')}</button>
+                {cloudConfig.available && (
+                  <CloudButton label={t('上传配置到云端')} busy={cloudConfig.upBusy} onClick={cloudConfig.push} />
+                )}
+                {cloudConfig.available && (
+                  <CloudButton label={t('从云端下载配置')} busy={cloudConfig.pullBusy} onClick={cloudConfig.pull} />
+                )}
               </div>
+              {cloudConfig.upMessage && <CloudMessage message={cloudConfig.upMessage} error={false} />}
+              {cloudConfig.pullMessage && <CloudMessage message={cloudConfig.pullMessage} error={false} />}
             </div>
 
             <div className="setting-row">
@@ -735,6 +748,15 @@ export default function SettingsPage() {
               <button className="btn" onClick={handleResetEvo}>{t('重置默认值')}</button>
               <button className="btn danger" onClick={handleClearEvo}>{t('清除')}</button>
             </div>
+          </div>
+        </div>
+
+        {/* 天枢云 */}
+        <div className="tab-page" style={{display: activeTab === 'cloud' ? 'block' : 'none'}}>
+          <div className="settings-section">
+            <div className="section-title">{t('天枢云')}</div>
+            <div className="section-desc">{t('账号、云端内容索引与同步状态。上传/下载配置也可在上方「配置路径」行操作。')}</div>
+            <CloudPanel />
           </div>
         </div>
 

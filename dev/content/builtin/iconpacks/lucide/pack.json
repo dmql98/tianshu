@@ -185,8 +185,12 @@
     "nav-stats": {
       "file": "nav-stats.svg",
       "tint": true
+    },
+    "cloud": {
+      "file": "cloud.svg",
+      "tint": true
     }
   },
   "createdAt": "2026-08-17T06:20:18.192Z",
   "updatedAt": "2026-08-17T06:20:18.192Z"
-}
+}

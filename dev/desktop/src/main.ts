@@ -5,6 +5,8 @@ import { join } from 'path'
 import { ServerManager } from './server-manager.js'
 import { bundledNodePath, verifyBundledNode } from './runtime-paths.js'
 import { UpdateManager } from './updater.js'
+import { CloudManager } from './cloud/index.js'
+import type { CloudState } from './cloud/index.js'
 import type {
   DesktopAppInfo,
   DesktopServerStatus,
@@ -37,6 +39,7 @@ const SPLASH_HTML = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctyp
 
 let mainWindow: BrowserWindow | null = null
 let serverManager: ServerManager | null = null
+let cloudManager: CloudManager | null = null
 let updateManager: UpdateManager | null = null
 let serverUrl = DEV_URL
 const approvalNotifications = new Map<string, Notification>()
@@ -400,6 +403,35 @@ if (!app.requestSingleInstanceLock()) {
       },
     })
     serverManager = manager
+    cloudManager = new CloudManager(userData, () => {
+      const status = manager.getStatus()
+      return status.phase === 'ready' ? status.port : 0
+    })
+
+    // ── 云同步 IPC（cloud:*，全手动触发）──
+    const cm = cloudManager
+    ipcMain.handle('cloud:get-state', (): CloudState => cm.getState())
+    ipcMain.handle('cloud:login', (_e, cloudUrl: string, username: string, password: string) =>
+      cm.login(cloudUrl, username, password))
+    ipcMain.handle('cloud:register', (_e, cloudUrl: string, username: string, password: string) =>
+      cm.register(cloudUrl, username, password))
+    ipcMain.handle('cloud:logout', () => {
+      cm.logout()
+      return cm.getState()
+    })
+    ipcMain.handle('cloud:push-character', (_e, id: string) => cm.pushCharacter(id))
+    ipcMain.handle('cloud:pull-characters', () => cm.pullCharacters())
+    ipcMain.handle('cloud:push-skill', (_e, category: string, pkgId: string) => cm.pushSkill(category, pkgId))
+    ipcMain.handle('cloud:pull-skills', () => cm.pullSkills())
+    ipcMain.handle('cloud:push-config', () => cm.pushConfig())
+    ipcMain.handle('cloud:pull-config', () => cm.pullConfig())
+    ipcMain.handle('cloud:list-entities', () => cm.listCloudEntities())
+    cm.subscribe((state) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('cloud:state', state)
+      }
+    })
+
     registerIpc(manager)
     manager.onApprovalRequired(showApprovalNotification)
     manager.onApprovalCleared(clearApprovalNotifications)

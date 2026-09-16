@@ -3,6 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { fetchCharacters } from '@/api/characters'
 import type { Character } from '@/types'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
+import { useCloudCharacterActions } from '@/features/cloud/useCloudActions'
+import { CloudButton, CloudMessage } from '@/features/cloud/CloudWidgets'
 import { useI18n } from '@/i18n'
 import SkinsPage from './SkinsPage'
 import CharacterDetailPage from './CharacterDetailPage'
@@ -24,6 +26,7 @@ export default function CharactersPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const cloud = useCloudCharacterActions(id ?? '')
 
   // 选中项变化时重新拉列表（覆盖新建/改名/删除后的最新状态）
   useEffect(() => {
@@ -63,8 +66,22 @@ export default function CharactersPage() {
           <aside className="char-side">
             <div className="char-side-head">
               <span className="char-side-title">{t('角色')}</span>
-              <button className="btn sm primary" onClick={() => navigate('/characters/new')}>+ {t('新建')}</button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {cloud.available && (
+                  <CloudButton label={t('拉取云端角色')} busy={cloud.pullBusy} onClick={async () => {
+                    await cloud.pullAll()
+                    setLoading(true)
+                    fetchCharacters().then(list => { setCharacters(list); setLoading(false) }).catch(() => setLoading(false))
+                  }} />
+                )}
+                <button className="btn sm primary" onClick={() => navigate('/characters/new')}>+ {t('新建')}</button>
+              </div>
             </div>
+            {cloud.pullMessage && (
+              <div style={{ padding: '0 12px 8px' }}>
+                <CloudMessage message={cloud.pullMessage} error={false} />
+              </div>
+            )}
             <div className="char-side-search">
               <input
                 className="search-input"

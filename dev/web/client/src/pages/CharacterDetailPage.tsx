@@ -15,6 +15,8 @@ import CharacterSkinBinder from '@/features/skins/CharacterSkinBinder'
 import CharacterRenderer from '@/features/characters/CharacterRenderer'
 import { dedupeToolBindings, getUnboundTools, isAutoManagedTool, toToolBindingName } from '@/features/characters/toolBindings'
 import EditField from '@/components/EditField'
+import { CloudButton, CloudMessage } from '@/features/cloud/CloudWidgets'
+import { useCloudCharacterActions } from '@/features/cloud/useCloudActions'
 import type { I18nState } from '@/i18n'
 import { useI18n } from '@/i18n'
 
@@ -159,6 +161,8 @@ ${entry.content.slice(0, 80)}`)
   // Track current ID (may change after rename)
   const [currentId, setCurrentId] = useState(id || '')
   const currentIdRef = useRef(currentId)
+  // 云同步：角色详情页「同步到云端」（重命名后 id 变化，用 currentId）
+  const cloud = useCloudCharacterActions(currentId)
   const charIdRef = useRef(charId)
   useEffect(() => { currentIdRef.current = currentId }, [currentId])
   useEffect(() => { charIdRef.current = charId }, [charId])
@@ -458,6 +462,18 @@ ${entry.content.slice(0, 80)}`)
               title={enabled ? t('已启用') : t('已停用')}
               onClick={() => { const next = !enabled; setEnabled(next); autoSave({ enabled: next }) }}
             ></div>
+            {cloud.available && (
+              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <CloudButton label={t('同步到云端')} busy={cloud.upBusy} onClick={async () => {
+                  await cloud.push()
+                  if (currentIdRef.current !== id) {
+                    // 重命名后 id 变化：刷新详情（简单导航）
+                    navigate(`/characters/${encodeURIComponent(currentIdRef.current)}`)
+                  }
+                }} />
+                {cloud.upMessage && <CloudMessage message={cloud.upMessage} error={false} />}
+              </span>
+            )}
             <button className="btn sm" onClick={() => { setPreviewMotion('idle'); setPreviewOpen(true) }}>{t('预览动画')}</button>
             <button className="btn sm" onClick={() => setActiveTab('visual')}>{t('绑定皮肤')}</button>
             <button className="detail-btn danger chd-del" onClick={handleDelete}>{t('删除角色')}</button>

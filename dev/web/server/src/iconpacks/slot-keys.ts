@@ -21,6 +21,7 @@ export const ICON_SLOT_KEYS: ReadonlySet<string> = new Set([
   'tool-write',
   'tool-edit',
   'tool-bash',
+  'cloud',
   'tool-grep',
   'tool-glob',
   'attach',

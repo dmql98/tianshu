@@ -4,6 +4,8 @@ import { fetchSkillPackages, type SkillPackageMeta } from '@/api/skills'
 import { fetchCharacters } from '@/api/characters'
 import { useI18n } from '@/i18n'
 import Icon from '@/features/icons/Icon'
+import { useCloudSkillActions } from '@/features/cloud/useCloudActions'
+import { CloudButton, CloudMessage } from '@/features/cloud/CloudWidgets'
 
 const categoryLabels: Record<string, string> = {
   finance: '金融分析',
@@ -20,6 +22,19 @@ export default function SkillView() {
   const [bindings, setBindings] = useState<Record<string, string[]>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
+  const cloud = useCloudSkillActions()
+
+  // 「拉取云端技能」成功后刷新包列表
+  const pullCloudSkills = async () => {
+    await cloud.pullAll()
+    setLoading(true)
+    try {
+      const result = await fetchSkillPackages()
+      setPackages(result.packages)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     Promise.all([fetchSkillPackages(), fetchCharacters()])
@@ -46,8 +61,14 @@ export default function SkillView() {
         <span className="page-title">{t('技能管理')}</span>
         <span style={{ fontSize: 'calc(12px * var(--ui-font-scale))', color: 'var(--ink-light)' }}>{t('{count} 个技能包', { count: packages.length })}</span>
         <div style={{ flex: 1 }} />
+        {cloud.available && <CloudButton label={t('拉取云端技能')} busy={cloud.pullBusy} onClick={pullCloudSkills} />}
         <button className="detail-btn primary" onClick={() => navigate('/skills/new')}>+ {t('新建技能包')}</button>
       </div>
+      {cloud.pullMessage && (
+        <div style={{ padding: '0 24px 8px' }}>
+          <CloudMessage message={cloud.pullMessage} error={false} />
+        </div>
+      )}
       <div className="content">
         {loading ? <div className="empty-state">{t('加载中...')}</div> : packages.length === 0 ? (
           <div className="empty-state"><div className="empty-title">{t('暂无技能包')}</div></div>
@@ -85,6 +106,13 @@ export default function SkillView() {
                       </div>
                     )}
                     <div className="skill-foot" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                      {cloud.available && (
+                        <CloudButton label={t('同步到云端')} onClick={() => {
+                          cloud.pushSkill(category, pkg.id).then(r => {
+                            if (!r.ok) alert(r.error || '同步失败')
+                          }).catch(e => alert(String(e)))
+                        }} />
+                      )}
                       {pkg.childCount > 0 && <button className="detail-btn" onClick={() => setExpanded(old => ({ ...old, [pkg.id]: !isOpen }))}>{isOpen ? t('收起') : t('展开')}</button>}
                       <button className="detail-btn primary" onClick={() => navigate(`/skills/packages/${encodeURIComponent(category)}/${encodeURIComponent(pkg.id)}`)}>{t('详情')}</button>
                     </div>

@@ -3,6 +3,7 @@ import { getDataDir, setDataDir, isConfigured, getSystemRunPolicy, setSystemRunP
 import { isRtkAvailable, getRtkVersion, getRtkLatestVersion, isRtkUpdateAvailable, installRtk, updateRtk } from '../tools/rtk.js'
 import { DEFAULT_SYSTEM_RUN_POLICY, type SystemRunPolicy } from '../agent/loop/run-policy.js'
 import { existsSync, mkdirSync, readdirSync } from 'fs'
+import { resetContentStateCache } from '../content/state.js'
 import { resolve } from 'path'
 import { getDb, closeDb } from '../db/schema.js'
 import { materializeAllBuiltinContent, materializeSummary, type MaterializeResult } from '../content/materialize-builtin.js'
@@ -87,6 +88,7 @@ router.post('/run-policy/reset', (c) => {
 router.post('/reload', (c) => {
   closeDb()
   getDb()
+  resetContentStateCache() // 云同步拉取后清缓存（P1 reload 端点），下一请求重新扫描 characters/skills
   return c.json({ ok: true, dataDir: getDataDir() })
 })
 

@@ -119,9 +119,77 @@ export interface TianShuDesktopAPI {
   /** 删除 userData/backgrounds 中的背景图文件 */
   deleteBackgroundImage(url: string): Promise<boolean>
 
+  // ── 云同步（全手动：三处六按钮 + 设置页面板）──
+  getCloudState(): Promise<CloudState>
+  cloudLogin(cloudUrl: string, username: string, password: string): Promise<CloudLoginResult>
+  cloudRegister(cloudUrl: string, username: string, password: string): Promise<CloudLoginResult>
+  cloudLogout(): Promise<CloudState>
+  cloudPushCharacter(id: string): Promise<CloudActionResult>
+  cloudPullCharacters(): Promise<CloudActionResult>
+  cloudPushSkill(category: string, pkgId: string): Promise<CloudActionResult>
+  cloudPullSkills(): Promise<CloudActionResult>
+  cloudPushConfig(): Promise<CloudActionResult>
+  cloudPullConfig(): Promise<CloudActionResult>
+  cloudListEntities(): Promise<CloudListEntitiesResult>
+  onCloudState(listener: (state: CloudState) => void): () => void
+
   // ── Transport-neutral event channel (IPC bridge for the desktop app) ──
   /** Uplink: send an action to the server child; ack delivered via the bridge. */
   eventSend(type: string, payload: unknown, ack?: (resp: unknown) => void): void
   /** Downlink: subscribe to run events from the server child. */
   eventOn(listener: (data: { eventType: string; payload: unknown }) => void): () => void
 }
+
+// ── 云同步（cloud:*；与 desktop/src/cloud/state.ts 保持一致）──
+
+export type CloudPhase =
+  | 'logged-out'
+  | 'offline'
+  | 'idle'
+  | 'syncing'
+  | 'error'
+
+export interface CloudOpProgress {
+  label: string
+  done: number
+  total: number
+}
+
+export interface CloudState {
+  phase: CloudPhase
+  username: string | null
+  cloudUrl: string
+  lastError: string | null
+  lastSyncAt: number | null
+  op: CloudOpProgress | null
+}
+
+export interface CloudEntityInfo {
+  type: string
+  id: string
+  fileCount: number
+  bytes: number
+  updatedAt: number
+}
+
+export interface CloudListEntitiesResult {
+  entities: CloudEntityInfo[]
+}
+
+export interface CloudActionResult {
+  ok: boolean
+  downloaded?: number
+  removed?: number
+  uploaded?: number
+  skipped?: number
+  superseded?: { path: string; cloudMtime: number }[]
+  entities?: string[]
+  backedUp?: number
+  error: string | null
+}
+
+export interface CloudLoginResult {
+  ok: boolean
+  error?: string
+}
+

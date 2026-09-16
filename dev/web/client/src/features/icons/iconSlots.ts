@@ -46,6 +46,7 @@ export const ICON_SLOTS: readonly IconSlot[] = [
   { key: 'tool-write', name: '写入文件', group: '聊天操作' },
   { key: 'tool-edit', name: '编辑', group: '聊天操作' },
   { key: 'tool-bash', name: '终端', group: '聊天操作' },
+  { key: 'cloud', name: '云同步', group: '聊天操作' },
   { key: 'tool-grep', name: '搜索', group: '聊天操作' },
   { key: 'tool-glob', name: '浏览文件', group: '聊天操作' },
   { key: 'attach', name: '附件', group: '聊天操作' },
