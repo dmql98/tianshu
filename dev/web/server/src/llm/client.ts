@@ -258,8 +258,9 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
   // Skip when the model is known NOT to support it (e.g. ModelScope Qwen) to
   // avoid 400 errors. supportsReasoningEffort defaults to true for backward
   // compatibility with custom providers not in the catalog.
-  if ((thinking || reasoning_effort) && opts.supportsReasoningEffort !== false) {
-    body.reasoning_effort = reasoning_effort || 'medium'
+  if (opts.supportsReasoningEffort !== false) {
+    // reasoning 模型默认思考开启：关闭思考时必须显式传 none，否则模型仍会思考。
+    body.reasoning_effort = thinking ? (reasoning_effort || 'medium') : 'none'
   }
 
   // ── Stream framing state ──
@@ -537,8 +538,9 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
       parameters: t.function.parameters,
     }))
   }
-  if (thinking && opts.supportsReasoningEffort !== false) {
-    body.reasoning = { effort: reasoning_effort || 'medium' }
+  if (opts.supportsReasoningEffort !== false) {
+    // reasoning 模型默认思考开启：关闭思考时必须显式传 effort:none，否则模型仍会思考。
+    body.reasoning = { effort: thinking ? (reasoning_effort || 'medium') : 'none' }
   }
 
   let finishReason: string | undefined
