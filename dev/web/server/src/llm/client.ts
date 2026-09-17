@@ -74,16 +74,43 @@ export type ProviderApiStyle = 'auto' | 'chat_completions' | 'responses'
 /**
  * 每请求级头模板：配置里允许用 `${session}` / `${request}` 占位，
  * 每次请求替换为随机值——模拟真实客户端指纹（如 opencode 免费档的
- * x-opencode-session/request），规避按固定 session 指纹的限流。
+ * x-session-id/x-session-affinity），规避按固定 session 指纹的限流。
+ *
+ * 会话 id 格式对齐真实 opencode 抓包（x-session-id: ses_<26位混合大小写>，
+ * 如 ses_f52b12d10ffeb9OFebKN2ympDx），避免网关对长度/字符集做严格校验。
  */
-export function resolveHeaderTemplates(headers?: Record<string, string>): Record<string, string> | undefined {
+const SESSION_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+function randomSession(): string {
+  let s = ''
+  for (let i = 0; i < 26; i++) {
+    s += SESSION_CHARS[Math.floor(Math.random() * SESSION_CHARS.length)]
+  }
+  return `ses_${s}`
+}
+
+// 同一会话内 `x-session-id` 必须稳定：opencode 网关按 session id 做上下文
+// 缓存（prompt cache 命中率取决于同 session 前缀复用）。首次为该会话分配
+// 一个随机 opencode session id 后，该会话后续所有请求（主 loop、上下文压缩、
+// 标题生成、协议探测）都复用同一值；无 sessionId（如纯临时调用）才每请求随机。
+const SESSION_ID_BY_TIANSHU = new Map<string, string>()
+function sessionFor(tianshuSessionId?: string): string {
+  if (tianshuSessionId) {
+    const cached = SESSION_ID_BY_TIANSHU.get(tianshuSessionId)
+    if (cached) return cached
+    const fresh = randomSession()
+    SESSION_ID_BY_TIANSHU.set(tianshuSessionId, fresh)
+    return fresh
+  }
+  return randomSession()
+}
+export function resolveHeaderTemplates(headers?: Record<string, string>, tianshuSessionId?: string): Record<string, string> | undefined {
   if (!headers) return headers
   let hasTemplate = false
   for (const v of Object.values(headers)) {
     if (v.includes('${session}') || v.includes('${request}')) { hasTemplate = true; break }
   }
   if (!hasTemplate) return headers
-  const session = `ses_${randomUUID().replace(/-/g, '')}`
+  const session = sessionFor(tianshuSessionId)
   const request = `msg_${randomUUID().replace(/-/g, '')}`
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(headers)) {
@@ -185,6 +212,8 @@ export interface LLMOptions {
   messages: LLMMessage[]
   /** 附加请求头（provider 级自定义，如 opencode 免费档指纹头）。 */
   headers?: Record<string, string>
+  /** 天枢会话 id：稳定映射到单个 opencode session id（用于 x-session-id 缓存）。 */
+  tianshuSessionId?: string
   tools?: Array<{
     type: 'function'
     function: {
@@ -285,7 +314,7 @@ export async function* streamChatCompletion(opts: LLMOptions): AsyncGenerator<LL
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
-        ...(resolveHeaderTemplates(opts.headers) || {}),
+        ...(resolveHeaderTemplates(opts.headers, opts.tianshuSessionId) || {}),
       },
       body: JSON.stringify(body),
       signal,
@@ -556,7 +585,7 @@ async function* streamResponses(opts: LLMOptions): AsyncGenerator<LLMChunk> {
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
-        ...(resolveHeaderTemplates(opts.headers) || {}),
+        ...(resolveHeaderTemplates(opts.headers, opts.tianshuSessionId) || {}),
       },
       body: JSON.stringify(body),
       signal,

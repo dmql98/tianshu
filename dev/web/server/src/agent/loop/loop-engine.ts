@@ -316,6 +316,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     if (!turnCompacted && shouldCompactTokens(estimateTokens(composedMsgs), contextWindow, compactPolicy)) {
       const compact = await compactWithRetries(messages, provider, model, {
         tools, contextWindow, policy: compactPolicy,
+        tianshuSessionId: sessionId,
         summarizationProviderId: compactPolicy.summarizationProvider,
         summarizationModel: compactPolicy.summarizationModel,
       })
@@ -377,6 +378,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
           console.log(`[session] ${sessionId} overflow, force compacting and retrying...`)
           const compact = await compactWithRetries(messages, provider, model, {
             tools, contextWindow, policy: compactPolicy,
+            tianshuSessionId: sessionId,
             summarizationProviderId: compactPolicy.summarizationProvider,
             summarizationModel: compactPolicy.summarizationModel,
           })
@@ -732,6 +734,7 @@ export async function runLoopEngine(ctx: LoopEngineContext): Promise<LoopEngineR
     if (shouldCompactTokens(projectedTokens, contextWindow, compactPolicy)) {
       const compact = await compactWithRetries(messages, provider, model, {
         tools, contextWindow, policy: compactPolicy,
+        tianshuSessionId: sessionId,
         summarizationProviderId: compactPolicy.summarizationProvider,
         summarizationModel: compactPolicy.summarizationModel,
         maxAttempts: 1,  // P1-1: post-turn management compact, retry once only

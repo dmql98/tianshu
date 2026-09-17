@@ -44,6 +44,8 @@ export async function generateSessionTitle(input: {
   provider: ProviderConfig
   model: string
   signal?: AbortSignal
+  /** 天枢会话 id：稳定映射到同一 opencode session id（x-session-id 缓存）。 */
+  tianshuSessionId?: string
 }): Promise<string> {
   const source = input.content.trim().slice(0, MAX_SOURCE_CHARS)
   let generated = ''
@@ -56,6 +58,7 @@ export async function generateSessionTitle(input: {
       signal: input.signal,
       apiStyle: input.provider.api_style,
       headers: input.provider.headers,
+      tianshuSessionId: input.tianshuSessionId,
       messages: [
         {
           role: 'system',

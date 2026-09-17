@@ -241,7 +241,7 @@ export async function streamWithRetry(
   provider: ProviderConfig,
   model: string,
   signal?: AbortSignal,
-  opts: { thinking?: boolean; reasoning_effort?: string; supportsReasoningEffort?: boolean } = {},
+  opts: { thinking?: boolean; reasoning_effort?: string; supportsReasoningEffort?: boolean; tianshuSessionId?: string } = {},
   onDelta?: (chunk: any) => void,
   onRetry?: (data: { attempt: number; max_attempts: number; error: string; delay_ms: number }) => void,
 ): Promise<{ text: string; reasoning: string; toolCalls: ToolCall[]; usage: { input: number; output: number; cacheHit?: number; cacheMiss?: number } | null }> {
@@ -269,6 +269,7 @@ export async function streamWithRetry(
       thinking: opts.thinking,
       reasoning_effort: opts.reasoning_effort,
       supportsReasoningEffort: opts.supportsReasoningEffort,
+      tianshuSessionId: opts.tianshuSessionId,
       apiStyle: provider.api_style,
       headers: provider.headers,
     })
@@ -700,9 +701,13 @@ export async function innerLoop(
   // Merge model-level reasoning_effort capability so the LLM client can skip
   // the parameter for models that reject it (e.g. ModelScope Qwen → 400).
   // cap 未传（子代理/摘要等场景）时保持 opts 原样。
-  const effOpts = cap
-    ? { ...opts, supportsReasoningEffort: cap.supportsReasoningEffort }
-    : opts
+  const effOpts = {
+    ...opts,
+    // 会话 id 稳定映射到一个 opencode session id，使同会话请求复用同一
+    // x-session-id，保留网关侧 prompt cache。
+    tianshuSessionId: sessionId,
+    ...(cap ? { supportsReasoningEffort: cap.supportsReasoningEffort } : {}),
+  }
 
   let result
   const llmStart = Date.now()

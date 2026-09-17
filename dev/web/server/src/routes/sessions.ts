@@ -62,6 +62,7 @@ router.post('/:id/generate-title', async (c) => {
       content,
       provider,
       model,
+      tianshuSessionId: id,
       signal: AbortSignal.timeout(20_000),
     })
     : fallbackSessionTitle(content)

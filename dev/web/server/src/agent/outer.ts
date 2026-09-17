@@ -281,6 +281,7 @@ export async function sessionLoop(broadcaster: TransportBroadcaster, stream: Tra
   if (isColdResume && messages.length > systemMessageEnd(messages) + 1 && shouldCompact(messages, contextWindow, compactPolicy)) {
     const result = await compactWithRetries(messages, effProvider, model, {
       tools, contextWindow, policy: compactPolicy,
+      tianshuSessionId: sessionId,
       summarizationProviderId: compactPolicy.summarizationProvider,
       summarizationModel: compactPolicy.summarizationModel,
     })

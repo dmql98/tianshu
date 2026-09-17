@@ -327,6 +327,8 @@ export interface SummarizeOptions {
   /** P1-1：单次压缩重试上限（覆盖 MAX_COMPACT_ATTEMPTS）。回合后管理性压缩传 1；
    *  安全阀路径（预请求/溢出/冷恢复）保持默认，避免压缩不彻底就带病发送。 */
   maxAttempts?: number
+  /** 天枢会话 id：稳定映射到同一 opencode session id（x-session-id 缓存）。 */
+  tianshuSessionId?: string
 }
 
 /** 解析摘要调用目标：显式 provider > 环境变量 TSS_COMPACT_PROVIDER/MODEL > 主链路。 */
@@ -388,6 +390,7 @@ async function llmSummarize(
       baseUrl: target.provider.base_url, apiKey: target.provider.api_key, model: target.model,
       apiStyle: target.provider.api_style,
       headers: target.provider.headers,
+      tianshuSessionId: opts?.tianshuSessionId,
       messages,
       tools: opts?.tools,
       // P1-5: 摘要输出上限，防摘要无限膨胀。

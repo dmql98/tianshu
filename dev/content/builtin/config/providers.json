@@ -5,11 +5,9 @@
     "base_url": "https://opencode.ai/zen/v1",
     "api_key": "public",
     "headers": {
-      "User-Agent": "opencode",
-      "x-opencode-client": "desktop",
-      "x-opencode-session": "${session}",
-      "x-opencode-request": "${request}",
-      "x-opencode-project": "global"
+      "User-Agent": "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/node.js/24",
+      "x-session-id": "${session}",
+      "x-session-affinity": "${session}"
     },
     "models": [
       {
